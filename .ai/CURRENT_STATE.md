@@ -75,9 +75,11 @@ it. Production readiness is a separate measure and remains approximately
 ### HOLD 3 validation evidence
 
 Release build is `0 warnings / 0 errors`; HOLD-3 focused coverage is `6/6`;
-all MESP-138 customer-return and credit-note tests are `20/20`; full
-disposable-LocalDB backend validation is `1,158/1,158` with `0` failures and
-`0` skips; REST, OpenAPI, catalogue, and host-security coverage is `59/59`;
+all MESP-138 customer-return and credit-note tests are `20/20`; full non-SQL
+backend regression is `1,078/1,078` with `0` failures and `0` skips; the full
+disposable-LocalDB backend validation including SQL safety is `1,158/1,158`
+with `0` failures and `0` skips; REST, OpenAPI, catalogue, and host-security
+coverage is `59/59`;
 all seven EF contexts report no pending model changes; and NuGet vulnerability
 scanning is clear across all five backend projects. Production npm audit is
 `0` vulnerabilities; the all-dependency audit reports two existing dev-tree

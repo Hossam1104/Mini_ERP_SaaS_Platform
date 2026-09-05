@@ -45,6 +45,7 @@ Measured on the MESP-138 feature branch after normal integration of accepted
 | Release build (`backend/MiniErp.sln`) | **0 warnings / 0 errors** |
 | HOLD-3 focused tests | **6 / 6 passed** |
 | MESP-138 customer-return / credit-note tests | **20 / 20 passed** |
+| Full non-SQL backend regression | **1078 / 1078 passed**, 0 failed, 0 skipped |
 | Backend suite, including disposable SQL Server safety harness | **1158 / 1158 passed**, 0 failed, 0 skipped |
 | REST/OpenAPI/catalogue/host subset | **59 / 59 passed** |
 | EF model drift | **All 7 contexts clear** |
@@ -67,8 +68,9 @@ HOLD-138-J through HOLD-138-N are evidenced by typed Sales Finance-effect and
 allocation persistence, exact subset/residual validation, durable reversal
 identity, original tax-effect account lineage, additive Sales migration, and
 real SQLite/SQL Server integration coverage. Release is `0/0`; HOLD 3 is
-`6/6`; all MESP-138 customer-return/credit-note tests are `20/20`; the full
-disposable-LocalDB backend is `1,158/1,158`; REST/OpenAPI/catalogue/host is
+`6/6`; all MESP-138 customer-return/credit-note tests are `20/20`; full
+non-SQL backend regression is `1,078/1,078`; the full disposable-LocalDB
+backend including SQL safety is `1,158/1,158`; REST/OpenAPI/catalogue/host is
 `59/59`; all seven EF contexts have no pending model changes; NuGet scanning is
 clear; and production npm audit is clear. The all-dependency npm audit retains
 two dev-tree findings and was not changed because unrelated dev-dependency
