@@ -1,3 +1,88 @@
+# Post-checkpoint handoff — project-wide normalization and deep checkpoint (4 September 2026)
+
+**Executor of the completed session:** Claude Opus 5 (High), acting as an
+exceptional independent checkpoint executor — *not* as the standing project
+executor and *not* as an acceptance authority.
+
+**Acceptance authority:** GPT-5.6 Sol. The checkpoint report is **evidence
+only**. Nothing in this file self-accepts the checkpoint, MESP-138, or any
+other work.
+
+## What the completed session did
+
+A project-wide normalization and deep read-only checkpoint on branch
+`chore/project-normalization-checkpoint`, cut from the exact accepted `main`
+commit `644e7b364006a3a62dc8e9756b9a9a64afbd33e1`:
+
+* normalized canonical project identity to **`Mini_ERP_SaaS_Platform`**
+  (Jira issue key unchanged: `MESP`);
+* restructured the executor documentation so live position is recoverable from
+  **one** place — the **CURRENT AUTHORITY** block at the top of
+  `.ai/CURRENT_STATE.md` — and removed competing "current" sections from
+  `AGENTS.md`, `CLAUDE.md`, `README.md` and this file, preserving all
+  historical overlays verbatim under explicit historical dividers;
+* recorded the active AI model routing baseline in `AGENTS.md`;
+* refreshed `README.md` (and repaired genuine double-encoded UTF-8 corruption
+  in it);
+* performed a deep read-only review of the repository and of **Draft PR #86**
+  against Sol HOLD 3 blockers HOLD-138-J … HOLD-138-N;
+* ran repository-defined validation and reported gated evidence as gated.
+
+## What the completed session deliberately did NOT do
+
+* **PR #86 was not modified in any way.** No source change, no push to
+  `feat/MESP-138-customer-return-credit-receipts`, no rebase, no branch update,
+  no Ready transition, no merge, no reviewer request. HOLD 3 was **not**
+  resolved.
+* MESP-138 was **not** marked Done. MESP-139 was **not** activated. No Jira
+  lifecycle mutation was performed.
+* No file under `frontend/assets` was touched.
+* No `git clean`, `git reset --hard`, blind `git stash`, force-push, or history
+  rewrite was used, and no worktree was removed.
+* `docs/staticts.md` keeps its canonical filename; no `docs/statistics.md` was
+  created.
+* No CI was claimed. No production, statutory, ZATCA or FATOORA readiness was
+  claimed.
+
+## Current position at the end of the checkpoint
+
+| Item | Value |
+|---|---|
+| Accepted `main` | `644e7b364006a3a62dc8e9756b9a9a64afbd33e1` |
+| Active capability | **MESP-138**, In Progress under Epic MESP-9 |
+| Active branch / head | `feat/MESP-138-customer-return-credit-receipts` @ `8480deef9b0fa1225dfc83c0eb59bc768b1a2960` |
+| Published as | Draft PR **#86** — Open / Draft / Unmerged, unchanged |
+| Acceptance state | **Not accepted** — Sol HOLD 3 (MESP-138 comment `12349`) stands |
+| Next capability | MESP-139 — To Do, **not activated** |
+| Accepted fast-track completion | **21 / 26 = 80.8%** (MESP-138 excluded) |
+| Production readiness | ~47% overall · ~41% Procurement/P2P |
+| Open production gates | MESP-48, MESP-50 |
+| CI | **NONE / NOT CLAIMED** |
+
+`.ai/CURRENT_STATE.md` remains the authority for live state; live Jira and
+live GitHub outrank every Markdown file for mutable facts.
+
+## The next session
+
+**This file deliberately does not contain the next implementation prompt.**
+
+The next exact session is **GPT-5.6 Sol's independent review of the
+normalization checkpoint**, together with Sol's decision on the MESP-138
+HOLD 3 position. Only Sol may:
+
+* accept or reject this checkpoint and its branch;
+* decide what happens to Draft PR #86 and HOLD 3;
+* authorize the next implementation capability and write the next `TASK.md`
+  session prompt;
+* perform or authorize any Jira lifecycle change.
+
+Until Sol issues that authorization, no executor may start MESP-139, resolve
+HOLD 3, transition MESP-138, merge any branch, or treat this handoff as
+permission to continue. `.ai/AI_EXECUTION_POLICY.md` governs; absence of a
+prohibition is not authorization.
+
+# HISTORICAL RECORD (preserved; not current authority)
+
 
 # MESP-138 HOLD 2 remediation handoff - 31 August 2026
 

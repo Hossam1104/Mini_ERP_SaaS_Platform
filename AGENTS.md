@@ -37,33 +37,45 @@ velocity, or forecast:
 - Full logos/icons use `frontend/assets` as source of truth.
 - `frontend/assets/brand` is reserved only for necessary generated browser derivatives (e.g., favicons, touch icons).
 
-## Current execution overlay - 30 August 2026 (MESP-137 closed and merged; awaiting next Sol activation)
+## Current execution overlay - 4 September 2026 (MESP-138 active under Sol HOLD 3)
 
-* MESP-132, MESP-133, MESP-134, MESP-135, MESP-136, and MESP-137 are Done and merged. MESP-137 is squash-merged to `main` at commit `6b3aeb63da15253dee5466f7be001773b80c28ad`, from accepted feature head `9406e8c6408251323b96d4a0c25082142546b9ef`, via PR #84 (closed/merged/non-Draft). Final Sol acceptance is MESP-137 comment `12282`; post-merge closure is comment `12284`; MESP-9 closure reconciliation is comment `12285`.
-* **No current implementation capability is active.** MESP-138 and MESP-139 remain To Do/inactive and must not be started until Sol explicitly activates the next task.
-* Fast-track capability completion = **21/26 = 80.8%** after verified merge and Jira closure. Production readiness remains separate and unchanged at approximately **47% overall** and **41% Procurement/P2P**. MESP-48 and MESP-50 remain open production gates.
-* MESP-9 remains In Progress pending Sol next-capability activation and Epic reconciliation.
-* MESP-137 delivered Sales-linked Inventory reservation/allocation, partial fulfillment, durable coordinated/reconcilable Delivery handoff, Finance-owned invoice eligibility/AR handoff seams, durable evidence, REST/OpenAPI metadata, and bilingual RTL Angular fulfillment UI. No returns, credit notes, receipts, refunds, revenue recognition, external integrations, ZATCA/FATOORA, or Wafra-specific behavior was added. `frontend/assets` remains untouched and the presentation remains main-only.
-* Ponytail FULL is the default executor mode when installed and available.
+> **Single source of current state.** `.ai/CURRENT_STATE.md` carries the
+> **CURRENT AUTHORITY** block and is the one place to read live project
+> position. This overlay is a short pointer, deliberately kept small.
+> Every `## Historical execution overlay ...` heading below is preserved,
+> dated evidence — it is **not** current authority, even where its own text
+> says "current". Live Jira and live GitHub outrank this file for mutable
+> facts.
 
-## Current execution overlay - 30 August 2026 (MESP-144 HOLD 5 merge-safety record)
+* Canonical identity is **`Mini_ERP_SaaS_Platform`**. Authoritative SCM is GitHub `Hossam1104/Mini_ERP_SaaS_Platform` (repository ID `1318676370`); authoritative tracker is Jira project `Mini_ERP_SaaS_Platform`, key `MESP`. Azure DevOps is neither.
+* Accepted `main` is `644e7b364006a3a62dc8e9756b9a9a64afbd33e1`.
+* **MESP-138 is the single active implementation capability**, In Progress under Epic MESP-9, on `feat/MESP-138-customer-return-credit-receipts` at head `8480deef9b0fa1225dfc83c0eb59bc768b1a2960`, published as **Draft PR #86 (Open/Draft/Unmerged)**.
+* MESP-138 is under **GPT-5.6 Sol HOLD 3** (MESP-138 comment `12349`) covering blockers **HOLD-138-J** through **HOLD-138-N**. It is **not accepted**; it must not be marked Ready, merged, or counted as completed capability.
+* **MESP-139 remains To Do / `not-activated`** and must not be started until Sol explicitly activates it. MESP-144 is Done and was governance/documentation only.
+* Accepted fast-track capability completion is **21/26 = 80.8%**, excluding MESP-138. Production readiness remains separately approximately **47% overall** and **41% Procurement/P2P**. **MESP-48** and **MESP-50** remain open production gates.
+* There is **no GitHub Actions CI** in this repository; report CI as `NONE / NOT CLAIMED`. Local test runs are not CI.
+* `frontend/assets` remains Owner-managed and untouched. Ponytail FULL remains the default executor mode when installed and available, and is never authority.
 
-* MESP-144 reconciliation reached Sol content acceptance at comment `12293` on
-  reviewed head `ffe5a8975611dcc85c3a7c40dce0b3737b123aeb`. HOLD 5 merge-safety
-  authority is comment `12296` and exists only to make repository state
-  merge-safe.
-* The pre-reconciliation main baseline was
-  `4d6e33189a3835d5d8d2a58736055a837a3f5bc9`; the bounded branch is
-  `chore/project-health-reconciliation-cleanup`. At the HOLD 5 executor
-  handoff, Jira and PR lifecycle had not yet been finalized; Jira and GitHub
-  remain authoritative for their respective final states.
-* MESP-137 is Done/accepted/merged; no implementation capability is active.
-  MESP-138 and MESP-139 remain To Do/inactive, MESP-9 remains In Progress,
-  fast-track completion is `21/26 = 80.8%`, production readiness remains
-  approximately `47%` overall / `41%` Procurement/P2P, and MESP-48/MESP-50
-  remain open production gates.
-* This is documentation/state reconciliation only. No product source, tests,
-  migrations, assets, Jira state, or later capability was added.
+## AI model governance and routing baseline
+
+This is the Owner's active model routing baseline for `Mini_ERP_SaaS_Platform`.
+`.ai/AI_EXECUTION_POLICY.md` remains authoritative for *authorization* —
+STOP boundaries, Ready, merge, and mutation limits — and this section does not
+widen any executor's authority. Historical records of earlier model usage are
+preserved as written and are not rewritten because routing changed later.
+
+| Priority | Model | Role | Typical use |
+| --- | --- | --- | --- |
+| 1 | **GPT-5.6 Sol** | Planner / Architect / **Acceptance authority** | Requirements, planning, architecture, diagnosis, acceptance, model routing, reconciliation, final go/no-go |
+| 2 | **GPT-5.6 Luna xHigh** | Default substantial implementation executor | Large features, cross-cutting work, backend/frontend, multi-file implementation, substantial corrections |
+| 3 | **Claude Sonnet 5** | Bounded implementation / fixes / tests | One bug, one service, one endpoint, bounded SQL, unit/integration tests, test automation, focused corrections |
+| 4 | **GPT-5.6 Terra HIGH** | Precision finalizer / recovery / surgical executor | Nearly finished work, high-risk final correction, repository/process recovery, difficult bounded finalization |
+| 5 | **Claude Opus 5** | Rare independent critical reviewer / exceptional checkpoint executor | Deep independent review, architecture checkpoint, high-risk validation, release-risk checkpoint |
+| Aux | **Gemini** | Low-risk bounded/mechanical work | Repetitive documentation, mappings, formatting, low-risk mechanical operations |
+
+Opus is **not** the default project executor. Its use is reserved and
+exceptional; an Opus checkpoint does not make Opus the standing executor for
+subsequent implementation work.
 
 ## Historical execution overlay - 30 August 2026 (MESP-137 HOLD-2 remediation complete — awaiting independent Sol acceptance; superseded by closure above)
 

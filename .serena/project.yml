@@ -1,4 +1,4 @@
-project_name: "mini-erp-saas-platform"
+project_name: "Mini_ERP_SaaS_Platform"
 language_servers:
   - csharp
 ignore_all_files_in_gitignore: true

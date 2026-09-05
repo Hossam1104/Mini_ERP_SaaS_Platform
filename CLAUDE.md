@@ -6,49 +6,66 @@
 authorization boundaries. Read it before any Ready transition, merge, Jira
 write, or mutation not explicitly authorized by the current bounded task.
 
-## Current execution overlay - 30 August 2026 (MESP-137 closed and merged; awaiting next Sol activation)
+## Reading order (read these, in this order, before acting)
 
-MESP-137 is **Done**. PR #84 is closed/merged/non-Draft, squash-merged to
-`main` at commit `6b3aeb63da15253dee5466f7be001773b80c28ad`, from accepted
-feature head `9406e8c6408251323b96d4a0c25082142546b9ef`. Final Sol acceptance
-is MESP-137 comment `12282`; post-merge closure is comment `12284`; MESP-9
-closure reconciliation is comment `12285`.
+1. `AGENTS.md` — durable repository working agreement, the single active AI
+   model routing baseline, and the short current-overlay pointer.
+2. `.ai/AI_EXECUTION_POLICY.md` — authoritative executor authorization:
+   STOP semantics, positive authorization, Ready/merge authority, post-report
+   immutability, external reviews as evidence only, Ponytail never authority.
+3. `.ai/CURRENT_STATE.md` — the **CURRENT AUTHORITY** block at the top of that
+   file is the single source of live project position (branch, head, active
+   capability, open PR, HOLD state, gates, completion).
+4. `TASK.md` — the exact bounded session currently handed off.
+5. The owning BRD/spec, affected ADRs, and only materially dependent decision
+   rows. Do not reread every BRD/PRD routinely.
 
-MESP-137 delivered Sales-linked Inventory reservation/allocation, partial
-fulfillment, durable coordinated/reconcilable Delivery handoff, Finance-owned
-invoice eligibility/AR handoff seams, durable evidence, and the bilingual RTL
-Sales workspace. Returns, credit notes, receipts, refunds, revenue
-recognition, external integrations, ZATCA/FATOORA, and Wafra-specific
-behavior remain excluded.
+Live Jira and live GitHub outrank every Markdown file for mutable facts.
 
-**No current implementation capability is active.** MESP-138 and MESP-139
-remain To Do/inactive and must not be started until Sol explicitly activates
-the next task. MESP-9 remains In Progress pending further Sales/Order-to-Cash
-capabilities.
+## Current position (pointer only — see `.ai/CURRENT_STATE.md`)
 
-Fast-track capability completion is now 20/26 → 21/26 = 80.8%, authoritative
-after verified merge and Jira Done closure; production readiness remains
-separate and unchanged at approximately 47% overall / 41% Procurement/P2P.
-MESP-48 and MESP-50 remain open production gates. `frontend/assets` remains
-untouched. Ponytail FULL remains the default executor mode when available.
+* Canonical identity is **`Mini_ERP_SaaS_Platform`**; Jira key remains `MESP`.
+* **MESP-138 (customer returns, credit notes, receipts) is the single active
+  implementation capability**, In Progress under Epic MESP-9, published as
+  **Draft PR #86 (Open/Draft/Unmerged)** and held by **GPT-5.6 Sol HOLD 3**
+  (blockers HOLD-138-J through HOLD-138-N). It is **not accepted**.
+* **MESP-139 is To Do / not activated.** Do not start it. Do not mark MESP-138
+  Done. Do not transition, merge, or request review without positive
+  current-task authority.
+* Accepted fast-track completion is **21/26 = 80.8%**, excluding MESP-138.
+  Production readiness is separately ~**47%** overall / ~**41%** Procurement/P2P.
+  **MESP-48** and **MESP-50** remain open production gates.
+* There is **no CI** in this repository. Report CI as `NONE / NOT CLAIMED`;
+  local runs are not CI.
 
-## Current execution overlay - 30 August 2026 (MESP-144 HOLD 5 merge-safety record)
+## Permanent boundaries
 
-MESP-144 reconciliation reached Sol content acceptance at comment `12293` on
-reviewed head `ffe5a8975611dcc85c3a7c40dce0b3737b123aeb`. HOLD 5 merge-safety
-authority is comment `12296` and exists only to make repository state
-merge-safe. At the HOLD 5 executor handoff, Jira and PR lifecycle had not yet
-been finalized; Jira is authoritative for MESP-144 status and GitHub is
-authoritative for PR #82 lifecycle and mergeability.
+* Release 1 is **B2B ERP only**. Retail POS is excluded. Wafra is a validation
+  tenant only — no Wafra-specific schema, workflow, permission, pricing,
+  approval, accounting, or lifecycle behavior.
+* No statutory/ZATCA/FATOORA implementation or readiness claim; no external
+  production integrations, providers, or credentials.
+* One active capability, one executor, one focused branch/PR, exact one-session
+  `TASK.md` handoffs. Never start the next task automatically.
+* Stop for a real Tenant-isolation, authentication/authorization,
+  accounting/data-integrity, destructive-migration/data-loss,
+  unresolved-business-decision, legal/external-validation,
+  credential/production-infrastructure, or material scope/architecture blocker.
 
-The pre-reconciliation main baseline was `4d6e33189a3835d5d8d2a58736055a837a3f5bc9`
-and the bounded branch is `chore/project-health-reconciliation-cleanup`. MESP-137
-is Done and no implementation capability is active. MESP-138 and MESP-139
-remain To Do/inactive; fast-track completion remains `21/26 = 80.8%`;
-production readiness remains approximately `47%` overall / `41%`
-Procurement/P2P; and MESP-48/MESP-50 remain open. This is documentation/state
-only; no product source, tests, migrations, assets, Jira state, or later
-capability was added.
+Every `## Historical execution overlay ...` and `## Historical approval
+overlay ...` heading below is preserved, dated evidence. It is **not** current
+authority even where its own text says "current".
+## Owner-Managed Asset Protection
+
+- Files manually supplied under `frontend/assets` are product source assets.
+- Agents must never delete, rename, replace, regenerate, optimize, recolor, move, or restore them from Git without explicit Owner instruction.
+- Untracked image files in `frontend/assets` must not be assumed temporary.
+- Before asset cleanup, agents must distinguish Owner source assets from generated derivatives.
+- Full logos/icons use `frontend/assets` as source of truth.
+- `frontend/assets/brand` is reserved only for necessary generated browser derivatives (e.g., favicons, touch icons).
+
+
+# HISTORICAL RECORD (preserved; not current authority)
 
 ## Historical execution overlay - 30 August 2026 (MESP-137 HOLD-2 remediation complete — awaiting independent Sol acceptance; superseded by closure above)
 
@@ -94,15 +111,6 @@ rebase, force-push, or review request is authorized; stop for independent
 GPT-5.6 Sol review with the PR Open/Draft/Unmerged.
 Fast-track = 20/26 = 76.9%. Production readiness remains ~47% overall / ~41% Procurement/P2P.
 Ponytail FULL is the default executor mode when available.
-
-## Owner-Managed Asset Protection
-
-- Files manually supplied under `frontend/assets` are product source assets.
-- Agents must never delete, rename, replace, regenerate, optimize, recolor, move, or restore them from Git without explicit Owner instruction.
-- Untracked image files in `frontend/assets` must not be assumed temporary.
-- Before asset cleanup, agents must distinguish Owner source assets from generated derivatives.
-- Full logos/icons use `frontend/assets` as source of truth.
-- `frontend/assets/brand` is reserved only for necessary generated browser derivatives (e.g., favicons, touch icons).
 
 ## Historical execution overlay - 25 August 2026 (MESP-133 Sol HOLD 3 micro-remediation)
 

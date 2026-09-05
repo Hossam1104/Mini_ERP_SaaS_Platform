@@ -1,4 +1,76 @@
-# Mini ERP SaaS Platform — Project Statistics & Production Readiness Tracker
+# Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
+
+**Last Updated:** 4 September 2026 (project-wide normalization and deep checkpoint)
+
+## Current authoritative snapshot - 4 September 2026 (supersedes every dated record below)
+
+This section is the current authoritative tracker snapshot. Every dated record
+below it is preserved historical evidence and is **not** current authority,
+including records whose own text says "current". `.ai/CURRENT_STATE.md` holds
+the CURRENT AUTHORITY block for live project position; live Jira and live
+GitHub outrank this file for mutable facts.
+
+| Measure | Value | Basis |
+|---|---|---|
+| Accepted fast-track capability completion | **21 / 26 = 80.8%** | Unchanged. MESP-138 is implemented but **not accepted**, so it is not counted |
+| Production readiness — overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
+| Production readiness — Procurement / P2P | ~**41%** | Unchanged |
+| Accepted `main` | `644e7b364006a3a62dc8e9756b9a9a64afbd33e1` | Verified |
+| Continuous integration | **NONE / NOT CLAIMED** | No pipeline exists in this repository; local runs are not CI |
+
+### Capability and lifecycle position
+
+- **MESP-138** (customer returns, credit notes, customer receipts) is the
+  single active implementation capability, **In Progress** under Epic MESP-9,
+  on `feat/MESP-138-customer-return-credit-receipts` at head
+  `8480deef9b0fa1225dfc83c0eb59bc768b1a2960`, published as **Draft PR #86
+  (Open / Draft / Unmerged)**.
+- MESP-138 is held under **GPT-5.6 Sol HOLD 3** (MESP-138 comment `12349`)
+  covering blockers **HOLD-138-J** through **HOLD-138-N**. It is **not
+  accepted**, was **not** modified by this checkpoint, and must not be counted
+  as delivered capability.
+- **MESP-139 remains To Do / not activated.** MESP-9 remains In Progress.
+- **MESP-48** and **MESP-50** remain open production gates. Deployment,
+  production identity/infrastructure, backup/restore, capacity, monitoring,
+  legal/privacy, statutory validation, specialist accounting/inventory review,
+  and migration/cutover gates all remain open.
+
+### Validation evidence recorded by this checkpoint
+
+Measured on the checkpoint branch cut from accepted `main`
+`644e7b364006a3a62dc8e9756b9a9a64afbd33e1`:
+
+| Check | Result |
+|---|---|
+| Release build (`backend/MiniErp.sln`) | **0 warnings / 0 errors** |
+| Backend suite, excluding the gated SQL Server safety harness | **1058 / 1058 passed**, 0 failed, 0 skipped |
+| SQL Server safety harness (80 tests) | **GATED / NOT CLAIMED** — `MESP_SQLSERVER_SAFETY_CONNECTION_STRING` unavailable; not reported as passed |
+| Continuous integration | **NONE / NOT CLAIMED** |
+
+Note: leaving `MESP_DEV_AUTH_BYPASS=true` in the ambient shell makes the host
+security suite fail closed with `permitted only when ASPNETCORE_ENVIRONMENT is
+exactly Development`. That is the guard working correctly, not a product
+defect; clear the variable, or use `scripts\Test-MiniErpBackend.ps1`, before
+running tests.
+
+### Progress history - 4 September 2026 (normalization and deep checkpoint)
+
+A project-wide normalization and deep read-only checkpoint was executed on
+`chore/project-normalization-checkpoint`. It normalized canonical project
+identity to `Mini_ERP_SaaS_Platform` (Jira key unchanged: `MESP`),
+consolidated competing "current" documentation sections behind a single
+current-state authority, recorded the AI model routing baseline in
+`AGENTS.md`, refreshed `README.md`, and reviewed Draft PR #86 against Sol
+HOLD 3 read-only.
+
+This checkpoint is documentation, governance and review only. **No production
+capability was added and no percentage increased.** PR #86 was not modified,
+HOLD 3 was not resolved, no Jira lifecycle changed, no capability was
+activated, and `frontend/assets` was untouched. Acceptance of the checkpoint
+belongs to GPT-5.6 Sol.
+
+
+# HISTORICAL RECORD (preserved; not current authority)
 
 ## Current MESP-138 HOLD 2 remediation handoff - 31 August 2026
 
