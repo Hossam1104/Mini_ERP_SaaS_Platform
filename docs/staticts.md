@@ -1,8 +1,8 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 4 September 2026 (project-wide normalization and deep checkpoint)
+**Last Updated:** 6 September 2026 (MESP-138 HOLD 3 remediation handoff)
 
-## Current authoritative snapshot - 4 September 2026 (supersedes every dated record below)
+## Current authoritative snapshot - 6 September 2026 (supersedes every dated record below)
 
 This section is the current authoritative tracker snapshot. Every dated record
 below it is preserved historical evidence and is **not** current authority,
@@ -15,36 +15,42 @@ GitHub outrank this file for mutable facts.
 | Accepted fast-track capability completion | **21 / 26 = 80.8%** | Unchanged. MESP-138 is implemented but **not accepted**, so it is not counted |
 | Production readiness — overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
 | Production readiness — Procurement / P2P | ~**41%** | Unchanged |
-| Accepted `main` | `644e7b364006a3a62dc8e9756b9a9a64afbd33e1` | Verified |
+| Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` | Verified |
 | Continuous integration | **NONE / NOT CLAIMED** | No pipeline exists in this repository; local runs are not CI |
 
 ### Capability and lifecycle position
 
 - **MESP-138** (customer returns, credit notes, customer receipts) is the
   single active implementation capability, **In Progress** under Epic MESP-9,
-  on `feat/MESP-138-customer-return-credit-receipts` at head
-  `8480deef9b0fa1225dfc83c0eb59bc768b1a2960`, published as **Draft PR #86
-  (Open / Draft / Unmerged)**.
+  on `feat/MESP-138-customer-return-credit-receipts`; HOLD 3 implementation
+  commit `fb4c060` is published through **Draft PR #86 (Open / Draft /
+  Unmerged)**. The final documentation handoff is the session's final commit.
 - MESP-138 is held under **GPT-5.6 Sol HOLD 3** (MESP-138 comment `12349`)
-  covering blockers **HOLD-138-J** through **HOLD-138-N**. It is **not
-  accepted**, was **not** modified by this checkpoint, and must not be counted
-  as delivered capability.
+  covering blockers **HOLD-138-J** through **HOLD-138-N**. The bounded
+  implementation evidence is present, but it is **not accepted** and must not
+  be counted as delivered capability until Sol acceptance.
 - **MESP-139 remains To Do / not activated.** MESP-9 remains In Progress.
 - **MESP-48** and **MESP-50** remain open production gates. Deployment,
   production identity/infrastructure, backup/restore, capacity, monitoring,
   legal/privacy, statutory validation, specialist accounting/inventory review,
   and migration/cutover gates all remain open.
 
-### Validation evidence recorded by this checkpoint
+### Validation evidence recorded by this HOLD 3 handoff
 
-Measured on the checkpoint branch cut from accepted `main`
-`644e7b364006a3a62dc8e9756b9a9a64afbd33e1`:
+Measured on the MESP-138 feature branch after normal integration of accepted
+`main` `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce`:
 
 | Check | Result |
 |---|---|
 | Release build (`backend/MiniErp.sln`) | **0 warnings / 0 errors** |
-| Backend suite, excluding the gated SQL Server safety harness | **1058 / 1058 passed**, 0 failed, 0 skipped |
-| SQL Server safety harness (80 tests) | **GATED / NOT CLAIMED** — `MESP_SQLSERVER_SAFETY_CONNECTION_STRING` unavailable; not reported as passed |
+| HOLD-3 focused tests | **6 / 6 passed** |
+| MESP-138 customer-return / credit-note tests | **20 / 20 passed** |
+| Backend suite, including disposable SQL Server safety harness | **1158 / 1158 passed**, 0 failed, 0 skipped |
+| REST/OpenAPI/catalogue/host subset | **59 / 59 passed** |
+| EF model drift | **All 7 contexts clear** |
+| NuGet vulnerability scan | **0 vulnerable packages** across 5 projects |
+| npm production dependency audit | **0 vulnerabilities** |
+| npm all-dependency audit | **2 existing dev-tree findings**; unrelated cleanup not in scope |
 | Continuous integration | **NONE / NOT CLAIMED** |
 
 Note: leaving `MESP_DEV_AUTH_BYPASS=true` in the ambient shell makes the host
@@ -52,6 +58,23 @@ security suite fail closed with `permitted only when ASPNETCORE_ENVIRONMENT is
 exactly Development`. That is the guard working correctly, not a product
 defect; clear the variable, or use `scripts\Test-MiniErpBackend.ps1`, before
 running tests.
+
+### Progress history - 6 September 2026 (MESP-138 HOLD 3 remediation)
+
+MESP-138 HOLD 3 remediation was implemented on the active feature branch after
+normal integration of accepted `main` `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce`.
+HOLD-138-J through HOLD-138-N are evidenced by typed Sales Finance-effect and
+allocation persistence, exact subset/residual validation, durable reversal
+identity, original tax-effect account lineage, additive Sales migration, and
+real SQLite/SQL Server integration coverage. Release is `0/0`; HOLD 3 is
+`6/6`; all MESP-138 customer-return/credit-note tests are `20/20`; the full
+disposable-LocalDB backend is `1,158/1,158`; REST/OpenAPI/catalogue/host is
+`59/59`; all seven EF contexts have no pending model changes; NuGet scanning is
+clear; and production npm audit is clear. The all-dependency npm audit retains
+two dev-tree findings and was not changed because unrelated dev-dependency
+cleanup is excluded. MESP-138 remains In Progress and not accepted; PR #86
+remains Open/Draft/Unmerged; MESP-139 remains inactive; and no Ready, merge, or
+Jira lifecycle mutation occurred.
 
 ### Progress history - 4 September 2026 (normalization and deep checkpoint)
 

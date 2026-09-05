@@ -1,8 +1,7 @@
-# Post-checkpoint handoff — project-wide normalization and deep checkpoint (4 September 2026)
+# MESP-138 HOLD 3 executor handoff — 6 September 2026
 
-**Executor of the completed session:** Claude Opus 5 (High), acting as an
-exceptional independent checkpoint executor — *not* as the standing project
-executor and *not* as an acceptance authority.
+**Executor of the completed session:** GPT-5.6 Luna xHigh, acting under the
+bounded MESP-138 HOLD 3 authority — *not* as an acceptance authority.
 
 **Acceptance authority:** GPT-5.6 Sol. The checkpoint report is **evidence
 only**. Nothing in this file self-accepts the checkpoint, MESP-138, or any
@@ -10,49 +9,27 @@ other work.
 
 ## What the completed session did
 
-A project-wide normalization and deep read-only checkpoint on branch
-`chore/project-normalization-checkpoint`, cut from the exact accepted `main`
-commit `644e7b364006a3a62dc8e9756b9a9a64afbd33e1`:
-
-* normalized canonical project identity to **`Mini_ERP_SaaS_Platform`**
-  (Jira issue key unchanged: `MESP`);
-* restructured the executor documentation so live position is recoverable from
-  **one** place — the **CURRENT AUTHORITY** block at the top of
-  `.ai/CURRENT_STATE.md` — and removed competing "current" sections from
-  `AGENTS.md`, `CLAUDE.md`, `README.md` and this file, preserving all
-  historical overlays verbatim under explicit historical dividers;
-* recorded the active AI model routing baseline in `AGENTS.md`;
-* refreshed `README.md` (and repaired genuine double-encoded UTF-8 corruption
-  in it);
-* performed a deep read-only review of the repository and of **Draft PR #86**
-  against Sol HOLD 3 blockers HOLD-138-J … HOLD-138-N;
-* ran repository-defined validation and reported gated evidence as gated.
-
-## What the completed session deliberately did NOT do
-
-* **PR #86 was not modified in any way.** No source change, no push to
-  `feat/MESP-138-customer-return-credit-receipts`, no rebase, no branch update,
-  no Ready transition, no merge, no reviewer request. HOLD 3 was **not**
-  resolved.
-* MESP-138 was **not** marked Done. MESP-139 was **not** activated. No Jira
-  lifecycle mutation was performed.
-* No file under `frontend/assets` was touched.
-* No `git clean`, `git reset --hard`, blind `git stash`, force-push, or history
-  rewrite was used, and no worktree was removed.
-* `docs/staticts.md` keeps its canonical filename; no `docs/statistics.md` was
-  created.
-* No CI was claimed. No production, statutory, ZATCA or FATOORA readiness was
-  claimed.
+* Deliberately merged accepted `origin/main` `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce`
+  into the existing MESP-138 branch with a normal merge; the governance
+  conflict was reconciled without rebase or history rewrite.
+* Implemented HOLD-138-J through HOLD-138-N in the bounded Sales/Finance
+  backend scope, including typed durable Finance-effect authority, exact
+  allocation consumption, original tax-effect lineage, additive Sales
+  migration, and real integration evidence.
+* Preserved the normalized current-authority structure and historical record.
+* Ran Release build, focused MESP-138 coverage, the full disposable-LocalDB
+  backend suite, EF drift checks, REST/OpenAPI/host checks, and dependency
+  scans.
 
 ## Current position at the end of the checkpoint
 
 | Item | Value |
 |---|---|
-| Accepted `main` | `644e7b364006a3a62dc8e9756b9a9a64afbd33e1` |
+| Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` |
 | Active capability | **MESP-138**, In Progress under Epic MESP-9 |
-| Active branch / head | `feat/MESP-138-customer-return-credit-receipts` @ `8480deef9b0fa1225dfc83c0eb59bc768b1a2960` |
-| Published as | Draft PR **#86** — Open / Draft / Unmerged, unchanged |
-| Acceptance state | **Not accepted** — Sol HOLD 3 (MESP-138 comment `12349`) stands |
+| Active branch / head | `feat/MESP-138-customer-return-credit-receipts`; implementation commit `fb4c060`, final handoff commit is this session's documentation commit |
+| Published as | Draft PR **#86** — Open / Draft / Unmerged; accepted main normalization integrated |
+| Acceptance state | **Not accepted** — Sol HOLD 3 (MESP-138 comment `12349`) remains the acceptance authority |
 | Next capability | MESP-139 — To Do, **not activated** |
 | Accepted fast-track completion | **21 / 26 = 80.8%** (MESP-138 excluded) |
 | Production readiness | ~47% overall · ~41% Procurement/P2P |
@@ -64,11 +41,8 @@ live GitHub outrank every Markdown file for mutable facts.
 
 ## The next session
 
-**This file deliberately does not contain the next implementation prompt.**
-
-The next exact session is **GPT-5.6 Sol's independent review of the
-normalization checkpoint**, together with Sol's decision on the MESP-138
-HOLD 3 position. Only Sol may:
+The next exact session is **GPT-5.6 Sol's independent review of this HOLD 3
+implementation boundary**. Only Sol may:
 
 * accept or reject this checkpoint and its branch;
 * decide what happens to Draft PR #86 and HOLD 3;
