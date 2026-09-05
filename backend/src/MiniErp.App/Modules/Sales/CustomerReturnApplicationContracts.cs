@@ -129,7 +129,29 @@ public sealed record SalesCustomerReturnDownstreamReversalCommand(
     string? EffectFingerprint = null,
     string? RequestFingerprint = null,
     string? CommitState = null,
-    string? DownstreamIdempotencyKey = null);
+    string? DownstreamIdempotencyKey = null,
+    Guid? OriginalInvoiceId = null,
+    Guid? OriginalFinanceOpenItemId = null,
+    Guid? OriginalPostingJournalId = null,
+    IReadOnlyList<Guid>? OriginalSourceAllocationIds = null,
+    IReadOnlyList<Guid>? OriginalTaxJournalIds = null,
+    decimal? OriginalNetAmount = null,
+    decimal? OriginalTaxAmount = null,
+    decimal? OriginalGrossAmount = null,
+    string? OriginalCurrencyCode = null,
+    string? OriginalSourceFingerprint = null,
+    string? OriginalEffectFingerprint = null,
+    string? OriginalDownstreamIdempotencyKey = null,
+    Guid? OriginalCompanyId = null,
+    Guid? OriginalCustomerId = null);
+
+public sealed record SalesCustomerReturnFinanceAllocationEffect(
+    Guid SourceAllocationId,
+    decimal Quantity,
+    decimal NetAmount,
+    decimal TaxAmount,
+    decimal GrossAmount,
+    string SourceAllocationFingerprint);
 
 public sealed record SalesCustomerReturnFinanceEffectCommand(
     Guid ReturnId,
@@ -149,7 +171,10 @@ public sealed record SalesCustomerReturnFinanceEffectCommand(
     string? EffectFingerprint = null,
     string? RequestFingerprint = null,
     string? CommitState = null,
-    string? DownstreamIdempotencyKey = null);
+    string? DownstreamIdempotencyKey = null,
+    IReadOnlyList<SalesCustomerReturnFinanceAllocationEffect>? Allocations = null,
+    Guid? CompanyId = null,
+    Guid? CustomerId = null);
 
 public sealed record SalesCustomerReturnOperationResult<T>(bool Succeeded, string Code, T? Value)
 {

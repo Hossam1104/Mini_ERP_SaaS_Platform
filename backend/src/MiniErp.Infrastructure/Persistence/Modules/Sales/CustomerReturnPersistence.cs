@@ -205,9 +205,18 @@ public sealed class CustomerReturnPersistence(DbContextOptions options) : ISales
     {
         await using var db = Create(context);
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var entity = await db.CustomerReturns.Include(item => item.Lines).SingleOrDefaultAsync(item => item.Id == command.ReturnId && item.TenantId.Value == command.TenantId, cancellationToken);
-        if (entity is null) return Failure("customer_return_not_found");
-        try { entity.RecordDownstreamReversal(command); }
+        var entity = await db.CustomerReturns.Include(item => item.Lines).SingleOrDefaultAsync(item => item.Id == command.ReturnId, cancellationToken);
+        if (entity is null || entity.TenantId.Value != command.TenantId) return Failure("customer_return_not_found");
+        try
+        {
+            if (string.Equals(command.Downstream, "finance", StringComparison.OrdinalIgnoreCase) && command.CreditNoteId is { } creditNoteId)
+            {
+                var effect = await db.CustomerReturnFinanceEffects.Include(item => item.Allocations).SingleOrDefaultAsync(item => item.CustomerReturnId == entity.Id && item.CreditNoteId == creditNoteId, cancellationToken);
+                if (effect is null) return Failure("finance_effect_mismatch");
+                effect.Reverse(command, command.OccurredAt);
+            }
+            entity.RecordDownstreamReversal(command);
+        }
         catch (InvalidOperationException exception) { return Failure(exception.Message); }
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -218,11 +227,47 @@ public sealed class CustomerReturnPersistence(DbContextOptions options) : ISales
     {
         await using var db = Create(context);
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var entity = await db.CustomerReturns.Include(item => item.Lines).SingleOrDefaultAsync(item => item.Id == command.ReturnId && item.TenantId.Value == command.TenantId, cancellationToken);
-        if (entity is null) return Failure("customer_return_not_found");
-        var expectedAllocationIds = await db.CustomerReturnInvoiceAllocations.AsNoTracking().Where(item => item.CustomerReturnId == entity.Id && item.InvoiceId == command.InvoiceId).Select(item => item.Id).ToListAsync(cancellationToken);
-        if (command.SourceAllocationIds is null || !expectedAllocationIds.ToHashSet().SetEquals(command.SourceAllocationIds)) return Failure("finance_effect_mismatch");
-        try { entity.RegisterFinanceCreditNote(command, command.OccurredAt); }
+        var entity = await db.CustomerReturns.Include(item => item.Lines).SingleOrDefaultAsync(item => item.Id == command.ReturnId, cancellationToken);
+        if (entity is null || entity.TenantId.Value != command.TenantId) return Failure("customer_return_not_found");
+        if (command.SourceAllocationIds is null || command.SourceAllocationIds.Count == 0 || command.SourceAllocationIds.Distinct().Count() != command.SourceAllocationIds.Count || command.SourceAllocationIds.Any(item => item == Guid.Empty)) return Failure("finance_effect_mismatch");
+        var existing = await db.CustomerReturnFinanceEffects.Include(item => item.Allocations).SingleOrDefaultAsync(item => item.CustomerReturnId == entity.Id && item.CreditNoteId == command.CreditNoteId, cancellationToken);
+        var selected = await db.CustomerReturnInvoiceAllocations.Where(item => item.CustomerReturnId == entity.Id && command.SourceAllocationIds.Contains(item.Id)).ToListAsync(cancellationToken);
+        if (selected.Count != command.SourceAllocationIds.Count || selected.Any(item => item.InvoiceId != command.InvoiceId || item.FinanceOpenItemId != command.FinanceOpenItemId || item.CurrencyCode != command.CurrencyCode || item.CommerciallyAcceptedQuantity <= 0m)) return Failure("finance_effect_mismatch");
+        var activeEffects = await db.CustomerReturnFinanceEffects.AsNoTracking().Where(item => item.CustomerReturnId == entity.Id && item.State == "Active").Select(item => item.Id).ToListAsync(cancellationToken);
+        if (existing is not null) activeEffects.Remove(existing.Id);
+        var priorConsumption = await db.CustomerReturnFinanceEffectAllocations.AsNoTracking().Where(item => command.SourceAllocationIds.Contains(item.SourceAllocationId)).ToListAsync(cancellationToken);
+        var priorByAllocation = priorConsumption.Where(item => activeEffects.Contains(item.FinanceEffectId)).GroupBy(item => item.SourceAllocationId).ToDictionary(group => group.Key, group => new { Quantity = group.Sum(item => item.Quantity), Net = group.Sum(item => item.NetAmount), Tax = group.Sum(item => item.TaxAmount), Gross = group.Sum(item => item.GrossAmount) });
+        var evidence = command.Allocations?.ToArray() ?? selected.Select(item => new SalesCustomerReturnFinanceAllocationEffect(item.Id, item.CommerciallyAcceptedQuantity, item.NetAmount, item.TaxAmount, item.GrossAmount, item.SourceAllocationFingerprint)).ToArray();
+        if (evidence.Length != selected.Count || evidence.Select(item => item.SourceAllocationId).Distinct().Count() != evidence.Length || evidence.Any(item => item.SourceAllocationId == Guid.Empty || item.Quantity <= 0m || item.NetAmount < 0m || item.TaxAmount < 0m || item.GrossAmount <= 0m || Round(item.NetAmount + item.TaxAmount) != item.GrossAmount)) return Failure("finance_effect_mismatch");
+        foreach (var allocation in selected)
+        {
+            var item = evidence.SingleOrDefault(value => value.SourceAllocationId == allocation.Id);
+            if (item is null || !string.Equals(item.SourceAllocationFingerprint, allocation.SourceAllocationFingerprint, StringComparison.Ordinal)) return Failure("finance_effect_mismatch");
+            var prior = priorByAllocation.GetValueOrDefault(allocation.Id);
+            var remainingQuantity = allocation.CommerciallyAcceptedQuantity - (prior?.Quantity ?? 0m);
+            if (item.Quantity > remainingQuantity) return Failure("finance_effect_mismatch");
+            var eligibleNet = Round(allocation.ReturnQuantity == 0m ? 0m : allocation.NetAmount * allocation.CommerciallyAcceptedQuantity / allocation.ReturnQuantity);
+            var eligibleTax = Round(allocation.ReturnQuantity == 0m ? 0m : allocation.TaxAmount * allocation.CommerciallyAcceptedQuantity / allocation.ReturnQuantity);
+            var eligibleGross = Round(allocation.ReturnQuantity == 0m ? 0m : allocation.GrossAmount * allocation.CommerciallyAcceptedQuantity / allocation.ReturnQuantity);
+            var expectedNet = item.Quantity == remainingQuantity ? Round(eligibleNet - (prior?.Net ?? 0m)) : Round(eligibleNet * item.Quantity / allocation.CommerciallyAcceptedQuantity);
+            var expectedTax = item.Quantity == remainingQuantity ? Round(eligibleTax - (prior?.Tax ?? 0m)) : Round(eligibleTax * item.Quantity / allocation.CommerciallyAcceptedQuantity);
+            var expectedGross = item.Quantity == remainingQuantity ? Round(eligibleGross - (prior?.Gross ?? 0m)) : Round(expectedNet + expectedTax);
+            if (Round(item.NetAmount - expectedNet) != 0m || Round(item.TaxAmount - expectedTax) != 0m || Round(item.GrossAmount - expectedGross) != 0m) return Failure("finance_effect_mismatch");
+        }
+        if (Round(evidence.Sum(item => item.NetAmount)) != command.NetAmount || Round(evidence.Sum(item => item.TaxAmount)) != command.TaxAmount || Round(evidence.Sum(item => item.GrossAmount)) != command.GrossAmount) return Failure("finance_effect_mismatch");
+        if (existing is not null)
+        {
+            if (!existing.MatchesPost(command, evidence) || existing.State != "Active") return Failure("finance_effect_mismatch");
+            return SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Success(ToResponse(entity, selected));
+        }
+        try
+        {
+            entity.RegisterFinanceCreditNote(command, command.OccurredAt);
+            if (command.CompanyId is not null && command.CustomerId is not null && command.FinanceOpenItemId is not null && command.PostingJournalId is not null && command.TaxJournalIds is not null && command.NetAmount is not null && command.TaxAmount is not null && command.GrossAmount is not null && !string.IsNullOrWhiteSpace(command.CurrencyCode) && !string.IsNullOrWhiteSpace(command.SourceFingerprint) && !string.IsNullOrWhiteSpace(command.EffectFingerprint) && !string.IsNullOrWhiteSpace(command.RequestFingerprint) && !string.IsNullOrWhiteSpace(command.DownstreamIdempotencyKey))
+            {
+                db.CustomerReturnFinanceEffects.Add(new SalesCustomerReturnFinanceEffectEntity(context.TenantId, Guid.NewGuid(), command, evidence, command.OccurredAt));
+            }
+        }
         catch (InvalidOperationException exception) { return Failure(exception.Message); }
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

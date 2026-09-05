@@ -350,7 +350,10 @@ public sealed class SqlServerSafetyTests
                     "20260823124304_MESP131MovingWeightedAverageValuation",
                     "20260823180537_MESP131SolFinancialIntegrityRemediation",
                     "20260823225921_MESP131SolFinalValuationIntegrity",
-                    "20260829150156_MESP137ReservationFulfillment"
+                    "20260829150156_MESP137ReservationFulfillment",
+                    "20260830222514_MESP138CustomerReturnFoundation",
+                    "20260831102842_MESP138Hold1Remediation",
+                    "20260831104654_MESP138Hold1InventoryReversal"
                 ],
                 (await inventory.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await inventory.Database.GetPendingMigrationsAsync());
@@ -366,7 +369,11 @@ public sealed class SqlServerSafetyTests
                     "20260825225409_MESP134TaxFxReportingRevaluation",
                     "20260825232242_MESP134EvidenceSnapshots",
                     "20260826001524_MESP134Hold1CorrectiveEvidence",
-                    "20260826133441_MESP135FinanceCloseReports"
+                    "20260826133441_MESP135FinanceCloseReports",
+                    "20260830222541_MESP138CustomerReturnFoundation",
+                    "20260830223637_MESP138CreditNotePostingEffect",
+                    "20260831102106_MESP138Hold1SourceEvidence",
+                    "20260831151947_MESP138Hold2Durability"
                 ],
                 (await finance.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await finance.Database.GetPendingMigrationsAsync());

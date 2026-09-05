@@ -113,6 +113,21 @@ public sealed class CustomerReturnHold2IntegrationTests
     }
 
     [Fact]
+    public async Task Tax_reversal_uses_original_tax_effect_after_current_mapping_changes()
+    {
+        await using var fixture = await FinanceFixture.CreateAsync();
+        var approved = await fixture.CreateAndApproveAsync();
+
+        var posted = await fixture.Persistence.MutateAsync(fixture.Context, fixture.NoteId, approved.Version, FinanceCreditNoteMutation.Post, "post", "tax-map-post-key", "tax-map-post-fingerprint");
+
+        Assert.True(posted.Succeeded, posted.Code);
+        await using var db = new FinanceDbContext(fixture.Options, fixture.Context.TenantContext);
+        var tax = await db.Journals.Include(item => item.Lines).SingleAsync(item => item.SourceContract == "sales-credit-note.tax.v1");
+        Assert.Equal(20m, tax.Lines.Where(item => item.AccountId == fixture.TaxAccountId).Sum(item => item.Debit));
+        Assert.Equal(0m, tax.Lines.Where(item => item.AccountId == fixture.AlternateTaxAccountId).Sum(item => item.Debit));
+    }
+
+    [Fact]
     public async Task Finance_commit_failure_never_calls_sales_or_leaves_a_phantom_effect()
     {
         await using var fixture = await FinanceFixture.CreateAsync();
@@ -247,7 +262,7 @@ public sealed class CustomerReturnHold2IntegrationTests
     private sealed class FinanceFixture : IAsyncDisposable
     {
         private readonly SqliteConnection connection;
-        private FinanceFixture(SqliteConnection connection, DbContextOptions options, DbContextOptions failingOptions, FinanceRequestContext context, SalesSpy sales, Guid arAccountId, Guid revenueAccountId, Guid taxAccountId)
+        private FinanceFixture(SqliteConnection connection, DbContextOptions options, DbContextOptions failingOptions, FinanceRequestContext context, SalesSpy sales, Guid arAccountId, Guid revenueAccountId, Guid taxAccountId, Guid alternateTaxAccountId)
         {
             this.connection = connection;
             Options = options;
@@ -257,6 +272,7 @@ public sealed class CustomerReturnHold2IntegrationTests
             ArAccountId = arAccountId;
             RevenueAccountId = revenueAccountId;
             TaxAccountId = taxAccountId;
+            AlternateTaxAccountId = alternateTaxAccountId;
             Persistence = new CustomerReturnFinancePersistence(options, sales, Companies(), new UnavailableMasterDataExchangeRatePersistence());
         }
 
@@ -269,6 +285,7 @@ public sealed class CustomerReturnHold2IntegrationTests
         internal Guid ArAccountId { get; }
         internal Guid RevenueAccountId { get; }
         internal Guid TaxAccountId { get; }
+        internal Guid AlternateTaxAccountId { get; }
 
         internal static async Task<FinanceFixture> CreateAsync()
         {
@@ -284,7 +301,8 @@ public sealed class CustomerReturnHold2IntegrationTests
             var ar = await AccountAsync(finance, options, context, "AR");
             var revenue = await AccountAsync(finance, options, context, "REV");
             var tax = await AccountAsync(finance, options, context, "TAX");
-            await RulesAsync(finance, context, ar.Id, revenue.Id, tax.Id);
+            var alternateTax = await AccountAsync(finance, options, context, "TAXB");
+            await RulesAsync(finance, context, ar.Id, revenue.Id, tax.Id, alternateTax.Id);
             await using (var db = new FinanceDbContext(options, context.TenantContext))
             {
                 db.MonetaryPolicies.Add(new FinanceMonetaryPolicyEntity(context.TenantId, new FinanceMonetaryPolicyCommand(CompanyId, null, 2, "ToEven", false, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), "monetary-policy", "monetary-policy"), "SAR", null, 1));
@@ -296,10 +314,10 @@ public sealed class CustomerReturnHold2IntegrationTests
             var openItemId = Guid.NewGuid();
             var allocationId = Guid.NewGuid();
             var orderLineId = Guid.NewGuid();
-            var source = Source(returnId, invoiceId, openItemId, allocationId, orderLineId);
+            var source = Source(returnId, invoiceId, openItemId, allocationId, orderLineId, tax.Id);
             var sales = new SalesSpy(source);
-            await SeedRecognitionAsync(options, context, invoiceId, openItemId, ar.Id, revenue.Id);
-            var fixture = new FinanceFixture(connection, options, failingOptions, context, sales, ar.Id, revenue.Id, tax.Id);
+            await SeedRecognitionAsync(options, context, invoiceId, openItemId, ar.Id, revenue.Id, tax.Id);
+            var fixture = new FinanceFixture(connection, options, failingOptions, context, sales, ar.Id, revenue.Id, tax.Id, alternateTax.Id);
             fixture.Source = source;
             return fixture;
         }
@@ -367,11 +385,11 @@ public sealed class CustomerReturnHold2IntegrationTests
         public Task<IReadOnlyList<MasterDataAuditRecord>> ReadAuditHistoryAsync(TenantContext tenantContext, Guid? exchangeRateId = null, CancellationToken cancellationToken = default) => Unavailable<IReadOnlyList<MasterDataAuditRecord>>();
     }
 
-    private static SalesCustomerReturnSourceRecord Source(Guid returnId, Guid invoiceId, Guid openItemId, Guid allocationId, Guid orderLineId) => new(
+    private static SalesCustomerReturnSourceRecord Source(Guid returnId, Guid invoiceId, Guid openItemId, Guid allocationId, Guid orderLineId, Guid taxId) => new(
         returnId, Guid.NewGuid(), Guid.NewGuid(), 1, TenantId, CompanyId, null, CustomerId, Guid.NewGuid(), DateTimeOffset.UtcNow, invoiceId, openItemId, "SAR",
-        [new(orderLineId, Guid.NewGuid(), "SKU", "Product", Guid.NewGuid(), "EA", 1m, 0m, 1m, 80m, 20m, 100m, null, 1m, null, Guid.NewGuid(), Guid.NewGuid(), 1m, 1m, 1m, 1m, 0m, 0m, "Restockable", [], [], null)],
+        [new(orderLineId, Guid.NewGuid(), "SKU", "Product", Guid.NewGuid(), "EA", 1m, 0m, 1m, 80m, 20m, 100m, null, 1m, null, taxId, Guid.NewGuid(), 1m, 1m, 1m, 1m, 0m, 0m, "Restockable", [], [], null)],
         SalesCustomerReturnStatus.Received, SalesCustomerReturnConsequence.CreditNote, [1],
-        [new(allocationId, invoiceId, openItemId, Guid.NewGuid(), orderLineId, 1, 1m, 1m, 1m, 0m, 1m, 80m, 20m, 100m, "SAR", Guid.NewGuid(), Guid.NewGuid(), 1, "allocation", "invoice")]);
+        [new(allocationId, invoiceId, openItemId, Guid.NewGuid(), orderLineId, 1, 1m, 1m, 1m, 0m, 1m, 80m, 20m, 100m, "SAR", taxId, Guid.NewGuid(), 1, "allocation", "invoice")]);
 
     private static async Task<FinanceAccountRecord> AccountAsync(FinancePersistence persistence, DbContextOptions options, FinanceRequestContext context, string code)
     {
@@ -380,7 +398,7 @@ public sealed class CustomerReturnHold2IntegrationTests
         return result.Value!;
     }
 
-    private static async Task RulesAsync(FinancePersistence persistence, FinanceRequestContext context, Guid ar, Guid revenue, Guid taxAccount)
+    private static async Task RulesAsync(FinancePersistence persistence, FinanceRequestContext context, Guid ar, Guid revenue, Guid taxAccount, Guid alternateTaxAccount)
     {
         var calendar = await persistence.CreateCalendarAsync(context, new FinanceFiscalCalendarCommand(CompanyId, "HOLD2", Guid.NewGuid(), "calendar", "calendar"));
         var year = await persistence.CreateYearAsync(context, new FinanceFiscalYearCommand(calendar.Value!.Id, 2026, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), Guid.NewGuid(), "year", "year"));
@@ -389,18 +407,22 @@ public sealed class CustomerReturnHold2IntegrationTests
         Assert.True(opened.Succeeded, opened.Code);
         var recognition = await persistence.CreatePostingRuleAsync(context, new FinancePostingRuleCommand(CompanyId, "sales-invoice.v1", "recognition", ar, revenue, false, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), "recognition", "recognition"));
         var credit = await persistence.CreatePostingRuleAsync(context, new FinancePostingRuleCommand(CompanyId, "sales-credit-note.v1", "posting", revenue, ar, false, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), "credit", "credit"));
-        var taxRule = await persistence.CreatePostingRuleAsync(context, new FinancePostingRuleCommand(CompanyId, "finance-tax.v1", "output", revenue, taxAccount, false, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), "tax", "tax"));
+        var taxRule = await persistence.CreatePostingRuleAsync(context, new FinancePostingRuleCommand(CompanyId, "finance-tax.v1", "output", revenue, taxAccount, false, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 14), Guid.NewGuid(), "tax", "tax"));
+        var currentTaxRule = await persistence.CreatePostingRuleAsync(context, new FinancePostingRuleCommand(CompanyId, "finance-tax.v1", "output", revenue, alternateTaxAccount, false, new DateOnly(2026, 1, 15), null, Guid.NewGuid(), "tax-current", "tax-current"));
         Assert.True(recognition.Succeeded, recognition.Code);
         Assert.True(credit.Succeeded, credit.Code);
         Assert.True(taxRule.Succeeded, taxRule.Code);
+        Assert.True(currentTaxRule.Succeeded, currentTaxRule.Code);
     }
 
-    private static async Task SeedRecognitionAsync(DbContextOptions options, FinanceRequestContext context, Guid invoiceId, Guid openItemId, Guid arId, Guid revenueId)
+    private static async Task SeedRecognitionAsync(DbContextOptions options, FinanceRequestContext context, Guid invoiceId, Guid openItemId, Guid arId, Guid revenueId, Guid taxId)
     {
         await using var db = new FinanceDbContext(options, context.TenantContext);
         var ar = await db.Accounts.SingleAsync(item => item.Id == arId);
         var revenue = await db.Accounts.SingleAsync(item => item.Id == revenueId);
+        var tax = await db.Accounts.SingleAsync(item => item.Code == "TAX");
         var rule = await db.PostingRules.SingleAsync(item => item.SourceContract == "sales-invoice.v1");
+        var taxRule = await db.PostingRules.SingleAsync(item => item.SourceContract == "finance-tax.v1" && item.SourceEvent == "output" && item.VersionNumber == 1);
         var period = await db.FiscalPeriods.SingleAsync();
         var journalId = Guid.NewGuid();
         var command = new FinanceJournalCommand(CompanyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), "SAR", 1m, null, null, null, "sales-invoice.v1", "recognition", invoiceId, 1, rule.Id, "invoice", [new(arId, 100m, 0m, 100m, "SAR", null, "invoice"), new(revenueId, 0m, 100m, 100m, "SAR", null, "invoice")], journalId, "invoice", "invoice", FinanceJournalAmountAuthority.ManualTransactionCurrency, FinanceApprovalRequirement.NotRequired);
@@ -412,7 +434,20 @@ public sealed class CustomerReturnHold2IntegrationTests
         journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, Guid.NewGuid(), journalId, 2, revenue, command.Lines[1], null, 0m, 100m, FinanceJournalAmountAuthority.ManualTransactionCurrency));
         var item = new FinanceOpenItemEntity(context.TenantId, openItemId, FinanceOpenItemKind.Receivable, CompanyId, null, CustomerId, "sales-invoice.v1", Guid.NewGuid(), 1, invoiceId, 1, "invoice", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31), "SAR", 100m, "SAR", 100m, null, null, null, null, null, null, null, "invoice");
         item.SetRecognition(FinanceOpenItemRecognitionState.Recognized, journalId);
+        var taxJournalId = Guid.NewGuid();
+        var taxCommand = new FinanceJournalCommand(CompanyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), "SAR", 1m, null, null, null, "finance-tax.v1", "output", openItemId, 1, taxRule.Id, "invoice tax", [new(revenueId, 20m, 0m, 20m, "SAR", null, "invoice tax"), new(tax.Id, 0m, 20m, 20m, "SAR", null, "invoice tax")], taxJournalId, "invoice-tax", "invoice-tax", FinanceJournalAmountAuthority.ManualTransactionCurrency, FinanceApprovalRequirement.NotRequired);
+        var taxJournal = new FinanceJournalEntity(context.TenantId, taxJournalId, taxCommand, 2, "SAR", context.ActorId, DateTimeOffset.UtcNow);
+        taxJournal.SetPeriod(period.FiscalYearId, period.Id);
+        taxJournal.SetRule(taxRule.Id, taxRule.VersionNumber);
+        taxJournal.SetStatus(FinanceJournalStatus.Posted, context.ActorId, DateTimeOffset.UtcNow);
+        taxJournal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, Guid.NewGuid(), taxJournalId, 1, revenue, taxCommand.Lines[0], null, 20m, 0m, FinanceJournalAmountAuthority.ManualTransactionCurrency));
+        taxJournal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, Guid.NewGuid(), taxJournalId, 2, tax, taxCommand.Lines[1], null, 0m, 20m, FinanceJournalAmountAuthority.ManualTransactionCurrency));
+        var taxEvidence = new FinanceMonetaryEvidence("SAR", 20m, "SAR", 20m, null, null, null, null, 20m, null, 2, "ToEven", 0m, null, FinanceEvidenceStatus.NotCaptured);
+        var taxEffect = new FinanceTaxAccountingEffectEntity(context.TenantId, Guid.NewGuid(), CompanyId, openItemId, FinanceOpenItemKind.Receivable, taxId, "VAT", Guid.NewGuid(), 1, new DateOnly(2026, 1, 1), 20m, 100m, 20m, "SAR", 20m, "SAR", taxJournalId, taxRule.Id, taxRule.VersionNumber, taxEvidence, context.ActorId, DateTimeOffset.UtcNow);
         db.Journals.Add(journal);
+        db.Journals.Add(taxJournal);
+        db.JournalMonetaryEvidence.Add(new FinanceJournalMonetaryEvidenceEntity(context.TenantId, Guid.NewGuid(), taxJournalId, CompanyId, taxEffect.Id, taxEvidence, DateTimeOffset.UtcNow));
+        db.TaxAccountingEffects.Add(taxEffect);
         db.OpenItems.Add(item);
         await db.SaveChangesAsync();
     }

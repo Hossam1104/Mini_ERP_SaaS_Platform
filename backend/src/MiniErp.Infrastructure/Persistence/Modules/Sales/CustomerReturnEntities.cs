@@ -16,6 +16,7 @@ internal sealed class SalesCustomerReturnEntity : ITenantOwned
         HandoffJson = "{}";
         FinanceCreditNoteIdsJson = "[]";
         FinanceReversedCreditNoteIdsJson = "[]";
+        FinanceEffects = [];
     }
 
     internal SalesCustomerReturnEntity(TenantId tenantId, Guid id, SalesCustomerReturnCreateRequest request, SalesCustomerReturnSourceRecord source, Guid actorId, DateTimeOffset at)
@@ -89,6 +90,7 @@ internal sealed class SalesCustomerReturnEntity : ITenantOwned
     internal DateTimeOffset UpdatedAt { get; private set; }
     internal byte[] Version { get; private set; } = [];
     internal List<SalesCustomerReturnLineEntity> Lines { get; } = [];
+    internal List<SalesCustomerReturnFinanceEffectEntity> FinanceEffects { get; } = [];
 
     internal void SetStatus(SalesCustomerReturnStatus status, DateTimeOffset at)
     {
@@ -190,9 +192,8 @@ internal sealed class SalesCustomerReturnEntity : ITenantOwned
     internal void RegisterFinanceCreditNote(SalesCustomerReturnFinanceEffectCommand command, DateTimeOffset at)
     {
         if (command.TenantId != TenantId.Value || command.ReturnId != Id || command.CreditNoteId == Guid.Empty || command.InvoiceId == Guid.Empty || command.SourceAllocationIds is null || command.SourceAllocationIds.Count == 0 || command.SourceAllocationIds.Any(item => item == Guid.Empty)) throw new InvalidOperationException("finance_effect_mismatch");
-        if (InvoiceId is { } invoiceId && invoiceId != command.InvoiceId) throw new InvalidOperationException("finance_effect_mismatch");
         var richEffect = command.FinanceOpenItemId is not null || command.PostingJournalId is not null || command.TaxJournalIds is not null || command.NetAmount is not null || command.TaxAmount is not null || command.GrossAmount is not null || command.CurrencyCode is not null || command.SourceFingerprint is not null || command.EffectFingerprint is not null || command.RequestFingerprint is not null || command.CommitState is not null || command.DownstreamIdempotencyKey is not null;
-        if (richEffect && (command.FinanceOpenItemId is not { } openItemId || openItemId != FinanceOpenItemId || command.PostingJournalId is not { } postingJournalId || postingJournalId == Guid.Empty || command.TaxJournalIds is null || command.TaxJournalIds.Any(item => item == Guid.Empty) || command.NetAmount is not { } net || command.TaxAmount is not { } tax || command.GrossAmount is not { } gross || net < 0m || tax < 0m || gross <= 0m || Math.Round(net + tax, 8, MidpointRounding.ToEven) != gross || string.IsNullOrWhiteSpace(command.CurrencyCode) || !string.Equals(command.CommitState, "Committed", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(command.SourceFingerprint) || string.IsNullOrWhiteSpace(command.EffectFingerprint) || string.IsNullOrWhiteSpace(command.RequestFingerprint) || string.IsNullOrWhiteSpace(command.DownstreamIdempotencyKey))) throw new InvalidOperationException("finance_effect_mismatch");
+        if (richEffect && (command.CompanyId is not { } companyId || companyId != CompanyId || command.CustomerId is not { } customerId || customerId != CustomerId || command.FinanceOpenItemId is not { } openItemId || FinanceOpenItemId is { } rootOpenItem && openItemId != rootOpenItem || command.PostingJournalId is not { } postingJournalId || postingJournalId == Guid.Empty || command.TaxJournalIds is null || command.TaxJournalIds.Any(item => item == Guid.Empty) || command.NetAmount is not { } net || command.TaxAmount is not { } tax || command.GrossAmount is not { } gross || net < 0m || tax < 0m || gross <= 0m || Math.Round(net + tax, 8, MidpointRounding.ToEven) != gross || string.IsNullOrWhiteSpace(command.CurrencyCode) || !string.Equals(command.CommitState, "Committed", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(command.SourceFingerprint) || string.IsNullOrWhiteSpace(command.EffectFingerprint) || string.IsNullOrWhiteSpace(command.RequestFingerprint) || string.IsNullOrWhiteSpace(command.DownstreamIdempotencyKey))) throw new InvalidOperationException("finance_effect_mismatch");
         var ids = JsonSerializer.Deserialize<IReadOnlyList<Guid>>(FinanceCreditNoteIdsJson) ?? [];
         if (ids.Contains(command.CreditNoteId)) return;
         FinanceCreditNoteIdsJson = JsonSerializer.Serialize(ids.Append(command.CreditNoteId).Distinct());
@@ -201,6 +202,118 @@ internal sealed class SalesCustomerReturnEntity : ITenantOwned
         UpdatedAt = at;
         Version = Guid.NewGuid().ToByteArray();
     }
+}
+
+internal sealed class SalesCustomerReturnFinanceEffectEntity : ITenantOwned
+{
+    private SalesCustomerReturnFinanceEffectEntity()
+    {
+        CurrencyCode = SourceFingerprint = EffectFingerprint = RequestFingerprint = DownstreamIdempotencyKey = ReversalEffectFingerprint = ReversalRequestFingerprint = ReversalDownstreamIdempotencyKey = SourceAllocationIdsJson = TaxJournalIdsJson = string.Empty;
+        State = ReversalState = "Active";
+        Allocations = [];
+    }
+
+    internal SalesCustomerReturnFinanceEffectEntity(TenantId tenantId, Guid id, SalesCustomerReturnFinanceEffectCommand command, IReadOnlyList<SalesCustomerReturnFinanceAllocationEffect> allocations, DateTimeOffset at)
+    {
+        Id = id;
+        TenantId = tenantId;
+        CustomerReturnId = command.ReturnId;
+        CreditNoteId = command.CreditNoteId;
+        CompanyId = command.CompanyId!.Value;
+        CustomerId = command.CustomerId!.Value;
+        InvoiceId = command.InvoiceId;
+        FinanceOpenItemId = command.FinanceOpenItemId!.Value;
+        PostingJournalId = command.PostingJournalId!.Value;
+        TaxJournalIdsJson = JsonSerializer.Serialize(command.TaxJournalIds ?? []);
+        SourceAllocationIdsJson = JsonSerializer.Serialize(allocations.Select(item => item.SourceAllocationId).OrderBy(item => item).ToArray());
+        NetAmount = command.NetAmount!.Value;
+        TaxAmount = command.TaxAmount!.Value;
+        GrossAmount = command.GrossAmount!.Value;
+        CurrencyCode = command.CurrencyCode!;
+        SourceFingerprint = command.SourceFingerprint!;
+        EffectFingerprint = command.EffectFingerprint!;
+        RequestFingerprint = command.RequestFingerprint!;
+        DownstreamIdempotencyKey = command.DownstreamIdempotencyKey!;
+        State = "Active";
+        ReversalState = "NotReversed";
+        AcknowledgedAt = at;
+        Version = Guid.NewGuid().ToByteArray();
+        Allocations = allocations.Select(item => new SalesCustomerReturnFinanceEffectAllocationEntity(tenantId, Guid.NewGuid(), id, item, at)).ToList();
+    }
+
+    internal Guid Id { get; private set; }
+    public TenantId TenantId { get; private set; }
+    internal Guid CustomerReturnId { get; private set; }
+    internal Guid CreditNoteId { get; private set; }
+    internal Guid CompanyId { get; private set; }
+    internal Guid CustomerId { get; private set; }
+    internal Guid InvoiceId { get; private set; }
+    internal Guid FinanceOpenItemId { get; private set; }
+    internal Guid PostingJournalId { get; private set; }
+    internal string TaxJournalIdsJson { get; private set; }
+    internal decimal NetAmount { get; private set; }
+    internal decimal TaxAmount { get; private set; }
+    internal decimal GrossAmount { get; private set; }
+    internal string CurrencyCode { get; private set; }
+    internal string SourceAllocationIdsJson { get; private set; }
+    internal string SourceFingerprint { get; private set; }
+    internal string EffectFingerprint { get; private set; }
+    internal string RequestFingerprint { get; private set; }
+    internal string DownstreamIdempotencyKey { get; private set; }
+    internal string State { get; private set; }
+    internal DateTimeOffset AcknowledgedAt { get; private set; }
+    internal string ReversalState { get; private set; }
+    internal Guid? ReversalJournalId { get; private set; }
+    internal Guid? ReversalEffectId { get; private set; }
+    internal string? ReversalEffectFingerprint { get; private set; }
+    internal string? ReversalRequestFingerprint { get; private set; }
+    internal string? ReversalDownstreamIdempotencyKey { get; private set; }
+    internal DateTimeOffset? ReversedAt { get; private set; }
+    internal byte[] Version { get; private set; } = [];
+    internal List<SalesCustomerReturnFinanceEffectAllocationEntity> Allocations { get; private set; } = [];
+
+    internal bool MatchesPost(SalesCustomerReturnFinanceEffectCommand command, IReadOnlyList<SalesCustomerReturnFinanceAllocationEffect> allocations) =>
+        command.CreditNoteId == CreditNoteId && command.CompanyId == CompanyId && command.CustomerId == CustomerId && command.InvoiceId == InvoiceId && command.FinanceOpenItemId == FinanceOpenItemId && command.PostingJournalId == PostingJournalId && command.NetAmount == NetAmount && command.TaxAmount == TaxAmount && command.GrossAmount == GrossAmount && string.Equals(command.CurrencyCode, CurrencyCode, StringComparison.Ordinal) && string.Equals(command.SourceFingerprint, SourceFingerprint, StringComparison.Ordinal) && string.Equals(command.EffectFingerprint, EffectFingerprint, StringComparison.Ordinal) && string.Equals(command.RequestFingerprint, RequestFingerprint, StringComparison.Ordinal) && string.Equals(command.DownstreamIdempotencyKey, DownstreamIdempotencyKey, StringComparison.Ordinal) && allocations.Select(item => item.SourceAllocationId).OrderBy(item => item).SequenceEqual(Allocations.Select(item => item.SourceAllocationId).OrderBy(item => item)) && allocations.All(item => Allocations.Any(stored => stored.SourceAllocationId == item.SourceAllocationId && stored.Quantity == item.Quantity && stored.NetAmount == item.NetAmount && stored.TaxAmount == item.TaxAmount && stored.GrossAmount == item.GrossAmount && string.Equals(stored.SourceAllocationFingerprint, item.SourceAllocationFingerprint, StringComparison.Ordinal)));
+
+    internal void Reverse(SalesCustomerReturnDownstreamReversalCommand command, DateTimeOffset at)
+    {
+        if (command.CreditNoteId != CreditNoteId || command.OriginalCompanyId != CompanyId || command.OriginalCustomerId != CustomerId || command.OriginalInvoiceId != InvoiceId || command.OriginalFinanceOpenItemId != FinanceOpenItemId || command.OriginalPostingJournalId != PostingJournalId || command.OriginalSourceAllocationIds is null || !JsonSerializer.Deserialize<IReadOnlyList<Guid>>(SourceAllocationIdsJson)!.OrderBy(item => item).SequenceEqual(command.OriginalSourceAllocationIds.OrderBy(item => item)) || command.OriginalTaxJournalIds is null || !JsonSerializer.Deserialize<IReadOnlyList<Guid>>(TaxJournalIdsJson)!.OrderBy(item => item).SequenceEqual(command.OriginalTaxJournalIds.OrderBy(item => item)) || command.OriginalNetAmount != NetAmount || command.OriginalTaxAmount != TaxAmount || command.OriginalGrossAmount != GrossAmount || !string.Equals(command.OriginalCurrencyCode, CurrencyCode, StringComparison.Ordinal) || !string.Equals(command.OriginalSourceFingerprint, SourceFingerprint, StringComparison.Ordinal) || !string.Equals(command.OriginalEffectFingerprint, EffectFingerprint, StringComparison.Ordinal) || !string.Equals(command.OriginalDownstreamIdempotencyKey, DownstreamIdempotencyKey, StringComparison.Ordinal) || command.ReversalJournalId is not { } reversalJournalId || reversalJournalId == Guid.Empty || string.IsNullOrWhiteSpace(command.EffectFingerprint) || string.IsNullOrWhiteSpace(command.RequestFingerprint) || string.IsNullOrWhiteSpace(command.DownstreamIdempotencyKey) || !string.Equals(command.CommitState, "Committed", StringComparison.Ordinal)) throw new InvalidOperationException("finance_effect_mismatch");
+        if (State == "Reversed")
+        {
+            if (ReversalJournalId == command.ReversalJournalId && ReversalEffectId == command.ReversalJournalId && string.Equals(ReversalEffectFingerprint, command.EffectFingerprint, StringComparison.Ordinal) && string.Equals(ReversalRequestFingerprint, command.RequestFingerprint, StringComparison.Ordinal) && string.Equals(ReversalDownstreamIdempotencyKey, command.DownstreamIdempotencyKey, StringComparison.Ordinal)) return;
+            throw new InvalidOperationException("finance_effect_mismatch");
+        }
+        if (State != "Active") throw new InvalidOperationException("finance_effect_mismatch");
+        State = "Reversed";
+        ReversalState = "Reversed";
+        ReversalJournalId = command.ReversalJournalId;
+        ReversalEffectId = command.ReversalJournalId;
+        ReversalEffectFingerprint = command.EffectFingerprint;
+        ReversalRequestFingerprint = command.RequestFingerprint;
+        ReversalDownstreamIdempotencyKey = command.DownstreamIdempotencyKey;
+        ReversedAt = at;
+        Version = Guid.NewGuid().ToByteArray();
+    }
+}
+
+internal sealed class SalesCustomerReturnFinanceEffectAllocationEntity : ITenantOwned
+{
+    private SalesCustomerReturnFinanceEffectAllocationEntity() { SourceAllocationFingerprint = string.Empty; }
+    internal SalesCustomerReturnFinanceEffectAllocationEntity(TenantId tenantId, Guid id, Guid effectId, SalesCustomerReturnFinanceAllocationEffect evidence, DateTimeOffset at)
+    {
+        Id = id; TenantId = tenantId; FinanceEffectId = effectId; SourceAllocationId = evidence.SourceAllocationId; Quantity = evidence.Quantity; NetAmount = evidence.NetAmount; TaxAmount = evidence.TaxAmount; GrossAmount = evidence.GrossAmount; SourceAllocationFingerprint = evidence.SourceAllocationFingerprint; ConsumedAt = at; Version = Guid.NewGuid().ToByteArray();
+    }
+    internal Guid Id { get; private set; }
+    public TenantId TenantId { get; private set; }
+    internal Guid FinanceEffectId { get; private set; }
+    internal Guid SourceAllocationId { get; private set; }
+    internal decimal Quantity { get; private set; }
+    internal decimal NetAmount { get; private set; }
+    internal decimal TaxAmount { get; private set; }
+    internal decimal GrossAmount { get; private set; }
+    internal string SourceAllocationFingerprint { get; private set; }
+    internal DateTimeOffset ConsumedAt { get; private set; }
+    internal byte[] Version { get; private set; } = [];
 }
 
 internal sealed class SalesCustomerReturnLineEntity : ITenantOwned
