@@ -1,4 +1,77 @@
-# MESP-138 HOLD 3 executor handoff — 6 September 2026
+# MESP-138 HOLD 4 executor handoff — 6 September 2026
+
+**Executor of the completed session:** Claude Sonnet 5, acting under the
+bounded MESP-138 HOLD 4 FINAL REMEDIATION authority — *not* as an acceptance
+authority.
+
+**Acceptance authority:** GPT-5.6 Sol. The checkpoint report is **evidence
+only**. Nothing in this file self-accepts the checkpoint, MESP-138, or any
+other work.
+
+## What the completed session did
+
+* Continued the existing Draft PR #86 / branch
+  `feat/MESP-138-customer-return-credit-receipts` from the accepted HOLD 3
+  head, with no rebase, no force-push, and no history rewrite.
+* Resolved exactly the four HOLD 4 blockers from GPT-5.6 Sol's HOLD 3 review
+  (MESP-138 comment `12352`): HOLD-138-O (Credit Note eligibility derived
+  from `source.InvoiceAllocations` authority instead of the incorrect
+  `FinanceOpenItemId == null` check), HOLD-138-P (canonicalized,
+  order-insensitive, duplicate-rejecting `TaxJournalIds` comparison in
+  `MatchesPost`), HOLD-138-Q (real SQL Server LocalDB concurrency race
+  evidence proving Serializable isolation already prevents double-consumption
+  of the same Return allocation, with no new mechanism or migration added),
+  and HOLD-138-R (corrected the SQL Server safety harness's migration-order
+  and structural constraint tests to match reality, plus new R1-R5
+  structural assertions).
+* Did not redesign any already-accepted HOLD 3 item; no regression was found
+  in HOLD 3 behavior during this remediation.
+* Ran Release build, the new HOLD-4 focused O/P integration tests, MESP-138
+  HOLD 2/HOLD 3/Foundation regression, a focused Sales+Finance subset, the
+  full disposable-LocalDB backend suite (including the SQL Server safety
+  harness and the two new HOLD-138-Q concurrency races), a 7-context EF
+  pending-model-changes check against real SQL Server, the REST/OpenAPI
+  operation catalogue subset, a NuGet vulnerability scan across all five
+  backend projects, and `git diff --check`.
+
+## Current position at the end of the checkpoint
+
+| Item | Value |
+|---|---|
+| Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` |
+| Active capability | **MESP-138**, In Progress under Epic MESP-9 |
+| Active branch / head | `feat/MESP-138-customer-return-credit-receipts`; HOLD-4 remediation commits `a33fac1` (HOLD-138-O/P) and `9b5620d` (HOLD-138-Q/R), final handoff commit is this session's documentation commit |
+| Published as | Draft PR **#86** — Open / Draft / Unmerged; accepted main normalization integrated |
+| Acceptance state | **Not accepted** — Sol HOLD 4 (MESP-138 comment `12352`) remains the acceptance authority |
+| Next capability | MESP-139 — To Do, **not activated** |
+| Accepted fast-track completion | **21 / 26 = 80.8%** (MESP-138 excluded) |
+| Production readiness | ~47% overall · ~41% Procurement/P2P |
+| Open production gates | MESP-48, MESP-50 |
+| CI | **NONE / NOT CLAIMED** |
+
+`.ai/CURRENT_STATE.md` remains the authority for live state; live Jira and
+live GitHub outrank every Markdown file for mutable facts.
+
+## The next session
+
+The next exact session is **GPT-5.6 Sol's independent review of this HOLD 4
+remediation boundary**. Only Sol may:
+
+* accept or reject this checkpoint and its branch;
+* decide what happens to Draft PR #86 and HOLD 4;
+* authorize the next implementation capability and write the next `TASK.md`
+  session prompt;
+* perform or authorize any Jira lifecycle change.
+
+Until Sol issues that authorization, no executor may start MESP-139, resolve
+HOLD 4, transition MESP-138, merge any branch, or treat this handoff as
+permission to continue. `.ai/AI_EXECUTION_POLICY.md` governs; absence of a
+prohibition is not authorization.
+
+# HISTORICAL RECORD (preserved; not current authority)
+
+
+# MESP-138 HOLD 3 executor handoff — 6 September 2026 (superseded by HOLD 4 above)
 
 **Executor of the completed session:** GPT-5.6 Luna xHigh, acting under the
 bounded MESP-138 HOLD 3 authority — *not* as an acceptance authority.
@@ -21,7 +94,7 @@ other work.
   backend suite, EF drift checks, REST/OpenAPI/host checks, and dependency
   scans.
 
-## Current position at the end of the checkpoint
+## Current position at the end of the checkpoint (historical)
 
 | Item | Value |
 |---|---|
@@ -36,26 +109,9 @@ other work.
 | Open production gates | MESP-48, MESP-50 |
 | CI | **NONE / NOT CLAIMED** |
 
-`.ai/CURRENT_STATE.md` remains the authority for live state; live Jira and
-live GitHub outrank every Markdown file for mutable facts.
-
-## The next session
-
-The next exact session is **GPT-5.6 Sol's independent review of this HOLD 3
-implementation boundary**. Only Sol may:
-
-* accept or reject this checkpoint and its branch;
-* decide what happens to Draft PR #86 and HOLD 3;
-* authorize the next implementation capability and write the next `TASK.md`
-  session prompt;
-* perform or authorize any Jira lifecycle change.
-
-Until Sol issues that authorization, no executor may start MESP-139, resolve
-HOLD 3, transition MESP-138, merge any branch, or treat this handoff as
-permission to continue. `.ai/AI_EXECUTION_POLICY.md` governs; absence of a
-prohibition is not authorization.
-
-# HISTORICAL RECORD (preserved; not current authority)
+This HOLD 3 checkpoint's Sol review produced four further blockers
+(HOLD-138-O through HOLD-138-R, MESP-138 comment `12352`), addressed by the
+HOLD 4 remediation recorded at the top of this file.
 
 
 # MESP-138 HOLD 2 remediation handoff - 31 August 2026

@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY — 6 September 2026
+## CURRENT AUTHORITY — 6 September 2026 (HOLD 4 remediation)
 
 ### Identity
 
@@ -28,7 +28,7 @@
 | --- | --- |
 | Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` — accepted normalization checkpoint |
 | Active implementation branch | `feat/MESP-138-customer-return-credit-receipts` |
-| Active branch head | HOLD-3 implementation commit `fb4c060`; final handoff commit is the documentation commit for this session |
+| Active branch head | HOLD-4 remediation commits `a33fac1` (HOLD-138-O/P) and `9b5620d` (HOLD-138-Q/R); final handoff commit is the documentation commit for this session |
 | Active PR | **#86** — Open / Draft / Unmerged, base `main`; accepted main normalization integrated |
 | CI | **NONE / NOT CLAIMED** — the repository has no GitHub Actions workflow; the only registered workflow is the dynamic Copilot PR reviewer |
 
@@ -38,28 +38,27 @@
 correction** is the single active implementation capability, **In Progress**
 under Epic **MESP-9** (In Progress).
 
-MESP-138 is under **GPT-5.6 Sol HOLD 3**, authority **MESP-138 comment
-`12349`** — *multi-invoice acknowledgement, exact Finance-effect lineage, and
-tax-source reversal evidence*. Activation authority is MESP-138 comment
-`12305`, with MESP-9 reconciliation comment `12306`.
+MESP-138 is under **GPT-5.6 Sol HOLD 4**, authority **MESP-138 comment
+`12352`** — four remaining blockers found during HOLD 3 review. Activation
+authority is MESP-138 comment `12305`, with MESP-9 reconciliation comment
+`12306`.
 
-HOLD 3 implementation evidence is now present on the active branch, but Sol
+HOLD 4 implementation evidence is now present on the active branch, but Sol
 acceptance remains outstanding:
 
 | Blocker | Subject |
 | --- | --- |
-| HOLD-138-J | Implemented: multi-invoice acknowledgement against exact persisted Return allocations |
-| HOLD-138-K | Implemented: partial Credit Note allocation subsets, without overlap, duplication, or over-credit |
-| HOLD-138-L | Implemented: typed, durable per-Credit-Note Finance-effect lineage in Sales |
-| HOLD-138-M | Implemented: original Invoice tax-account lineage on correction |
-| HOLD-138-N | Implemented evidence for N1-N12; independent Sol review remains required |
+| HOLD-138-O | Fixed: Credit Note eligibility now derives from `source.InvoiceAllocations` authority (with optional `InvoiceId` filtering) instead of the incorrect `FinanceOpenItemId == null` check that blocked valid multi-invoice returns. Regression tests O1-O4. |
+| HOLD-138-P | Fixed: `SalesCustomerReturnFinanceEffectEntity.MatchesPost` canonicalizes and exactly compares `TaxJournalIds` (order-insensitive, duplicate-rejecting, positive-tax-requires-non-empty). Regression tests P1-P10. |
+| HOLD-138-Q | Evidenced: two real SQL Server LocalDB concurrency race tests prove two concurrent Credit Notes cannot over-consume the same Return allocation authority. Existing Serializable-transaction isolation is proven sufficient; no new mechanism or migration was added. |
+| HOLD-138-R | Fixed: `SqlServerSafetyFixture` already migrates Sales; corrected the migration-order test's expected Sales migration list to match reality, split the structural unique-index assertion to match the real migration's `CreateIndex` flags, and added R1-R5 structural assertions for the Customer-Return Finance-effect tables' constraints/indexes/FKs on real SQL Server. |
 
 ### Tracker position
 
 | Key | Status | Note |
 | --- | --- | --- |
 | MESP-9 | In Progress | B2B Sales and Order-to-Cash Epic |
-| MESP-138 | In Progress | Active capability, HOLD 3, **not accepted** |
+| MESP-138 | In Progress | Active capability, HOLD 4, **not accepted** |
 | MESP-139 | To Do | `not-activated` — must not be started |
 | MESP-144 | Done | Repository/governance reconciliation; not a product capability |
 | MESP-48 | To Do | Open production gate — reference tenant volume assumptions |
@@ -72,19 +71,19 @@ Accepted (Sol-accepted and merged) fast-track capability completion is
 it. Production readiness is a separate measure and remains approximately
 **47% overall** and **41% Procurement/P2P**.
 
-### HOLD 3 validation evidence
+### HOLD 4 validation evidence
 
-Release build is `0 warnings / 0 errors`; HOLD-3 focused coverage is `6/6`;
-all MESP-138 customer-return and credit-note tests are `20/20`; full non-SQL
-backend regression is `1,078/1,078` with `0` failures and `0` skips; the full
-disposable-LocalDB backend validation including SQL safety is `1,158/1,158`
-with `0` failures and `0` skips; REST, OpenAPI, catalogue, and host-security
-coverage is `59/59`;
-all seven EF contexts report no pending model changes; and NuGet vulnerability
-scanning is clear across all five backend projects. Production npm audit is
-`0` vulnerabilities; the all-dependency audit reports two existing dev-tree
-findings and was not changed because unrelated dev-dependency cleanup is out
-of scope. No public endpoint was added or exposed for Finance-effect injection.
+Release build is `0 warnings / 0 errors`; HOLD-4 focused O/P integration
+coverage is `14/14`; MESP-138 HOLD 2/HOLD 3/Foundation customer-return
+regression is `20/20`; focused Sales+Finance subset is `158/158`; full
+disposable-LocalDB backend suite (including the SQL Server safety harness) is
+`1,175/1,175` with `0` failures and `0` skips, of which SQL Server safety is
+`83/83`; REST/OpenAPI operation catalogue subset is `36/36`; all seven EF
+contexts report no pending model changes (verified directly against real SQL
+Server LocalDB); and NuGet vulnerability scanning is clear across all five
+backend projects. `git diff --check` is clean. No public endpoint was added or
+exposed for Finance-effect injection; no new migration was required for HOLD
+4 (Serializable isolation was proven sufficient for HOLD-138-Q).
 
 ### Next execution boundary
 
@@ -101,6 +100,34 @@ authorization, and `AGENTS.md` for the active AI model routing baseline.
 Everything below this divider is preserved historical evidence. It is dated,
 it reflects what was believed true at the time of writing, and it is **not**
 current authority.
+
+## Historical MESP-138 HOLD 3 remediation handoff - 6 September 2026
+
+MESP-138 was under **GPT-5.6 Sol HOLD 3**, authority MESP-138 comment `12349`
+— multi-invoice acknowledgement, exact Finance-effect lineage, and
+tax-source reversal evidence. Activation authority was MESP-138 comment
+`12305`, with MESP-9 reconciliation comment `12306`. HOLD 3 implementation
+commit was `fb4c060`.
+
+HOLD-138-J implemented multi-invoice acknowledgement against exact persisted
+Return allocations. HOLD-138-K implemented partial Credit Note allocation
+subsets without overlap, duplication, or over-credit. HOLD-138-L implemented
+typed, durable per-Credit-Note Finance-effect lineage in Sales. HOLD-138-M
+implemented original Invoice tax-account lineage on correction. HOLD-138-N
+implemented evidence for N1-N12.
+
+Validation: Release `0 warnings / 0 errors`; HOLD-3 focused coverage `6/6`;
+all MESP-138 customer-return and credit-note tests `20/20`; full non-SQL
+backend regression `1,078/1,078`; full disposable-LocalDB backend validation
+including SQL safety `1,158/1,158`; REST/OpenAPI/catalogue/host-security
+`59/59`; all seven EF contexts clear of pending model changes; NuGet
+vulnerability scan clear across five backend projects; production npm audit
+`0` vulnerabilities.
+
+This checkpoint's HOLD 3 acceptance review by GPT-5.6 Sol produced four
+further blockers (HOLD-138-O through HOLD-138-R, MESP-138 comment `12352`),
+addressed by the HOLD 4 remediation recorded in the current authority block
+above.
 
 ## Historical MESP-138 HOLD 2 remediation handoff - 31 August 2026
 
