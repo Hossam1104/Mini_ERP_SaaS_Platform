@@ -286,7 +286,12 @@ public sealed class SalesCustomerReturnService(
         var source = await persistence.GetEligibleSourceAsync(context, request.DeliveryId, cancellationToken);
         if (source is null) return SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("return_source_not_found");
         if (!authorization.Authorize(context, "sales.customer-return.create", new SalesScope(source.TenantId, source.CompanyId, source.BranchId))) return SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("permission_denied");
-        if (request.Consequence == SalesCustomerReturnConsequence.CreditNote && source.FinanceOpenItemId is null) return SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("recognized_invoice_required");
+        if (request.Consequence == SalesCustomerReturnConsequence.CreditNote)
+        {
+            var invoiceAllocations = source.InvoiceAllocations ?? [];
+            if (invoiceAllocations.Count == 0) return SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("recognized_invoice_required");
+            if (request.InvoiceId is { } requestedInvoiceId && !invoiceAllocations.Any(item => item.InvoiceId == requestedInvoiceId)) return SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("invoice_source_mismatch");
+        }
         var fingerprint = Fingerprint(request);
         return await persistence.CreateAsync(context, new SalesCustomerReturnCreateCommand(Guid.NewGuid(), request, context.ActorId, DateTimeOffset.UtcNow, Normalize(idempotencyKey), fingerprint), cancellationToken);
     }
