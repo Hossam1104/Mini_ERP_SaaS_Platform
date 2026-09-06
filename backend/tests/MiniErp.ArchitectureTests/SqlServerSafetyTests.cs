@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using System.Data.Common;
 using System.Reflection;
 using Microsoft.Data.SqlClient;
@@ -402,7 +402,8 @@ public sealed class SqlServerSafetyTests
                     "20260830222453_MESP138CustomerReturnFoundation",
                     "20260831102044_MESP138Hold1Remediation",
                     "20260831151959_MESP138Hold2FinanceReversalAck",
-                    "20260905204444_MESP138Hold3FinanceEffectAuthority"
+                    "20260905204444_MESP138Hold3FinanceEffectAuthority",
+                    "20260906095311_MESP138Hold5SalesSchemaIntegrity"
                 ],
                 (await sales.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await sales.Database.GetPendingMigrationsAsync());
