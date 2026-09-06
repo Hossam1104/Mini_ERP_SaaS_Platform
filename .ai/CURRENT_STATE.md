@@ -78,7 +78,9 @@ package scan: clear across five projects. `npm audit`: 2 lockfile findings
 (1 moderate, 1 high); no audit fix was run. `git diff --check` is clean.
 Owner-managed `frontend/assets` is untouched. No Reporting database context or
 migration was added; the existing seven-context SQL migration safety run was
-green.
+green. Explicit EF `has-pending-model-changes` checks reported no changes for
+TenantPersistence, MasterData, BusinessParties, Procurement, Inventory,
+Finance, and Sales.
 
 ### Next exact gate
 

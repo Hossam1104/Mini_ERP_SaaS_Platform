@@ -38,6 +38,7 @@ REST/OpenAPI `37/37`, and audit `37/37`; Angular unit tests `308 / 308` across 4
 English and Arabic/RTL Reporting journeys; production build
 `513.21 kB` initial bundle with the existing 500 kB budget warning retained;
 full backend `1,192/1,192` split into `1,105` non-SQL and `87` SQL-safety tests;
+EF model-drift check: all seven existing contexts reported no changes;
 NuGet vulnerable-package scan clear across all five backend projects; `npm
 audit` reports 2 existing lockfile findings (1 moderate, 1 high), and no audit
 fix was run; `git diff --check` clean. Owner-managed `frontend/assets` remains
