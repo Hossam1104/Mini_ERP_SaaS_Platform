@@ -1,81 +1,27 @@
-# MESP-138 HOLD 5 executor handoff — 6 September 2026
+# MESP-138 accepted lifecycle finalization — 6 September 2026
 
-**Executor of the completed session:** cross-executor continuation — Claude
-Sonnet 5 began HOLD 5, session quota expired, Terra HIGH continued and
-reported the outstanding SQL Server evidence work `PARTIAL`, and a second
-Claude Sonnet 5 session completed it under GPT-5.6 Sol's continuation
-authorization — acting throughout as bounded implementation finalizer, *not*
-as acceptance authority.
+MESP-138 is technically accepted by GPT-5.6 Sol at Jira comment `12359`, at
+exact feature head `77eafb21b05379992c92be7b4f6e3ff347dfb1b7`. HOLD-138-S,
+HOLD-138-T, and HOLD-138-U are accepted. No further implementation is
+required.
 
-**Acceptance authority:** GPT-5.6 Sol. The checkpoint report is **evidence
-only**. Nothing in this file self-accepts the checkpoint, MESP-138, or any
-other work.
+The current bounded task is lifecycle finalization only: governance-only
+normalization, PR #86 Ready/merge when live prerequisites remain valid, and
+Jira closure after verified merge. Its completion condition is:
 
-## What the completed session did
+`MESP-138 = CLOSED / ACCEPTED / MERGED`
 
-* Recovered exact local git state in the active worktree and confirmed no
-  HEAD drift against the expected HOLD 5 continuation values before touching
-  anything; the dirty working tree was preserved rather than reset.
-* Verified HOLD-138-S (`SalesCustomerReturnCreditEligibility` and the
-  persistence-layer fail-closed check in `CustomerReturnPersistence`) sound
-  and regression-only; no redesign was required. Real SQLite S1-S7 evidence:
-  `7/7`.
-* Completed HOLD-138-T: real SQL Server LocalDB concurrency proof that two
-  concurrent `RegisterFinanceCreditNoteAsync` calls cannot over-consume the
-  same Return allocation. The existing `IsolationLevel.Serializable`
-  transaction already protects the invariant; the only correction needed was
-  the test harness's exception-chain recognition (EF's
-  `SqlServerExecutionStrategy` can wrap the real transient `SqlException` at
-  variable depth when `EnableRetryOnFailure` is not configured).
-* Completed HOLD-138-U: forward-repair migration
-  `20260906095311_MESP138Hold5SalesSchemaIntegrity` idempotently applies the
-  three Sales columns an orphaned, never-registered migration
-  (`20260828150000_MESP136SalesHold1.cs`) never actually applied, plus an
-  added upgrade-safety test (U8) proving convergence when two of three
-  columns already pre-exist out of band. Verified independently via
-  `dotnet ef migrations has-pending-model-changes` against all seven
-  contexts.
-* Ran Release build, the combined HOLD-5 focused suite (S1-S7 + T1/T2 +
-  U1-U8), the full MESP-138 customer-return regression across every HOLD
-  level, focused Sales/Finance/Inventory subsets, the REST/OpenAPI operation
-  catalogue subset, the complete backend suite via the canonical
-  `Test-MiniErpBackend.ps1` (including the SQL Server safety harness), a
-  7-context EF pending-model-changes check against real SQL Server, a NuGet
-  vulnerability scan across all five backend projects, and `git diff --check`.
+The accepted technical head is distinct from any later governance-only commit
+and must not be altered by product, migration, test, frontend, or asset
+changes. Live GitHub and Jira remain authoritative for mutable lifecycle
+state.
 
-## Current position at the end of the checkpoint
+**MESP-139 = NOT ACTIVATED.** No next implementation task, Phase B, report,
+refund, replacement, statutory, or integration work is authorized.
 
-| Item | Value |
-|---|---|
-| Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` |
-| Active capability | **MESP-138**, In Progress under Epic MESP-9 |
-| Active branch / head | `feat/MESP-138-customer-return-credit-receipts`; HOLD 5 continuation commits `ec56333` (HOLD-138-S), `09d1ac3` (HOLD-138-U migration), `6a5bc32` (HOLD-138-T/U8 SQL Server evidence), final handoff commit is this session's documentation commit |
-| Published as | Draft PR **#86** — Open / Draft / Unmerged; accepted main normalization integrated |
-| Acceptance state | **Not accepted** — Sol independent review of this HOLD 5 continuation remains the acceptance authority |
-| Next capability | MESP-139 — To Do, **not activated** |
-| Accepted fast-track completion | **21 / 26 = 80.8%** (MESP-138 excluded) |
-| Production readiness | ~47% overall · ~41% Procurement/P2P |
-| Open production gates | MESP-48, MESP-50 |
-| CI | **NONE / NOT CLAIMED** |
-
-`.ai/CURRENT_STATE.md` remains the authority for live state; live Jira and
-live GitHub outrank every Markdown file for mutable facts.
-
-## The next session
-
-The next exact session is **GPT-5.6 Sol's independent review of this HOLD 5
-continuation boundary**. Only Sol may:
-
-* accept or reject this checkpoint and its branch;
-* decide what happens to Draft PR #86 and HOLD 5;
-* authorize the next implementation capability and write the next `TASK.md`
-  session prompt;
-* perform or authorize any Jira lifecycle change.
-
-Until Sol issues that authorization, no executor may start MESP-139, resolve
-HOLD 5, transition MESP-138, merge any branch, or treat this handoff as
-permission to continue. `.ai/AI_EXECUTION_POLICY.md` governs; absence of a
-prohibition is not authorization.
+After verified PR merge and Jira Done closure, accepted fast-track completion
+is **22 / 26 = 84.6%**; production readiness remains approximately **47%
+overall / 41% Procurement/P2P** and is not recalculated here.
 
 # HISTORICAL RECORD (preserved; not current authority)
 

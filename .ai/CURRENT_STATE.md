@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY — 6 September 2026 (HOLD 5 remediation)
+## CURRENT AUTHORITY — 6 September 2026 (MESP-138 accepted lifecycle finalization)
 
 ### Identity
 
@@ -26,36 +26,38 @@
 
 | Item | Value |
 | --- | --- |
-| Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` — accepted normalization checkpoint (unchanged; not touched by HOLD 5) |
-| Active implementation branch | `feat/MESP-138-customer-return-credit-receipts` |
-| Active branch head | HOLD 5 continuation commits `ec56333` (HOLD-138-S), `09d1ac3` (HOLD-138-U migration), `6a5bc32` (HOLD-138-T/U8 SQL Server evidence); final handoff commit is the documentation commit for this session |
-| Active PR | **#86** — Open / Draft / Unmerged, base `main` |
+| Accepted pre-MESP-138 `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` |
+| Accepted technical feature head | `77eafb21b05379992c92be7b4f6e3ff347dfb1b7` |
+| Lifecycle branch | `feat/MESP-138-customer-return-credit-receipts` |
+| Lifecycle normalization head | This branch's later governance-only commit; it is distinct from the accepted technical feature head and must change only the three permitted governance files |
+| Active PR | **#86** — lifecycle finalization authorized; live GitHub is authoritative for Open/Ready/Merged state and merge result |
 | CI | **NONE / NOT CLAIMED** — the repository has no GitHub Actions workflow; the only registered workflow is the dynamic Copilot PR reviewer |
 
-### Active capability
+### Accepted capability and lifecycle operation
 
 **MESP-138 — Customer Return, Credit Note, receipts/allocation, and Sales
-correction** is the single active implementation capability, **In Progress**
-under Epic **MESP-9** (In Progress).
+correction** is technically complete and accepted by GPT-5.6 Sol at Jira
+comment `12359`, at exact technical head
+`77eafb21b05379992c92be7b4f6e3ff347dfb1b7`. HOLD-138-S, HOLD-138-T, and
+HOLD-138-U are accepted. Previously accepted HOLD-K, HOLD-M, HOLD-P,
+Finance-first durability, multi-Delivery monetary attribution, source FX,
+typed Finance-effect identity, and reversal lineage remain accepted.
 
-MESP-138 HOLD 5 is a **cross-executor continuation**: Claude Sonnet 5 began
-the HOLD 5 remediation, session quota expired, Terra HIGH continued and
-reported the outstanding SQL Server evidence work `PARTIAL`, and this second
-Claude Sonnet 5 session completed it under GPT-5.6 Sol's continuation
-authorization. Sol acceptance remains outstanding.
+The current operation is authorized lifecycle finalization only. It does not
+authorize product implementation or activate any next capability.
 
 | Item | Disposition |
 | --- | --- |
-| HOLD-138-S | Verified sound, regression-only — no redesign required. `SalesCustomerReturnCreditEligibility` (application layer) and the persistence-layer fail-closed check in `CustomerReturnPersistence.CreateAsync` correctly gate Credit Note consequence on real recognized-invoice allocation authority before any write. Real SQLite service+persistence evidence S1-S7: `7/7` pass. |
-| HOLD-138-T | Completed this session. Real SQL Server LocalDB concurrency proof: two independent `CustomerReturnPersistence` instances racing `RegisterFinanceCreditNoteAsync` against the same allocation (T1) and against residual capacity (T2) — at most one commits, final DB totals never exceed authorized bounds. The existing `IsolationLevel.Serializable` transaction protects the invariant; no production code change was needed. The prior session's test harness misclassified the deadlock exception (unhandled `InvalidOperationException` wrapping `DbUpdateException` wrapping `SqlException` 1205) as a failure; fixed by walking the full exception chain instead of assuming a fixed wrap depth. |
-| HOLD-138-U | Completed this session. Forward migration `20260906095311_MESP138Hold5SalesSchemaIntegrity` idempotently repairs three Sales columns (`SalesOrders.CurrentApprovalsJson`, `SalesOrders.RevisionNumber`, `SalesHistory.SnapshotJson`) that an orphaned, never-registered migration (`20260828150000_MESP136SalesHold1.cs`, lacking a `[Migration]` attribute/Designer) never actually applied. Physical types/nullability/defaults match both the current EF model and the orphan migration's original intent. Added the previously-missing U8 upgrade-safety test (convergence when two of three columns pre-exist out of band). Neither the orphan migration nor `20260905204444_MESP138Hold3FinanceEffectAuthority` was touched. |
+| HOLD-138-S | Accepted by Sol comment `12359` |
+| HOLD-138-T | Accepted by Sol comment `12359` |
+| HOLD-138-U | Accepted by Sol comment `12359` |
 
 ### Tracker position
 
 | Key | Status | Note |
 | --- | --- | --- |
 | MESP-9 | In Progress | B2B Sales and Order-to-Cash Epic |
-| MESP-138 | In Progress | Active capability, HOLD 5, **not accepted** |
+| MESP-138 | In Progress pending verified merge and Jira Done closure | Technically accepted; lifecycle finalization in progress |
 | MESP-139 | To Do | `not-activated` — must not be started |
 | MESP-144 | Done | Repository/governance reconciliation; not a product capability |
 | MESP-48 | To Do | Open production gate — reference tenant volume assumptions |
@@ -63,10 +65,12 @@ authorization. Sol acceptance remains outstanding.
 
 ### Completion
 
-Accepted (Sol-accepted and merged) fast-track capability completion remains
-**21 / 26 = 80.8%**. MESP-138 **does not** count toward this until Sol accepts
-it. Production readiness is a separate measure and remains approximately
-**47% overall** and **41% Procurement/P2P**.
+Accepted (Sol-accepted, merged, and Jira-closed) fast-track capability
+completion remains **21 / 26 = 80.8%** until the verified merge and Jira Done
+closure. On both of those conditions, MESP-138 becomes the authoritative
+**22 / 26 = 84.6%** accepted capability. Production readiness remains
+separate and unchanged at approximately **47% overall** and **41%
+Procurement/P2P**.
 
 ### HOLD 5 validation evidence
 
@@ -84,11 +88,11 @@ clear across all five backend projects. `git diff --check` is clean.
 
 ### Next execution boundary
 
-This checkpoint ends at an independent **GPT-5.6 Sol** review boundary. No
-implementation capability may be started, no PR may be marked Ready or merged,
-and MESP-139 may not be activated, without explicit Sol authorization. See
-`.ai/AI_EXECUTION_POLICY.md`, which is authoritative for executor
-authorization, and `AGENTS.md` for the active AI model routing baseline.
+No implementation capability is authorized after MESP-138 closure.
+**MESP-139 remains inactive** and must not be started or activated. The
+authorized lifecycle task ends after verified PR merge and Jira closure; it
+does not authorize Phase B or any other work. See `.ai/AI_EXECUTION_POLICY.md`
+for the binding executor authorization rules.
 
 ---
 

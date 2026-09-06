@@ -1,8 +1,8 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 6 September 2026 (MESP-138 HOLD 5 continuation handoff)
+**Last Updated:** 6 September 2026 (MESP-138 accepted lifecycle finalization)
 
-## Current authoritative snapshot - 6 September 2026 (HOLD 5; supersedes every dated record below)
+## Current authoritative snapshot - 6 September 2026 (MESP-138 lifecycle finalization; supersedes every dated record below)
 
 This section is the current authoritative tracker snapshot. Every dated record
 below it is preserved historical evidence and is **not** current authority,
@@ -12,7 +12,7 @@ GitHub outrank this file for mutable facts.
 
 | Measure | Value | Basis |
 |---|---|---|
-| Accepted fast-track capability completion | **21 / 26 = 80.8%** | Unchanged. MESP-138 is implemented but **not accepted**, so it is not counted |
+| Accepted fast-track capability completion | **21 / 26 = 80.8%** pending verified merge + Jira Done; then **22 / 26 = 84.6%** | MESP-138 is Sol-accepted at exact head `77eafb21b05379992c92be7b4f6e3ff347dfb1b7` (comment `12359`); it counts only after both lifecycle conditions are verified |
 | Production readiness — overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
 | Production readiness — Procurement / P2P | ~**41%** | Unchanged |
 | Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` | Verified, unchanged |
@@ -20,19 +20,12 @@ GitHub outrank this file for mutable facts.
 
 ### Capability and lifecycle position
 
-- **MESP-138** (customer returns, credit notes, customer receipts) is the
-  single active implementation capability, **In Progress** under Epic MESP-9,
-  on `feat/MESP-138-customer-return-credit-receipts`; HOLD 5 continuation
-  commits `ec56333` (HOLD-138-S), `09d1ac3` (HOLD-138-U migration), and
-  `6a5bc32` (HOLD-138-T/U8 SQL Server evidence) are published through
-  **Draft PR #86 (Open / Draft / Unmerged)**. The final documentation handoff
-  is the session's final commit.
-- HOLD 5 is a **cross-executor continuation**: Claude Sonnet 5 began it,
-  session quota expired, Terra HIGH continued and reported the outstanding
-  SQL Server evidence work `PARTIAL`, and a second Claude Sonnet 5 session
-  completed it under GPT-5.6 Sol's continuation authorization. The bounded
-  implementation evidence is present, but it is **not accepted** and must not
-  be counted as delivered capability until Sol acceptance.
+- **MESP-138** (customer returns, credit notes, customer receipts) is
+  technically accepted by GPT-5.6 Sol at Jira comment `12359`, at exact head
+  `77eafb21b05379992c92be7b4f6e3ff347dfb1b7`. HOLD-S/T/U are accepted; the
+  current task is lifecycle finalization only. A later branch commit may carry
+  only the authorized governance normalization; GitHub is authoritative for
+  the PR and merge result.
 - **MESP-139 remains To Do / not activated.** MESP-9 remains In Progress.
 - **MESP-48** and **MESP-50** remain open production gates. Deployment,
   production identity/infrastructure, backup/restore, capacity, monitoring,
@@ -66,7 +59,18 @@ exactly Development`. That is the guard working correctly, not a product
 defect; clear the variable, or use `scripts\Test-MiniErpBackend.ps1`, before
 running tests.
 
-### Progress history - 6 September 2026 (MESP-138 HOLD 5 continuation)
+### Progress history - 6 September 2026 (MESP-138 accepted lifecycle finalization)
+
+GPT-5.6 Sol accepted MESP-138 Phase A at exact head
+`77eafb21b05379992c92be7b4f6e3ff347dfb1b7` in Jira comment `12359`, accepting
+HOLD-138-S/T/U and retaining prior accepted Hold areas. This governance-only
+normalization prepares the separately authorized PR and Jira closure sequence;
+it records that MESP-138 advances from `21/26 = 80.8%` to `22/26 = 84.6%` only
+after verified merge and Jira Done. MESP-139 remains To Do / `not-activated`;
+MESP-9 remains In Progress; production readiness stays approximately 47%
+overall / 41% Procurement/P2P; MESP-48 and MESP-50 remain open gates.
+
+### Historical progress - 6 September 2026 (MESP-138 HOLD 5 continuation)
 
 MESP-138 HOLD 5 verified HOLD-138-S sound and regression-only (no redesign
 required) and completed the two blockers left `PARTIAL` by the prior
