@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY — 6 September 2026 (HOLD 4 remediation)
+## CURRENT AUTHORITY — 6 September 2026 (HOLD 5 remediation)
 
 ### Identity
 
@@ -26,10 +26,10 @@
 
 | Item | Value |
 | --- | --- |
-| Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` — accepted normalization checkpoint |
+| Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` — accepted normalization checkpoint (unchanged; not touched by HOLD 5) |
 | Active implementation branch | `feat/MESP-138-customer-return-credit-receipts` |
-| Active branch head | HOLD-4 remediation commits `a33fac1` (HOLD-138-O/P) and `9b5620d` (HOLD-138-Q/R); final handoff commit is the documentation commit for this session |
-| Active PR | **#86** — Open / Draft / Unmerged, base `main`; accepted main normalization integrated |
+| Active branch head | HOLD 5 continuation commits `ec56333` (HOLD-138-S), `09d1ac3` (HOLD-138-U migration), `6a5bc32` (HOLD-138-T/U8 SQL Server evidence); final handoff commit is the documentation commit for this session |
+| Active PR | **#86** — Open / Draft / Unmerged, base `main` |
 | CI | **NONE / NOT CLAIMED** — the repository has no GitHub Actions workflow; the only registered workflow is the dynamic Copilot PR reviewer |
 
 ### Active capability
@@ -38,27 +38,24 @@
 correction** is the single active implementation capability, **In Progress**
 under Epic **MESP-9** (In Progress).
 
-MESP-138 is under **GPT-5.6 Sol HOLD 4**, authority **MESP-138 comment
-`12352`** — four remaining blockers found during HOLD 3 review. Activation
-authority is MESP-138 comment `12305`, with MESP-9 reconciliation comment
-`12306`.
+MESP-138 HOLD 5 is a **cross-executor continuation**: Claude Sonnet 5 began
+the HOLD 5 remediation, session quota expired, Terra HIGH continued and
+reported the outstanding SQL Server evidence work `PARTIAL`, and this second
+Claude Sonnet 5 session completed it under GPT-5.6 Sol's continuation
+authorization. Sol acceptance remains outstanding.
 
-HOLD 4 implementation evidence is now present on the active branch, but Sol
-acceptance remains outstanding:
-
-| Blocker | Subject |
+| Item | Disposition |
 | --- | --- |
-| HOLD-138-O | Fixed: Credit Note eligibility now derives from `source.InvoiceAllocations` authority (with optional `InvoiceId` filtering) instead of the incorrect `FinanceOpenItemId == null` check that blocked valid multi-invoice returns. Regression tests O1-O4. |
-| HOLD-138-P | Fixed: `SalesCustomerReturnFinanceEffectEntity.MatchesPost` canonicalizes and exactly compares `TaxJournalIds` (order-insensitive, duplicate-rejecting, positive-tax-requires-non-empty). Regression tests P1-P10. |
-| HOLD-138-Q | Evidenced: two real SQL Server LocalDB concurrency race tests prove two concurrent Credit Notes cannot over-consume the same Return allocation authority. Existing Serializable-transaction isolation is proven sufficient; no new mechanism or migration was added. |
-| HOLD-138-R | Fixed: `SqlServerSafetyFixture` already migrates Sales; corrected the migration-order test's expected Sales migration list to match reality, split the structural unique-index assertion to match the real migration's `CreateIndex` flags, and added R1-R5 structural assertions for the Customer-Return Finance-effect tables' constraints/indexes/FKs on real SQL Server. |
+| HOLD-138-S | Verified sound, regression-only — no redesign required. `SalesCustomerReturnCreditEligibility` (application layer) and the persistence-layer fail-closed check in `CustomerReturnPersistence.CreateAsync` correctly gate Credit Note consequence on real recognized-invoice allocation authority before any write. Real SQLite service+persistence evidence S1-S7: `7/7` pass. |
+| HOLD-138-T | Completed this session. Real SQL Server LocalDB concurrency proof: two independent `CustomerReturnPersistence` instances racing `RegisterFinanceCreditNoteAsync` against the same allocation (T1) and against residual capacity (T2) — at most one commits, final DB totals never exceed authorized bounds. The existing `IsolationLevel.Serializable` transaction protects the invariant; no production code change was needed. The prior session's test harness misclassified the deadlock exception (unhandled `InvalidOperationException` wrapping `DbUpdateException` wrapping `SqlException` 1205) as a failure; fixed by walking the full exception chain instead of assuming a fixed wrap depth. |
+| HOLD-138-U | Completed this session. Forward migration `20260906095311_MESP138Hold5SalesSchemaIntegrity` idempotently repairs three Sales columns (`SalesOrders.CurrentApprovalsJson`, `SalesOrders.RevisionNumber`, `SalesHistory.SnapshotJson`) that an orphaned, never-registered migration (`20260828150000_MESP136SalesHold1.cs`, lacking a `[Migration]` attribute/Designer) never actually applied. Physical types/nullability/defaults match both the current EF model and the orphan migration's original intent. Added the previously-missing U8 upgrade-safety test (convergence when two of three columns pre-exist out of band). Neither the orphan migration nor `20260905204444_MESP138Hold3FinanceEffectAuthority` was touched. |
 
 ### Tracker position
 
 | Key | Status | Note |
 | --- | --- | --- |
 | MESP-9 | In Progress | B2B Sales and Order-to-Cash Epic |
-| MESP-138 | In Progress | Active capability, HOLD 4, **not accepted** |
+| MESP-138 | In Progress | Active capability, HOLD 5, **not accepted** |
 | MESP-139 | To Do | `not-activated` — must not be started |
 | MESP-144 | Done | Repository/governance reconciliation; not a product capability |
 | MESP-48 | To Do | Open production gate — reference tenant volume assumptions |
@@ -66,24 +63,24 @@ acceptance remains outstanding:
 
 ### Completion
 
-Accepted (Sol-accepted and merged) fast-track capability completion is
+Accepted (Sol-accepted and merged) fast-track capability completion remains
 **21 / 26 = 80.8%**. MESP-138 **does not** count toward this until Sol accepts
 it. Production readiness is a separate measure and remains approximately
 **47% overall** and **41% Procurement/P2P**.
 
-### HOLD 4 validation evidence
+### HOLD 5 validation evidence
 
-Release build is `0 warnings / 0 errors`; HOLD-4 focused O/P integration
-coverage is `14/14`; MESP-138 HOLD 2/HOLD 3/Foundation customer-return
-regression is `20/20`; focused Sales+Finance subset is `158/158`; full
-disposable-LocalDB backend suite (including the SQL Server safety harness) is
-`1,175/1,175` with `0` failures and `0` skips, of which SQL Server safety is
-`83/83`; REST/OpenAPI operation catalogue subset is `36/36`; all seven EF
-contexts report no pending model changes (verified directly against real SQL
-Server LocalDB); and NuGet vulnerability scanning is clear across all five
-backend projects. `git diff --check` is clean. No public endpoint was added or
-exposed for Finance-effect injection; no new migration was required for HOLD
-4 (Serializable isolation was proven sufficient for HOLD-138-Q).
+Release build is `0 warnings / 0 errors`. HOLD-5 focused suite (S1-S7 +
+T1/T2 + U1-U8) is `11/11`. Full MESP-138 customer-return regression (all HOLD
+levels, Foundation through HOLD 5) is `45/45`. Focused Sales `47/47`, Finance
+`124/124`, Inventory `114/114`, REST/OpenAPI catalogue `48/48`. Complete
+backend suite, including the SQL Server LocalDB safety harness, is
+`1,186/1,186` with `0` failures and `0` skips; the persistent
+`MESP_SQLSERVER_CONNECTION_STRING` was never referenced. All seven EF
+contexts (Sales, Finance, Inventory, Procurement, MasterData, BusinessParties,
+Tenancy) report no pending model changes. NuGet vulnerability scanning is
+clear across all five backend projects. `git diff --check` is clean.
+`frontend/assets` is untouched.
 
 ### Next execution boundary
 
@@ -100,6 +97,33 @@ authorization, and `AGENTS.md` for the active AI model routing baseline.
 Everything below this divider is preserved historical evidence. It is dated,
 it reflects what was believed true at the time of writing, and it is **not**
 current authority.
+
+## Historical MESP-138 HOLD 4 remediation handoff - 6 September 2026
+
+MESP-138 was under **GPT-5.6 Sol HOLD 4**, authority **MESP-138 comment
+`12352`** — four remaining blockers found during HOLD 3 review. Activation
+authority was MESP-138 comment `12305`, with MESP-9 reconciliation comment
+`12306`.
+
+| Blocker | Subject |
+| --- | --- |
+| HOLD-138-O | Fixed: Credit Note eligibility now derives from `source.InvoiceAllocations` authority (with optional `InvoiceId` filtering) instead of the incorrect `FinanceOpenItemId == null` check that blocked valid multi-invoice returns. Regression tests O1-O4. |
+| HOLD-138-P | Fixed: `SalesCustomerReturnFinanceEffectEntity.MatchesPost` canonicalizes and exactly compares `TaxJournalIds` (order-insensitive, duplicate-rejecting, positive-tax-requires-non-empty). Regression tests P1-P10. |
+| HOLD-138-Q | Evidenced: two real SQL Server LocalDB concurrency race tests prove two concurrent Credit Notes cannot over-consume the same Return allocation authority. Existing Serializable-transaction isolation is proven sufficient; no new mechanism or migration was added. |
+| HOLD-138-R | Fixed: `SqlServerSafetyFixture` already migrates Sales; corrected the migration-order test's expected Sales migration list to match reality, split the structural unique-index assertion to match the real migration's `CreateIndex` flags, and added R1-R5 structural assertions for the Customer-Return Finance-effect tables' constraints/indexes/FKs on real SQL Server. |
+
+Validation: Release `0 warnings / 0 errors`; HOLD-4 focused O/P integration
+coverage `14/14`; MESP-138 HOLD 2/HOLD 3/Foundation customer-return
+regression `20/20`; focused Sales+Finance subset `158/158`; full
+disposable-LocalDB backend suite (including the SQL Server safety harness)
+`1,175/1,175` with `0` failures and `0` skips, of which SQL Server safety is
+`83/83`; REST/OpenAPI operation catalogue subset `36/36`; all seven EF
+contexts reported no pending model changes; NuGet vulnerability scanning
+clear across all five backend projects. `git diff --check` was clean.
+
+This checkpoint's HOLD 4 acceptance review by GPT-5.6 Sol led to the HOLD 5
+cross-executor continuation (Claude Sonnet 5 → Terra HIGH `PARTIAL` → Claude
+Sonnet 5) recorded in the current authority block above.
 
 ## Historical MESP-138 HOLD 3 remediation handoff - 6 September 2026
 
