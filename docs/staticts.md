@@ -1,8 +1,53 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 6 September 2026 (MESP-138 accepted lifecycle finalization)
+**Last Updated:** 7 September 2026 (MESP-139 Release 1 Reporting continuation)
 
-## Current authoritative snapshot - 6 September 2026 (MESP-138 lifecycle finalization; supersedes every dated record below)
+## Current authoritative snapshot - 7 September 2026 (MESP-139 implementation boundary)
+
+This section supersedes the historical MESP-138 lifecycle snapshot below. Live
+Jira and GitHub remain authoritative for mutable lifecycle facts.
+
+| Measure | Value | Basis |
+|---|---|---|
+| Active capability | **MESP-139 - Release 1 Reporting** | Activated by Sol in Jira: MESP-139 comment `12366`; Epic reconciliation comment `12367`; readiness authority comment `12363` |
+| Implementation branch | `feat/MESP-139-release1-reporting` | Isolated continuation worktree from exact `origin/main` baseline `293f7442677b4142ae45cde0f6d48dcd9ccf6077` |
+| MESP-11 / MESP-139 | **In Progress** | Jira activation was completed by Sol before this continuation; no executor Jira write performed |
+| Accepted fast-track capability completion | **22 / 26 = 84.6%** | Unchanged from accepted MESP-138 lifecycle state; implementation review does not self-accept MESP-139 |
+| Production readiness - overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
+| Production readiness - Procurement / P2P | ~**41%** | Unchanged |
+| MESP-48 / MESP-50 | **Open production gates** | No production limits, retention, provider, SLA, statutory, or deployment policy was invented |
+
+### MESP-139 implementation evidence
+
+The bounded implementation adds a Reporting-owned catalogue, read-only
+orchestration over Finance, Inventory, Procurement, Sales, and Foundation audit
+contracts, server-owned Tenant/company/branch scope enforcement, freshness/as-of
+and reconciliation metadata, lineage, CSV export jobs and private artifacts,
+idempotent local schedule control-plane records, explicit pending decision
+states, REST/OpenAPI metadata, and a bilingual RTL Angular workspace. It does
+not mutate source ledgers or operational records, add a Reporting persistence
+context or migration, activate external distribution, or certify production
+readiness.
+
+Validation recorded for this continuation: Release backend build `0 warnings / 0
+errors`; disposable-LocalDB backend suite `1,192 / 1,192 passed, 0 skipped`;
+focused Reporting architecture tests `5 / 5`; exact Reporting REST permission
+test `1 / 1`; Angular unit tests `307 / 307` across 44 files; production build
+`513.21 kB` initial bundle with the existing 500 kB budget warning retained;
+NuGet vulnerable-package scan clear across all five backend projects; `npm
+audit` reports 2 existing lockfile findings (1 moderate, 1 high), and no audit
+fix was run; `git diff --check` clean. Owner-managed `frontend/assets` remains
+untouched.
+
+### Progress history - 7 September 2026 (MESP-139 Release 1 Reporting)
+
+Sol completed Jira activation before this executor continuation after the prior
+session was blocked by an Atlassian connector/workspace mismatch. The bounded
+implementation is ready for independent Sol review as one Open/Draft/Unmerged
+PR. No Ready transition, merge, reviewer request, Jira mutation, production
+distribution activation, or next-capability work was performed.
+
+## Historical snapshot - 6 September 2026 (MESP-138 lifecycle finalization)
 
 This section is the current authoritative tracker snapshot. Every dated record
 below it is preserved historical evidence and is **not** current authority,

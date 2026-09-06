@@ -24,6 +24,7 @@ export const routes: Routes = [
       { path: 'inventory/valuation', loadComponent: () => import('./features/inventory/inventory-valuation-workspace.component').then((module) => module.InventoryValuationWorkspaceComponent) },
       { path: 'inventory', loadComponent: () => import('./features/inventory/inventory-workspace.component').then((module) => module.InventoryWorkspaceComponent) },
       { path: 'finance', loadChildren: () => import('./features/finance/finance.routes').then((module) => module.financeRoutes) },
+      { path: 'reporting', loadComponent: () => import('./features/reporting/reporting-workspace.component').then((module) => module.ReportingWorkspaceComponent) },
       { path: 'sales', pathMatch: 'full', redirectTo: 'sales/quotations' },
       { path: 'sales/quotations', loadComponent: () => import('./features/sales/sales-workspace.component').then((module) => module.SalesWorkspaceComponent) },
       { path: 'sales/quotations/new', loadComponent: () => import('./features/sales/sales-workspace.component').then((module) => module.SalesWorkspaceComponent) },

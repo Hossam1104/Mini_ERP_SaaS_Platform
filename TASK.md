@@ -1,4 +1,33 @@
-# MESP-138 accepted lifecycle finalization — 6 September 2026
+## MESP-139 Release 1 Reporting — current bounded implementation continuation
+
+This current section supersedes the historical lifecycle prompt below. Sol
+completed Jira activation before this continuation: MESP-11 and MESP-139 are
+In Progress; activation comment `12366`; MESP-9 reconciliation comment
+`12367`; readiness authority comment `12363`. The accepted baseline is exact
+`origin/main` `293f7442677b4142ae45cde0f6d48dcd9ccf6077`.
+
+Work is bounded to branch `feat/MESP-139-release1-reporting` in the preferred
+worktree `D:\AI Tools\Active Projects\Mini_ERP_SaaS_Platform-MESP-139`. Implement
+one complete Release-1 Reporting capability under the approved PD-042 contract:
+Reporting-owned catalogue and versioned definitions; source-owned Finance,
+Inventory, Procurement, Sales, and Foundation audit adapters; server-derived
+Tenant/company/branch scope; filters, paging/sorting, freshness/data-as-of,
+reconciliation, lineage, export jobs/private artifacts, idempotency, durable
+local schedule control-plane records, explicit pending decisions, REST/OpenAPI
+metadata, and bilingual EN/AR RTL Angular UI with accessibility.
+
+Reporting is read-only orchestration and must not mutate source ledgers,
+operational documents, inventory, accounting, or lifecycle state. Do not add a
+Reporting persistence context/migration. Do not activate external distribution,
+production policy, statutory certification, Wafra-specific behavior, or any
+later capability. MESP-48 and MESP-50 remain open production gates.
+
+Required handoff state: one Open/Draft/Unmerged PR against `main`; no Ready
+transition, merge, reviewer request, auto-merge, rebase, force-push, or Jira
+write. Update `.ai/CURRENT_STATE.md` and `docs/staticts.md`; leave
+`frontend/assets` untouched. Independent GPT-5.6 Sol review is the next gate.
+
+# Historical MESP-138 accepted lifecycle finalization — 6 September 2026
 
 MESP-138 is technically accepted by GPT-5.6 Sol at Jira comment `12359`, at
 exact feature head `77eafb21b05379992c92be7b4f6e3ff347dfb1b7`. HOLD-138-S,
