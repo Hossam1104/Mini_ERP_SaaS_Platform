@@ -66,9 +66,14 @@ invented.
 Release backend build: **0 warnings / 0 errors**. Safe disposable-LocalDB
 backend suite: **1,192 / 1,192 passed, 0 skipped**; focused Reporting
 architecture tests: **5 / 5**; exact Reporting REST permission test: **1 / 1**;
-Angular unit tests: **308 / 308** across 44 files, including the English and
+fresh affected-domain evidence is Tenant/security **108/108**, Finance
+**93/93**, Inventory **90/90**, Procurement **64/64**, Sales **38/38**,
+REST/OpenAPI **37/37**, and audit **37/37**. Angular unit tests: **308 / 308**
+across 44 files, including the English and
 Arabic/RTL Reporting journeys. Production initial bundle:
-**513.21 kB**, retaining the existing 500 kB budget warning. NuGet vulnerable
+**513.21 kB**, retaining the existing 500 kB budget warning. The full backend
+run was **1,192/1,192**, split into **1,105 non-SQL** and **87 SQL-safety**
+tests. NuGet vulnerable
 package scan: clear across five projects. `npm audit`: 2 lockfile findings
 (1 moderate, 1 high); no audit fix was run. `git diff --check` is clean.
 Owner-managed `frontend/assets` is untouched. No Reporting database context or

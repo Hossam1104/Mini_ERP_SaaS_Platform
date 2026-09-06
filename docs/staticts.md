@@ -32,9 +32,12 @@ readiness.
 Validation recorded for this continuation: Release backend build `0 warnings / 0
 errors`; disposable-LocalDB backend suite `1,192 / 1,192 passed, 0 skipped`;
 focused Reporting architecture tests `5 / 5`; exact Reporting REST permission
-test `1 / 1`; Angular unit tests `308 / 308` across 44 files, including the
+test `1 / 1`; fresh affected-domain evidence: Tenant/security `108/108`,
+Finance `93/93`, Inventory `90/90`, Procurement `64/64`, Sales `38/38`,
+REST/OpenAPI `37/37`, and audit `37/37`; Angular unit tests `308 / 308` across 44 files, including the
 English and Arabic/RTL Reporting journeys; production build
 `513.21 kB` initial bundle with the existing 500 kB budget warning retained;
+full backend `1,192/1,192` split into `1,105` non-SQL and `87` SQL-safety tests;
 NuGet vulnerable-package scan clear across all five backend projects; `npm
 audit` reports 2 existing lockfile findings (1 moderate, 1 high), and no audit
 fix was run; `git diff --check` clean. Owner-managed `frontend/assets` remains
