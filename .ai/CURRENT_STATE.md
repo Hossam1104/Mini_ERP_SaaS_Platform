@@ -81,6 +81,8 @@ migration was added; the existing seven-context SQL migration safety run was
 green. Explicit EF `has-pending-model-changes` checks reported no changes for
 TenantPersistence, MasterData, BusinessParties, Procurement, Inventory,
 Finance, and Sales.
+Focused Reporting Chromium journeys: **2 / 2**; full applicable Chromium
+regression: **51 / 51**.
 
 ### Next exact gate
 
