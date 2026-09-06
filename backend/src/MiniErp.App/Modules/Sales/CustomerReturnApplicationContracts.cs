@@ -80,6 +80,48 @@ public sealed record SalesCustomerReturnSourceRecord(
     byte[]? Version = null,
     IReadOnlyList<SalesCustomerReturnInvoiceAllocationRecord>? InvoiceAllocations = null);
 
+/// <summary>
+/// MESP-138 HOLD-5 (HOLD-138-S). Credit Note Finance authority is derived from the exact
+/// intersection of the requested Return lines and quantities with the remaining eligible
+/// recognized Invoice allocation capacity for the same Delivery/Order lineage, optionally
+/// narrowed to one requested Invoice. Source-wide Invoice presence is never sufficient.
+/// </summary>
+public static class SalesCustomerReturnCreditEligibility
+{
+    /// <summary>Remaining recognized Invoice capacity for one requested Order line, respecting the optional Invoice filter.</summary>
+    public static decimal LineCapacity(Guid orderLineId, Guid? invoiceId, IReadOnlyList<SalesCustomerReturnInvoiceAllocationRecord> allocations) =>
+        allocations
+            .Where(item => item.OrderLineId == orderLineId && (invoiceId is null || item.InvoiceId == invoiceId))
+            .Sum(item => Math.Max(0m, item.RemainingCreditableQuantity));
+
+    /// <summary>Requested-line and requested-quantity intersected recognized coverage for the whole request.</summary>
+    public static decimal Coverage(SalesCustomerReturnCreateRequest request, IReadOnlyList<SalesCustomerReturnInvoiceAllocationRecord> allocations)
+    {
+        var coverage = 0m;
+        foreach (var line in request.Lines ?? [])
+        {
+            if (line.Quantity <= 0m) continue;
+            coverage += Math.Min(line.Quantity, LineCapacity(line.OrderLineId, request.InvoiceId, allocations));
+        }
+        return coverage;
+    }
+
+    /// <summary>Returns the failure code when the request cannot carry Credit Note Finance authority, otherwise null.</summary>
+    public static string? Evaluate(SalesCustomerReturnCreateRequest request, IReadOnlyList<SalesCustomerReturnInvoiceAllocationRecord>? allocations)
+    {
+        if (request is null || request.Consequence != SalesCustomerReturnConsequence.CreditNote) return null;
+        var source = allocations ?? [];
+        var lines = request.Lines ?? [];
+        if (source.Count == 0 || lines.Count == 0) return "recognized_invoice_required";
+        if (request.InvoiceId is { } requestedInvoiceId)
+        {
+            if (!source.Any(item => item.InvoiceId == requestedInvoiceId)) return "invoice_source_mismatch";
+            if (!source.Any(item => item.InvoiceId == requestedInvoiceId && item.RemainingCreditableQuantity > 0m && lines.Any(line => line.OrderLineId == item.OrderLineId && line.Quantity > 0m))) return "invoice_source_mismatch";
+        }
+        return Coverage(request, source) <= 0m ? "recognized_invoice_required" : null;
+    }
+}
+
 public sealed record SalesCustomerReturnInventoryAcknowledgementLine(
     Guid OrderLineId,
     decimal ReceivedQuantity,
@@ -286,12 +328,7 @@ public sealed class SalesCustomerReturnService(
         var source = await persistence.GetEligibleSourceAsync(context, request.DeliveryId, cancellationToken);
         if (source is null) return SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("return_source_not_found");
         if (!authorization.Authorize(context, "sales.customer-return.create", new SalesScope(source.TenantId, source.CompanyId, source.BranchId))) return SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("permission_denied");
-        if (request.Consequence == SalesCustomerReturnConsequence.CreditNote)
-        {
-            var invoiceAllocations = source.InvoiceAllocations ?? [];
-            if (invoiceAllocations.Count == 0) return SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("recognized_invoice_required");
-            if (request.InvoiceId is { } requestedInvoiceId && !invoiceAllocations.Any(item => item.InvoiceId == requestedInvoiceId)) return SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("invoice_source_mismatch");
-        }
+        if (SalesCustomerReturnCreditEligibility.Evaluate(request, source.InvoiceAllocations) is { } eligibilityFailure) return SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure(eligibilityFailure);
         var fingerprint = Fingerprint(request);
         return await persistence.CreateAsync(context, new SalesCustomerReturnCreateCommand(Guid.NewGuid(), request, context.ActorId, DateTimeOffset.UtcNow, Normalize(idempotencyKey), fingerprint), cancellationToken);
     }

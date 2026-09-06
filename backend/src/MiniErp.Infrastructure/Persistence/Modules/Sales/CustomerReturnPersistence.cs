@@ -77,9 +77,10 @@ public sealed class CustomerReturnPersistence(DbContextOptions options) : ISales
         var delivery = await db.Deliveries.AsNoTracking().SingleOrDefaultAsync(item => item.Id == command.Request.DeliveryId && item.Status == SalesDeliveryStatus.Posted, cancellationToken);
         var source = delivery is null ? null : await BuildSourceAsync(db, delivery, null, cancellationToken);
         if (source is null) return Failure("return_source_not_found");
-        var sourceInvoiceIds = source.InvoiceAllocations?.Select(item => item.InvoiceId).Distinct().ToArray() ?? [];
+        var sourceAllocations = source.InvoiceAllocations ?? [];
+        var sourceInvoiceIds = sourceAllocations.Select(item => item.InvoiceId).Distinct().ToArray();
         if (command.Request.InvoiceId is { } invoiceId && !sourceInvoiceIds.Contains(invoiceId)) return Failure("invoice_source_mismatch");
-        if (command.Request.Consequence == SalesCustomerReturnConsequence.CreditNote && sourceInvoiceIds.Length == 0) return Failure("recognized_invoice_required");
+        if (SalesCustomerReturnCreditEligibility.Evaluate(command.Request, sourceAllocations) is { } eligibilityFailure) return Failure(eligibilityFailure);
         var lines = command.Request.Lines.ToDictionary(item => item.OrderLineId);
         foreach (var requestLine in command.Request.Lines)
         {
@@ -92,10 +93,12 @@ public sealed class CustomerReturnPersistence(DbContextOptions options) : ISales
             var sourceLine = source.Lines.Single(item => item.OrderLineId == requestLine.OrderLineId);
             entity.Lines.Add(new SalesCustomerReturnLineEntity(context.TenantId, Guid.NewGuid(), entity.Id, source.DeliveryId, requestLine, sourceLine));
         }
+        var persistedAllocations = new List<SalesCustomerReturnInvoiceAllocationEntity>();
+        var allocatedQuantity = 0m;
         foreach (var sourceLine in entity.Lines)
         {
             var remaining = sourceLine.ReturnQuantity;
-            foreach (var candidate in (source.InvoiceAllocations ?? []).Where(item => item.OrderLineId == sourceLine.OrderLineId && (command.Request.InvoiceId is null || item.InvoiceId == command.Request.InvoiceId)).OrderBy(item => item.InvoiceId).ThenBy(item => item.Id))
+            foreach (var candidate in sourceAllocations.Where(item => item.OrderLineId == sourceLine.OrderLineId && (command.Request.InvoiceId is null || item.InvoiceId == command.Request.InvoiceId)).OrderBy(item => item.InvoiceId).ThenBy(item => item.Id))
             {
                 if (remaining <= 0m) break;
                 var quantity = Math.Min(remaining, candidate.RemainingCreditableQuantity);
@@ -112,10 +115,16 @@ public sealed class CustomerReturnPersistence(DbContextOptions options) : ISales
                     TaxAmount = Round(candidate.TaxAmount * ratio),
                     GrossAmount = Round(candidate.GrossAmount * ratio)
                 };
-                db.CustomerReturnInvoiceAllocations.Add(new SalesCustomerReturnInvoiceAllocationEntity(context.TenantId, Guid.NewGuid(), entity.Id, allocation));
+                persistedAllocations.Add(new SalesCustomerReturnInvoiceAllocationEntity(context.TenantId, Guid.NewGuid(), entity.Id, allocation));
+                allocatedQuantity += quantity;
                 remaining -= quantity;
             }
         }
+        // MESP-138 HOLD-138-S defence in depth: a Credit Note consequence must carry real recognized
+        // Invoice authority after deterministic allocation construction. Fail closed before any write so
+        // no Return, history, audit, or replay artefact claims a successful creation.
+        if (command.Request.Consequence == SalesCustomerReturnConsequence.CreditNote && (persistedAllocations.Count == 0 || allocatedQuantity <= 0m)) return Failure("recognized_invoice_required");
+        db.CustomerReturnInvoiceAllocations.AddRange(persistedAllocations);
         db.CustomerReturns.Add(entity);
         AddHistory(db, context, entity.Id, SalesHistoryAction.Created, null, entity.Status, command.Request.Reason, command.RequestFingerprint);
         AddAudit(db, context, operation, entity.Id, "Allowed", command.Request.Reason, null, $"status={entity.Status};delivery={entity.DeliveryId}", command.IdempotencyKey, command.RequestFingerprint, command.OccurredAt);
@@ -164,7 +173,9 @@ public sealed class CustomerReturnPersistence(DbContextOptions options) : ISales
     {
         await using var db = Create(context);
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var entity = await db.CustomerReturns.Include(item => item.Lines).SingleOrDefaultAsync(item => item.Id == command.ReturnId && item.TenantId.Value == command.TenantId, cancellationToken);
+        // Keep the TenantId value-object comparison in SQL. Accessing .Value in the predicate is not
+        // translatable by the relational SQLite provider used for the real persistence evidence.
+        var entity = await db.CustomerReturns.Include(item => item.Lines).SingleOrDefaultAsync(item => item.Id == command.ReturnId && item.TenantId == context.TenantId, cancellationToken);
         if (entity is null) return Failure("customer_return_not_found");
         if (entity.Status == SalesCustomerReturnStatus.Reversed) return Failure("customer_return_transition_invalid");
         if (command.InventoryEffectId == Guid.Empty || string.IsNullOrWhiteSpace(command.EffectFingerprint) || string.IsNullOrWhiteSpace(command.RequestFingerprint) || string.IsNullOrWhiteSpace(command.PhysicalEvidenceReference) || command.Lines is null || command.Lines.Count != entity.Lines.Count || command.Lines.Select(item => item.OrderLineId).Distinct().Count() != command.Lines.Count || command.Lines.Any(item => item.OrderLineId == Guid.Empty || entity.Lines.All(line => line.OrderLineId != item.OrderLineId))) return Failure("inventory_effect_mismatch");
@@ -192,7 +203,7 @@ public sealed class CustomerReturnPersistence(DbContextOptions options) : ISales
     {
         await using var db = Create(context);
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var entity = await db.CustomerReturns.Include(item => item.Lines).SingleOrDefaultAsync(item => item.Id == command.ReturnId && item.TenantId.Value == command.TenantId, cancellationToken);
+        var entity = await db.CustomerReturns.Include(item => item.Lines).SingleOrDefaultAsync(item => item.Id == command.ReturnId && item.TenantId == context.TenantId, cancellationToken);
         if (entity is null) return Failure("customer_return_not_found");
         try { entity.RecordInventoryFailure(command); }
         catch (InvalidOperationException exception) { return Failure(exception.Message); }
