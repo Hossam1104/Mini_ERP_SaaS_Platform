@@ -66,7 +66,8 @@ invented.
 Release backend build: **0 warnings / 0 errors**. Safe disposable-LocalDB
 backend suite: **1,192 / 1,192 passed, 0 skipped**; focused Reporting
 architecture tests: **5 / 5**; exact Reporting REST permission test: **1 / 1**;
-Angular unit tests: **307 / 307** across 44 files. Production initial bundle:
+Angular unit tests: **308 / 308** across 44 files, including the English and
+Arabic/RTL Reporting journeys. Production initial bundle:
 **513.21 kB**, retaining the existing 500 kB budget warning. NuGet vulnerable
 package scan: clear across five projects. `npm audit`: 2 lockfile findings
 (1 moderate, 1 high); no audit fix was run. `git diff --check` is clean.

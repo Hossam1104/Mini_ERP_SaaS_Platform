@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { ContextService } from '../../core/context/context.service';
+import { LanguageService } from '../../core/i18n/language.service';
 import { ReportingService } from './reporting.service';
 import { ReportingWorkspaceComponent } from './reporting-workspace.component';
 
@@ -44,5 +45,13 @@ describe('ReportingWorkspaceComponent', () => {
     fixture.componentInstance.run();
     const service = TestBed.inject(ReportingService) as unknown as { execute: ReturnType<typeof vi.fn> };
     expect(service.execute).toHaveBeenCalledWith('finance.trial-balance', expect.not.objectContaining({ companyId: expect.anything() }));
+  });
+
+  it('renders the Arabic RTL journey through the shared language service', () => {
+    TestBed.inject(LanguageService).setLanguage('ar');
+    fixture.detectChanges();
+    const section = fixture.nativeElement.querySelector('.reporting-page') as HTMLElement;
+    expect(section.getAttribute('dir')).toBe('rtl');
+    expect(section.textContent).toContain('خط واضح يعود إلى المصدر.');
   });
 });

@@ -32,7 +32,8 @@ readiness.
 Validation recorded for this continuation: Release backend build `0 warnings / 0
 errors`; disposable-LocalDB backend suite `1,192 / 1,192 passed, 0 skipped`;
 focused Reporting architecture tests `5 / 5`; exact Reporting REST permission
-test `1 / 1`; Angular unit tests `307 / 307` across 44 files; production build
+test `1 / 1`; Angular unit tests `308 / 308` across 44 files, including the
+English and Arabic/RTL Reporting journeys; production build
 `513.21 kB` initial bundle with the existing 500 kB budget warning retained;
 NuGet vulnerable-package scan clear across all five backend projects; `npm
 audit` reports 2 existing lockfile findings (1 moderate, 1 high), and no audit
