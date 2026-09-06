@@ -36,6 +36,8 @@ drift. This executor performed no Jira write.
 | Implementation branch | `feat/MESP-139-release1-reporting` |
 | Preferred worktree | `D:\AI Tools\Active Projects\Mini_ERP_SaaS_Platform-MESP-139` |
 | Required PR state | One Open/Draft/Unmerged PR, base `main`; no Ready, merge, reviewer request, auto-merge, rebase, or force-push |
+| Implementation commit | `338110a949d2730532a80f750d3a67af358b6028` |
+| Active PR | **#88** — Open / Draft / Unmerged; independent GPT-5.6 Sol review required |
 | CI | **NONE / NOT CLAIMED** — local validation only |
 
 ### Bounded capability

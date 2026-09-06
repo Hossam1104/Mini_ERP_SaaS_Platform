@@ -10,7 +10,7 @@ Jira and GitHub remain authoritative for mutable lifecycle facts.
 | Measure | Value | Basis |
 |---|---|---|
 | Active capability | **MESP-139 - Release 1 Reporting** | Activated by Sol in Jira: MESP-139 comment `12366`; Epic reconciliation comment `12367`; readiness authority comment `12363` |
-| Implementation branch | `feat/MESP-139-release1-reporting` | Isolated continuation worktree from exact `origin/main` baseline `293f7442677b4142ae45cde0f6d48dcd9ccf6077` |
+| Implementation branch | `feat/MESP-139-release1-reporting` | Commit `338110a949d2730532a80f750d3a67af358b6028`; Draft PR #88; isolated continuation worktree from exact `origin/main` baseline `293f7442677b4142ae45cde0f6d48dcd9ccf6077` |
 | MESP-11 / MESP-139 | **In Progress** | Jira activation was completed by Sol before this continuation; no executor Jira write performed |
 | Accepted fast-track capability completion | **22 / 26 = 84.6%** | Unchanged from accepted MESP-138 lifecycle state; implementation review does not self-accept MESP-139 |
 | Production readiness - overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
