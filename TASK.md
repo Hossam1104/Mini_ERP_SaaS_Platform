@@ -1,8 +1,87 @@
-# Post-checkpoint handoff — project-wide normalization and deep checkpoint (4 September 2026)
+# MESP-138 accepted lifecycle finalization — 6 September 2026
 
-**Executor of the completed session:** Claude Opus 5 (High), acting as an
-exceptional independent checkpoint executor — *not* as the standing project
-executor and *not* as an acceptance authority.
+MESP-138 is technically accepted by GPT-5.6 Sol at Jira comment `12359`, at
+exact feature head `77eafb21b05379992c92be7b4f6e3ff347dfb1b7`. HOLD-138-S,
+HOLD-138-T, and HOLD-138-U are accepted. No further implementation is
+required.
+
+The current bounded task is lifecycle finalization only: governance-only
+normalization, PR #86 Ready/merge when live prerequisites remain valid, and
+Jira closure after verified merge. Its completion condition is:
+
+`MESP-138 = CLOSED / ACCEPTED / MERGED`
+
+The accepted technical head is distinct from any later governance-only commit
+and must not be altered by product, migration, test, frontend, or asset
+changes. Live GitHub and Jira remain authoritative for mutable lifecycle
+state.
+
+**MESP-139 = NOT ACTIVATED.** No next implementation task, Phase B, report,
+refund, replacement, statutory, or integration work is authorized.
+
+After verified PR merge and Jira Done closure, accepted fast-track completion
+is **22 / 26 = 84.6%**; production readiness remains approximately **47%
+overall / 41% Procurement/P2P** and is not recalculated here.
+
+# HISTORICAL RECORD (preserved; not current authority)
+
+
+# MESP-138 HOLD 4 executor handoff — 6 September 2026 (superseded by HOLD 5 above)
+
+**Executor of the completed session:** Claude Sonnet 5, acting under the
+bounded MESP-138 HOLD 4 FINAL REMEDIATION authority — *not* as an acceptance
+authority.
+
+## What the completed session did
+
+* Continued the existing Draft PR #86 / branch
+  `feat/MESP-138-customer-return-credit-receipts` from the accepted HOLD 3
+  head, with no rebase, no force-push, and no history rewrite.
+* Resolved exactly the four HOLD 4 blockers from GPT-5.6 Sol's HOLD 3 review
+  (MESP-138 comment `12352`): HOLD-138-O (Credit Note eligibility derived
+  from `source.InvoiceAllocations` authority instead of the incorrect
+  `FinanceOpenItemId == null` check), HOLD-138-P (canonicalized,
+  order-insensitive, duplicate-rejecting `TaxJournalIds` comparison in
+  `MatchesPost`), HOLD-138-Q (real SQL Server LocalDB concurrency race
+  evidence proving Serializable isolation already prevents double-consumption
+  of the same Return allocation, with no new mechanism or migration added),
+  and HOLD-138-R (corrected the SQL Server safety harness's migration-order
+  and structural constraint tests to match reality, plus new R1-R5
+  structural assertions).
+* Did not redesign any already-accepted HOLD 3 item; no regression was found
+  in HOLD 3 behavior during this remediation.
+* Ran Release build, the new HOLD-4 focused O/P integration tests, MESP-138
+  HOLD 2/HOLD 3/Foundation regression, a focused Sales+Finance subset, the
+  full disposable-LocalDB backend suite (including the SQL Server safety
+  harness and the two new HOLD-138-Q concurrency races), a 7-context EF
+  pending-model-changes check against real SQL Server, the REST/OpenAPI
+  operation catalogue subset, a NuGet vulnerability scan across all five
+  backend projects, and `git diff --check`.
+
+## Current position at the end of the checkpoint (historical)
+
+| Item | Value |
+|---|---|
+| Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` |
+| Active capability | **MESP-138**, In Progress under Epic MESP-9 |
+| Active branch / head | `feat/MESP-138-customer-return-credit-receipts`; HOLD-4 remediation commits `a33fac1` (HOLD-138-O/P) and `9b5620d` (HOLD-138-Q/R), final handoff commit is this session's documentation commit |
+| Published as | Draft PR **#86** — Open / Draft / Unmerged; accepted main normalization integrated |
+| Acceptance state | **Not accepted** — Sol HOLD 4 (MESP-138 comment `12352`) remains the acceptance authority |
+| Next capability | MESP-139 — To Do, **not activated** |
+| Accepted fast-track completion | **21 / 26 = 80.8%** (MESP-138 excluded) |
+| Production readiness | ~47% overall · ~41% Procurement/P2P |
+| Open production gates | MESP-48, MESP-50 |
+| CI | **NONE / NOT CLAIMED** |
+
+This HOLD 4 checkpoint's Sol review led to the HOLD 5 cross-executor
+continuation (Claude Sonnet 5 → Terra HIGH `PARTIAL` → Claude Sonnet 5)
+recorded at the top of this file.
+
+
+# MESP-138 HOLD 3 executor handoff — 6 September 2026 (superseded by HOLD 4 above)
+
+**Executor of the completed session:** GPT-5.6 Luna xHigh, acting under the
+bounded MESP-138 HOLD 3 authority — *not* as an acceptance authority.
 
 **Acceptance authority:** GPT-5.6 Sol. The checkpoint report is **evidence
 only**. Nothing in this file self-accepts the checkpoint, MESP-138, or any
@@ -10,79 +89,96 @@ other work.
 
 ## What the completed session did
 
-A project-wide normalization and deep read-only checkpoint on branch
-`chore/project-normalization-checkpoint`, cut from the exact accepted `main`
-commit `644e7b364006a3a62dc8e9756b9a9a64afbd33e1`:
+* Deliberately merged accepted `origin/main` `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce`
+  into the existing MESP-138 branch with a normal merge; the governance
+  conflict was reconciled without rebase or history rewrite.
+* Implemented HOLD-138-J through HOLD-138-N in the bounded Sales/Finance
+  backend scope, including typed durable Finance-effect authority, exact
+  allocation consumption, original tax-effect lineage, additive Sales
+  migration, and real integration evidence.
+* Preserved the normalized current-authority structure and historical record.
+* Ran Release build, focused MESP-138 coverage, the full disposable-LocalDB
+  backend suite, EF drift checks, REST/OpenAPI/host checks, and dependency
+  scans.
 
-* normalized canonical project identity to **`Mini_ERP_SaaS_Platform`**
-  (Jira issue key unchanged: `MESP`);
-* restructured the executor documentation so live position is recoverable from
-  **one** place — the **CURRENT AUTHORITY** block at the top of
-  `.ai/CURRENT_STATE.md` — and removed competing "current" sections from
-  `AGENTS.md`, `CLAUDE.md`, `README.md` and this file, preserving all
-  historical overlays verbatim under explicit historical dividers;
-* recorded the active AI model routing baseline in `AGENTS.md`;
-* refreshed `README.md` (and repaired genuine double-encoded UTF-8 corruption
-  in it);
-* performed a deep read-only review of the repository and of **Draft PR #86**
-  against Sol HOLD 3 blockers HOLD-138-J … HOLD-138-N;
-* ran repository-defined validation and reported gated evidence as gated.
-
-## What the completed session deliberately did NOT do
-
-* **PR #86 was not modified in any way.** No source change, no push to
-  `feat/MESP-138-customer-return-credit-receipts`, no rebase, no branch update,
-  no Ready transition, no merge, no reviewer request. HOLD 3 was **not**
-  resolved.
-* MESP-138 was **not** marked Done. MESP-139 was **not** activated. No Jira
-  lifecycle mutation was performed.
-* No file under `frontend/assets` was touched.
-* No `git clean`, `git reset --hard`, blind `git stash`, force-push, or history
-  rewrite was used, and no worktree was removed.
-* `docs/staticts.md` keeps its canonical filename; no `docs/statistics.md` was
-  created.
-* No CI was claimed. No production, statutory, ZATCA or FATOORA readiness was
-  claimed.
-
-## Current position at the end of the checkpoint
+## Current position at the end of the checkpoint (historical)
 
 | Item | Value |
 |---|---|
-| Accepted `main` | `644e7b364006a3a62dc8e9756b9a9a64afbd33e1` |
+| Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` |
 | Active capability | **MESP-138**, In Progress under Epic MESP-9 |
-| Active branch / head | `feat/MESP-138-customer-return-credit-receipts` @ `8480deef9b0fa1225dfc83c0eb59bc768b1a2960` |
-| Published as | Draft PR **#86** — Open / Draft / Unmerged, unchanged |
-| Acceptance state | **Not accepted** — Sol HOLD 3 (MESP-138 comment `12349`) stands |
+| Active branch / head | `feat/MESP-138-customer-return-credit-receipts`; implementation commit `fb4c060`, final handoff commit is this session's documentation commit |
+| Published as | Draft PR **#86** — Open / Draft / Unmerged; accepted main normalization integrated |
+| Acceptance state | **Not accepted** — Sol HOLD 3 (MESP-138 comment `12349`) remains the acceptance authority |
 | Next capability | MESP-139 — To Do, **not activated** |
 | Accepted fast-track completion | **21 / 26 = 80.8%** (MESP-138 excluded) |
 | Production readiness | ~47% overall · ~41% Procurement/P2P |
 | Open production gates | MESP-48, MESP-50 |
 | CI | **NONE / NOT CLAIMED** |
 
-`.ai/CURRENT_STATE.md` remains the authority for live state; live Jira and
-live GitHub outrank every Markdown file for mutable facts.
+This HOLD 3 checkpoint's Sol review produced four further blockers
+(HOLD-138-O through HOLD-138-R, MESP-138 comment `12352`), addressed by the
+HOLD 4 remediation recorded at the top of this file.
 
-## The next session
 
-**This file deliberately does not contain the next implementation prompt.**
+# MESP-138 HOLD 2 remediation handoff - 31 August 2026
 
-The next exact session is **GPT-5.6 Sol's independent review of the
-normalization checkpoint**, together with Sol's decision on the MESP-138
-HOLD 3 position. Only Sol may:
+MESP-138 is explicitly activated and **In Progress** under Sol activation
+comment `12305` and MESP-9 reconciliation comment `12306`; Sol HOLD 2 authority
+is comment `12346`. The bounded Phase A backend implementation and HOLD 2
+remediation are complete on branch
+`feat/MESP-138-customer-return-credit-receipts` in isolated worktree
+`D:\AI Tools\Active Projects\mini-erp-saas-platform-MESP-138`, from exact
+reviewed starting head `919ddec89a072799c3ffbfe7a8335451657a5567` and exact
+`origin/main` baseline `644e7b364006a3a62dc8e9756b9a9a64afbd33e1`. Draft PR
+`#86` is Open/Draft/Unmerged for independent GPT-5.6 Sol review. No reviewer
+request, Ready transition, merge, rebase, force-push, or Jira write beyond the
+authorized activation/reconciliation was performed. The exact final branch
+head is the commit containing this documentation/tracker handoff.
 
-* accept or reject this checkpoint and its branch;
-* decide what happens to Draft PR #86 and HOLD 3;
-* authorize the next implementation capability and write the next `TASK.md`
-  session prompt;
-* perform or authorize any Jira lifecycle change.
+The HOLD 2 implementation/remediation commit is `f45b5fd`; the exact final
+branch head is the subsequent documentation/tracker handoff commit.
 
-Until Sol issues that authorization, no executor may start MESP-139, resolve
-HOLD 3, transition MESP-138, merge any branch, or treat this handoff as
-permission to continue. `.ai/AI_EXECUTION_POLICY.md` governs; absence of a
-prohibition is not authorization.
+HOLD-138-E makes Finance commit before Sales acknowledgement, with durable
+post/reversal coordination, effect/request/source fingerprints, downstream
+idempotency identity, attempt/error evidence, and fail-closed recovery. HOLD-
+138-F repairs gross AR reduction, original Sales recognition lineage, configured
+tax reversal composition, account/period validation, and CustomerCredit/AR
+application bounds. HOLD-138-G computes full-invoice allocation residuals before
+Delivery filtering with stable source identity; HOLD-138-H validates inherited
+FX against source document date and exact historical rate identity; and
+HOLD-138-I adds actual relational persistence, integration, and failure-
+injection evidence. Four focused HOLD 2 tests pass.
 
-# HISTORICAL RECORD (preserved; not current authority)
+Phase A delivers the Sales posted-Delivery return source and lifecycle with
+bounded quantity, tax, currency, invoice/open-item, evidence, idempotency,
+history, and audit controls; Inventory receipt/inspection with If-Match,
+disposition, restock movement lineage, non-restockable handling, and durable
+audit/idempotency; and Finance same-currency credit-note lifecycle, balanced
+posting/reversal journal lineage, source/effect evidence, customer-credit
+application foundation, and exposure integration. Sales, Inventory, and
+Finance additive migrations, Tenant filters/ownership, REST/OpenAPI metadata,
+and architecture coverage are included.
 
+Final validation is Release `0 warnings / 0 errors`; focused HOLD 2 integration
+coverage is `4/4`; total MESP-138-focused coverage is `13/13`; affected
+Finance/Inventory coverage is `144/144`; and full non-SQL backend regression is
+`1,071/1,071` passed with `0` skipped. The prior 1,067/1,067 non-SQL result was
+the HOLD 1 baseline for this remediation. EF pending-model checks are clear for
+the changed Finance and Sales contexts; REST/OpenAPI/catalogue checks are
+`40/40`; NuGet vulnerability scanning is clear across all five backend
+projects; and `git diff --check` is clean. SQL/provider validation is gated
+because `MESP_SQLSERVER_SAFETY_CONNECTION_STRING` is unavailable and is not
+claimed as passing (`80` cases remain gated). Angular/UI, Phase B, refunds,
+replacement flows, external/statutory integrations, ZATCA/FATOORA, production
+certification, and MESP-139 remain excluded. The fast-track figure remains
+`21/26 = 80.8%` until Sol acceptance, merge, and Jira closure; production
+readiness remains separate at approximately `47% overall / 41% Procurement/P2P`.
+
+The next technical boundary is independent GPT-5.6 Sol review of the exact PR
+head and evidence. After that review, Sol/Owner must explicitly authorize any
+completion/merge or bounded continuation. No Phase B or MESP-139 action is
+implied by this handoff.
 
 # MESP-144 HOLD 6 merge-safety remediation — executor handoff
 

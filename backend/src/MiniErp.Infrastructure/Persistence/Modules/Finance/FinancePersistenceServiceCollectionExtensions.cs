@@ -7,6 +7,7 @@ using MiniErp.App.Modules.Finance;
 using MiniErp.App.Modules.Inventory;
 using MiniErp.App.Modules.MasterData;
 using MiniErp.App.Modules.Procurement;
+using MiniErp.App.Modules.Sales;
 
 namespace MiniErp.Infrastructure.Persistence.Modules.Finance;
 
@@ -22,6 +23,11 @@ public static class FinancePersistenceServiceCollectionExtensions
             provider.GetRequiredService<IInventoryValuationPersistence>(),
             provider.GetRequiredService<IMasterDataExchangeRatePersistence>(),
             provider.GetRequiredService<IFinanceSourceApprovalPolicy>()));
+        services.AddSingleton<IFinanceCustomerReturnPersistence>(provider => new CustomerReturnFinancePersistence(
+            optionsBuilder.Options,
+            provider.GetRequiredService<ISalesCustomerReturnSourceProvider>(),
+            provider.GetRequiredService<IFinanceCompanyProvider>(),
+            provider.GetRequiredService<IMasterDataExchangeRatePersistence>()));
         services.AddSingleton<IFinanceSettlementPersistence>(provider => new FinanceSettlementPersistence(
             optionsBuilder.Options,
             provider.GetRequiredService<IFinanceCompanyProvider>(),

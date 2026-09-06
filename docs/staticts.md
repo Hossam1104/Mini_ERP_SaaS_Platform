@@ -1,8 +1,8 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 4 September 2026 (project-wide normalization and deep checkpoint)
+**Last Updated:** 6 September 2026 (MESP-138 accepted lifecycle finalization)
 
-## Current authoritative snapshot - 4 September 2026 (supersedes every dated record below)
+## Current authoritative snapshot - 6 September 2026 (MESP-138 lifecycle finalization; supersedes every dated record below)
 
 This section is the current authoritative tracker snapshot. Every dated record
 below it is preserved historical evidence and is **not** current authority,
@@ -12,39 +12,45 @@ GitHub outrank this file for mutable facts.
 
 | Measure | Value | Basis |
 |---|---|---|
-| Accepted fast-track capability completion | **21 / 26 = 80.8%** | Unchanged. MESP-138 is implemented but **not accepted**, so it is not counted |
+| Accepted fast-track capability completion | **21 / 26 = 80.8%** pending verified merge + Jira Done; then **22 / 26 = 84.6%** | MESP-138 is Sol-accepted at exact head `77eafb21b05379992c92be7b4f6e3ff347dfb1b7` (comment `12359`); it counts only after both lifecycle conditions are verified |
 | Production readiness — overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
 | Production readiness — Procurement / P2P | ~**41%** | Unchanged |
-| Accepted `main` | `644e7b364006a3a62dc8e9756b9a9a64afbd33e1` | Verified |
+| Accepted `main` | `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce` | Verified, unchanged |
 | Continuous integration | **NONE / NOT CLAIMED** | No pipeline exists in this repository; local runs are not CI |
 
 ### Capability and lifecycle position
 
-- **MESP-138** (customer returns, credit notes, customer receipts) is the
-  single active implementation capability, **In Progress** under Epic MESP-9,
-  on `feat/MESP-138-customer-return-credit-receipts` at head
-  `8480deef9b0fa1225dfc83c0eb59bc768b1a2960`, published as **Draft PR #86
-  (Open / Draft / Unmerged)**.
-- MESP-138 is held under **GPT-5.6 Sol HOLD 3** (MESP-138 comment `12349`)
-  covering blockers **HOLD-138-J** through **HOLD-138-N**. It is **not
-  accepted**, was **not** modified by this checkpoint, and must not be counted
-  as delivered capability.
+- **MESP-138** (customer returns, credit notes, customer receipts) is
+  technically accepted by GPT-5.6 Sol at Jira comment `12359`, at exact head
+  `77eafb21b05379992c92be7b4f6e3ff347dfb1b7`. HOLD-S/T/U are accepted; the
+  current task is lifecycle finalization only. A later branch commit may carry
+  only the authorized governance normalization; GitHub is authoritative for
+  the PR and merge result.
 - **MESP-139 remains To Do / not activated.** MESP-9 remains In Progress.
 - **MESP-48** and **MESP-50** remain open production gates. Deployment,
   production identity/infrastructure, backup/restore, capacity, monitoring,
   legal/privacy, statutory validation, specialist accounting/inventory review,
   and migration/cutover gates all remain open.
 
-### Validation evidence recorded by this checkpoint
+### Validation evidence recorded by this HOLD 5 handoff
 
-Measured on the checkpoint branch cut from accepted `main`
-`644e7b364006a3a62dc8e9756b9a9a64afbd33e1`:
+Measured on the MESP-138 feature branch on top of the accepted HOLD 4
+implementation:
 
 | Check | Result |
 |---|---|
 | Release build (`backend/MiniErp.sln`) | **0 warnings / 0 errors** |
-| Backend suite, excluding the gated SQL Server safety harness | **1058 / 1058 passed**, 0 failed, 0 skipped |
-| SQL Server safety harness (80 tests) | **GATED / NOT CLAIMED** — `MESP_SQLSERVER_SAFETY_CONNECTION_STRING` unavailable; not reported as passed |
+| Combined HOLD-5 focused suite (S1-S7 + T1/T2 + U1-U8) | **11 / 11 passed** |
+| Full MESP-138 customer-return regression (all HOLD levels, Foundation through HOLD 5) | **45 / 45 passed** |
+| Focused Sales subset | **47 / 47 passed** |
+| Focused Finance subset | **124 / 124 passed** |
+| Focused Inventory subset | **114 / 114 passed** |
+| REST/OpenAPI operation catalogue subset | **48 / 48 passed** |
+| Complete backend suite (including SQL Server safety harness, via `Test-MiniErpBackend.ps1`) | **1,186 / 1,186 passed**, 0 failed, 0 skipped |
+| EF model drift (all 7 module contexts, verified against real SQL Server LocalDB) | **All 7 contexts clear** |
+| NuGet vulnerability scan | **0 vulnerable packages** across 5 projects |
+| `git diff --check` | **Clean** |
+| Persistent `MESP_SQLSERVER_CONNECTION_STRING` | **Unchanged / never referenced** |
 | Continuous integration | **NONE / NOT CLAIMED** |
 
 Note: leaving `MESP_DEV_AUTH_BYPASS=true` in the ambient shell makes the host
@@ -52,6 +58,93 @@ security suite fail closed with `permitted only when ASPNETCORE_ENVIRONMENT is
 exactly Development`. That is the guard working correctly, not a product
 defect; clear the variable, or use `scripts\Test-MiniErpBackend.ps1`, before
 running tests.
+
+### Progress history - 6 September 2026 (MESP-138 accepted lifecycle finalization)
+
+GPT-5.6 Sol accepted MESP-138 Phase A at exact head
+`77eafb21b05379992c92be7b4f6e3ff347dfb1b7` in Jira comment `12359`, accepting
+HOLD-138-S/T/U and retaining prior accepted Hold areas. This governance-only
+normalization prepares the separately authorized PR and Jira closure sequence;
+it records that MESP-138 advances from `21/26 = 80.8%` to `22/26 = 84.6%` only
+after verified merge and Jira Done. MESP-139 remains To Do / `not-activated`;
+MESP-9 remains In Progress; production readiness stays approximately 47%
+overall / 41% Procurement/P2P; MESP-48 and MESP-50 remain open gates.
+
+### Historical progress - 6 September 2026 (MESP-138 HOLD 5 continuation)
+
+MESP-138 HOLD 5 verified HOLD-138-S sound and regression-only (no redesign
+required) and completed the two blockers left `PARTIAL` by the prior
+continuation. HOLD-138-T proved, with real SQL Server LocalDB concurrency
+races, that the existing `IsolationLevel.Serializable` transaction in
+`RegisterFinanceCreditNoteAsync` already prevents two concurrent Credit Notes
+from over-consuming the same Return allocation; the only correction needed
+was the test harness's exception-chain recognition, since EF Core's
+`SqlServerExecutionStrategy` can wrap a genuinely transient `SqlException`
+(deadlock/serialization/unique-violation) in an outer
+`InvalidOperationException` at variable depth when `EnableRetryOnFailure` is
+not configured. HOLD-138-U added the forward-repair migration
+`20260906095311_MESP138Hold5SalesSchemaIntegrity`, which idempotently applies
+three Sales columns an orphaned, never-registered migration
+(`20260828150000_MESP136SalesHold1.cs`) never actually applied, plus an
+upgrade-safety test (U8) proving convergence when two of three columns
+already pre-exist out of band.
+
+Release is `0/0`; combined HOLD-5 focused suite is `11/11`; full MESP-138
+regression is `45/45`; focused Sales/Finance/Inventory subsets are `47/47`,
+`124/124`, `114/114`; REST/OpenAPI catalogue subset is `48/48`; the complete
+backend suite including SQL Server safety is `1,186/1,186` (superseding the
+prior accepted `1,175/1,175` baseline); all seven EF contexts have no pending
+model changes (verified against real SQL Server LocalDB); NuGet scanning is
+clear across five projects; and `git diff --check` is clean. MESP-138 remains
+In Progress and not accepted; PR #86 remains Open/Draft/Unmerged; MESP-139
+remains inactive; and no Ready, merge, or Jira lifecycle mutation occurred.
+
+### Historical progress - 6 September 2026 (MESP-138 HOLD 4 remediation)
+
+MESP-138 HOLD 4 remediation resolved the four blockers GPT-5.6 Sol raised
+against the HOLD 3 implementation (MESP-138 comment `12352`). HOLD-138-O
+corrected `SalesCustomerReturnService.CreateAsync`'s Credit Note eligibility
+check to use `source.InvoiceAllocations` authority (with optional `InvoiceId`
+filtering) instead of the incorrect `FinanceOpenItemId == null` check that
+blocked valid multi-invoice returns. HOLD-138-P made
+`SalesCustomerReturnFinanceEffectEntity.MatchesPost` canonicalize and exactly
+compare `TaxJournalIds` (order-insensitive, duplicate-rejecting,
+positive-tax-requires-non-empty). HOLD-138-Q added two real SQL Server
+LocalDB concurrency race tests proving concurrent Credit Notes cannot
+over-consume the same Return allocation authority; the existing Serializable
+transaction approach was proven sufficient and no new mechanism or migration
+was added. HOLD-138-R corrected the SQL Server safety harness's migration-order
+test to match the real applied Sales migration set and its structural
+constraint test to match the real migration's index `unique` flags, and added
+R1-R5 structural assertions for the Customer-Return Finance-effect tables.
+
+Release is `0/0`; HOLD-4 focused O/P coverage is `14/14`; MESP-138 HOLD
+2/HOLD 3/Foundation regression is `20/20`; focused Sales+Finance is `158/158`;
+full disposable-LocalDB backend including SQL safety is `1,175/1,175`, of
+which SQL Server safety is `83/83`; REST/OpenAPI catalogue subset is `36/36`;
+all seven EF contexts have no pending model changes (verified against real SQL
+Server LocalDB); NuGet scanning is clear across five projects; and
+`git diff --check` is clean. MESP-138 remains In Progress and not accepted; PR
+#86 remains Open/Draft/Unmerged; MESP-139 remains inactive; and no Ready,
+merge, or Jira lifecycle mutation occurred. This checkpoint's Sol review led
+to the HOLD 5 cross-executor continuation recorded above.
+
+### Historical progress - 6 September 2026 (MESP-138 HOLD 3 remediation)
+
+MESP-138 HOLD 3 remediation was implemented on the active feature branch after
+normal integration of accepted `main` `989d71886c6a1d604d9d5084ec76c6f1aee8f4ce`.
+HOLD-138-J through HOLD-138-N are evidenced by typed Sales Finance-effect and
+allocation persistence, exact subset/residual validation, durable reversal
+identity, original tax-effect account lineage, additive Sales migration, and
+real SQLite/SQL Server integration coverage. Release is `0/0`; HOLD 3 is
+`6/6`; all MESP-138 customer-return/credit-note tests are `20/20`; full
+non-SQL backend regression is `1,078/1,078`; the full disposable-LocalDB
+backend including SQL safety is `1,158/1,158`; REST/OpenAPI/catalogue/host is
+`59/59`; all seven EF contexts have no pending model changes; NuGet scanning is
+clear; and production npm audit is clear. The all-dependency npm audit retains
+two dev-tree findings and was not changed because unrelated dev-dependency
+cleanup is excluded. This HOLD 3 evidence was superseded by GPT-5.6 Sol's HOLD
+4 review (MESP-138 comment `12352`), addressed above.
 
 ### Progress history - 4 September 2026 (normalization and deep checkpoint)
 
@@ -71,6 +164,72 @@ belongs to GPT-5.6 Sol.
 
 
 # HISTORICAL RECORD (preserved; not current authority)
+
+## Current MESP-138 HOLD 2 remediation handoff - 31 August 2026
+
+- MESP-138 is **In Progress / activated** under Sol activation comment `12305`,
+  MESP-9 reconciliation `12306`, and HOLD 2 authority `12346`. The bounded
+  remediation is on `feat/MESP-138-customer-return-credit-receipts`, from exact
+  reviewed starting head `919ddec89a072799c3ffbfe7a8335451657a5567` and exact
+  `origin/main` baseline `644e7b364006a3a62dc8e9756b9a9a64afbd33e1`. PR `#86`
+  remains Open/Draft/Unmerged for independent GPT-5.6 Sol review.
+- The HOLD 2 implementation/remediation commit is `f45b5fd`; the exact final
+  branch head is the subsequent documentation/tracker handoff commit.
+- HOLD-138-E makes Finance commit before Sales acknowledgement and persists
+  post/reversal coordination, effect/request/source fingerprints,
+  downstream-idempotency identity, attempt/error evidence, and retry state.
+  HOLD-138-F repairs gross AR, original recognition lineage, configured tax
+  reversal composition, and CustomerCredit/AR bounds. HOLD-138-G computes
+  complete-invoice allocation residuals before Delivery filtering with stable
+  source identity. HOLD-138-H validates source-date FX provenance, including an
+  exact historical inactive rate. HOLD-138-I adds four relational
+  persistence/integration/failure-injection tests.
+- Validation is Release `0 warnings / 0 errors`; focused HOLD 2 integration is
+  `4/4`; total MESP-138-focused coverage is `13/13`; affected Finance/Inventory
+  coverage is `144/144`; and full non-SQL backend regression is `1,071/1,071`
+  passed with `0` skipped. The prior 1,067/1,067 non-SQL result was the HOLD 1
+  baseline for this remediation. EF pending-model checks are clear for changed
+  Finance/Sales contexts; REST/OpenAPI/catalogue is `40/40`; NuGet vulnerability
+  scanning is clear across all five backend projects; and `git diff --check` is
+  clean. SQL/provider validation is gated because
+  `MESP_SQLSERVER_SAFETY_CONNECTION_STRING` is unavailable and is not claimed
+  as passing (`80` cases remain gated).
+- Angular/UI, Phase B, refunds, replacement flows, external/statutory
+  integrations, ZATCA/FATOORA, production certification, and MESP-139 remain
+  outside this bounded handoff. Fast-track remains **21/26 = 80.8%** pending
+  Sol acceptance, merge, and Jira closure; production readiness remains
+  approximately **47% overall / 41% Procurement/P2P**; MESP-9 remains In
+  Progress; and MESP-48/MESP-50 remain open production gates.
+
+## Progress history - 31 August 2026 (MESP-138 HOLD 2 remediation)
+
+MESP-138 HOLD 2 remediation was implemented under Sol comment `12346` from
+reviewed starting head `919ddec89a072799c3ffbfe7a8335451657a5567` and exact
+main baseline `644e7b364006a3a62dc8e9756b9a9a64afbd33e1`, and retained in Draft
+PR `#86` for independent review. Finance-first commit/acknowledgement,
+gross-AR/tax composition, complete-invoice residual allocation, source-date FX,
+and persistence/failure-injection evidence are captured above. Release is
+`0/0`; focused HOLD 2 is `4/4`; MESP-138-focused is `13/13`; full non-SQL is
+`1,071/1,071`; SQL safety has `80` gated cases; and the fast-track and
+production-readiness figures remain `21/26 = 80.8%`, approximately `47%`, and
+approximately `41% Procurement/P2P`. No Phase B, MESP-139 activation, Ready
+transition, merge, or Jira write was performed.
+
+## Progress history - 31 August 2026 (MESP-138 HOLD 1 remediation)
+
+MESP-138 HOLD 1 remediation was implemented under Sol comment `12342` in
+implementation commits `07da61066e1933cf554a892ec70ea1e0586a32cc` and
+`03499dbd42b9883144c8b29782b014ef2cba5e9e` on
+starting head `63203e9f7be3c2ab38bd3bf9715a0f7c15113148`, from exact main
+baseline `644e7b364006a3a62dc8e9756b9a9a64afbd33e1`, and retained in Draft PR
+`#86` for independent review. The final branch head is recorded after the
+documentation commit. Full non-SQL validation is `1,067/1,067` passed with
+`0` skipped, including seven new behavioral tests; focused HOLD 1 coverage is
+`9/9`; SQL/provider validation is gated by the absent approved safety variable;
+and the fast-track and production-readiness figures remain `21/26 = 80.8%`,
+approximately `47% overall`, and approximately `41% Procurement/P2P`. No
+Phase B, MESP-139 activation, Ready transition, merge, or Jira write was
+performed.
 
 ## MESP-144 reconciliation record - 30 August 2026 (HOLD 5 merge-safety)
 
@@ -158,7 +317,7 @@ explicitly current authoritative snapshot above.
   current and final status.
 <!-- MESP-137-JIRA-SYNC-END -->
 
-**Last Updated:** 2026-08-30 (MESP-144 HOLD 5 merge-safety remediation)
+**Last Updated:** 2026-08-31 (MESP-138 HOLD 1 remediation handoff)
 
 ## Progress history - 30 August 2026 (MESP-137 closure reconciliation)
 

@@ -211,7 +211,9 @@ internal sealed class TenantOwnershipVerifierRegistry
             InventoryTenantOwnershipVerifier.For<InventoryValuationStateEntity>(),
             InventoryTenantOwnershipVerifier.For<InventoryMovementValuationEventEntity>(),
             InventoryTenantOwnershipVerifier.For<InventoryValuationRunEntity>(),
-            InventoryTenantOwnershipVerifier.For<InventoryFinanceValuationHandoffEntity>()
+            InventoryTenantOwnershipVerifier.For<InventoryFinanceValuationHandoffEntity>(),
+            InventoryTenantOwnershipVerifier.For<InventoryCustomerReturnEntity>(),
+            InventoryTenantOwnershipVerifier.For<InventoryCustomerReturnLineEntity>()
         ]);
     }
 
@@ -245,7 +247,11 @@ internal sealed class TenantOwnershipVerifierRegistry
             FinanceTenantOwnershipVerifier.For<FinancePeriodCloseRunEntity>(),
             FinanceTenantOwnershipVerifier.For<FinancePeriodHistoryEntity>(),
             FinanceTenantOwnershipVerifier.For<FinanceYearEndRunEntity>(),
-            FinanceTenantOwnershipVerifier.For<FinanceYearEndLineEntity>()
+            FinanceTenantOwnershipVerifier.For<FinanceYearEndLineEntity>(),
+            FinanceTenantOwnershipVerifier.For<FinanceCreditNoteEntity>(),
+            FinanceTenantOwnershipVerifier.For<FinanceCreditNoteLineEntity>(),
+            FinanceTenantOwnershipVerifier.For<FinanceCustomerCreditEntity>(),
+            FinanceTenantOwnershipVerifier.For<FinanceCustomerCreditApplicationEntity>()
         ]);
     }
 
@@ -265,7 +271,12 @@ internal sealed class TenantOwnershipVerifierRegistry
             SalesTenantOwnershipVerifier.For<SalesIdempotencyEntity>(),
             SalesTenantOwnershipVerifier.For<SalesCreditEntity>(),
             SalesTenantOwnershipVerifier.For<SalesDeliveryEntity>(),
-            SalesTenantOwnershipVerifier.For<SalesInvoiceRequestEntity>()
+            SalesTenantOwnershipVerifier.For<SalesInvoiceRequestEntity>(),
+            SalesTenantOwnershipVerifier.For<SalesCustomerReturnEntity>(),
+            SalesTenantOwnershipVerifier.For<SalesCustomerReturnLineEntity>(),
+            SalesTenantOwnershipVerifier.For<SalesCustomerReturnInvoiceAllocationEntity>(),
+            SalesTenantOwnershipVerifier.For<SalesCustomerReturnFinanceEffectEntity>(),
+            SalesTenantOwnershipVerifier.For<SalesCustomerReturnFinanceEffectAllocationEntity>()
         ]);
     }
 

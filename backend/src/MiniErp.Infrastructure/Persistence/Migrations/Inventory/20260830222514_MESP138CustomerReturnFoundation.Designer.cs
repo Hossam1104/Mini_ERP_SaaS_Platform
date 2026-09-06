@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MiniErp.Infrastructure.Persistence.Modules.Inventory;
 
@@ -11,9 +12,11 @@ using MiniErp.Infrastructure.Persistence.Modules.Inventory;
 namespace MiniErp.Infrastructure.Persistence.Migrations.Inventory
 {
     [DbContext(typeof(InventoryDbContext))]
-    partial class InventoryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260830222514_MESP138CustomerReturnFoundation")]
+    partial class MESP138CustomerReturnFoundation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -707,44 +710,17 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Inventory
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("AcknowledgementState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
                     b.Property<Guid>("ActorId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("AttemptCount")
-                        .HasColumnType("int");
 
                     b.Property<Guid?>("BranchId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CommitState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CorrelationId")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("DownstreamIdempotencyKey")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("EffectFingerprint")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
 
                     b.Property<string>("HandoffState")
                         .IsRequired()
@@ -756,13 +732,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Inventory
                         .HasMaxLength(2048)
                         .HasColumnType("nvarchar(2048)");
 
-                    b.Property<DateTimeOffset?>("LastAttemptAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("LastError")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
                     b.Property<string>("PhysicalEvidenceReference")
                         .IsRequired()
                         .HasMaxLength(2048)
@@ -773,16 +742,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Inventory
 
                     b.Property<DateOnly?>("ReceiptDate")
                         .HasColumnType("date");
-
-                    b.Property<string>("ReconciliationState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("RequestFingerprint")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
 
                     b.Property<Guid>("SalesCustomerReturnId")
                         .HasColumnType("uniqueidentifier");
@@ -807,8 +766,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Inventory
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "EffectFingerprint");
-
                     b.HasIndex("TenantId", "SalesCustomerReturnId")
                         .IsUnique();
 
@@ -820,17 +777,8 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Inventory
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<decimal>("CommerciallyAcceptedQuantity")
-                        .HasPrecision(28, 8)
-                        .HasColumnType("decimal(28,8)");
-
                     b.Property<Guid?>("DeliveryMovementId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("DeliveryMovementIdsJson")
-                        .IsRequired()
-                        .HasMaxLength(8192)
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("DeliveryUnitCost")
                         .HasPrecision(28, 8)
@@ -849,15 +797,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Inventory
                     b.Property<Guid?>("MovementId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("MovementIdsJson")
-                        .IsRequired()
-                        .HasMaxLength(8192)
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("NonRestockableAcceptedQuantity")
-                        .HasPrecision(28, 8)
-                        .HasColumnType("decimal(28,8)");
-
                     b.Property<string>("Notes")
                         .HasMaxLength(2048)
                         .HasColumnType("nvarchar(2048)");
@@ -868,19 +807,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Inventory
                     b.Property<decimal>("ReceivedQuantity")
                         .HasPrecision(28, 8)
                         .HasColumnType("decimal(28,8)");
-
-                    b.Property<decimal>("RejectedQuantity")
-                        .HasPrecision(28, 8)
-                        .HasColumnType("decimal(28,8)");
-
-                    b.Property<decimal>("RestockedQuantity")
-                        .HasPrecision(28, 8)
-                        .HasColumnType("decimal(28,8)");
-
-                    b.Property<string>("ReversalMovementIdsJson")
-                        .IsRequired()
-                        .HasMaxLength(8192)
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");

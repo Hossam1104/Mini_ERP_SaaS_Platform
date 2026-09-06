@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MiniErp.Infrastructure.Persistence.Modules.Finance;
 
@@ -11,9 +12,11 @@ using MiniErp.Infrastructure.Persistence.Modules.Finance;
 namespace MiniErp.Infrastructure.Persistence.Migrations.Finance
 {
     [DbContext(typeof(FinanceDbContext))]
-    partial class FinanceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260830222541_MESP138CustomerReturnFoundation")]
+    partial class MESP138CustomerReturnFoundation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -396,12 +399,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Finance
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTimeOffset?>("AcknowledgedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("AttemptCount")
-                        .HasColumnType("int");
-
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uniqueidentifier");
 
@@ -423,35 +420,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Finance
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("DeliveryId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("DownstreamIdempotencyKey")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("EffectFingerprint")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<decimal?>("ExchangeRate")
-                        .HasPrecision(28, 8)
-                        .HasColumnType("decimal(28,8)");
-
-                    b.Property<Guid?>("ExchangeRateId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("ExchangeRateVersionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("ExchangeRateVersionNumber")
-                        .HasColumnType("int");
-
-                    b.Property<string>("FinanceCommitState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<Guid?>("FinanceEffectId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("FinanceOpenItemId")
@@ -478,13 +446,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Finance
                     b.Property<Guid?>("InvoiceId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTimeOffset?>("LastAttemptAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("LastError")
-                        .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)");
-
                     b.Property<decimal>("NetAmount")
                         .HasPrecision(28, 8)
                         .HasColumnType("decimal(28,8)");
@@ -492,72 +453,9 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Finance
                     b.Property<DateTimeOffset?>("PostedAt")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<Guid?>("PostingJournalId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("Reason")
                         .HasMaxLength(2048)
                         .HasColumnType("nvarchar(2048)");
-
-                    b.Property<string>("ReconciliationState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("RequestFingerprint")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<DateTimeOffset?>("ReversalAcknowledgedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("ReversalAttemptCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ReversalDownstreamIdempotencyKey")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("ReversalEffectFingerprint")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<string>("ReversalFinanceCommitState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<Guid?>("ReversalFinanceEffectId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("ReversalJournalId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("ReversalLastAttemptAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("ReversalLastError")
-                        .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)");
-
-                    b.Property<string>("ReversalReconciliationState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("ReversalRequestFingerprint")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<string>("ReversalSalesAcknowledgementState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("SalesAcknowledgementState")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
 
                     b.Property<Guid>("SalesCustomerReturnId")
                         .HasColumnType("uniqueidentifier");
@@ -567,21 +465,12 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Finance
                         .HasMaxLength(262144)
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("SourceFingerprint")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.Property<decimal>("TaxAmount")
                         .HasPrecision(28, 8)
                         .HasColumnType("decimal(28,8)");
-
-                    b.Property<string>("TaxReversalJournalIdsJson")
-                        .IsRequired()
-                        .HasMaxLength(8192)
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
@@ -594,13 +483,10 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Finance
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "FinanceCommitState", "ReconciliationState");
+                    b.HasIndex("TenantId", "SalesCustomerReturnId")
+                        .IsUnique();
 
                     b.HasIndex("TenantId", "FinanceOpenItemId", "Status");
-
-                    b.HasIndex("TenantId", "SalesCustomerReturnId", "InvoiceId")
-                        .IsUnique()
-                        .HasFilter("[InvoiceId] IS NOT NULL");
 
                     b.ToTable("CreditNotes", "finance");
                 });
@@ -633,30 +519,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Finance
                         .HasPrecision(28, 8)
                         .HasColumnType("decimal(28,8)");
 
-                    b.Property<decimal>("RecognizedGrossAmount")
-                        .HasPrecision(28, 8)
-                        .HasColumnType("decimal(28,8)");
-
-                    b.Property<decimal>("RecognizedNetAmount")
-                        .HasPrecision(28, 8)
-                        .HasColumnType("decimal(28,8)");
-
-                    b.Property<decimal>("RecognizedQuantity")
-                        .HasPrecision(28, 8)
-                        .HasColumnType("decimal(28,8)");
-
-                    b.Property<decimal>("RecognizedTaxAmount")
-                        .HasPrecision(28, 8)
-                        .HasColumnType("decimal(28,8)");
-
-                    b.Property<string>("SourceAllocationFingerprint")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<Guid>("SourceAllocationId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<decimal>("TaxAmount")
                         .HasPrecision(28, 8)
                         .HasColumnType("decimal(28,8)");
@@ -666,9 +528,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Finance
 
                     b.Property<Guid?>("TaxRateVersionId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("TaxRateVersionNumber")
-                        .HasColumnType("int");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
@@ -681,7 +540,7 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Finance
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "CreditNoteId", "SourceAllocationId")
+                    b.HasIndex("TenantId", "CreditNoteId", "OrderLineId")
                         .IsUnique();
 
                     b.ToTable("CreditNoteLines", "finance");

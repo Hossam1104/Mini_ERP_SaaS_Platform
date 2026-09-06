@@ -91,7 +91,8 @@ public enum SalesHistoryAction
     Confirmed = 12,
     Cancelled = 13,
     CreditEvaluated = 14,
-    CreditOverridden = 15
+    CreditOverridden = 15,
+    Reversed = 16
 }
 
 public sealed record SalesQuotationLineRequest(

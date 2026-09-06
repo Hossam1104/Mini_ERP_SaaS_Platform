@@ -16,6 +16,8 @@ public static class FinanceModuleRegistration
         services.AddSingleton<IFinanceMesp134Persistence, UnavailableFinanceMesp134Persistence>();
         services.AddSingleton<IFinanceMesp135Persistence, UnavailableFinanceMesp135Persistence>();
         services.AddSingleton<IFinanceSupplierInvoiceSourceProvider, UnavailableFinanceSupplierInvoiceSourceProvider>();
+        services.AddSingleton<IFinanceCustomerReturnPersistence, UnavailableFinanceCustomerReturnPersistence>();
+        services.AddSingleton<FinanceCustomerReturnService>();
         services.AddSingleton<FinanceAuthorizationService>();
         return services;
     }

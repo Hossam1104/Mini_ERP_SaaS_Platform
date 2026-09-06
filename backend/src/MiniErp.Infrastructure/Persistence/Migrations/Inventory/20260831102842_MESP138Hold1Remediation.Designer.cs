@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MiniErp.Infrastructure.Persistence.Modules.Inventory;
 
@@ -11,9 +12,11 @@ using MiniErp.Infrastructure.Persistence.Modules.Inventory;
 namespace MiniErp.Infrastructure.Persistence.Migrations.Inventory
 {
     [DbContext(typeof(InventoryDbContext))]
-    partial class InventoryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831102842_MESP138Hold1Remediation")]
+    partial class MESP138Hold1Remediation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -876,11 +879,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Inventory
                     b.Property<decimal>("RestockedQuantity")
                         .HasPrecision(28, 8)
                         .HasColumnType("decimal(28,8)");
-
-                    b.Property<string>("ReversalMovementIdsJson")
-                        .IsRequired()
-                        .HasMaxLength(8192)
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");

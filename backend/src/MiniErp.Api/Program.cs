@@ -919,6 +919,7 @@ app.MapPurchaseInvoiceMatchingEndpoints();
 app.MapInventoryEndpoints();
 app.MapFinanceEndpoints();
 app.MapSalesEndpoints();
+app.MapCustomerReturnEndpoints();
 
 app.MapOpenApi("/openapi/v1.json")
     .WithName("platform.openapi")

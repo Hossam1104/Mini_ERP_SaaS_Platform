@@ -241,6 +241,7 @@ internal sealed class FinanceIdempotencyEntity : FinanceEntity
     internal Guid ResourceId { get; private set; }
     internal string SnapshotJson { get; private set; }
     internal DateTimeOffset CreatedAt { get; private set; }
+    internal void SetSnapshot(string snapshotJson) => SnapshotJson = snapshotJson;
 }
 
 internal sealed class FinanceSourceEffectEntity : FinanceEntity

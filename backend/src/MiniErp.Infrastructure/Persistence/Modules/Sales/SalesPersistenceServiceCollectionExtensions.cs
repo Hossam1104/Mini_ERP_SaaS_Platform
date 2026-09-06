@@ -16,6 +16,9 @@ public static class SalesPersistenceServiceCollectionExtensions
         var options = new DbContextOptionsBuilder();
         configureOptions(options);
         services.AddSingleton<ISalesPersistence>(new SalesPersistence(options.Options));
+        var customerReturns = new CustomerReturnPersistence(options.Options);
+        services.AddSingleton<ISalesCustomerReturnPersistence>(customerReturns);
+        services.AddSingleton<ISalesCustomerReturnSourceProvider>(customerReturns);
         return services;
     }
 

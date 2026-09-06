@@ -169,7 +169,7 @@ internal static class FinanceJournalMonetaryEvidenceFactory
     {
         var records = await exchangeRates.ListExchangeRatesAsync(tenantContext, cancellationToken);
         var candidates = records
-            .Where(item => item.LifecycleState == MasterDataLifecycleState.Active
+            .Where(item => (expectedId is not null || item.LifecycleState == MasterDataLifecycleState.Active)
                 && string.Equals(item.SourceCurrencyCode, source, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(item.TargetCurrencyCode, target, StringComparison.OrdinalIgnoreCase))
             .SelectMany(item => item.Versions

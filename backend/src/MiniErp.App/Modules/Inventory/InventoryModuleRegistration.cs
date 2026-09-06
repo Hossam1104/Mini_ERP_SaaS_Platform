@@ -25,6 +25,8 @@ public static class InventoryModuleRegistration
         services.AddSingleton<IInventoryApprovalPolicyProvider, NoInventoryApprovalPolicyProvider>();
         services.AddSingleton<IInventoryApprovalDelegationProvider, NoInventoryApprovalDelegationProvider>();
         services.AddSingleton<IInventoryPersistence, UnavailableInventoryPersistence>();
+        services.AddSingleton<IInventoryCustomerReturnPersistence, UnavailableInventoryCustomerReturnPersistence>();
+        services.AddSingleton<InventoryCustomerReturnService>();
         services.AddSingleton<IInventoryValuationPersistence, UnavailableInventoryValuationPersistence>();
         services.AddSingleton<IGoodsReceiptInventoryEffectReader, InventoryPersistenceGoodsReceiptEffectReader>();
         services.AddSingleton<ISupplierReturnInventoryEffectReader, InventoryPersistenceSupplierReturnEffectReader>();

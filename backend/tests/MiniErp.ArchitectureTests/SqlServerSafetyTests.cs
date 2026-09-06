@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using System.Data.Common;
 using System.Reflection;
 using Microsoft.Data.SqlClient;
@@ -11,10 +11,12 @@ using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.Modules.BusinessParties;
 using MiniErp.App.Modules.Inventory;
 using MiniErp.App.Modules.MasterData;
+using MiniErp.App.Modules.Sales;
 using MiniErp.Contracts.Modules.Finance;
 using MiniErp.Contracts.Modules.Foundation;
 using MiniErp.Contracts.Modules.Inventory;
 using MiniErp.Contracts.Modules.MasterData;
+using MiniErp.Contracts.Modules.Sales;
 using MiniErp.Infrastructure.Persistence;
 using MiniErp.Infrastructure.Persistence.Migrations.Inventory;
 using MiniErp.Infrastructure.Persistence.Modules.BusinessParties;
@@ -22,6 +24,7 @@ using MiniErp.Infrastructure.Persistence.Modules.Inventory;
 using MiniErp.Infrastructure.Persistence.Modules.Finance;
 using MiniErp.Infrastructure.Persistence.Modules.MasterData;
 using MiniErp.Infrastructure.Persistence.Modules.Procurement;
+using MiniErp.Infrastructure.Persistence.Modules.Sales;
 using Xunit;
 
 namespace MiniErp.ArchitectureTests;
@@ -167,6 +170,13 @@ public sealed class SqlServerSafetyFixture : IAsyncLifetime
             await finance.Database.MigrateAsync();
         }
 
+        await using (var sales = new SalesDbContext(
+                         SqlServerMigrationConfiguration.Configure(_connectionString, SqlServerMigrationConfiguration.SalesHistoryTable),
+                         TenantA))
+        {
+            await sales.Database.MigrateAsync();
+        }
+
         await CreateProbeTablesAsync();
         Factory = new TenantPersistenceSessionFactory(_options);
     }
@@ -298,6 +308,7 @@ public sealed class SqlServerSafetyTests
         var procurementOptions = SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.ProcurementHistoryTable);
         var inventoryOptions = SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.InventoryHistoryTable);
         var financeOptions = SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.FinanceHistoryTable);
+        var salesOptions = SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.SalesHistoryTable);
 
         await using (var tenancy = new TenantPersistenceDbContext(tenancyOptions, _fixture.TenantA))
         {
@@ -350,7 +361,10 @@ public sealed class SqlServerSafetyTests
                     "20260823124304_MESP131MovingWeightedAverageValuation",
                     "20260823180537_MESP131SolFinancialIntegrityRemediation",
                     "20260823225921_MESP131SolFinalValuationIntegrity",
-                    "20260829150156_MESP137ReservationFulfillment"
+                    "20260829150156_MESP137ReservationFulfillment",
+                    "20260830222514_MESP138CustomerReturnFoundation",
+                    "20260831102842_MESP138Hold1Remediation",
+                    "20260831104654_MESP138Hold1InventoryReversal"
                 ],
                 (await inventory.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await inventory.Database.GetPendingMigrationsAsync());
@@ -366,10 +380,33 @@ public sealed class SqlServerSafetyTests
                     "20260825225409_MESP134TaxFxReportingRevaluation",
                     "20260825232242_MESP134EvidenceSnapshots",
                     "20260826001524_MESP134Hold1CorrectiveEvidence",
-                    "20260826133441_MESP135FinanceCloseReports"
+                    "20260826133441_MESP135FinanceCloseReports",
+                    "20260830222541_MESP138CustomerReturnFoundation",
+                    "20260830223637_MESP138CreditNotePostingEffect",
+                    "20260831102106_MESP138Hold1SourceEvidence",
+                    "20260831151947_MESP138Hold2Durability"
                 ],
                 (await finance.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await finance.Database.GetPendingMigrationsAsync());
+        }
+
+        await using (var sales = new SalesDbContext(salesOptions, _fixture.TenantA))
+        {
+            Assert.Equal(
+                [
+                    "20260828113439_MESP136SalesCommercial",
+                    "20260828125545_MESP136SalesCommercialEvidence",
+                    "20260828224412_MESP136SalesHold3CurrencyIntegrity",
+                    "20260829150203_MESP137DeliveryInvoice",
+                    "20260829181835_MESP137Hold1Remediation",
+                    "20260830222453_MESP138CustomerReturnFoundation",
+                    "20260831102044_MESP138Hold1Remediation",
+                    "20260831151959_MESP138Hold2FinanceReversalAck",
+                    "20260905204444_MESP138Hold3FinanceEffectAuthority",
+                    "20260906095311_MESP138Hold5SalesSchemaIntegrity"
+                ],
+                (await sales.Database.GetAppliedMigrationsAsync()).ToArray());
+            Assert.Empty(await sales.Database.GetPendingMigrationsAsync());
         }
 
         await using var connection = await _fixture.OpenConnectionAsync();
@@ -400,6 +437,82 @@ public sealed class SqlServerSafetyTests
         Assert.True(await reader.NextResultAsync());
         Assert.True(await reader.ReadAsync());
         Assert.Equal(1, reader.GetInt32(0));
+    }
+
+    [Fact]
+    public async Task MESP138Hold4_sql_server_customer_return_finance_effect_tables_have_authoritative_constraints()
+    {
+        await using var connection = await _fixture.OpenConnectionAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = N'sales'
+              AND TABLE_NAME IN (N'SalesCustomerReturnFinanceEffects', N'SalesCustomerReturnFinanceEffectAllocations');
+            SELECT COUNT(*)
+            FROM sys.key_constraints AS constraints
+            INNER JOIN sys.tables AS tables ON tables.object_id = constraints.parent_object_id
+            INNER JOIN sys.schemas AS schemas ON schemas.schema_id = tables.schema_id
+            WHERE schemas.name = N'sales' AND tables.name = N'SalesCustomerReturnFinanceEffects'
+              AND constraints.name IN (N'PK_SalesCustomerReturnFinanceEffects', N'AK_SalesCustomerReturnFinanceEffects_TenantId_Id');
+            SELECT COUNT(*)
+            FROM sys.foreign_keys
+            WHERE name = N'FK_SalesCustomerReturnFinanceEffects_SalesCustomerReturns_TenantId_CustomerReturnId';
+            SELECT COUNT(*)
+            FROM sys.indexes AS indexes
+            INNER JOIN sys.tables AS tables ON tables.object_id = indexes.object_id
+            INNER JOIN sys.schemas AS schemas ON schemas.schema_id = tables.schema_id
+            WHERE schemas.name = N'sales' AND tables.name = N'SalesCustomerReturnFinanceEffects'
+              AND indexes.name IN (N'IX_SalesCustomerReturnFinanceEffects_TenantId_CustomerReturnId_CreditNoteId', N'IX_SalesCustomerReturnFinanceEffects_TenantId_Id')
+              AND indexes.is_unique = 1;
+            SELECT COUNT(*)
+            FROM sys.indexes AS indexes
+            INNER JOIN sys.tables AS tables ON tables.object_id = indexes.object_id
+            INNER JOIN sys.schemas AS schemas ON schemas.schema_id = tables.schema_id
+            WHERE schemas.name = N'sales' AND tables.name = N'SalesCustomerReturnFinanceEffects'
+              AND indexes.name = N'IX_SalesCustomerReturnFinanceEffects_TenantId_CustomerReturnId_InvoiceId_State'
+              AND indexes.is_unique = 0;
+            SELECT COUNT(*)
+            FROM sys.key_constraints AS constraints
+            INNER JOIN sys.tables AS tables ON tables.object_id = constraints.parent_object_id
+            INNER JOIN sys.schemas AS schemas ON schemas.schema_id = tables.schema_id
+            WHERE schemas.name = N'sales' AND tables.name = N'SalesCustomerReturnFinanceEffectAllocations'
+              AND constraints.name = N'PK_SalesCustomerReturnFinanceEffectAllocations';
+            SELECT COUNT(*)
+            FROM sys.foreign_keys
+            WHERE name = N'FK_SalesCustomerReturnFinanceEffectAllocations_SalesCustomerReturnFinanceEffects_TenantId_FinanceEffectId';
+            SELECT COUNT(*)
+            FROM sys.indexes AS indexes
+            INNER JOIN sys.tables AS tables ON tables.object_id = indexes.object_id
+            INNER JOIN sys.schemas AS schemas ON schemas.schema_id = tables.schema_id
+            WHERE schemas.name = N'sales' AND tables.name = N'SalesCustomerReturnFinanceEffectAllocations'
+              AND indexes.name IN (N'IX_SalesCustomerReturnFinanceEffectAllocations_TenantId_FinanceEffectId_SourceAllocationId', N'IX_SalesCustomerReturnFinanceEffectAllocations_TenantId_Id')
+              AND indexes.is_unique = 1;
+            """;
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(2, reader.GetInt32(0));
+        Assert.True(await reader.NextResultAsync());
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(2, reader.GetInt32(0));
+        Assert.True(await reader.NextResultAsync());
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(1, reader.GetInt32(0));
+        Assert.True(await reader.NextResultAsync());
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(2, reader.GetInt32(0));
+        Assert.True(await reader.NextResultAsync());
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(1, reader.GetInt32(0));
+        Assert.True(await reader.NextResultAsync());
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(1, reader.GetInt32(0));
+        Assert.True(await reader.NextResultAsync());
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(1, reader.GetInt32(0));
+        Assert.True(await reader.NextResultAsync());
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(2, reader.GetInt32(0));
     }
 
     [Fact]
@@ -1626,6 +1739,92 @@ public sealed class SqlServerSafetyTests
         await using var db = new FinanceDbContext(options, _fixture.TenantA);
         var persistedSequences = await db.Journals.Where(item => item.CompanyId == companyId).Select(item => item.JournalSequence).ToArrayAsync();
         Assert.Equal(persistedSequences.Length, persistedSequences.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task MESP138Hold4_sql_server_concurrent_credit_notes_on_same_allocation_never_both_commit()
+    {
+        var connectionString = await GetConnectionStringAsync();
+        var financeOptions = SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.FinanceHistoryTable);
+        var (companyId, customerId, invoiceId, openItemId, allocationId, orderLineId, returnId) = await SeedCustomerReturnFixtureAsync(financeOptions, acceptedQuantity: 1m, netAmount: 100m);
+        var sales = new CustomerReturnFinanceSourceSpy(SqlHoldQSource(returnId, companyId, customerId, invoiceId, openItemId, allocationId, orderLineId, 1m, 100m));
+        var provider = new ConfiguredFinanceCompanyProvider([new FinanceCompanyOption(_fixture.TenantA.TenantId.Value, companyId, "SQL HOLD4 Company", "SAR")]);
+        var first = new CustomerReturnFinancePersistence(financeOptions, sales, provider, new UnavailableMasterDataExchangeRatePersistence());
+        var second = new CustomerReturnFinancePersistence(financeOptions, sales, provider, new UnavailableMasterDataExchangeRatePersistence());
+        var firstContext = FinanceContext("tenant.finance.credit-note.create");
+        var secondContext = FinanceContext("tenant.finance.credit-note.create");
+        var firstRequest = new FinanceCreditNoteCreateRequest(returnId, new DateOnly(2026, 1, 20), null);
+        var secondRequest = new FinanceCreditNoteCreateRequest(returnId, new DateOnly(2026, 1, 20), null);
+
+        var results = await Task.WhenAll(
+            SafeFinanceOperationAsync(() => first.CreateAsync(firstContext, firstRequest, "sql-hold4-q1-a", "sql-hold4-q1-a")),
+            SafeFinanceOperationAsync(() => second.CreateAsync(secondContext, secondRequest, "sql-hold4-q1-b", "sql-hold4-q1-b")));
+
+        Assert.Equal(1, results.Count(item => item.Succeeded));
+        Assert.Single(results, item => !item.Succeeded && item.Code is "concurrency_conflict" or "credit_note_lines_invalid" or "credit_note_quantity_conflict");
+        await using var db = new FinanceDbContext(financeOptions, _fixture.TenantA);
+        var totalQuantity = await db.CreditNoteLines.Where(item => item.SourceAllocationId == allocationId).SumAsync(item => item.Quantity);
+        Assert.True(totalQuantity <= 1m, $"cumulative credited quantity {totalQuantity} exceeded the authoritative allocation capacity of 1");
+        Assert.Equal(1, await db.CreditNotes.CountAsync(item => item.SalesCustomerReturnId == returnId));
+    }
+
+    [Fact]
+    public async Task MESP138Hold4_sql_server_concurrent_credit_notes_exceeding_remaining_capacity_never_both_commit()
+    {
+        var connectionString = await GetConnectionStringAsync();
+        var financeOptions = SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.FinanceHistoryTable);
+        var (companyId, customerId, invoiceId, openItemId, allocationId, orderLineId, returnId) = await SeedCustomerReturnFixtureAsync(financeOptions, acceptedQuantity: 10m, netAmount: 1000m);
+        var sales = new CustomerReturnFinanceSourceSpy(SqlHoldQSource(returnId, companyId, customerId, invoiceId, openItemId, allocationId, orderLineId, 10m, 1000m));
+        var provider = new ConfiguredFinanceCompanyProvider([new FinanceCompanyOption(_fixture.TenantA.TenantId.Value, companyId, "SQL HOLD4 Company", "SAR")]);
+        var first = new CustomerReturnFinancePersistence(financeOptions, sales, provider, new UnavailableMasterDataExchangeRatePersistence());
+        var second = new CustomerReturnFinancePersistence(financeOptions, sales, provider, new UnavailableMasterDataExchangeRatePersistence());
+        var firstContext = FinanceContext("tenant.finance.credit-note.create");
+        var secondContext = FinanceContext("tenant.finance.credit-note.create");
+        var firstRequest = new FinanceCreditNoteCreateRequest(returnId, new DateOnly(2026, 1, 20), null, null, [new FinanceCreditNoteLineRequest(allocationId, 6m)]);
+        var secondRequest = new FinanceCreditNoteCreateRequest(returnId, new DateOnly(2026, 1, 20), null, null, [new FinanceCreditNoteLineRequest(allocationId, 6m)]);
+
+        var results = await Task.WhenAll(
+            SafeFinanceOperationAsync(() => first.CreateAsync(firstContext, firstRequest, "sql-hold4-q2-a", "sql-hold4-q2-a")),
+            SafeFinanceOperationAsync(() => second.CreateAsync(secondContext, secondRequest, "sql-hold4-q2-b", "sql-hold4-q2-b")));
+
+        Assert.Equal(1, results.Count(item => item.Succeeded));
+        Assert.Single(results, item => !item.Succeeded && item.Code is "concurrency_conflict" or "credit_note_quantity_conflict");
+        await using var db = new FinanceDbContext(financeOptions, _fixture.TenantA);
+        var totalQuantity = await db.CreditNoteLines.Where(item => item.SourceAllocationId == allocationId).SumAsync(item => item.Quantity);
+        Assert.True(totalQuantity <= 10m, $"cumulative credited quantity {totalQuantity} exceeded the authoritative allocation capacity of 10");
+        Assert.Equal(6m, totalQuantity);
+    }
+
+    private async Task<(Guid CompanyId, Guid CustomerId, Guid InvoiceId, Guid OpenItemId, Guid AllocationId, Guid OrderLineId, Guid ReturnId)> SeedCustomerReturnFixtureAsync(DbContextOptions financeOptions, decimal acceptedQuantity, decimal netAmount)
+    {
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+        var openItemId = Guid.NewGuid();
+        var allocationId = Guid.NewGuid();
+        var orderLineId = Guid.NewGuid();
+        var returnId = Guid.NewGuid();
+        await using var db = new FinanceDbContext(financeOptions, _fixture.TenantA);
+        var item = new FinanceOpenItemEntity(_fixture.TenantA.TenantId, openItemId, FinanceOpenItemKind.Receivable, companyId, null, customerId, "sales-invoice.v1", Guid.NewGuid(), 1, invoiceId, 1, "sql-hold4-invoice", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31), "SAR", netAmount, "SAR", netAmount, null, null, null, null, null, null, null, "sql-hold4-invoice");
+        item.SetRecognition(FinanceOpenItemRecognitionState.Recognized, Guid.NewGuid());
+        db.OpenItems.Add(item);
+        await db.SaveChangesAsync();
+        return (companyId, customerId, invoiceId, openItemId, allocationId, orderLineId, returnId);
+    }
+
+    private static SalesCustomerReturnSourceRecord SqlHoldQSource(Guid returnId, Guid companyId, Guid customerId, Guid invoiceId, Guid openItemId, Guid allocationId, Guid orderLineId, decimal acceptedQuantity, decimal netAmount) => new(
+        returnId, Guid.NewGuid(), Guid.NewGuid(), 1, Guid.Empty, companyId, null, customerId, Guid.NewGuid(), DateTimeOffset.UtcNow, invoiceId, openItemId, "SAR",
+        [new(orderLineId, Guid.NewGuid(), "SQL-SKU", "SQL Product", Guid.NewGuid(), "EA", acceptedQuantity, 0m, acceptedQuantity, netAmount / acceptedQuantity, 0m, netAmount / acceptedQuantity, null, acceptedQuantity, null, null, null, acceptedQuantity, acceptedQuantity, acceptedQuantity, 0m, 0m, 0m, "Restockable", [], [], null)],
+        SalesCustomerReturnStatus.Received, SalesCustomerReturnConsequence.CreditNote, [1],
+        [new(allocationId, invoiceId, openItemId, Guid.NewGuid(), orderLineId, 1, acceptedQuantity, acceptedQuantity, acceptedQuantity, 0m, acceptedQuantity, netAmount, 0m, netAmount, "SAR", null, null, null, "sql-hold4-allocation", "sql-hold4-invoice")]);
+
+    private sealed class CustomerReturnFinanceSourceSpy(SalesCustomerReturnSourceRecord source) : ISalesCustomerReturnSourceProvider
+    {
+        public Task<SalesCustomerReturnSourceRecord?> GetCustomerReturnSourceAsync(TenantContext context, Guid returnId, CancellationToken cancellationToken = default) => Task.FromResult<SalesCustomerReturnSourceRecord?>(returnId == source.ReturnSourceId ? source : null);
+        public Task<SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>> AcknowledgeInventoryAsync(TenantContext context, SalesCustomerReturnInventoryAcknowledgementCommand command, CancellationToken cancellationToken = default) => Task.FromResult(SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("unused"));
+        public Task<SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>> RecordInventoryFailureAsync(TenantContext context, SalesCustomerReturnInventoryFailureCommand command, CancellationToken cancellationToken = default) => Task.FromResult(SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("unused"));
+        public Task<SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>> RecordDownstreamReversalAsync(TenantContext context, SalesCustomerReturnDownstreamReversalCommand command, CancellationToken cancellationToken = default) => Task.FromResult(SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("unused"));
+        public Task<SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>> RegisterFinanceCreditNoteAsync(TenantContext context, SalesCustomerReturnFinanceEffectCommand command, CancellationToken cancellationToken = default) => Task.FromResult(SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>.Failure("unused"));
     }
 
     [Fact]

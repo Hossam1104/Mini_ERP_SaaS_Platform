@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MiniErp.App.Modules.Inventory;
 using MiniErp.App.Modules.MasterData;
 using MiniErp.App.Modules.Procurement;
+using MiniErp.App.Modules.Sales;
 
 namespace MiniErp.Infrastructure.Persistence.Modules.Inventory;
 
@@ -15,6 +16,8 @@ public static class InventoryPersistenceServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services); ArgumentNullException.ThrowIfNull(configureOptions);
         var optionsBuilder = new DbContextOptionsBuilder(); configureOptions(optionsBuilder);
         services.AddSingleton<IInventoryPersistence>(new InventoryPersistence(optionsBuilder.Options));
+        services.AddSingleton<IInventoryCustomerReturnPersistence>(serviceProvider =>
+            new CustomerReturnInventoryPersistence(optionsBuilder.Options, serviceProvider.GetRequiredService<ISalesCustomerReturnSourceProvider>()));
         services.AddSingleton<IInventoryValuationPersistence>(serviceProvider =>
             new InventoryValuationPersistence(
                 optionsBuilder.Options,
