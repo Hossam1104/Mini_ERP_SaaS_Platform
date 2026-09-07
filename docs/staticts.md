@@ -1,8 +1,8 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 7 September 2026 (MESP-139 Release 1 Reporting continuation)
+**Last Updated:** 8 September 2026 (MESP-139 HOLD-1 residual close)
 
-## Current authoritative snapshot - 7 September 2026 (MESP-139 implementation boundary)
+## Current authoritative snapshot - 8 September 2026 (MESP-139 HOLD-1 residual close)
 
 This section supersedes the historical MESP-138 lifecycle snapshot below. Live
 Jira and GitHub remain authoritative for mutable lifecycle facts.
@@ -10,8 +10,8 @@ Jira and GitHub remain authoritative for mutable lifecycle facts.
 | Measure | Value | Basis |
 |---|---|---|
 | Active capability | **MESP-139 - Release 1 Reporting** | Activated by Sol in Jira: MESP-139 comment `12366`; Epic reconciliation comment `12367`; readiness authority comment `12363` |
-| Implementation branch | `feat/MESP-139-release1-reporting` | HOLD 1 starting head `f60d234a997421f9e8fddffb0c8fc1c95d780188`; product commit `20de20afccc7ad08d29b45e1417f0b7922b27e7b`; Draft PR #88; isolated continuation worktree from exact `origin/main` baseline `293f7442677b4142ae45cde0f6d48dcd9ccf6077` |
-| Sol HOLD 1 authority | MESP-139 comment `12370` | Acceptance remains owned by GPT-5.6 Sol; this executor performed no Jira write |
+| Implementation branch | `feat/MESP-139-release1-reporting` | HOLD-1 residual starting head `a76dd67803868cbefdd27db80ada4dba47306efa`; implementation commit `2a6c2ad53cc622293336ae6a08c8b18f8b2d14d1`; Draft PR #88; isolated continuation worktree from exact `origin/main` baseline `293f7442677b4142ae45cde0f6d48dcd9ccf6077` |
+| Sol HOLD 1 authority | MESP-139 comment `12374` (supersedes `12370`) | Acceptance remains owned by GPT-5.6 Sol; this executor performed no Jira write |
 | MESP-11 / MESP-139 | **In Progress** | Jira activation was completed by Sol before this continuation; no executor Jira write performed |
 | Accepted fast-track capability completion | **22 / 26 = 84.6%** | Unchanged from accepted MESP-138 lifecycle state; implementation review does not self-accept MESP-139 |
 | Production readiness - overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
@@ -20,20 +20,25 @@ Jira and GitHub remain authoritative for mutable lifecycle facts.
 
 ### MESP-139 implementation evidence
 
-The bounded implementation adds a Reporting-owned catalogue, read-only
-orchestration over Finance, Inventory, Procurement, Sales, and Foundation audit
-contracts, central trusted Tenant/company/branch/warehouse scope enforcement,
-exact runtime-record reauthorization, typed source-side detail paging,
-freshness/as-of and reconciliation metadata, lineage, CSV export jobs and
-private artifacts, explicit disabled/local-test scheduling truth, REST/OpenAPI
-metadata, and a bilingual RTL Angular workspace. It does not mutate source
-ledgers or operational records, add a Reporting persistence context or
-migration, activate external distribution, or certify production readiness.
+The bounded residual closes only the Reporting source-classification defect.
+Finance cash movement, Procurement match exceptions, Sales fulfillment, and
+Sales returns/credits now use directly injected, registered, source-owned
+bounded read ports over accepted truth. Finance bank reconciliation remains
+unavailable because no accepted bank-statement/provider capability exists;
+Inventory count variance remains unavailable because no accepted stock-count
+workflow/entities capability exists. HOLD-139-B/C/D/E remain preserved. The
+Reporting-owned catalogue, read-only orchestration, trusted scope, source-side
+filtering/paging/sorting, freshness/as-of, reconciliation metadata, lineage,
+export jobs/private artifacts, disabled/local-test scheduling truth,
+REST/OpenAPI metadata, and bilingual RTL workspace remain intact. No source
+ledger or operational record is mutated and no Reporting persistence context or
+migration is added.
 
-Validation recorded for this continuation: Release backend build `0 warnings / 0
-errors`; disposable-LocalDB backend suite `1,204 / 1,204 passed, 0 skipped`,
-split into `1,117` non-SQL and `87` SQL-safety tests; HOLD 1 architecture
-coverage `12/12`; Reporting-filtered coverage `24/24`; fresh affected-domain
+Validation recorded for this residual: Release backend build `0 warnings / 0
+errors`; disposable-LocalDB backend suite `1,209 / 1,209 passed, 0 skipped`,
+split into `1,122` non-SQL and `87` SQL-safety tests; HOLD 1 architecture
+coverage `13/13`; source-adapter coverage `4/4`; full Reporting-filtered
+coverage `29/29`; fresh affected-domain
 evidence: Finance MESP-135 `31/31`, Finance MESP-134 `27/27`, Inventory
 valuation `44/44`, Inventory ledger/control `46/46`, Procurement PO `14/14`,
 Procurement receipts `13/13`, Sales `38/38`, Audit `37/37`, Identity `89/89`,
@@ -46,14 +51,15 @@ across all five backend projects; both frontend audits `0 vulnerabilities`;
 and `git diff --check` clean. Owner-managed `frontend/assets` remains
 untouched.
 
-### Progress history - 7 September 2026 (MESP-139 Release 1 Reporting)
+### Progress history - 8 September 2026 (MESP-139 HOLD-1 residual close)
 
 Sol completed Jira activation before this executor continuation after the prior
 session was blocked by an Atlassian connector/workspace mismatch. HOLD 1 is
 implemented and ready for independent Sol review as one Open/Draft/Unmerged PR.
 No Ready transition, merge, reviewer request, Jira mutation, production
-distribution activation, or next-capability work was performed. Jira handoff
-deferred to GPT-5.6 Sol due executor connector mismatch.
+distribution activation, or next-capability work was performed. The final
+handoff remains one Open/Draft/Unmerged PR #88; independent GPT-5.6 Sol review
+is required before acceptance.
 
 ## Historical snapshot - 6 September 2026 (MESP-138 lifecycle finalization)
 

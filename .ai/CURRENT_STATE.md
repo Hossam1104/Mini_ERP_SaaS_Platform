@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY — 7 September 2026 (MESP-139 Release 1 Reporting continuation)
+## CURRENT AUTHORITY — 8 September 2026 (MESP-139 HOLD-1 residual close)
 
 ### Identity and activation
 
@@ -24,7 +24,7 @@
 | Epic / capability state | MESP-11 **In Progress**; MESP-139 **In Progress** |
 | Sol readiness authority | MESP-139 comment `12363` |
 | Sol activation authority | MESP-139 comment `12366`; Epic reconciliation comment `12367` |
-| Sol HOLD 1 authority | MESP-139 comment `12370` |
+| Sol HOLD 1 authority | MESP-139 comment `12374` (supersedes `12370`) |
 
 Sol completed the Jira activation before this continuation. The earlier
 executor block was an Atlassian connector/workspace mismatch, not project-state
@@ -37,8 +37,8 @@ drift. This executor performed no Jira write.
 | Implementation branch | `feat/MESP-139-release1-reporting` |
 | Preferred worktree | `D:\AI Tools\Active Projects\Mini_ERP_SaaS_Platform-MESP-139` |
 | Required PR state | One Open/Draft/Unmerged PR, base `main`; no Ready, merge, reviewer request, auto-merge, rebase, or force-push |
-| HOLD 1 starting feature head | `f60d234a997421f9e8fddffb0c8fc1c95d780188` |
-| Implementation commit | `20de20afccc7ad08d29b45e1417f0b7922b27e7b` |
+| HOLD 1 starting feature head | `a76dd67803868cbefdd27db80ada4dba47306efa` |
+| Implementation commit | `2a6c2ad53cc622293336ae6a08c8b18f8b2d14d1` |
 | Active PR | **#88** — Open / Draft / Unmerged; independent GPT-5.6 Sol review required |
 | CI | **NONE / NOT CLAIMED** — local validation only |
 
@@ -46,18 +46,20 @@ drift. This executor performed no Jira write.
 
 MESP-139 Release 1 Reporting is implemented as a Reporting-owned read-only
 catalogue and orchestration boundary over existing Finance, Inventory,
-Procurement, Sales, and Foundation audit/source contracts. HOLD 1 reconciles
-all 22 catalogue entries into explicit PD-042 implementation states, centralizes
-trusted Tenant/company/branch/warehouse scope and runtime-record
-reauthorization, pushes growing detail queries through typed source-owned page
-contracts, keeps scheduling explicitly disabled/local-test-only, and resolves
-request-time as-of/freshness from injectable and source clocks. The capability
-retains source evidence, reconciliation metadata, row lineage, CSV export
-jobs/private artifacts, explicit capability/policy states, REST/OpenAPI
-metadata, and bilingual RTL Angular UI. It does not mutate source ledgers or
-operational records, add a Reporting
-persistence context/migration, activate external distribution, or certify
-production readiness.
+Procurement, Sales, and Foundation audit/source contracts. This bounded HOLD 1
+residual closes only the source-classification defect: Finance cash movement,
+Procurement match exceptions, Sales fulfillment, and Sales returns/credits now
+consume four directly injected, registered, source-owned bounded read ports;
+Finance bank reconciliation and Inventory count variance remain unavailable
+because the accepted source capabilities are absent. HOLD-139-B/C/D/E remain
+preserved: trusted Tenant/company/branch/warehouse scope, bounded source-side
+filtering/paging/sorting, explicit disabled/local-test scheduling, and
+request-time oldest-source/unknown freshness semantics. The capability retains
+source evidence, reconciliation metadata, row lineage, CSV export jobs/private
+artifacts, explicit capability/policy states, REST/OpenAPI metadata, and
+bilingual RTL Angular UI. It does not mutate source ledgers or operational
+records, add a Reporting persistence context/migration, activate external
+distribution, or certify production readiness.
 
 ### Completion and gates
 
@@ -70,11 +72,12 @@ invented.
 ### Validation evidence
 
 Release backend build: **0 warnings / 0 errors**. Safe disposable-LocalDB
-backend suite: **1,204 / 1,204 passed, 0 skipped**, split into **1,117
+backend suite: **1,209 / 1,209 passed, 0 skipped**, split into **1,122
 non-SQL** and **87 SQL-safety** tests against disposable database
-`MiniErpFoundation_20260907163212_11cde80c`; the persistent MESP connection was
-unchanged. HOLD 1 architecture coverage is **12 / 12** and the Reporting
-filtered regression is **24 / 24**. Fresh affected-domain evidence is Finance
+`MiniErpFoundation_20260908003723_08a33a50`; the persistent MESP connection was
+unchanged. HOLD 1 architecture coverage is **13 / 13**, the four real source
+adapter tests are **4 / 4**, and the full Reporting-filtered regression is
+**29 / 29**. Fresh affected-domain evidence is Finance
 MESP-135 **31/31**, Finance MESP-134 **27/27**, Inventory valuation **44/44**,
 Inventory ledger/control **46/46**, Procurement PO **14/14**, Procurement
 receipts **13/13**, Sales **38/38**, Audit **37/37**, Identity **89/89**, and

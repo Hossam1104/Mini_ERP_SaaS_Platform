@@ -1,51 +1,49 @@
-## MESP-139 Release 1 Reporting — current bounded implementation continuation
+## MESP-139 Release 1 Reporting — HOLD-1 residual close
 
-This current section supersedes the historical lifecycle prompt below. Sol
-completed Jira activation before this continuation: MESP-11 and MESP-139 are
-In Progress; activation comment `12366`; MESP-9 reconciliation comment
-`12367`; readiness authority comment `12363`. The accepted baseline is exact
-`origin/main` `293f7442677b4142ae45cde0f6d48dcd9ccf6077`.
+This current section supersedes the historical record below. Sol activated
+MESP-11 and MESP-139 before this bounded continuation: activation comment
+`12366`, MESP-9 reconciliation `12367`, and readiness authority `12363`. The
+accepted baseline is exact `origin/main`
+`293f7442677b4142ae45cde0f6d48dcd9ccf6077`.
 
-Work is bounded to branch `feat/MESP-139-release1-reporting` in the preferred
-worktree `D:\AI Tools\Active Projects\Mini_ERP_SaaS_Platform-MESP-139`. Implement
-one complete Release-1 Reporting capability under the approved PD-042 contract:
-Reporting-owned catalogue and versioned definitions; source-owned Finance,
-Inventory, Procurement, Sales, and Foundation audit adapters; server-derived
-Tenant/company/branch scope; filters, paging/sorting, freshness/data-as-of,
-reconciliation, lineage, export jobs/private artifacts, idempotency, durable
-local schedule control-plane records, explicit pending decisions, REST/OpenAPI
-metadata, and bilingual EN/AR RTL Angular UI with accessibility.
+Work remained bounded to branch `feat/MESP-139-release1-reporting` in the
+preferred worktree `D:\AI Tools\Active Projects\Mini_ERP_SaaS_Platform-MESP-139`.
+The current authority is Sol HOLD-1 residual comment `12374`, superseding
+`12370`. The exact starting feature head was
+`a76dd67803868cbefdd27db80ada4dba47306efa`.
 
-Reporting is read-only orchestration and must not mutate source ledgers,
-operational documents, inventory, accounting, or lifecycle state. Do not add a
-Reporting persistence context/migration. Do not activate external distribution,
-production policy, statutory certification, Wafra-specific behavior, or any
-later capability. MESP-48 and MESP-50 remain open production gates.
+HOLD-139-A is closed in the executor implementation only. Four reports now
+consume directly injected, registered, source-owned bounded read ports over
+accepted truth: Finance `finance.cash-movement`, Procurement
+`procurement.match-exceptions`, Sales `sales.fulfillment`, and Sales
+`sales.returns-credits`. `finance.bank-reconciliation` remains unavailable
+because no accepted bank-statement/provider capability exists, and
+`inventory.count-variance` remains unavailable because no accepted stock-count
+workflow/entities capability exists. HOLD-139-B/C/D/E are preserved.
 
-This continuation remediates Sol HOLD 1 authority MESP-139 comment `12370`:
-HOLD-139-A makes the full 22-entry catalogue explicit and honest;
-HOLD-139-B centralizes trusted organization scope and reauthorizes Audit,
-jobs, artifacts, and schedules; HOLD-139-C uses typed source-owned bounded
-detail pages with executable filters and typed ordering; HOLD-139-D keeps
-scheduling explicit and disabled/local-test-only without an approved executor;
-and HOLD-139-E uses request-time clocks plus oldest-source/unknown freshness
-semantics. The product implementation is committed at
-`20de20afccc7ad08d29b45e1417f0b7922b27e7b`; acceptance remains owned by Sol.
+Reporting remains read-only and does not mutate source ledgers, operational
+documents, inventory, accounting, or lifecycle state. No Reporting persistence
+context/migration, external distribution/provider, production policy, statutory
+certification, Wafra-specific behavior, later capability, Jira write, or
+MESP-48/MESP-50 decision was added.
 
-Validation is Release `0 warnings / 0 errors`, full backend `1,204/1,204`
-with `0` failures and `0` skips, HOLD coverage `12/12`, Reporting-filtered
-coverage `24/24`, Angular `309/309`, focused/full Chromium `2/2` and `51/51`,
-all seven EF contexts clear of pending model changes, NuGet scan clear, and
-both frontend audits at `0 vulnerabilities`. The initial Angular bundle is
-`513.21 kB` against the existing `500 kB` warning budget. `frontend/assets` is
-untouched and the repository-owned Development runtime remains running for
-independent review. Jira handoff deferred to GPT-5.6 Sol due executor connector
-mismatch.
+Validation is Release `0 warnings / 0 errors`; complete disposable-LocalDB
+backend regression `1,209/1,209` with `0` failures and `0` skips, including
+`87/87` SQL-safety tests and all seven EF contexts clear of pending model
+changes; HOLD coverage `13/13`; source-adapter coverage `4/4`; full Reporting
+filtered coverage `29/29`; Angular `309/309`; focused/full Chromium `2/2` and
+`51/51`; solution-wide NuGet scan clear across five projects; and both
+frontend audits at `0 vulnerabilities`. The initial Angular bundle remains
+`513.21 kB`, retaining the existing `500 kB` warning budget, with a `37.59 kB`
+Reporting lazy chunk. `frontend/assets` is untouched.
 
 Required handoff state: one Open/Draft/Unmerged PR against `main`; no Ready
 transition, merge, reviewer request, auto-merge, rebase, force-push, or Jira
-write. Update `.ai/CURRENT_STATE.md` and `docs/staticts.md`; leave
-`frontend/assets` untouched. Independent GPT-5.6 Sol review is the next gate.
+write. Independent GPT-5.6 Sol review is the next gate.
+
+The implementation commit is `2a6c2ad53cc622293336ae6a08c8b18f8b2d14d1`.
+After the documentation handoff commit, the final local and origin feature
+heads are recorded by `git rev-parse HEAD` and `git ls-remote` verification.
 
 # Historical MESP-138 accepted lifecycle finalization — 6 September 2026
 
