@@ -10,7 +10,7 @@ Jira and GitHub remain authoritative for mutable lifecycle facts.
 | Measure | Value | Basis |
 |---|---|---|
 | Active capability | **MESP-139 - Release 1 Reporting** | Activated by Sol in Jira: MESP-139 comment `12366`; Epic reconciliation comment `12367`; readiness authority comment `12363` |
-| Implementation branch | `feat/MESP-139-release1-reporting` | HOLD-1 residual starting head `a76dd67803868cbefdd27db80ada4dba47306efa`; implementation commit `2a6c2ad53cc622293336ae6a08c8b18f8b2d14d1`; Draft PR #88; isolated continuation worktree from exact `origin/main` baseline `293f7442677b4142ae45cde0f6d48dcd9ccf6077` |
+| Implementation branch | `feat/MESP-139-release1-reporting` | HOLD-1 residual starting head `a76dd67803868cbefdd27db80ada4dba47306efa`; implementation commit `2a6c2ad53cc622293336ae6a08c8b18f8b2d14d1`; capability-wording clarification `75ea6bd17f0d2046aa1ed4c2f399a685559575af`; Draft PR #88; isolated continuation worktree from exact `origin/main` baseline `293f7442677b4142ae45cde0f6d48dcd9ccf6077` |
 | Sol HOLD 1 authority | MESP-139 comment `12374` (supersedes `12370`) | Acceptance remains owned by GPT-5.6 Sol; this executor performed no Jira write |
 | MESP-11 / MESP-139 | **In Progress** | Jira activation was completed by Sol before this continuation; no executor Jira write performed |
 | Accepted fast-track capability completion | **22 / 26 = 84.6%** | Unchanged from accepted MESP-138 lifecycle state; implementation review does not self-accept MESP-139 |

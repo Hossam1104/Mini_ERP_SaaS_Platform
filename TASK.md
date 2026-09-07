@@ -41,7 +41,9 @@ Required handoff state: one Open/Draft/Unmerged PR against `main`; no Ready
 transition, merge, reviewer request, auto-merge, rebase, force-push, or Jira
 write. Independent GPT-5.6 Sol review is the next gate.
 
-The implementation commit is `2a6c2ad53cc622293336ae6a08c8b18f8b2d14d1`.
+The implementation commit is `2a6c2ad53cc622293336ae6a08c8b18f8b2d14d1`; the
+follow-up capability-wording clarification is
+`75ea6bd17f0d2046aa1ed4c2f399a685559575af`.
 After the documentation handoff commit, the final local and origin feature
 heads are recorded by `git rev-parse HEAD` and `git ls-remote` verification.
 

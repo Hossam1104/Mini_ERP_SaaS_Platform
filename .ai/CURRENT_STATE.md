@@ -39,6 +39,7 @@ drift. This executor performed no Jira write.
 | Required PR state | One Open/Draft/Unmerged PR, base `main`; no Ready, merge, reviewer request, auto-merge, rebase, or force-push |
 | HOLD 1 starting feature head | `a76dd67803868cbefdd27db80ada4dba47306efa` |
 | Implementation commit | `2a6c2ad53cc622293336ae6a08c8b18f8b2d14d1` |
+| Classification clarification commit | `75ea6bd17f0d2046aa1ed4c2f399a685559575af` |
 | Active PR | **#88** — Open / Draft / Unmerged; independent GPT-5.6 Sol review required |
 | CI | **NONE / NOT CLAIMED** — local validation only |
 
