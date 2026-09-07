@@ -13,7 +13,7 @@ using MiniErp.Contracts.Modules.Sales;
 
 namespace MiniErp.Infrastructure.Persistence.Modules.Sales;
 
-public sealed class SalesPersistence(DbContextOptions options) : ISalesPersistence, ISalesReportingReadPort
+public sealed class SalesPersistence(DbContextOptions options) : ISalesPersistence, ISalesReportingReadPort, ISalesFulfillmentReportingReadPort
 {
     private readonly DbContextOptions options = options;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -226,6 +226,35 @@ public sealed class SalesPersistence(DbContextOptions options) : ISalesPersisten
         };
         var values = await ordered.Skip(page.Offset).Take(page.PageSize).ToListAsync(cancellationToken);
         return new ReportingSourcePage<SalesOrderSummaryResponse>(values.Select(ToSummary).ToArray(), total, "updatedAt,id", asOf);
+    }
+
+    public async Task<ReportingSourcePage<SalesFulfillmentReportingRecord>> ListFulfillmentReportingPageAsync(
+        ProcurementRequestContext context,
+        SalesDeliveryStatus? status,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = Create(context);
+        var deliveries = ApplyTrustedScope(db.Deliveries.AsNoTracking(), context.TenantContext.Scope);
+        if (status is { } selectedStatus) deliveries = deliveries.Where(item => item.Status == selectedStatus);
+
+        var total = await deliveries.CountAsync(cancellationToken);
+        DateTimeOffset? dataAsOf = null;
+        if (total > 0)
+        {
+            dataAsOf = db.Database.IsSqlite()
+                ? (await deliveries.Select(item => item.PostedAt ?? item.CreatedAt).ToListAsync(cancellationToken)).Max()
+                : await deliveries.Select(item => (DateTimeOffset?)(item.PostedAt ?? item.CreatedAt)).MaxAsync(cancellationToken);
+        }
+        var ordered = page.SortBy?.ToLowerInvariant() switch
+        {
+            "status" => page.SortDirection == "desc" ? deliveries.OrderByDescending(item => item.Status).ThenByDescending(item => item.Id) : deliveries.OrderBy(item => item.Status).ThenBy(item => item.Id),
+            "warehouse" => page.SortDirection == "desc" ? deliveries.OrderByDescending(item => item.WarehouseId).ThenByDescending(item => item.Id) : deliveries.OrderBy(item => item.WarehouseId).ThenBy(item => item.Id),
+            "postedat" => page.SortDirection == "asc" ? deliveries.OrderBy(item => item.PostedAt).ThenBy(item => item.Id) : deliveries.OrderByDescending(item => item.PostedAt).ThenByDescending(item => item.Id),
+            _ => page.SortDirection == "asc" ? deliveries.OrderBy(item => item.CreatedAt).ThenBy(item => item.Id) : deliveries.OrderByDescending(item => item.CreatedAt).ThenByDescending(item => item.Id)
+        };
+        var values = await ordered.Skip(page.Offset).Take(page.PageSize).ToListAsync(cancellationToken);
+        return new ReportingSourcePage<SalesFulfillmentReportingRecord>(values.Select(ToFulfillmentReporting).ToArray(), total, "createdAt,id", dataAsOf);
     }
 
     public async Task<SalesOrderResponse?> GetOrderAsync(ProcurementRequestContext context, Guid id, CancellationToken cancellationToken = default)
@@ -512,6 +541,21 @@ public sealed class SalesPersistence(DbContextOptions options) : ISalesPersisten
         };
     }
 
+    private static IQueryable<SalesDeliveryEntity> ApplyTrustedScope(IQueryable<SalesDeliveryEntity> query, ScopeReference? scope)
+    {
+        if (scope is not { } reference) return query;
+        var parts = reference.Value.Split(':', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length != 2 || !Guid.TryParse(parts[1], out var id)) return query.Where(_ => false);
+        return parts[0] switch
+        {
+            "Company" => query.Where(item => item.CompanyId == id),
+            "Branch" => query.Where(item => item.BranchId == id),
+            "Warehouse" => query.Where(item => item.WarehouseId == id),
+            "Tenant" => query,
+            _ => query.Where(_ => false)
+        };
+    }
+
     private static bool InScope(ProcurementRequestContext context, Guid companyId, Guid? branchId)
     {
         if (context.TenantContext.Scope is not { } scope) return true;
@@ -560,6 +604,13 @@ public sealed class SalesPersistence(DbContextOptions options) : ISalesPersisten
     private sealed record PersistedInvoiceLines(IReadOnlyList<SalesInvoiceRequestLine> Lines, IReadOnlyList<SalesInvoiceLineEvidence> Evidence);
     private static SalesOrderSummaryResponse ToSummary(SalesOrderEntity item) => new(item.Id, item.Number, item.CompanyId, item.BranchId, item.CustomerId, item.CustomerCode, item.CustomerName, item.CreatedByActorId, item.SourceQuotationId, item.SourceQuotationNumber, item.SourceQuotationRevision, item.CurrencyId, item.CurrencyCode, item.Total, item.Status, item.CreditOutcome, item.Version, item.UpdatedAt, item.RevisionNumber);
     private static SalesDeliveryResponse ToDelivery(SalesDeliveryEntity item) => new(item.Id, item.TenantId.Value, item.OrderId, item.OrderRevisionNumber, item.CompanyId, item.BranchId, item.CustomerId, item.WarehouseId, item.Status, item.ErrorCode, JsonSerializer.Deserialize<IReadOnlyList<SalesDeliveryRequestLine>>(item.LinesJson, Json) ?? [], JsonSerializer.Deserialize<IReadOnlyList<Guid>>(item.MovementIdsJson, Json) ?? [], item.CreatedAt, item.PostedAt, item.Version, DeserializeHandoff(item.HandoffJson));
+    private static SalesFulfillmentReportingRecord ToFulfillmentReporting(SalesDeliveryEntity item)
+    {
+        var lines = JsonSerializer.Deserialize<IReadOnlyList<SalesDeliveryRequestLine>>(item.LinesJson, Json) ?? [];
+        var movements = JsonSerializer.Deserialize<IReadOnlyList<Guid>>(item.MovementIdsJson, Json) ?? [];
+        var handoff = DeserializeHandoff(item.HandoffJson) ?? new SalesHandoffEvidence("inventory.sales-delivery.post", [], "Unknown", "NotAcknowledged", "Required", null, 0, null, string.Empty);
+        return new(item.Id, item.TenantId.Value, item.OrderId, item.OrderRevisionNumber, item.CompanyId, item.BranchId, item.CustomerId, item.WarehouseId, item.Status, item.ErrorCode, lines.Count, lines.Sum(value => value.Quantity), movements.Count, handoff, item.CreatedAt, item.PostedAt, item.Version.ToArray());
+    }
     private static SalesInvoiceRequestResponse ToInvoice(SalesInvoiceRequestEntity item)
     {
         var persisted = ReadInvoiceLines(item.LinesJson);

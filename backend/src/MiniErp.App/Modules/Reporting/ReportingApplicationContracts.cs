@@ -384,6 +384,10 @@ public sealed class ReportingService : IReportingService
     private readonly IPurchaseOrderPersistence purchaseOrders;
     private readonly IGoodsReceiptPersistence goodsReceipts;
     private readonly ISalesPersistence sales;
+    private readonly IFinanceSettlementReportingReadPort settlementReporting;
+    private readonly IPurchaseInvoiceMatchReportingReadPort matchReporting;
+    private readonly ISalesFulfillmentReportingReadPort fulfillmentReporting;
+    private readonly ISalesCustomerReturnReportingReadPort customerReturnReporting;
     private readonly FoundationAuditCoordinator audit;
     private readonly IFoundationAuditEvidenceReader auditReader;
     private readonly IOrganizationScopeOwnershipResolver scopeOwnership;
@@ -393,9 +397,9 @@ public sealed class ReportingService : IReportingService
     private readonly TimeProvider clock;
     private DateOnly DefaultAsOf => ReportingTimeSemantics.DefaultAsOf(clock);
 
-    public ReportingService(IFinanceMesp135Persistence finance, IInventoryValuationPersistence inventory, IPurchaseOrderPersistence purchaseOrders, IGoodsReceiptPersistence goodsReceipts, ISalesPersistence sales, FoundationAuditCoordinator audit, IFoundationAuditEvidenceReader auditReader, IOrganizationScopeOwnershipResolver scopeOwnership, IPrivateObjectStorage privateFiles, ReportingRuntimeStore runtime, TimeProvider? clock = null)
+    public ReportingService(IFinanceMesp135Persistence finance, IInventoryValuationPersistence inventory, IPurchaseOrderPersistence purchaseOrders, IGoodsReceiptPersistence goodsReceipts, ISalesPersistence sales, IFinanceSettlementReportingReadPort settlementReporting, IPurchaseInvoiceMatchReportingReadPort matchReporting, ISalesFulfillmentReportingReadPort fulfillmentReporting, ISalesCustomerReturnReportingReadPort customerReturnReporting, FoundationAuditCoordinator audit, IFoundationAuditEvidenceReader auditReader, IOrganizationScopeOwnershipResolver scopeOwnership, IPrivateObjectStorage privateFiles, ReportingRuntimeStore runtime, TimeProvider? clock = null)
     {
-        this.finance = finance; this.inventory = inventory; this.purchaseOrders = purchaseOrders; this.goodsReceipts = goodsReceipts; this.sales = sales; this.audit = audit; this.auditReader = auditReader; this.scopeOwnership = scopeOwnership; this.privateFiles = privateFiles; this.runtime = runtime;
+        this.finance = finance; this.inventory = inventory; this.purchaseOrders = purchaseOrders; this.goodsReceipts = goodsReceipts; this.sales = sales; this.settlementReporting = settlementReporting; this.matchReporting = matchReporting; this.fulfillmentReporting = fulfillmentReporting; this.customerReturnReporting = customerReturnReporting; this.audit = audit; this.auditReader = auditReader; this.scopeOwnership = scopeOwnership; this.privateFiles = privateFiles; this.runtime = runtime;
         this.clock = clock ?? TimeProvider.System;
         definitions = BuildDefinitions().ToDictionary(item => item.Code, StringComparer.OrdinalIgnoreCase);
     }
@@ -424,6 +428,7 @@ public sealed class ReportingService : IReportingService
                 "finance.trial-balance" => await FinanceTrialBalanceAsync(context, definition, query, cancellationToken),
                 "finance.general-ledger" => await FinanceGeneralLedgerAsync(context, definition, query, cancellationToken),
                 "finance.ap-aging" or "finance.ar-aging" => await FinanceAgingAsync(context, definition, query, cancellationToken),
+                "finance.cash-movement" => await FinanceCashMovementAsync(context, definition, query, cancellationToken),
                 "finance.profit-loss" or "finance.balance-sheet" => await FinanceStatementAsync(context, definition, query, cancellationToken),
                 "finance.reconciliation" => await FinanceReconciliationAsync(context, definition, query, cancellationToken),
                 "finance.tax-summary" => await FinanceTaxSummaryAsync(context, definition, query, cancellationToken),
@@ -432,7 +437,10 @@ public sealed class ReportingService : IReportingService
                 "inventory.stock-balance" => await InventoryStockBalanceAsync(context, definition, query, cancellationToken),
                 "procurement.open-orders" => await ProcurementOrdersAsync(context, definition, query, cancellationToken),
                 "procurement.receipts" => await ProcurementReceiptsAsync(context, definition, query, cancellationToken),
+                "procurement.match-exceptions" => await ProcurementMatchExceptionsAsync(context, definition, query, cancellationToken),
                 "sales.orders" => await SalesOrdersAsync(context, definition, query, cancellationToken),
+                "sales.fulfillment" => await SalesFulfillmentAsync(context, definition, query, cancellationToken),
+                "sales.returns-credits" => await SalesReturnsCreditsAsync(context, definition, query, cancellationToken),
                 "operations.audit-activity" => await AuditActivityAsync(context, definition, query, cancellationToken),
                 "operations.source-health" => SourceHealth(context, definition, query),
                 _ => EmptyResult(context, definition, query, ReportingResultState.Failed, "report_not_implemented", "The report adapter is not available.", now)
@@ -598,6 +606,33 @@ public sealed class ReportingService : IReportingService
         return Result(context, definition, query, resultRows, [Column("reference", "Reference", "المرجع", "text"), Column("documentDate", "Document date", "تاريخ المستند", "date"), Column("dueDate", "Due date", "تاريخ الاستحقاق", "date"), Column("bucket", "Aging bucket", "شريحة الاستحقاق", "text"), Column("currency", "Currency", "العملة", "text"), Column("original", "Original", "الأصلي", "decimal"), Column("allocated", "Allocated", "المخصص", "decimal"), Column("outstanding", "Outstanding", "المستحق", "decimal"), Column("status", "Status", "الحالة", "text")], [new("Finance", "Posted open items", "Finance", rows.Count == 0 ? null : rows.Max(item => item.AsOfDate).ToDateTime(TimeOnly.MinValue))], ReportingResultState.Fresh, "Finance owns Payment Terms, due dates, and aging buckets.", "Reconciled");
     }
 
+    private async Task<ReportingResult> FinanceCashMovementAsync(ReportingRequestContext context, ReportingDefinition definition, ReportingQuery query, CancellationToken ct)
+    {
+        var fc = FinanceRequestContext.TryCreate(context.FoundationContext, out var financeContext) ? financeContext : null;
+        if (fc is null) return EmptyResult(context, definition, query, ReportingResultState.Unavailable, "finance_context_unavailable", "Finance context is unavailable.", clock.GetUtcNow());
+        var sourcePage = await settlementReporting.ListCashMovementReportingPageAsync(fc, query.CompanyId!.Value, query.FromDate, query.ToDate, ReportingPageRequest.Create(query.Page, query.PageSize, query.SortBy, query.SortDirection), ct);
+        var values = sourcePage.Rows;
+        var rows = values.Select(item => Row(item.Id.ToString("D"), new Dictionary<string, string?>
+        {
+            ["documentDate"] = item.DocumentDate.ToString("yyyy-MM-dd"),
+            ["direction"] = item.Direction.ToString(),
+            ["status"] = item.Status.ToString(),
+            ["cashAccount"] = item.CashAccountId.ToString("D"),
+            ["paymentMethod"] = item.PaymentMethodId.ToString("D"),
+            ["currency"] = item.CurrencyCode,
+            ["amount"] = Amount(item.Amount),
+            ["functionalCurrency"] = item.FunctionalCurrencyCode,
+            ["functionalAmount"] = Amount(item.FunctionalAmount),
+            ["reference"] = item.ExternalReference,
+            ["description"] = item.Description,
+            ["postedJournal"] = item.PostedJournalId?.ToString("D"),
+            ["reversalJournal"] = item.ReversalJournalId?.ToString("D")
+        }, "Finance", item.Id.ToString("D"), item.Status.ToString(), item.PostedAt ?? item.CreatedAt, "finance-cash-subledger"));
+        return Result(context, definition, query, rows,
+            [Column("documentDate", "Document date", "\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0645\u0633\u062a\u0646\u062f", "date"), Column("direction", "Direction", "\u0627\u0644\u0627\u062a\u062c\u0627\u0647", "text"), Column("status", "Status", "\u0627\u0644\u062d\u0627\u0644\u0629", "text"), Column("cashAccount", "Cash account", "\u0627\u0644\u062d\u0633\u0627\u0628 \u0627\u0644\u0646\u0642\u062f\u064a", "text"), Column("paymentMethod", "Payment method", "\u0637\u0631\u064a\u0642\u0629 \u0627\u0644\u062f\u0641\u0639", "text"), Column("currency", "Currency", "\u0627\u0644\u0639\u0645\u0644\u0629", "text"), Column("amount", "Amount", "\u0627\u0644\u0645\u0628\u0644\u063a", "decimal"), Column("functionalCurrency", "Functional currency", "\u0627\u0644\u0639\u0645\u0644\u0629 \u0627\u0644\u0648\u0638\u064a\u0641\u064a\u0629", "text"), Column("functionalAmount", "Functional amount", "\u0627\u0644\u0645\u0628\u0644\u063a \u0627\u0644\u0648\u0638\u064a\u0641\u064a", "decimal"), Column("reference", "Reference", "\u0627\u0644\u0645\u0631\u062c\u0639", "text"), Column("description", "Description", "\u0627\u0644\u0648\u0635\u0641", "text"), Column("postedJournal", "Posted journal", "\u0627\u0644\u0642\u064a\u062f \u0627\u0644\u0645\u0631\u062d\u0644", "text"), Column("reversalJournal", "Reversal journal", "\u0642\u064a\u062f \u0627\u0644\u0639\u0643\u0633", "text")],
+            [new("Finance", "Settlement source", "Finance", sourcePage.DataAsOf)], ReportingResultState.Fresh, "Finance owns settlement status, cash movement amount, and posting lineage.", "Finance-owned", sourcePage.TotalRowsKnown ? sourcePage.TotalRows : values.Count);
+    }
+
     private async Task<ReportingResult> FinanceTaxSummaryAsync(ReportingRequestContext context, ReportingDefinition definition, ReportingQuery query, CancellationToken ct)
     {
         var fc = FinanceRequestContext.TryCreate(context.FoundationContext, out var financeContext) ? financeContext : null;
@@ -696,6 +731,29 @@ public sealed class ReportingService : IReportingService
         return Result(context, definition, query, rows, [Column("supplier", "Supplier", "المورد", "text"), Column("purchaseOrder", "Purchase order", "أمر الشراء", "text"), Column("warehouse", "Warehouse", "المستودع", "text"), Column("status", "Status", "الحالة", "text"), Column("receivedDate", "Received", "تاريخ الاستلام", "date"), Column("acceptedQuantity", "Accepted quantity", "الكمية المقبولة", "decimal"), Column("lines", "Lines", "البنود", "integer")], [new("Procurement", "Source-owned", "Procurement", filtered.Length == 0 ? null : filtered.Max(item => item.CreatedAt))], ReportingResultState.Fresh, "Procurement owns receipt document status; Inventory owns physical stock effects.", "Procurement-owned");
     }
 
+    private async Task<ReportingResult> ProcurementMatchExceptionsAsync(ReportingRequestContext context, ReportingDefinition definition, ReportingQuery query, CancellationToken ct)
+    {
+        var pc = ProcurementRequestContext.FromFoundationContext(context.FoundationContext);
+        var sourcePage = await matchReporting.ListReportingPageAsync(pc.TenantContext, ParseOptionalEnum<PurchaseInvoiceMatchResult>(query.Status), query.FromDate, query.ToDate, ReportingPageRequest.Create(query.Page, query.PageSize, query.SortBy, query.SortDirection), ct);
+        var values = sourcePage.Rows;
+        var rows = values.Select(item => Row(item.Id.ToString("D"), new Dictionary<string, string?>
+        {
+            ["evaluatedAt"] = item.EvaluatedAt.ToString("O", CultureInfo.InvariantCulture),
+            ["lifecycle"] = item.Lifecycle.ToString(),
+            ["result"] = item.Result.ToString(),
+            ["purchaseInvoiceHandoff"] = item.PurchaseInvoiceHandoffId.ToString("D"),
+            ["purchaseOrder"] = item.PurchaseOrderId.ToString("D"),
+            ["varianceCount"] = item.Variances.Count.ToString(CultureInfo.InvariantCulture),
+            ["varianceClassifications"] = string.Join(",", item.Variances.Select(value => value.Classification).Distinct(StringComparer.Ordinal)),
+            ["resolutionReason"] = item.ResolutionReason,
+            ["declaredEvidence"] = item.DeclaredEvidenceId?.ToString("D"),
+            ["sourceFingerprint"] = item.SourceFingerprint
+        }, "Procurement", item.Id.ToString("D"), $"{item.Lifecycle}/{item.Result}", item.EvaluatedAt, "procurement-match-evidence"));
+        return Result(context, definition, query, rows,
+            [Column("evaluatedAt", "Evaluated", "\u0627\u0644\u062a\u0642\u064a\u064a\u0645", "datetime"), Column("lifecycle", "Lifecycle", "\u062f\u0648\u0631\u0629 \u0627\u0644\u062d\u064a\u0627\u0629", "text"), Column("result", "Result", "\u0627\u0644\u0646\u062a\u064a\u062c\u0629", "text"), Column("purchaseInvoiceHandoff", "Invoice handoff", "\u062a\u0633\u0644\u064a\u0645 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629", "text"), Column("purchaseOrder", "Purchase order", "\u0623\u0645\u0631 \u0627\u0644\u0634\u0631\u0627\u0621", "text"), Column("varianceCount", "Variances", "\u0627\u0644\u0641\u0631\u0648\u0642\u0627\u062a", "integer"), Column("varianceClassifications", "Variance classifications", "\u062a\u0635\u0646\u064a\u0641\u0627\u062a \u0627\u0644\u0641\u0631\u0648\u0642\u0627\u062a", "text"), Column("resolutionReason", "Resolution reason", "\u0633\u0628\u0628 \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629", "text"), Column("declaredEvidence", "Declared evidence", "\u0627\u0644\u062f\u0644\u064a\u0644 \u0627\u0644\u0645\u0635\u0631\u062d \u0628\u0647", "text"), Column("sourceFingerprint", "Source fingerprint", "\u0628\u0635\u0645\u0629 \u0627\u0644\u0645\u0635\u062f\u0631", "text")],
+            [new("Procurement", "Match evaluation source", "Procurement", sourcePage.DataAsOf)], ReportingResultState.Fresh, "Procurement owns match evaluation, variance classifications, lifecycle, and resolution evidence.", "Procurement-owned", sourcePage.TotalRowsKnown ? sourcePage.TotalRows : values.Count);
+    }
+
     private async Task<ReportingResult> SalesOrdersAsync(ReportingRequestContext context, ReportingDefinition definition, ReportingQuery query, CancellationToken ct)
     {
         var sc = ProcurementRequestContext.FromFoundationContext(context.FoundationContext);
@@ -708,6 +766,86 @@ public sealed class ReportingService : IReportingService
         var orders = await sales.ListOrdersAsync(sc, query.CompanyId, null, ct);
         var rows = orders.Where(item => !query.BranchId.HasValue || item.BranchId == query.BranchId).Select(item => Row(item.Id.ToString("D"), new Dictionary<string, string?> { ["number"] = item.Number, ["customer"] = item.CustomerName, ["status"] = item.Status.ToString(), ["credit"] = item.CreditOutcome.ToString(), ["currency"] = item.CurrencyCode, ["total"] = Amount(item.Total), ["quotation"] = item.SourceQuotationNumber, ["revision"] = item.RevisionNumber.ToString(CultureInfo.InvariantCulture), ["updatedAt"] = item.UpdatedAt.ToString("O", CultureInfo.InvariantCulture), ["company"] = item.CompanyId.ToString("D"), ["branch"] = item.BranchId?.ToString("D") }, "Sales", item.Id.ToString("D"), item.Status.ToString(), item.UpdatedAt, "sales-commercial-chain"));
         return Result(context, definition, query, rows, [Column("number", "Order", "الأمر", "text"), Column("customer", "Customer", "العميل", "text"), Column("status", "Status", "الحالة", "text"), Column("credit", "Credit outcome", "نتيجة الائتمان", "text"), Column("currency", "Currency", "العملة", "text"), Column("total", "Total", "الإجمالي", "decimal"), Column("quotation", "Source quotation", "عرض السعر المصدر", "text"), Column("revision", "Revision", "المراجعة", "integer"), Column("updatedAt", "Updated", "التحديث", "datetime"), Column("company", "Company", "الشركة", "text"), Column("branch", "Branch", "الفرع", "text")], [new("Sales", "Commercial source", "Sales", orders.Count == 0 ? null : orders.Max(item => item.UpdatedAt))], ReportingResultState.Fresh, "Sales owns commercial order status; Finance and Inventory remain owners of monetary and physical effects.", "Sales-owned");
+    }
+
+    private async Task<ReportingResult> SalesFulfillmentAsync(ReportingRequestContext context, ReportingDefinition definition, ReportingQuery query, CancellationToken ct)
+    {
+        var sc = ProcurementRequestContext.FromFoundationContext(context.FoundationContext);
+        var sourcePage = await fulfillmentReporting.ListFulfillmentReportingPageAsync(sc, ParseOptionalEnum<SalesDeliveryStatus>(query.Status), ReportingPageRequest.Create(query.Page, query.PageSize, query.SortBy, query.SortDirection), ct);
+        var values = sourcePage.Rows;
+        var rows = values.Select(item =>
+        {
+            var lineage = new List<ReportingLineage> { new("Sales", item.Id.ToString("D"), item.Status.ToString(), "source-contract", "sales-delivery-fulfillment") };
+            if (item.Handoff.DownstreamEffectIds.Count > 0)
+                lineage.Add(new("Inventory", string.Join(",", item.Handoff.DownstreamEffectIds.Select(value => value.ToString("D"))), $"{item.Handoff.DownstreamCommitState}/{item.Handoff.SalesAcknowledgementState}", "sales-handoff-evidence", item.Handoff.ReconciliationStatus));
+            return new ReportingRow(item.Id.ToString("D"), new Dictionary<string, string?>
+            {
+                ["delivery"] = item.Id.ToString("D"),
+                ["order"] = item.OrderId.ToString("D"),
+                ["revision"] = item.OrderRevisionNumber.ToString(CultureInfo.InvariantCulture),
+                ["company"] = item.CompanyId.ToString("D"),
+                ["branch"] = item.BranchId?.ToString("D"),
+                ["warehouse"] = item.WarehouseId.ToString("D"),
+                ["status"] = item.Status.ToString(),
+                ["error"] = item.ErrorCode,
+                ["lineCount"] = item.LineCount.ToString(CultureInfo.InvariantCulture),
+                ["requestedQuantity"] = Amount(item.RequestedQuantity),
+                ["movementCount"] = item.MovementCount.ToString(CultureInfo.InvariantCulture),
+                ["downstreamCommit"] = item.Handoff.DownstreamCommitState,
+                ["salesAcknowledgement"] = item.Handoff.SalesAcknowledgementState,
+                ["reconciliation"] = item.Handoff.ReconciliationStatus,
+                ["createdAt"] = item.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
+                ["postedAt"] = item.PostedAt?.ToString("O", CultureInfo.InvariantCulture)
+            }, lineage);
+        });
+        return Result(context, definition, query, rows,
+            [Column("delivery", "Delivery", "\u0627\u0644\u062a\u0633\u0644\u064a\u0645", "text"), Column("order", "Order", "\u0627\u0644\u0623\u0645\u0631", "text"), Column("revision", "Revision", "\u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629", "integer"), Column("company", "Company", "\u0627\u0644\u0634\u0631\u0643\u0629", "text"), Column("branch", "Branch", "\u0627\u0644\u0641\u0631\u0639", "text"), Column("warehouse", "Warehouse", "\u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639", "text"), Column("status", "Status", "\u0627\u0644\u062d\u0627\u0644\u0629", "text"), Column("error", "Error", "\u0627\u0644\u062e\u0637\u0623", "text"), Column("lineCount", "Lines", "\u0627\u0644\u0628\u0646\u0648\u062f", "integer"), Column("requestedQuantity", "Requested quantity", "\u0627\u0644\u0643\u0645\u064a\u0629 \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629", "decimal"), Column("movementCount", "Inventory movements", "\u062d\u0631\u0643\u0627\u062a \u0627\u0644\u0645\u062e\u0632\u0648\u0646", "integer"), Column("downstreamCommit", "Downstream commit", "\u0627\u0644\u0627\u0644\u062a\u0632\u0627\u0645 \u0627\u0644\u0644\u0627\u062d\u0642", "text"), Column("salesAcknowledgement", "Sales acknowledgement", "\u0625\u0642\u0631\u0627\u0631 \u0627\u0644\u0645\u0628\u064a\u0639\u0627\u062a", "text"), Column("reconciliation", "Reconciliation", "\u0627\u0644\u062a\u0633\u0648\u064a\u0629", "text"), Column("createdAt", "Created", "\u0627\u0644\u0625\u0646\u0634\u0627\u0621", "datetime"), Column("postedAt", "Posted", "\u0627\u0644\u062a\u0631\u062d\u064a\u0644", "datetime")],
+            [new("Sales", "Delivery source", "Sales", sourcePage.DataAsOf)], ReportingResultState.Fresh, "Sales owns Delivery fulfillment truth; Inventory movement state is published only as durable handoff evidence.", "Sales-owned with Inventory handoff evidence", sourcePage.TotalRowsKnown ? sourcePage.TotalRows : values.Count);
+    }
+
+    private async Task<ReportingResult> SalesReturnsCreditsAsync(ReportingRequestContext context, ReportingDefinition definition, ReportingQuery query, CancellationToken ct)
+    {
+        var sc = ProcurementRequestContext.FromFoundationContext(context.FoundationContext);
+        var sourcePage = await customerReturnReporting.ListReportingPageAsync(sc, query.FromDate, query.ToDate, ParseOptionalEnum<SalesCustomerReturnStatus>(query.Status), ReportingPageRequest.Create(query.Page, query.PageSize, query.SortBy, query.SortDirection), ct);
+        var values = sourcePage.Rows;
+        var rows = values.Select(item =>
+        {
+            var lineage = new List<ReportingLineage> { new("Sales", item.Id.ToString("D"), $"{item.Status}/{item.Consequence}", "source-contract", "sales-customer-return") };
+            if (item.InventoryEffectId is { } inventoryEffect)
+                lineage.Add(new("Inventory", inventoryEffect.ToString("D"), $"{item.InventoryCommitState}/{item.InventoryAcknowledgementState}", "sales-return-handoff", item.InventoryReconciliationState));
+            foreach (var effect in item.FinanceEffects)
+                lineage.Add(new("Finance", effect.CreditNoteId.ToString("D"), $"{effect.State}/{effect.ReversalState}", "sales-credit-effect-evidence", effect.EffectFingerprint));
+            return new ReportingRow(item.Id.ToString("D"), new Dictionary<string, string?>
+            {
+                ["return"] = item.Id.ToString("D"),
+                ["delivery"] = item.DeliveryId.ToString("D"),
+                ["order"] = item.OrderId.ToString("D"),
+                ["revision"] = item.OrderRevisionNumber.ToString(CultureInfo.InvariantCulture),
+                ["company"] = item.CompanyId.ToString("D"),
+                ["branch"] = item.BranchId?.ToString("D"),
+                ["warehouse"] = item.WarehouseId.ToString("D"),
+                ["returnDate"] = item.ReturnDate.ToString("yyyy-MM-dd"),
+                ["status"] = item.Status.ToString(),
+                ["consequence"] = item.Consequence.ToString(),
+                ["lineCount"] = item.LineCount.ToString(CultureInfo.InvariantCulture),
+                ["returnQuantity"] = Amount(item.ReturnQuantity),
+                ["currency"] = item.CurrencyCode,
+                ["invoice"] = item.InvoiceId?.ToString("D"),
+                ["inventoryEffect"] = item.InventoryEffectId?.ToString("D"),
+                ["inventoryReconciliation"] = item.InventoryReconciliationState,
+                ["financeState"] = item.FinanceEffectState,
+                ["activeCreditNotes"] = item.ActiveFinanceCreditNoteCount.ToString(CultureInfo.InvariantCulture),
+                ["creditNotes"] = string.Join(",", item.FinanceCreditNoteIds.Select(value => value.ToString("D"))),
+                ["reversedCreditNotes"] = string.Join(",", item.FinanceReversedCreditNoteIds.Select(value => value.ToString("D"))),
+                ["updatedAt"] = item.UpdatedAt.ToString("O", CultureInfo.InvariantCulture)
+            }, lineage);
+        });
+        var sources = values.Any(item => item.FinanceEffects.Count > 0)
+            ? new[] { new ReportingSourceEvidence("Sales", "Customer Return source", "source-contract", sourcePage.DataAsOf), new ReportingSourceEvidence("Finance", "Credit effect evidence", "source-contract", sourcePage.DataAsOf) }
+            : new[] { new ReportingSourceEvidence("Sales", "Customer Return source", "source-contract", sourcePage.DataAsOf) };
+        return Result(context, definition, query, rows,
+            [Column("return", "Return", "\u0627\u0644\u0645\u0631\u062a\u062c\u0639", "text"), Column("delivery", "Delivery", "\u0627\u0644\u062a\u0633\u0644\u064a\u0645", "text"), Column("order", "Order", "\u0627\u0644\u0623\u0645\u0631", "text"), Column("revision", "Revision", "\u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629", "integer"), Column("company", "Company", "\u0627\u0644\u0634\u0631\u0643\u0629", "text"), Column("branch", "Branch", "\u0627\u0644\u0641\u0631\u0639", "text"), Column("warehouse", "Warehouse", "\u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639", "text"), Column("returnDate", "Return date", "\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0645\u0631\u062a\u062c\u0639", "date"), Column("status", "Status", "\u0627\u0644\u062d\u0627\u0644\u0629", "text"), Column("consequence", "Consequence", "\u0627\u0644\u0623\u062b\u0631", "text"), Column("lineCount", "Lines", "\u0627\u0644\u0628\u0646\u0648\u062f", "integer"), Column("returnQuantity", "Return quantity", "\u0643\u0645\u064a\u0629 \u0627\u0644\u0645\u0631\u062a\u062c\u0639", "decimal"), Column("currency", "Currency", "\u0627\u0644\u0639\u0645\u0644\u0629", "text"), Column("invoice", "Invoice", "\u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629", "text"), Column("inventoryEffect", "Inventory effect", "\u0623\u062b\u0631 \u0627\u0644\u0645\u062e\u0632\u0648\u0646", "text"), Column("inventoryReconciliation", "Inventory reconciliation", "\u062a\u0633\u0648\u064a\u0629 \u0627\u0644\u0645\u062e\u0632\u0648\u0646", "text"), Column("financeState", "Finance credit state", "\u062d\u0627\u0644\u0629 \u0627\u0644\u0627\u0626\u062a\u0645\u0627\u0646 \u0627\u0644\u0645\u0627\u0644\u064a", "text"), Column("activeCreditNotes", "Active credit notes", "\u0625\u0634\u0639\u0627\u0631\u0627\u062a \u0627\u0644\u062f\u0627\u0626\u0646 \u0627\u0644\u0646\u0634\u0637\u0629", "integer"), Column("creditNotes", "Credit notes", "\u0625\u0634\u0639\u0627\u0631\u0627\u062a \u0627\u0644\u062f\u0627\u0626\u0646", "text"), Column("reversedCreditNotes", "Reversed credit notes", "\u0625\u0634\u0639\u0627\u0631\u0627\u062a \u0627\u0644\u062f\u0627\u0626\u0646 \u0627\u0644\u0645\u0639\u0643\u0648\u0633\u0629", "text"), Column("updatedAt", "Updated", "\u0627\u0644\u062a\u062d\u062f\u064a\u062b", "datetime")],
+            sources, ReportingResultState.Fresh, "Sales owns Return lifecycle and links; Inventory and Finance effects remain source-owned durable evidence.", "Sales-owned with Inventory/Finance evidence", sourcePage.TotalRowsKnown ? sourcePage.TotalRows : values.Count);
     }
 
     private async Task<ReportingResult> AuditActivityAsync(ReportingRequestContext context, ReportingDefinition definition, ReportingQuery query, CancellationToken ct)
@@ -792,19 +930,19 @@ public sealed class ReportingService : IReportingService
         yield return Definition("finance.profit-loss", "Profit and loss", "الأرباح والخسائر", "Finance", "Finance owns posted truth; Reporting publishes source evidence.", "Posted journals → Finance statement/reconciliation", ["company", "fromDate", "toDate"], true, false, true);
         yield return Definition("finance.balance-sheet", "Balance sheet", "الميزانية العمومية", "Finance", "Finance owns posted truth; Reporting publishes source evidence.", "Posted journals → Finance statement/reconciliation", ["company", "fromDate", "toDate"], true, false, true);
         yield return Definition("finance.reconciliation", "Finance reconciliation", "تسوية المالية", "Finance", "Finance owns posted truth; Reporting publishes source evidence.", "Finance-owned reconciliation evidence", ["company", "asOfDate"], true, false, true);
-        yield return Definition("finance.cash-movement", "Cash movement", "حركة النقد", "Finance", "The accepted Finance settlement source does not expose a bounded cash-movement read contract.", "Finance cash/subledger reconciliation", ["company", "fromDate", "toDate"], false, false, true, false, "source_capability_unavailable", ReportingImplementationState.SOURCE_CAPABILITY_UNAVAILABLE);
+        yield return Definition("finance.cash-movement", "Cash movement", "حركة النقد", "Finance", "Finance settlement documents own cash movement status, monetary amounts, and posting/reversal lineage; Reporting reads a bounded Finance-owned page.", "Finance settlement document → cash/subledger reconciliation", ["company", "fromDate", "toDate"], false, false, true);
         yield return Definition("finance.tax-summary", "Tax summary", "ملخص الضرائب", "Finance", "Finance owns internal tax evidence; Reporting publishes only the approved internal VAT/accounting facts.", "Finance tax evidence → tax reconciliation", ["company", "asOfDate"], true, false, true);
         yield return Definition("finance.bank-reconciliation", "Bank reconciliation", "تسوية البنك", "Finance", "No bounded internal bank-statement read contract is exposed on accepted main; external/provider behavior remains excluded.", "Finance bank evidence → bank reconciliation", ["company", "asOfDate"], false, false, true, false, "source_capability_unavailable", ReportingImplementationState.SOURCE_CAPABILITY_UNAVAILABLE);
         yield return Definition("inventory.valuation", "Inventory valuation", "تقييم المخزون", "Inventory", "Inventory owns quantity, valuation, in-transit and reconciliation evidence.", "Inventory ledger/movement → valuation reconciliation", ["company", "branch", "warehouse"], true, false, true);
         yield return Definition("inventory.stock-movements", "Stock movements", "حركات المخزون", "Inventory", "Inventory owns immutable movement and valuation event history.", "Inventory movement ledger → valuation reconciliation", ["company", "branch", "warehouse", "fromDate", "toDate"], true, false, true);
         yield return Definition("inventory.stock-balance", "Stock balance", "رصيد المخزون", "Inventory", "Inventory owns the persisted valuation state and balance meaning.", "Inventory balance/projection → ledger reconciliation", ["company", "branch", "warehouse"], true, false, true);
-        yield return Definition("inventory.count-variance", "Count variance", "فروقات الجرد", "Inventory", "The accepted Inventory count/issue capability does not expose a bounded Reporting read contract.", "Inventory count evidence → stock reconciliation", ["company", "warehouse", "asOfDate"], false, false, true, false, "source_capability_unavailable", ReportingImplementationState.SOURCE_CAPABILITY_UNAVAILABLE);
+        yield return Definition("inventory.count-variance", "Count variance", "فروقات الجرد", "Inventory", "No accepted Inventory stock-count workflow/entities or bounded count-variance source capability exist; provider/reporting behavior remains excluded.", "Inventory count evidence → stock reconciliation", ["company", "warehouse", "asOfDate"], false, false, true, false, "source_capability_unavailable", ReportingImplementationState.SOURCE_CAPABILITY_UNAVAILABLE);
         yield return Definition("procurement.open-orders", "Open purchase orders", "أوامر الشراء المفتوحة", "Procurement", "Procurement owns commercial commitments and order status.", "Purchase Order → receipt/invoice/AP references when available", ["company", "branch", "status"], true, false, false);
         yield return Definition("procurement.receipts", "Purchase receipts", "استلامات المشتريات", "Procurement", "Procurement owns receipt document status; Inventory owns stock effects.", "Goods Receipt → Inventory movement → Finance source evidence", ["warehouse", "fromDate", "toDate", "status"], true, false, false);
-        yield return Definition("procurement.match-exceptions", "Purchase match exceptions", "استثناءات مطابقة المشتريات", "Procurement", "The accepted matching capability does not expose a bounded aggregate Reporting read contract.", "PO/receipt/invoice → Finance matching evidence", ["company", "fromDate", "toDate", "status"], false, false, true, false, "source_capability_unavailable", ReportingImplementationState.SOURCE_CAPABILITY_UNAVAILABLE);
+        yield return Definition("procurement.match-exceptions", "Purchase match exceptions", "استثناءات مطابقة المشتريات", "Procurement", "Procurement PurchaseInvoiceMatchPersistence owns match result, variance classifications, lifecycle, and resolution evidence; Reporting reads a bounded Procurement-owned page.", "PO/receipt/invoice → PurchaseInvoiceMatchPersistence → Finance matching evidence", ["company", "fromDate", "toDate", "status"], false, false, true);
         yield return Definition("sales.orders", "Sales orders", "أوامر المبيعات", "Sales", "Sales owns commercial order status and customer chain.", "Quotation → Sales Order → fulfillment/invoice references", ["company", "branch", "status"], true, false, false);
-        yield return Definition("sales.fulfillment", "Sales fulfillment", "تنفيذ المبيعات", "Sales", "Sales and Inventory own fulfillment; accepted main does not expose a bounded aggregate fulfillment read contract.", "Sales Order → reservation/delivery → Finance invoice eligibility", ["company", "branch", "warehouse", "status"], false, false, true, false, "source_capability_unavailable", ReportingImplementationState.SOURCE_CAPABILITY_UNAVAILABLE);
-        yield return Definition("sales.returns-credits", "Sales returns and credits", "مرتجعات وائتمانات المبيعات", "Sales", "Sales/Inventory/Finance retain return and credit truth; accepted main does not expose a bounded aggregate Reporting read contract.", "Delivery → Customer Return → Inventory/Finance evidence", ["company", "fromDate", "toDate", "status"], false, false, true, false, "source_capability_unavailable", ReportingImplementationState.SOURCE_CAPABILITY_UNAVAILABLE);
+        yield return Definition("sales.fulfillment", "Sales fulfillment", "تنفيذ المبيعات", "Sales", "Sales Delivery owns fulfillment document truth; Inventory movement identifiers and acknowledgement/reconciliation remain durable handoff evidence.", "Sales Order → Sales Delivery → Inventory handoff evidence", ["company", "branch", "warehouse", "status"], false, false, true);
+        yield return Definition("sales.returns-credits", "Sales returns and credits", "مرتجعات وائتمانات المبيعات", "Sales", "Sales CustomerReturnPersistence owns return lifecycle and links; Inventory and Finance credit effects are published only from durable source-owned evidence.", "Delivery → Customer Return → Inventory/Finance evidence", ["company", "fromDate", "toDate", "status"], false, false, true);
         yield return Definition("operations.audit-activity", "Audit activity", "نشاط التدقيق", "SaaS/Admin", "Append-only Tenant audit evidence; no audit mutation.", "Audit evidence → report access evidence", ["fromDate", "toDate"], true, false, false);
         yield return Definition("operations.source-health", "Source health", "حالة المصادر", "SaaS/Admin", "Reports adapter/source state and does not fabricate business totals.", "Source adapter registry", [], true, false, false);
     }
@@ -1033,12 +1171,16 @@ public sealed class ReportingService : IReportingService
     private static IReadOnlyList<string> AllowedSortKeys(string code) => code switch
     {
         "finance.general-ledger" => ["date", "journal", "account", "debit", "credit"],
+        "finance.cash-movement" => ["documentDate", "amount", "direction", "status"],
         "finance.ap-aging" or "finance.ar-aging" => ["dueDate", "outstanding", "status"],
         "inventory.stock-movements" => ["effectiveOn", "quantity", "status"],
         "inventory.stock-balance" => ["quantity", "value", "updatedAt"],
         "procurement.open-orders" => ["supplier", "status", "currency", "createdAt"],
         "procurement.receipts" => ["receivedDate", "status", "supplier"],
+        "procurement.match-exceptions" => ["evaluatedAt", "status", "lifecycle"],
         "sales.orders" => ["number", "customer", "status", "total"],
+        "sales.fulfillment" => ["createdAt", "postedAt", "status", "warehouse"],
+        "sales.returns-credits" => ["returnDate", "updatedAt", "status"],
         "operations.audit-activity" => ["occurredAt"],
         _ => ["account", "date", "status"]
     };

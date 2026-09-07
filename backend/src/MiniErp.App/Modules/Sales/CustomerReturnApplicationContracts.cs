@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.Modules.Procurement;
 using MiniErp.Contracts.Modules.Sales;
 
@@ -275,7 +276,72 @@ public interface ISalesCustomerReturnSourceProvider
     Task<SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>> RegisterFinanceCreditNoteAsync(TenantContext context, SalesCustomerReturnFinanceEffectCommand command, CancellationToken cancellationToken = default);
 }
 
-public sealed class UnavailableSalesCustomerReturnPersistence : ISalesCustomerReturnPersistence, ISalesCustomerReturnSourceProvider
+public sealed record SalesCustomerReturnReportingFinanceEffectRecord(
+    Guid Id,
+    Guid CreditNoteId,
+    Guid InvoiceId,
+    Guid FinanceOpenItemId,
+    Guid PostingJournalId,
+    IReadOnlyList<Guid> SourceAllocationIds,
+    IReadOnlyList<Guid> TaxJournalIds,
+    decimal NetAmount,
+    decimal TaxAmount,
+    decimal GrossAmount,
+    string CurrencyCode,
+    string SourceFingerprint,
+    string EffectFingerprint,
+    string State,
+    string ReversalState,
+    Guid? ReversalJournalId,
+    Guid? ReversalEffectId,
+    DateTimeOffset AcknowledgedAt,
+    DateTimeOffset? ReversedAt,
+    byte[] Version);
+
+public sealed record SalesCustomerReturnReportingRecord(
+    Guid Id,
+    Guid TenantId,
+    Guid DeliveryId,
+    Guid OrderId,
+    int OrderRevisionNumber,
+    Guid CompanyId,
+    Guid? BranchId,
+    Guid CustomerId,
+    Guid WarehouseId,
+    Guid? InvoiceId,
+    Guid? FinanceOpenItemId,
+    string CurrencyCode,
+    SalesCustomerReturnStatus Status,
+    SalesCustomerReturnConsequence Consequence,
+    DateOnly ReturnDate,
+    int LineCount,
+    decimal ReturnQuantity,
+    Guid? InventoryEffectId,
+    string InventoryCommitState,
+    string InventoryAcknowledgementState,
+    string InventoryReconciliationState,
+    string? InventoryLastError,
+    string FinanceEffectState,
+    int ActiveFinanceCreditNoteCount,
+    IReadOnlyList<Guid> FinanceCreditNoteIds,
+    IReadOnlyList<Guid> FinanceReversedCreditNoteIds,
+    IReadOnlyList<SalesCustomerReturnReportingFinanceEffectRecord> FinanceEffects,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    byte[] Version);
+
+public interface ISalesCustomerReturnReportingReadPort
+{
+    Task<ReportingSourcePage<SalesCustomerReturnReportingRecord>> ListReportingPageAsync(
+        ProcurementRequestContext context,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        SalesCustomerReturnStatus? status,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class UnavailableSalesCustomerReturnPersistence : ISalesCustomerReturnPersistence, ISalesCustomerReturnSourceProvider, ISalesCustomerReturnReportingReadPort
 {
     private static Task<IReadOnlyList<T>> Empty<T>() => Task.FromResult<IReadOnlyList<T>>([]);
     private static SalesCustomerReturnOperationResult<T> Failure<T>() => SalesCustomerReturnOperationResult<T>.Failure("sales_customer_return_persistence_unavailable");
@@ -291,6 +357,7 @@ public sealed class UnavailableSalesCustomerReturnPersistence : ISalesCustomerRe
     public Task<SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>> RecordInventoryFailureAsync(TenantContext c, SalesCustomerReturnInventoryFailureCommand m, CancellationToken x = default) => Task.FromResult(Failure<SalesCustomerReturnResponse>());
     public Task<SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>> RecordDownstreamReversalAsync(TenantContext c, SalesCustomerReturnDownstreamReversalCommand m, CancellationToken x = default) => Task.FromResult(Failure<SalesCustomerReturnResponse>());
     public Task<SalesCustomerReturnOperationResult<SalesCustomerReturnResponse>> RegisterFinanceCreditNoteAsync(TenantContext c, SalesCustomerReturnFinanceEffectCommand m, CancellationToken x = default) => Task.FromResult(Failure<SalesCustomerReturnResponse>());
+    public Task<ReportingSourcePage<SalesCustomerReturnReportingRecord>> ListReportingPageAsync(ProcurementRequestContext context, DateOnly? fromDate, DateOnly? toDate, SalesCustomerReturnStatus? status, ReportingPageRequest page, CancellationToken cancellationToken = default) => throw new InvalidOperationException("sales_customer_return_reporting_unavailable");
 }
 
 public sealed class SalesCustomerReturnService(

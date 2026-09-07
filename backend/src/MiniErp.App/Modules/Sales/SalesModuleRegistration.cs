@@ -30,7 +30,9 @@ public static class SalesModuleRegistration
         services.AddSingleton<ISalesTaxReferenceProvider, MasterDataSalesTaxReferenceProvider>();
         services.AddSingleton<ISalesExchangeRateReferenceProvider, MasterDataSalesExchangeRateReferenceProvider>();
         services.AddSingleton<ISalesPersistence, UnavailableSalesPersistence>();
+        services.AddSingleton<ISalesFulfillmentReportingReadPort, UnavailableSalesPersistence>();
         services.AddSingleton<ISalesCustomerReturnPersistence, UnavailableSalesCustomerReturnPersistence>();
+        services.AddSingleton<ISalesCustomerReturnReportingReadPort, UnavailableSalesCustomerReturnPersistence>();
         services.AddSingleton<SalesCustomerReturnService>();
         services.AddSingleton<SalesService>();
         return services;

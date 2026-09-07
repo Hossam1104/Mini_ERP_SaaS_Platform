@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.Modules.Procurement;
 using MiniErp.App.Modules.Sales;
@@ -12,7 +13,7 @@ using MiniErp.Contracts.Modules.Sales;
 
 namespace MiniErp.Infrastructure.Persistence.Modules.Sales;
 
-public sealed class CustomerReturnPersistence(DbContextOptions options) : ISalesCustomerReturnPersistence, ISalesCustomerReturnSourceProvider
+public sealed class CustomerReturnPersistence(DbContextOptions options) : ISalesCustomerReturnPersistence, ISalesCustomerReturnSourceProvider, ISalesCustomerReturnReportingReadPort
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -44,6 +45,43 @@ public sealed class CustomerReturnPersistence(DbContextOptions options) : ISales
         await using var db = Create(context);
         var item = await db.CustomerReturns.AsNoTracking().Include(value => value.Lines).SingleOrDefaultAsync(value => value.Id == id, cancellationToken);
         return item is null || !InScope(context, item.CompanyId, item.BranchId) ? null : ToResponse(item);
+    }
+
+    public async Task<ReportingSourcePage<SalesCustomerReturnReportingRecord>> ListReportingPageAsync(
+        ProcurementRequestContext context,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        SalesCustomerReturnStatus? status,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = Create(context);
+        var returns = ApplyTrustedReportingScope(db.CustomerReturns.AsNoTracking(), context.TenantContext.Scope);
+        if (fromDate is { } from) returns = returns.Where(item => item.ReturnDate >= from);
+        if (toDate is { } to) returns = returns.Where(item => item.ReturnDate <= to);
+        if (status is { } selectedStatus) returns = returns.Where(item => item.Status == selectedStatus);
+
+        var total = await returns.CountAsync(cancellationToken);
+        DateTimeOffset? dataAsOf = null;
+        if (total > 0)
+        {
+            dataAsOf = db.Database.IsSqlite()
+                ? (await returns.Select(item => item.UpdatedAt).ToListAsync(cancellationToken)).Max()
+                : await returns.Select(item => (DateTimeOffset?)item.UpdatedAt).MaxAsync(cancellationToken);
+        }
+        var ordered = page.SortBy?.ToLowerInvariant() switch
+        {
+            "status" => page.SortDirection == "desc" ? returns.OrderByDescending(item => item.Status).ThenByDescending(item => item.Id) : returns.OrderBy(item => item.Status).ThenBy(item => item.Id),
+            "updatedat" => page.SortDirection == "asc" ? returns.OrderBy(item => item.UpdatedAt).ThenBy(item => item.Id) : returns.OrderByDescending(item => item.UpdatedAt).ThenByDescending(item => item.Id),
+            _ => page.SortDirection == "asc" ? returns.OrderBy(item => item.ReturnDate).ThenBy(item => item.Id) : returns.OrderByDescending(item => item.ReturnDate).ThenByDescending(item => item.Id)
+        };
+        var values = await ordered
+            .Include(item => item.Lines)
+            .Include(item => item.FinanceEffects)
+            .Skip(page.Offset)
+            .Take(page.PageSize)
+            .ToListAsync(cancellationToken);
+        return new ReportingSourcePage<SalesCustomerReturnReportingRecord>(values.Select(ToReportingRecord).ToArray(), total, "returnDate,id", dataAsOf);
     }
 
     public async Task<IReadOnlyList<SalesHistoryResponse>> ListHistoryAsync(ProcurementRequestContext context, Guid id, CancellationToken cancellationToken = default)
@@ -376,6 +414,72 @@ public sealed class CustomerReturnPersistence(DbContextOptions options) : ISales
 
     private static IReadOnlyList<SalesQuotationLineResponse> Lines(string json) => JsonSerializer.Deserialize<IReadOnlyList<SalesQuotationLineResponse>>(json, Json) ?? [];
     private static SalesCustomerReturnResponse ToResponse(SalesCustomerReturnEntity item, IReadOnlyList<SalesCustomerReturnInvoiceAllocationEntity>? allocations = null) => new(item.Id, item.TenantId.Value, item.DeliveryId, item.OrderId, item.OrderRevisionNumber, item.CompanyId, item.BranchId, item.CustomerId, item.WarehouseId, item.InvoiceId, item.FinanceOpenItemId, item.Status, item.Consequence, item.ReturnDate, item.Reason, item.HandoffJson, item.CreatedAt, item.UpdatedAt, item.Lines.Select(line => new SalesCustomerReturnLineResponse(line.Id, line.OrderLineId, line.DeliveredQuantity, line.PreviouslyReturnedQuantity, line.ReturnQuantity, line.Reason)).ToArray(), JsonSerializer.Deserialize<IReadOnlyList<SalesCustomerReturnEvidenceReference>>(item.EvidenceJson, Json) ?? [], item.Version);
+    private static SalesCustomerReturnReportingRecord ToReportingRecord(SalesCustomerReturnEntity item) => new(
+        item.Id,
+        item.TenantId.Value,
+        item.DeliveryId,
+        item.OrderId,
+        item.OrderRevisionNumber,
+        item.CompanyId,
+        item.BranchId,
+        item.CustomerId,
+        item.WarehouseId,
+        item.InvoiceId,
+        item.FinanceOpenItemId,
+        item.CurrencyCode,
+        item.Status,
+        item.Consequence,
+        item.ReturnDate,
+        item.Lines.Count,
+        item.Lines.Sum(line => line.ReturnQuantity),
+        item.InventoryEffectId,
+        item.InventoryCommitState,
+        item.InventoryAcknowledgementState,
+        item.InventoryReconciliationState,
+        item.InventoryLastError,
+        item.FinanceEffectState,
+        item.ActiveFinanceCreditNoteCount,
+        DeserializeIds(item.FinanceCreditNoteIdsJson),
+        DeserializeIds(item.FinanceReversedCreditNoteIdsJson),
+        item.FinanceEffects.Select(effect => new SalesCustomerReturnReportingFinanceEffectRecord(
+            effect.Id,
+            effect.CreditNoteId,
+            effect.InvoiceId,
+            effect.FinanceOpenItemId,
+            effect.PostingJournalId,
+            DeserializeIds(effect.SourceAllocationIdsJson),
+            DeserializeIds(effect.TaxJournalIdsJson),
+            effect.NetAmount,
+            effect.TaxAmount,
+            effect.GrossAmount,
+            effect.CurrencyCode,
+            effect.SourceFingerprint,
+            effect.EffectFingerprint,
+            effect.State,
+            effect.ReversalState,
+            effect.ReversalJournalId,
+            effect.ReversalEffectId,
+            effect.AcknowledgedAt,
+            effect.ReversedAt,
+            effect.Version.ToArray())).ToArray(),
+        item.CreatedAt,
+        item.UpdatedAt,
+        item.Version.ToArray());
+
+    private static IQueryable<SalesCustomerReturnEntity> ApplyTrustedReportingScope(IQueryable<SalesCustomerReturnEntity> query, ScopeReference? scope)
+    {
+        if (scope is not { } reference) return query;
+        var parts = reference.Value.Split(':', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length != 2 || !Guid.TryParse(parts[1], out var id)) return query.Where(_ => false);
+        return parts[0] switch
+        {
+            "Tenant" => query,
+            "Company" => query.Where(item => item.CompanyId == id),
+            "Branch" => query.Where(item => item.BranchId == id),
+            "Warehouse" => query.Where(item => item.WarehouseId == id),
+            _ => query.Where(_ => false)
+        };
+    }
     private static bool InScope(ProcurementRequestContext context, Guid companyId, Guid? branchId) => context.TenantContext.Scope is not { } scope || ScopeMatches(scope.Value, companyId, branchId);
     private static bool ScopeMatches(string value, Guid companyId, Guid? branchId) { var parts = value.Split(':', 2); return parts.Length == 2 && Guid.TryParse(parts[1], out var id) && (parts[0] switch { "Tenant" => true, "Company" => companyId == id, "Branch" => branchId == id, _ => false }); }
     private static SalesHistoryAction ActionToHistory(SalesCustomerReturnMutation action) => action switch { SalesCustomerReturnMutation.Submit => SalesHistoryAction.Submitted, SalesCustomerReturnMutation.Approve => SalesHistoryAction.Approved, SalesCustomerReturnMutation.Reject => SalesHistoryAction.Rejected, _ => SalesHistoryAction.Cancelled };

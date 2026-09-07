@@ -1,6 +1,7 @@
 #pragma warning disable CS1591
 
 using Microsoft.Extensions.Options;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.Modules.MasterData;
 using MiniErp.Contracts.Modules.MasterData;
@@ -416,6 +417,35 @@ public sealed record PurchaseInvoiceMatchListRecord(
     int VarianceCount,
     byte[] Version);
 
+public sealed record PurchaseInvoiceMatchReportingRecord(
+    Guid Id,
+    Guid TenantId,
+    PurchaseRequestScope Scope,
+    Guid PurchaseInvoiceHandoffId,
+    Guid PurchaseOrderId,
+    PurchaseInvoiceMatchLifecycle Lifecycle,
+    PurchaseInvoiceMatchResult Result,
+    DateTimeOffset EvaluatedAt,
+    Guid? ResolvedByActorId,
+    DateTimeOffset? ResolvedAt,
+    string? ResolutionReason,
+    Guid? DeclaredEvidenceId,
+    int? DeclaredEvidenceVersion,
+    string SourceFingerprint,
+    IReadOnlyList<PurchaseInvoiceMatchVarianceRecord> Variances,
+    byte[] Version);
+
+public interface IPurchaseInvoiceMatchReportingReadPort
+{
+    Task<ReportingSourcePage<PurchaseInvoiceMatchReportingRecord>> ListReportingPageAsync(
+        TenantContext tenantContext,
+        PurchaseInvoiceMatchResult? result,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed record PurchaseInvoiceMatchHistoryRecord(
     Guid Id,
     Guid MatchEvaluationId,
@@ -504,7 +534,7 @@ public interface IPurchaseInvoiceMatchPersistence
     Task<IReadOnlyList<PurchaseInvoiceMatchAuditRecord>> ReadAuditAsync(TenantContext tenantContext, Guid matchEvaluationId, CancellationToken cancellationToken = default);
 }
 
-public sealed class UnavailablePurchaseInvoiceMatchPersistence : IPurchaseInvoiceMatchPersistence
+public sealed class UnavailablePurchaseInvoiceMatchPersistence : IPurchaseInvoiceMatchPersistence, IPurchaseInvoiceMatchReportingReadPort
 {
     private static Task<PurchaseInvoiceMatchPersistenceResult<T>> Unavailable<T>() => Task.FromResult(PurchaseInvoiceMatchPersistenceResult<T>.Denied(PurchaseInvoiceMatchPersistenceOutcome.Failure, "persistence_unavailable"));
     public Task<IReadOnlyList<PurchaseInvoiceMatchListRecord>> ListAsync(TenantContext tenantContext, Guid? handoffId, PurchaseInvoiceMatchResult? result, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<PurchaseInvoiceMatchListRecord>>([]);
@@ -514,6 +544,7 @@ public sealed class UnavailablePurchaseInvoiceMatchPersistence : IPurchaseInvoic
     public Task<PurchaseInvoiceMatchPersistenceResult<PurchaseInvoiceMatchRecord>> ResolveAsync(TenantContext tenantContext, PurchaseInvoiceMatchResolveCommand command, PurchaseInvoiceMatchAuditEvidence evidence, CancellationToken cancellationToken = default) => Unavailable<PurchaseInvoiceMatchRecord>();
     public Task<IReadOnlyList<PurchaseInvoiceMatchHistoryRecord>> ReadHistoryAsync(TenantContext tenantContext, Guid matchEvaluationId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<PurchaseInvoiceMatchHistoryRecord>>([]);
     public Task<IReadOnlyList<PurchaseInvoiceMatchAuditRecord>> ReadAuditAsync(TenantContext tenantContext, Guid matchEvaluationId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<PurchaseInvoiceMatchAuditRecord>>([]);
+    public Task<ReportingSourcePage<PurchaseInvoiceMatchReportingRecord>> ListReportingPageAsync(TenantContext tenantContext, PurchaseInvoiceMatchResult? result, DateOnly? fromDate, DateOnly? toDate, ReportingPageRequest page, CancellationToken cancellationToken = default) => throw new InvalidOperationException("purchase_invoice_match_reporting_unavailable");
 }
 
 #pragma warning restore CS1591

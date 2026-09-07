@@ -24,6 +24,7 @@ public static class PurchaseRequestServiceCollectionExtensions
         services.AddSingleton<ISupplierReturnPhysicalEffectGate, SupplierReturnPhysicalEffectGate>();
         services.AddSingleton<IPurchaseInvoiceHandoffPersistence, UnavailablePurchaseInvoiceHandoffPersistence>();
         services.AddSingleton<IPurchaseInvoiceMatchPersistence, UnavailablePurchaseInvoiceMatchPersistence>();
+        services.AddSingleton<IPurchaseInvoiceMatchReportingReadPort, UnavailablePurchaseInvoiceMatchPersistence>();
         services.AddSingleton<IPurchaseRequestApprovalPolicyProvider, DefaultPurchaseRequestApprovalPolicyProvider>();
         services.AddSingleton<IPurchaseRequestApprovalDelegationProvider, NoPurchaseRequestApprovalDelegationProvider>();
         services.AddOptions<PurchaseInvoiceMatchingPolicyOptions>();

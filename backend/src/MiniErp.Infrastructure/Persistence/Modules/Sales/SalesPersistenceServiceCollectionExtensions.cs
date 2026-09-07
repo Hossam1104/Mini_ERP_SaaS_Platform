@@ -15,10 +15,13 @@ public static class SalesPersistenceServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configureOptions);
         var options = new DbContextOptionsBuilder();
         configureOptions(options);
-        services.AddSingleton<ISalesPersistence>(new SalesPersistence(options.Options));
+        var sales = new SalesPersistence(options.Options);
+        services.AddSingleton<ISalesPersistence>(sales);
+        services.AddSingleton<ISalesFulfillmentReportingReadPort>(sales);
         var customerReturns = new CustomerReturnPersistence(options.Options);
         services.AddSingleton<ISalesCustomerReturnPersistence>(customerReturns);
         services.AddSingleton<ISalesCustomerReturnSourceProvider>(customerReturns);
+        services.AddSingleton<ISalesCustomerReturnReportingReadPort>(customerReturns);
         return services;
     }
 

@@ -705,7 +705,35 @@ public interface ISalesReportingReadPort
         CancellationToken cancellationToken = default);
 }
 
-public sealed class UnavailableSalesPersistence : ISalesPersistence
+public sealed record SalesFulfillmentReportingRecord(
+    Guid Id,
+    Guid TenantId,
+    Guid OrderId,
+    int OrderRevisionNumber,
+    Guid CompanyId,
+    Guid? BranchId,
+    Guid CustomerId,
+    Guid WarehouseId,
+    SalesDeliveryStatus Status,
+    string? ErrorCode,
+    int LineCount,
+    decimal RequestedQuantity,
+    int MovementCount,
+    SalesHandoffEvidence Handoff,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? PostedAt,
+    byte[] Version);
+
+public interface ISalesFulfillmentReportingReadPort
+{
+    Task<ReportingSourcePage<SalesFulfillmentReportingRecord>> ListFulfillmentReportingPageAsync(
+        ProcurementRequestContext context,
+        SalesDeliveryStatus? status,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class UnavailableSalesPersistence : ISalesPersistence, ISalesFulfillmentReportingReadPort
 {
     private static Task<T> Empty<T>() => Task.FromResult<T>(default!);
     private static Task<IReadOnlyList<T>> EmptyList<T>() => Task.FromResult<IReadOnlyList<T>>([]);
@@ -736,6 +764,7 @@ public sealed class UnavailableSalesPersistence : ISalesPersistence
     public Task<SalesOperationResult<SalesInvoiceRequestResponse>> CreateInvoiceRequestAsync(ProcurementRequestContext c, SalesInvoiceRequestWriteModel m, string k, string f, CancellationToken x = default) => Task.FromResult(Failure<SalesInvoiceRequestResponse>());
     public Task<SalesOperationResult<SalesInvoiceRequestResponse>> CompleteInvoiceRequestAsync(ProcurementRequestContext c, Guid id, Guid financeOpenItemId, string k, string f, CancellationToken x = default, string? downstreamIdempotencyKey = null, string? downstreamRequestFingerprint = null) => Task.FromResult(Failure<SalesInvoiceRequestResponse>());
     public Task<SalesOperationResult<SalesInvoiceRequestResponse>> FailInvoiceRequestAsync(ProcurementRequestContext c, Guid id, string code, bool unknown, CancellationToken x = default, SalesDownstreamEvidence? downstream = null) => Task.FromResult(Failure<SalesInvoiceRequestResponse>());
+    public Task<ReportingSourcePage<SalesFulfillmentReportingRecord>> ListFulfillmentReportingPageAsync(ProcurementRequestContext context, SalesDeliveryStatus? status, ReportingPageRequest page, CancellationToken cancellationToken = default) => throw new InvalidOperationException("sales_fulfillment_reporting_unavailable");
 }
 
 public sealed class SalesAuthorizationService(PurchaseRequestAuthorizationService authorization)

@@ -2,6 +2,7 @@ using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.BuildingBlocks.Work;
+using Microsoft.Extensions.DependencyInjection;
 using MiniErp.App.Modules.Audit;
 using MiniErp.App.Modules.Finance;
 using MiniErp.App.Modules.Inventory;
@@ -73,21 +74,26 @@ public sealed class ReportingHold1Tests
         });
         Assert.Contains(definitions, item => item.ExportEnabled && !item.SchedulingEnabled);
 
-        var unavailable = definitions
-            .Where(item => item.ImplementationState == ReportingImplementationState.SOURCE_CAPABILITY_UNAVAILABLE)
-            .Select(item => item.Code)
-            .OrderBy(item => item)
-            .ToArray();
-        Assert.Equal(
-            [
-                "finance.bank-reconciliation",
-                "finance.cash-movement",
-                "inventory.count-variance",
-                "procurement.match-exceptions",
-                "sales.fulfillment",
-                "sales.returns-credits"
-            ],
-            unavailable);
+        foreach (var code in new[]
+        {
+            "finance.cash-movement",
+            "procurement.match-exceptions",
+            "sales.fulfillment",
+            "sales.returns-credits"
+        })
+        {
+            Assert.Equal(ReportingImplementationState.IMPLEMENTABLE_NOW, definitions.Single(item => item.Code == code).ImplementationState);
+        }
+
+        var bankReconciliation = definitions.Single(item => item.Code == "finance.bank-reconciliation");
+        Assert.Equal(ReportingImplementationState.SOURCE_CAPABILITY_UNAVAILABLE, bankReconciliation.ImplementationState);
+        Assert.Contains("bank-statement", bankReconciliation.SourceOwnership, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("provider", bankReconciliation.SourceOwnership, StringComparison.OrdinalIgnoreCase);
+
+        var countVariance = definitions.Single(item => item.Code == "inventory.count-variance");
+        Assert.Equal(ReportingImplementationState.SOURCE_CAPABILITY_UNAVAILABLE, countVariance.ImplementationState);
+        Assert.Contains("stock-count", countVariance.SourceOwnership, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("entities", countVariance.SourceOwnership, StringComparison.OrdinalIgnoreCase);
 
         var taxSummary = definitions.Single(item => item.Code == "finance.tax-summary");
         Assert.Equal(ReportingImplementationState.IMPLEMENTABLE_NOW, taxSummary.ImplementationState);
@@ -103,6 +109,24 @@ public sealed class ReportingHold1Tests
         Assert.Contains(typeof(IPurchaseOrderReportingReadPort), typeof(PurchaseOrderPersistence).GetInterfaces());
         Assert.Contains(typeof(IGoodsReceiptReportingReadPort), typeof(GoodsReceiptPersistence).GetInterfaces());
         Assert.Contains(typeof(ISalesReportingReadPort), typeof(SalesPersistence).GetInterfaces());
+        Assert.Contains(typeof(IFinanceSettlementReportingReadPort), typeof(FinanceSettlementPersistence).GetInterfaces());
+        Assert.Contains(typeof(IPurchaseInvoiceMatchReportingReadPort), typeof(PurchaseInvoiceMatchPersistence).GetInterfaces());
+        Assert.Contains(typeof(ISalesFulfillmentReportingReadPort), typeof(SalesPersistence).GetInterfaces());
+        Assert.Contains(typeof(ISalesCustomerReturnReportingReadPort), typeof(CustomerReturnPersistence).GetInterfaces());
+    }
+
+    [Fact]
+    public void Implementable_source_ports_are_registered_alongside_their_primary_persistence_services()
+    {
+        var services = new ServiceCollection();
+        services.AddFinanceSqlitePersistence("Data Source=reporting-registration");
+        services.AddProcurementSqlitePersistence("Data Source=reporting-registration");
+        services.AddSalesSqlitePersistence("Data Source=reporting-registration");
+
+        Assert.Contains(services, item => item.ServiceType == typeof(IFinanceSettlementReportingReadPort));
+        Assert.Contains(services, item => item.ServiceType == typeof(IPurchaseInvoiceMatchReportingReadPort));
+        Assert.Contains(services, item => item.ServiceType == typeof(ISalesFulfillmentReportingReadPort));
+        Assert.Contains(services, item => item.ServiceType == typeof(ISalesCustomerReturnReportingReadPort));
     }
 
     [Fact]
@@ -113,7 +137,7 @@ public sealed class ReportingHold1Tests
 
         var unavailable = await service.ExecuteAsync(
             context,
-            "finance.cash-movement",
+            "finance.bank-reconciliation",
             new ReportingQuery(CompanyId: Company));
 
         Assert.NotNull(unavailable);
@@ -123,7 +147,7 @@ public sealed class ReportingHold1Tests
 
         await Assert.ThrowsAsync<ArgumentException>(() => service.ExecuteAsync(
             context,
-            "finance.cash-movement",
+            "finance.bank-reconciliation",
             new ReportingQuery(CompanyId: Company, Status: "Posted")));
         await Assert.ThrowsAsync<ArgumentException>(() => service.ExecuteAsync(
             context,
@@ -364,6 +388,10 @@ public sealed class ReportingHold1Tests
             new UnavailablePurchaseOrderPersistence(),
             new UnavailableGoodsReceiptPersistence(),
             new UnavailableSalesPersistence(),
+            new UnavailableFinanceSettlementPersistence(),
+            new UnavailablePurchaseInvoiceMatchPersistence(),
+            new UnavailableSalesPersistence(),
+            new UnavailableSalesCustomerReturnPersistence(),
             new FoundationAuditCoordinator(
                 new LocalImmutableAuditEvidenceStore(),
                 new LocalFoundationAuditTelemetrySink(),

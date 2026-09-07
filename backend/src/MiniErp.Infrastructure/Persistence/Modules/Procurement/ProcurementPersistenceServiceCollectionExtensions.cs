@@ -32,6 +32,8 @@ public static class ProcurementPersistenceServiceCollectionExtensions
             new PurchaseInvoiceHandoffPersistence(optionsBuilder.Options));
         services.AddSingleton<IPurchaseInvoiceMatchPersistence>(
             new PurchaseInvoiceMatchPersistence(optionsBuilder.Options));
+        services.AddSingleton<IPurchaseInvoiceMatchReportingReadPort>(provider =>
+            (IPurchaseInvoiceMatchReportingReadPort)provider.GetRequiredService<IPurchaseInvoiceMatchPersistence>());
         return services;
     }
 
