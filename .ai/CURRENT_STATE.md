@@ -24,6 +24,7 @@
 | Epic / capability state | MESP-11 **In Progress**; MESP-139 **In Progress** |
 | Sol readiness authority | MESP-139 comment `12363` |
 | Sol activation authority | MESP-139 comment `12366`; Epic reconciliation comment `12367` |
+| Sol HOLD 1 authority | MESP-139 comment `12370` |
 
 Sol completed the Jira activation before this continuation. The earlier
 executor block was an Atlassian connector/workspace mismatch, not project-state
@@ -36,7 +37,8 @@ drift. This executor performed no Jira write.
 | Implementation branch | `feat/MESP-139-release1-reporting` |
 | Preferred worktree | `D:\AI Tools\Active Projects\Mini_ERP_SaaS_Platform-MESP-139` |
 | Required PR state | One Open/Draft/Unmerged PR, base `main`; no Ready, merge, reviewer request, auto-merge, rebase, or force-push |
-| Implementation commit | `338110a949d2730532a80f750d3a67af358b6028` |
+| HOLD 1 starting feature head | `f60d234a997421f9e8fddffb0c8fc1c95d780188` |
+| Implementation commit | `20de20afccc7ad08d29b45e1417f0b7922b27e7b` |
 | Active PR | **#88** — Open / Draft / Unmerged; independent GPT-5.6 Sol review required |
 | CI | **NONE / NOT CLAIMED** — local validation only |
 
@@ -44,14 +46,18 @@ drift. This executor performed no Jira write.
 
 MESP-139 Release 1 Reporting is implemented as a Reporting-owned read-only
 catalogue and orchestration boundary over existing Finance, Inventory,
-Procurement, Sales, and Foundation audit/source contracts. It provides
-server-authorized Tenant/company/branch scope, report definitions and version,
-source evidence, data-as-of/freshness/reconciliation metadata, row lineage,
-CSV export jobs/private artifacts, idempotent local schedule control-plane
-records, explicit pending decision states, REST/OpenAPI metadata, and a
-bilingual RTL Angular workspace. It does not mutate source ledgers or
-operational records, add a Reporting persistence context/migration, activate
-external distribution, or certify production readiness.
+Procurement, Sales, and Foundation audit/source contracts. HOLD 1 reconciles
+all 22 catalogue entries into explicit PD-042 implementation states, centralizes
+trusted Tenant/company/branch/warehouse scope and runtime-record
+reauthorization, pushes growing detail queries through typed source-owned page
+contracts, keeps scheduling explicitly disabled/local-test-only, and resolves
+request-time as-of/freshness from injectable and source clocks. The capability
+retains source evidence, reconciliation metadata, row lineage, CSV export
+jobs/private artifacts, explicit capability/policy states, REST/OpenAPI
+metadata, and bilingual RTL Angular UI. It does not mutate source ledgers or
+operational records, add a Reporting
+persistence context/migration, activate external distribution, or certify
+production readiness.
 
 ### Completion and gates
 
@@ -64,25 +70,28 @@ invented.
 ### Validation evidence
 
 Release backend build: **0 warnings / 0 errors**. Safe disposable-LocalDB
-backend suite: **1,192 / 1,192 passed, 0 skipped**; focused Reporting
-architecture tests: **5 / 5**; exact Reporting REST permission test: **1 / 1**;
-fresh affected-domain evidence is Tenant/security **108/108**, Finance
-**93/93**, Inventory **90/90**, Procurement **64/64**, Sales **38/38**,
-REST/OpenAPI **37/37**, and audit **37/37**. Angular unit tests: **308 / 308**
-across 44 files, including the English and
-Arabic/RTL Reporting journeys. Production initial bundle:
-**513.21 kB**, retaining the existing 500 kB budget warning. The full backend
-run was **1,192/1,192**, split into **1,105 non-SQL** and **87 SQL-safety**
-tests. NuGet vulnerable
-package scan: clear across five projects. `npm audit`: 2 lockfile findings
-(1 moderate, 1 high); no audit fix was run. `git diff --check` is clean.
-Owner-managed `frontend/assets` is untouched. No Reporting database context or
-migration was added; the existing seven-context SQL migration safety run was
-green. Explicit EF `has-pending-model-changes` checks reported no changes for
-TenantPersistence, MasterData, BusinessParties, Procurement, Inventory,
-Finance, and Sales.
-Focused Reporting Chromium journeys: **2 / 2**; full applicable Chromium
-regression: **51 / 51**.
+backend suite: **1,204 / 1,204 passed, 0 skipped**, split into **1,117
+non-SQL** and **87 SQL-safety** tests against disposable database
+`MiniErpFoundation_20260907163212_11cde80c`; the persistent MESP connection was
+unchanged. HOLD 1 architecture coverage is **12 / 12** and the Reporting
+filtered regression is **24 / 24**. Fresh affected-domain evidence is Finance
+MESP-135 **31/31**, Finance MESP-134 **27/27**, Inventory valuation **44/44**,
+Inventory ledger/control **46/46**, Procurement PO **14/14**, Procurement
+receipts **13/13**, Sales **38/38**, Audit **37/37**, Identity **89/89**, and
+REST/OpenAPI **37/37**. All seven existing EF contexts report no pending model
+changes, and NuGet vulnerable-package scanning is clear across five projects.
+
+Angular unit tests: **309 / 309** across 44 files; focused Reporting component
+tests: **4 / 4**. The production initial bundle is **513.21 kB**, retaining the
+existing 500 kB warning budget; the Reporting lazy chunk is **37.59 kB**.
+Focused Reporting Chromium journeys are **2 / 2** and full applicable Chromium
+regression is **51 / 51**. Both production-only and full frontend `npm audit`
+are **0 vulnerabilities** after a narrow lockfile-only repair of the two
+transitive advisories. Authenticated loopback smoke returned HTTP 200 for API
+health, OpenAPI, Reporting catalogue, Finance companies, Trial Balance, and
+frontend `/` and `/main.js`. `git diff --check` is clean and owner-managed
+`frontend/assets` is untouched. No Reporting database context or migration was
+added.
 
 ### Next exact gate
 

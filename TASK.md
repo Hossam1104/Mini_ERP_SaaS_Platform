@@ -22,6 +22,26 @@ Reporting persistence context/migration. Do not activate external distribution,
 production policy, statutory certification, Wafra-specific behavior, or any
 later capability. MESP-48 and MESP-50 remain open production gates.
 
+This continuation remediates Sol HOLD 1 authority MESP-139 comment `12370`:
+HOLD-139-A makes the full 22-entry catalogue explicit and honest;
+HOLD-139-B centralizes trusted organization scope and reauthorizes Audit,
+jobs, artifacts, and schedules; HOLD-139-C uses typed source-owned bounded
+detail pages with executable filters and typed ordering; HOLD-139-D keeps
+scheduling explicit and disabled/local-test-only without an approved executor;
+and HOLD-139-E uses request-time clocks plus oldest-source/unknown freshness
+semantics. The product implementation is committed at
+`20de20afccc7ad08d29b45e1417f0b7922b27e7b`; acceptance remains owned by Sol.
+
+Validation is Release `0 warnings / 0 errors`, full backend `1,204/1,204`
+with `0` failures and `0` skips, HOLD coverage `12/12`, Reporting-filtered
+coverage `24/24`, Angular `309/309`, focused/full Chromium `2/2` and `51/51`,
+all seven EF contexts clear of pending model changes, NuGet scan clear, and
+both frontend audits at `0 vulnerabilities`. The initial Angular bundle is
+`513.21 kB` against the existing `500 kB` warning budget. `frontend/assets` is
+untouched and the repository-owned Development runtime remains running for
+independent review. Jira handoff deferred to GPT-5.6 Sol due executor connector
+mismatch.
+
 Required handoff state: one Open/Draft/Unmerged PR against `main`; no Ready
 transition, merge, reviewer request, auto-merge, rebase, force-push, or Jira
 write. Update `.ai/CURRENT_STATE.md` and `docs/staticts.md`; leave

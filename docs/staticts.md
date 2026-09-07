@@ -10,7 +10,8 @@ Jira and GitHub remain authoritative for mutable lifecycle facts.
 | Measure | Value | Basis |
 |---|---|---|
 | Active capability | **MESP-139 - Release 1 Reporting** | Activated by Sol in Jira: MESP-139 comment `12366`; Epic reconciliation comment `12367`; readiness authority comment `12363` |
-| Implementation branch | `feat/MESP-139-release1-reporting` | Commit `338110a949d2730532a80f750d3a67af358b6028`; Draft PR #88; isolated continuation worktree from exact `origin/main` baseline `293f7442677b4142ae45cde0f6d48dcd9ccf6077` |
+| Implementation branch | `feat/MESP-139-release1-reporting` | HOLD 1 starting head `f60d234a997421f9e8fddffb0c8fc1c95d780188`; product commit `20de20afccc7ad08d29b45e1417f0b7922b27e7b`; Draft PR #88; isolated continuation worktree from exact `origin/main` baseline `293f7442677b4142ae45cde0f6d48dcd9ccf6077` |
+| Sol HOLD 1 authority | MESP-139 comment `12370` | Acceptance remains owned by GPT-5.6 Sol; this executor performed no Jira write |
 | MESP-11 / MESP-139 | **In Progress** | Jira activation was completed by Sol before this continuation; no executor Jira write performed |
 | Accepted fast-track capability completion | **22 / 26 = 84.6%** | Unchanged from accepted MESP-138 lifecycle state; implementation review does not self-accept MESP-139 |
 | Production readiness - overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
@@ -21,37 +22,38 @@ Jira and GitHub remain authoritative for mutable lifecycle facts.
 
 The bounded implementation adds a Reporting-owned catalogue, read-only
 orchestration over Finance, Inventory, Procurement, Sales, and Foundation audit
-contracts, server-owned Tenant/company/branch scope enforcement, freshness/as-of
-and reconciliation metadata, lineage, CSV export jobs and private artifacts,
-idempotent local schedule control-plane records, explicit pending decision
-states, REST/OpenAPI metadata, and a bilingual RTL Angular workspace. It does
-not mutate source ledgers or operational records, add a Reporting persistence
-context or migration, activate external distribution, or certify production
-readiness.
+contracts, central trusted Tenant/company/branch/warehouse scope enforcement,
+exact runtime-record reauthorization, typed source-side detail paging,
+freshness/as-of and reconciliation metadata, lineage, CSV export jobs and
+private artifacts, explicit disabled/local-test scheduling truth, REST/OpenAPI
+metadata, and a bilingual RTL Angular workspace. It does not mutate source
+ledgers or operational records, add a Reporting persistence context or
+migration, activate external distribution, or certify production readiness.
 
 Validation recorded for this continuation: Release backend build `0 warnings / 0
-errors`; disposable-LocalDB backend suite `1,192 / 1,192 passed, 0 skipped`;
-focused Reporting architecture tests `5 / 5`; exact Reporting REST permission
-test `1 / 1`; fresh affected-domain evidence: Tenant/security `108/108`,
-Finance `93/93`, Inventory `90/90`, Procurement `64/64`, Sales `38/38`,
-REST/OpenAPI `37/37`, and audit `37/37`; Angular unit tests `308 / 308` across 44 files, including the
-English and Arabic/RTL Reporting journeys; production build
-`513.21 kB` initial bundle with the existing 500 kB budget warning retained;
-full backend `1,192/1,192` split into `1,105` non-SQL and `87` SQL-safety tests;
-EF model-drift check: all seven existing contexts reported no changes;
-focused Reporting Chromium `2/2`; full applicable Chromium regression `51/51`;
-NuGet vulnerable-package scan clear across all five backend projects; `npm
-audit` reports 2 existing lockfile findings (1 moderate, 1 high), and no audit
-fix was run; `git diff --check` clean. Owner-managed `frontend/assets` remains
+errors`; disposable-LocalDB backend suite `1,204 / 1,204 passed, 0 skipped`,
+split into `1,117` non-SQL and `87` SQL-safety tests; HOLD 1 architecture
+coverage `12/12`; Reporting-filtered coverage `24/24`; fresh affected-domain
+evidence: Finance MESP-135 `31/31`, Finance MESP-134 `27/27`, Inventory
+valuation `44/44`, Inventory ledger/control `46/46`, Procurement PO `14/14`,
+Procurement receipts `13/13`, Sales `38/38`, Audit `37/37`, Identity `89/89`,
+and REST/OpenAPI `37/37`; Angular unit tests `309 / 309` across 44 files;
+focused Reporting component tests `4/4`; production build `513.21 kB` initial
+bundle with the existing 500 kB budget warning retained and `37.59 kB`
+Reporting lazy chunk; focused/full Chromium `2/2` and `51/51`; all seven EF
+contexts clear of pending model changes; NuGet vulnerable-package scan clear
+across all five backend projects; both frontend audits `0 vulnerabilities`;
+and `git diff --check` clean. Owner-managed `frontend/assets` remains
 untouched.
 
 ### Progress history - 7 September 2026 (MESP-139 Release 1 Reporting)
 
 Sol completed Jira activation before this executor continuation after the prior
-session was blocked by an Atlassian connector/workspace mismatch. The bounded
-implementation is ready for independent Sol review as one Open/Draft/Unmerged
-PR. No Ready transition, merge, reviewer request, Jira mutation, production
-distribution activation, or next-capability work was performed.
+session was blocked by an Atlassian connector/workspace mismatch. HOLD 1 is
+implemented and ready for independent Sol review as one Open/Draft/Unmerged PR.
+No Ready transition, merge, reviewer request, Jira mutation, production
+distribution activation, or next-capability work was performed. Jira handoff
+deferred to GPT-5.6 Sol due executor connector mismatch.
 
 ## Historical snapshot - 6 September 2026 (MESP-138 lifecycle finalization)
 
