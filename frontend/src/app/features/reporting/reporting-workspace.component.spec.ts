@@ -10,8 +10,8 @@ describe('ReportingWorkspaceComponent', () => {
   let fixture: ComponentFixture<ReportingWorkspaceComponent>;
 
   const definitions = [
-    { code: 'finance.trial-balance', name: 'Trial balance', arabicName: '\u0645\u064a\u0632\u0627\u0646 \u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629', domain: 'Finance', definitionVersion: '1.0', sourceOwnership: 'Finance owns posted truth.', reconciliationPath: 'Finance reconciliation', allowedFilters: ['company'], exportEnabled: true, schedulingEnabled: true, requiresCompany: true, pendingDecision: false },
-    { code: 'finance.cash-movement', name: 'Cash movement', arabicName: '\u062d\u0631\u0643\u0629 \u0627\u0644\u0646\u0642\u062f', domain: 'Finance', definitionVersion: '1.0', sourceOwnership: 'Decision pending.', reconciliationPath: 'Finance evidence', allowedFilters: ['company'], exportEnabled: true, schedulingEnabled: false, requiresCompany: true, pendingDecision: true, pendingDecisionCode: 'FIN-OD-09' },
+    { code: 'finance.trial-balance', name: 'Trial balance', arabicName: '\u0645\u064a\u0632\u0627\u0646 \u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629', domain: 'Finance', definitionVersion: '1.0', sourceOwnership: 'Finance owns posted truth.', reconciliationPath: 'Finance reconciliation', allowedFilters: ['company'], exportEnabled: true, schedulingEnabled: false, requiresCompany: true, pendingDecision: false, implementationState: 'IMPLEMENTABLE_NOW' },
+    { code: 'finance.cash-movement', name: 'Cash movement', arabicName: '\u062d\u0631\u0643\u0629 \u0627\u0644\u0646\u0642\u062f', domain: 'Finance', definitionVersion: '1.0', sourceOwnership: 'Source capability unavailable.', reconciliationPath: 'Finance evidence', allowedFilters: ['company'], exportEnabled: false, schedulingEnabled: false, requiresCompany: true, pendingDecision: false, pendingDecisionCode: 'source_capability_unavailable', implementationState: 'SOURCE_CAPABILITY_UNAVAILABLE' },
   ];
 
   beforeEach(() => {
@@ -34,11 +34,17 @@ describe('ReportingWorkspaceComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders the source catalogue and explicit pending decision branch', () => {
+  it('renders the source catalogue and explicit unavailable capability branch', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.textContent).toContain('Trial balance');
     expect(element.textContent).toContain('Cash movement');
+    expect(element.textContent).toContain('Source capability unavailable');
     expect(element.textContent).toContain('source signal');
+  });
+
+  it('keeps scheduling disabled when the catalogue does not explicitly approve it', () => {
+    const button = fixture.nativeElement.querySelector('.schedule-panel button') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
   });
 
   it('leaves Company and Branch selection to the server-owned operational context', () => {

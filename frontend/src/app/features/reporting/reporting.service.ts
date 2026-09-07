@@ -34,6 +34,7 @@ export interface ReportingDefinition {
   requiresCompany: boolean;
   pendingDecision: boolean;
   pendingDecisionCode?: string;
+  implementationState: 'IMPLEMENTABLE_NOW' | 'SOURCE_CAPABILITY_UNAVAILABLE' | 'OPEN_PRODUCTION_POLICY_ONLY' | 'NOT_IN_PD042';
 }
 
 export interface ReportingColumn { key: string; label: string; arabicLabel: string; dataType: string; }

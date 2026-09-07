@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.Modules.BusinessParties;
 using MiniErp.App.Modules.Finance;
 using MiniErp.App.Modules.Inventory;
@@ -692,6 +693,16 @@ public interface ISalesPersistence
     Task<SalesOperationResult<SalesInvoiceRequestResponse>> CreateInvoiceRequestAsync(ProcurementRequestContext context, SalesInvoiceRequestWriteModel model, string idempotencyKey, string requestFingerprint, CancellationToken cancellationToken = default);
     Task<SalesOperationResult<SalesInvoiceRequestResponse>> CompleteInvoiceRequestAsync(ProcurementRequestContext context, Guid requestId, Guid financeOpenItemId, string idempotencyKey, string requestFingerprint, CancellationToken cancellationToken = default, string? downstreamIdempotencyKey = null, string? downstreamRequestFingerprint = null);
     Task<SalesOperationResult<SalesInvoiceRequestResponse>> FailInvoiceRequestAsync(ProcurementRequestContext context, Guid requestId, string code, bool unknown, CancellationToken cancellationToken = default, SalesDownstreamEvidence? downstream = null);
+}
+
+public interface ISalesReportingReadPort
+{
+    Task<ReportingSourcePage<SalesOrderSummaryResponse>> ListOrdersReportingPageAsync(
+        ProcurementRequestContext context,
+        Guid? companyId,
+        SalesOrderStatus? status,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class UnavailableSalesPersistence : ISalesPersistence

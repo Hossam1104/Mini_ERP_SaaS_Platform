@@ -1,6 +1,7 @@
 #pragma warning disable CS1591
 
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.Contracts.Modules.Procurement;
 
 namespace MiniErp.App.Modules.Procurement;
@@ -10,6 +11,17 @@ public sealed record GoodsReceiptOperationResult<T>(bool Succeeded, string Code,
     public static GoodsReceiptOperationResult<T> Success(T value) => new(true, "succeeded", value);
 
     public static GoodsReceiptOperationResult<T> Failure(string code) => new(false, code, default);
+}
+
+public interface IGoodsReceiptReportingReadPort
+{
+    Task<ReportingSourcePage<GoodsReceiptListRecord>> ListReportingPageAsync(
+        TenantContext tenantContext,
+        GoodsReceiptStatus? status,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record GoodsReceiptEligibleLineRecord(

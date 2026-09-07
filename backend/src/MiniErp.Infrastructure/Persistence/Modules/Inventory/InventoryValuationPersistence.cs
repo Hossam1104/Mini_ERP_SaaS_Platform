@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.Modules.Inventory;
 using MiniErp.App.Modules.MasterData;
 using MiniErp.App.Modules.Procurement;
@@ -18,7 +19,7 @@ internal sealed class InventoryValuationPersistence(
     DbContextOptions options,
     IGoodsReceiptPersistence? goodsReceipts,
     IPurchaseOrderPersistence? purchaseOrders,
-    IMasterDataExchangeRatePersistence? exchangeRates) : IInventoryValuationPersistence
+    IMasterDataExchangeRatePersistence? exchangeRates) : IInventoryValuationPersistence, IInventoryReportingReadPort
 {
     private InventoryDbContext CreateContext(InventoryRequestContext context) => new(options, context.TenantContext);
 
@@ -289,6 +290,48 @@ internal sealed class InventoryValuationPersistence(
     public async Task<IReadOnlyList<InventoryMovementValuationEventRecord>> ListEventsAsync(InventoryRequestContext context, InventoryValuationQuery query, CancellationToken cancellationToken = default)
     {
         await using var db = CreateContext(context); var values = await ApplyScope(db.MovementValuationEvents.AsNoTracking(), query).OrderByDescending(item => item.LedgerSequence).ThenByDescending(item => item.Id).ToListAsync(cancellationToken); return values.Select(ToEvent).ToArray();
+    }
+
+    public async Task<ReportingSourcePage<InventoryValuationStateRecord>> ListStatesReportingPageAsync(
+        InventoryRequestContext context,
+        InventoryValuationQuery query,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = CreateContext(context);
+        var source = ApplyScope(db.ValuationStates.AsNoTracking(), query);
+        var total = await source.CountAsync(cancellationToken);
+        var asOf = total == 0 ? null : await source.Select(item => (DateTimeOffset?)item.UpdatedAt).MaxAsync(cancellationToken);
+        var ordered = page.SortBy?.ToLowerInvariant() switch
+        {
+            "quantity" => page.SortDirection == "desc" ? source.OrderByDescending(item => item.Quantity).ThenByDescending(item => item.Id) : source.OrderBy(item => item.Quantity).ThenBy(item => item.Id),
+            "value" => page.SortDirection == "desc" ? source.OrderByDescending(item => item.Value).ThenByDescending(item => item.Id) : source.OrderBy(item => item.Value).ThenBy(item => item.Id),
+            "updatedat" => page.SortDirection == "asc" ? source.OrderBy(item => item.UpdatedAt).ThenBy(item => item.Id) : source.OrderByDescending(item => item.UpdatedAt).ThenByDescending(item => item.Id),
+            _ => source.OrderBy(item => item.WarehouseId).ThenBy(item => item.ProductId).ThenBy(item => item.TrackingIdentity).ThenBy(item => item.Id)
+        };
+        var values = await ordered.Skip(page.Offset).Take(page.PageSize).ToListAsync(cancellationToken);
+        return new ReportingSourcePage<InventoryValuationStateRecord>(values.Select(ToState).ToArray(), total, "warehouseId,productId,trackingIdentity,id", asOf);
+    }
+
+    public async Task<ReportingSourcePage<InventoryMovementValuationEventRecord>> ListEventsReportingPageAsync(
+        InventoryRequestContext context,
+        InventoryValuationQuery query,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = CreateContext(context);
+        var source = ApplyScope(db.MovementValuationEvents.AsNoTracking(), query);
+        var total = await source.CountAsync(cancellationToken);
+        var asOf = total == 0 ? null : await source.Select(item => (DateTimeOffset?)item.OccurredAt).MaxAsync(cancellationToken);
+        var ordered = page.SortBy?.ToLowerInvariant() switch
+        {
+            "effectiveon" => page.SortDirection == "asc" ? source.OrderBy(item => item.EffectiveOn).ThenBy(item => item.Id) : source.OrderByDescending(item => item.EffectiveOn).ThenByDescending(item => item.Id),
+            "quantity" => page.SortDirection == "asc" ? source.OrderBy(item => item.Quantity).ThenBy(item => item.Id) : source.OrderByDescending(item => item.Quantity).ThenByDescending(item => item.Id),
+            "status" => page.SortDirection == "asc" ? source.OrderBy(item => item.Status).ThenBy(item => item.Id) : source.OrderByDescending(item => item.Status).ThenByDescending(item => item.Id),
+            _ => page.SortDirection == "asc" ? source.OrderBy(item => item.OccurredAt).ThenBy(item => item.Id) : source.OrderByDescending(item => item.OccurredAt).ThenByDescending(item => item.Id)
+        };
+        var values = await ordered.Skip(page.Offset).Take(page.PageSize).ToListAsync(cancellationToken);
+        return new ReportingSourcePage<InventoryMovementValuationEventRecord>(values.Select(ToEvent).ToArray(), total, "occurredAt,id", asOf);
     }
 
     public async Task<IReadOnlyList<InventoryValuationReconciliationRecord>> ReconcileAsync(InventoryRequestContext context, InventoryValuationQuery query, CancellationToken cancellationToken = default)

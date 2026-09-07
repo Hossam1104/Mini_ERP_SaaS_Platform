@@ -2,6 +2,8 @@
 
 using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Reporting;
+using MiniErp.App.BuildingBlocks.Work;
 using MiniErp.Contracts.Modules.Audit;
 using MiniErp.Contracts.Modules.Foundation;
 
@@ -387,10 +389,25 @@ public interface IFoundationAuditEvidenceReader
 }
 
 /// <summary>
+/// Scope-aware audit read seam. Audit remains the source owner; consumers
+/// receive only evidence at the requested effective organization boundary.
+/// </summary>
+public interface IFoundationAuditScopedEvidenceReader
+{
+    ValueTask<ReportingSourcePage<FoundationAuditEvidence>> ReadForTenantScopeAsync(
+        TenantContext tenantContext,
+        TenantWorkScope scope,
+        ReportingPageRequest page,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// A bounded local append-only store used for isolated validation only. It is
 /// not a production retention, purge or database provider.
 /// </summary>
-public sealed class LocalImmutableAuditEvidenceStore : IFoundationAuditEvidenceSink, IFoundationAuditEvidenceReader
+public sealed class LocalImmutableAuditEvidenceStore : IFoundationAuditEvidenceSink, IFoundationAuditEvidenceReader, IFoundationAuditScopedEvidenceReader
 {
     private readonly object syncRoot = new();
     private readonly List<FoundationAuditEvidence> evidence = [];
@@ -451,6 +468,50 @@ public sealed class LocalImmutableAuditEvidenceStore : IFoundationAuditEvidenceS
                     && item.AuthorizationPath == expectedPath)
                 .ToArray();
             return ValueTask.FromResult(result);
+        }
+    }
+
+    public ValueTask<ReportingSourcePage<FoundationAuditEvidence>> ReadForTenantScopeAsync(
+        TenantContext tenantContext,
+        TenantWorkScope scope,
+        ReportingPageRequest page,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(scope);
+        cancellationToken.ThrowIfCancellationRequested();
+        var tenantId = tenantContext.TenantId.Value;
+        var expectedPath = tenantContext.AuthorizationPath switch
+        {
+            TenantAuthorizationPath.OrdinaryMembership => FoundationAuditAuthorizationPath.OrdinaryMembership,
+            TenantAuthorizationPath.SupportGrant => FoundationAuditAuthorizationPath.SupportGrant,
+            _ => throw new ArgumentOutOfRangeException(nameof(tenantContext))
+        };
+        lock (syncRoot)
+        {
+            // The local audit seam deliberately uses the immutable canonical
+            // scope marker. It never widens a restricted request to all
+            // Tenant evidence; descendant graph expansion remains an Identity
+            // concern and is represented by the server-issued context passed
+            // to source reads.
+            var candidates = evidence
+                .Where(item => item.TenantId == tenantId && item.AuthorizationPath == expectedPath)
+                .Where(item => scope.CompanyId is null
+                    ? true
+                    : scope.WarehouseId is { } warehouseId
+                        ? string.Equals(item.OrganizationScope, $"Warehouse:{warehouseId:D}", StringComparison.OrdinalIgnoreCase)
+                        : scope.BranchId is { } branchId
+                            ? string.Equals(item.OrganizationScope, $"Branch:{branchId:D}", StringComparison.OrdinalIgnoreCase)
+                            : string.Equals(item.OrganizationScope, $"Company:{scope.CompanyId:D}", StringComparison.OrdinalIgnoreCase))
+                .Where(item => !fromDate.HasValue || DateOnly.FromDateTime(item.OccurredAt.UtcDateTime) >= fromDate)
+                .Where(item => !toDate.HasValue || DateOnly.FromDateTime(item.OccurredAt.UtcDateTime) <= toDate)
+                .OrderByDescending(item => item.OccurredAt)
+                .ThenByDescending(item => item.EvidenceId)
+                .ToArray();
+            var rows = candidates.Skip(page.Offset).Take(page.PageSize).ToArray();
+            return ValueTask.FromResult(new ReportingSourcePage<FoundationAuditEvidence>(rows, candidates.Length, "occurredAt desc,evidenceId desc", candidates.Length == 0 ? null : candidates.Min(item => item.OccurredAt)));
         }
     }
 

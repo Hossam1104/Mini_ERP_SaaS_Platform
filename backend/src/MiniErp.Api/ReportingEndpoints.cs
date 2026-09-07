@@ -142,7 +142,7 @@ public static class ReportingEndpoints
         catch (FormatException) { return false; }
     }
 
-    private static int StatusFor(string code) => code is "permission_denied" or "company_scope_denied" or "branch_scope_denied" or "scope_invalid" ? 403 : code.Contains("not_found", StringComparison.OrdinalIgnoreCase) ? 404 : code is "concurrency_conflict" or "idempotency_conflict" ? 409 : code is "source_unavailable" ? 503 : 422;
+    private static int StatusFor(string code) => code is "permission_denied" or "company_scope_denied" or "branch_scope_denied" or "warehouse_scope_denied" or "scope_denied" or "scope_invalid" ? 403 : code.Contains("not_found", StringComparison.OrdinalIgnoreCase) ? 404 : code is "concurrency_conflict" or "idempotency_conflict" ? 409 : code is "source_unavailable" ? 503 : 422;
     private static IResult Problem(int status, string code, string detail) => Results.Problem(detail, statusCode: status, title: code, extensions: new Dictionary<string, object?> { ["code"] = code });
 
     public sealed record ReportingExportRequest(string ReportCode, ReportingQuery Query);

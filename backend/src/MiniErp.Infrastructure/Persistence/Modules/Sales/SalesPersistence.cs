@@ -6,13 +6,14 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.Modules.Procurement;
 using MiniErp.App.Modules.Sales;
 using MiniErp.Contracts.Modules.Sales;
 
 namespace MiniErp.Infrastructure.Persistence.Modules.Sales;
 
-public sealed class SalesPersistence(DbContextOptions options) : ISalesPersistence
+public sealed class SalesPersistence(DbContextOptions options) : ISalesPersistence, ISalesReportingReadPort
 {
     private readonly DbContextOptions options = options;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -200,6 +201,31 @@ public sealed class SalesPersistence(DbContextOptions options) : ISalesPersisten
         if (companyId is { } company) query = query.Where(item => item.CompanyId == company);
         if (status is { } state) query = query.Where(item => item.Status == state);
         return (await query.ToListAsync(cancellationToken)).OrderByDescending(item => item.UpdatedAt).Take(500).Select(ToSummary).ToArray();
+    }
+
+    public async Task<ReportingSourcePage<SalesOrderSummaryResponse>> ListOrdersReportingPageAsync(
+        ProcurementRequestContext context,
+        Guid? companyId,
+        SalesOrderStatus? status,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = Create(context);
+        var query = ApplyTrustedScope(db.Orders.AsNoTracking(), context.TenantContext.Scope);
+        if (companyId is { } selectedCompany) query = query.Where(item => item.CompanyId == selectedCompany);
+        if (status is { } selectedStatus) query = query.Where(item => item.Status == selectedStatus);
+        var total = await query.CountAsync(cancellationToken);
+        var asOf = total == 0 ? null : await query.Select(item => (DateTimeOffset?)item.UpdatedAt).MaxAsync(cancellationToken);
+        var ordered = page.SortBy?.ToLowerInvariant() switch
+        {
+            "number" => page.SortDirection == "desc" ? query.OrderByDescending(item => item.Number).ThenByDescending(item => item.Id) : query.OrderBy(item => item.Number).ThenBy(item => item.Id),
+            "customer" => page.SortDirection == "desc" ? query.OrderByDescending(item => item.CustomerName).ThenByDescending(item => item.Id) : query.OrderBy(item => item.CustomerName).ThenBy(item => item.Id),
+            "status" => page.SortDirection == "desc" ? query.OrderByDescending(item => item.Status).ThenByDescending(item => item.Id) : query.OrderBy(item => item.Status).ThenBy(item => item.Id),
+            "total" => page.SortDirection == "desc" ? query.OrderByDescending(item => item.Total).ThenByDescending(item => item.Id) : query.OrderBy(item => item.Total).ThenBy(item => item.Id),
+            _ => page.SortDirection == "asc" ? query.OrderBy(item => item.UpdatedAt).ThenBy(item => item.Id) : query.OrderByDescending(item => item.UpdatedAt).ThenByDescending(item => item.Id)
+        };
+        var values = await ordered.Skip(page.Offset).Take(page.PageSize).ToListAsync(cancellationToken);
+        return new ReportingSourcePage<SalesOrderSummaryResponse>(values.Select(ToSummary).ToArray(), total, "updatedAt,id", asOf);
     }
 
     public async Task<SalesOrderResponse?> GetOrderAsync(ProcurementRequestContext context, Guid id, CancellationToken cancellationToken = default)

@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.Modules.Finance;
 using MiniErp.App.Modules.MasterData;
 using MiniErp.Contracts.Modules.Finance;
@@ -17,7 +18,7 @@ internal sealed class FinanceMesp135Persistence(
     IFinanceCompanyProvider companies,
     IFinanceSettlementPersistence settlements,
     IFinanceMesp134Persistence mesp134,
-    IMasterDataExchangeRatePersistence exchangeRates) : IFinanceMesp135Persistence
+    IMasterDataExchangeRatePersistence exchangeRates) : IFinanceMesp135Persistence, IFinanceReportingReadPort
 {
     private const string YearEndContract = "finance-year-end.v1";
     private const string CorrectionContract = "finance-correction.v1";
@@ -250,6 +251,57 @@ internal sealed class FinanceMesp135Persistence(
         return result;
     }
 
+    public async Task<ReportingSourcePage<FinanceGeneralLedgerLineRecord>> QueryGeneralLedgerPageAsync(
+        FinanceRequestContext context,
+        FinanceGeneralLedgerQuery query,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default)
+    {
+        if (Company(context, query.CompanyId) is not { } company)
+            return ReportingSourcePage<FinanceGeneralLedgerLineRecord>.Empty("postingDate,journalSequence,lineNumber");
+
+        await using var db = CreateContext(context);
+        var source = from line in db.JournalLines.AsNoTracking()
+                     join journal in db.Journals.AsNoTracking() on line.JournalId equals journal.Id
+                     where journal.CompanyId == query.CompanyId
+                         && (journal.Status == FinanceJournalStatus.Posted || journal.Status == FinanceJournalStatus.Reversed)
+                         && (!query.FromDate.HasValue || journal.PostingDate >= query.FromDate.Value)
+                         && (!query.ToDate.HasValue || journal.PostingDate <= query.ToDate.Value)
+                         && (!query.AccountId.HasValue || line.AccountId == query.AccountId.Value)
+                         && (!query.FiscalPeriodId.HasValue || journal.FiscalPeriodId == query.FiscalPeriodId.Value)
+                         && (!query.CostCenterId.HasValue || line.CostCenterId == query.CostCenterId.Value)
+                         && (query.SourceContract == null || journal.SourceContract == query.SourceContract)
+                     select new { Line = line, Journal = journal };
+        var total = await source.CountAsync(cancellationToken);
+        var asOf = total == 0 ? null : await source.Select(item => (DateTimeOffset?)(item.Journal.PostedAt ?? item.Journal.CreatedAt)).MaxAsync(cancellationToken);
+        var ordered = page.SortBy?.ToLowerInvariant() switch
+        {
+            "account" => page.SortDirection == "desc" ? source.OrderByDescending(item => item.Line.AccountCode).ThenByDescending(item => item.Line.Id) : source.OrderBy(item => item.Line.AccountCode).ThenBy(item => item.Line.Id),
+            "debit" => page.SortDirection == "desc" ? source.OrderByDescending(item => item.Line.FunctionalDebit).ThenByDescending(item => item.Line.Id) : source.OrderBy(item => item.Line.FunctionalDebit).ThenBy(item => item.Line.Id),
+            "credit" => page.SortDirection == "desc" ? source.OrderByDescending(item => item.Line.FunctionalCredit).ThenByDescending(item => item.Line.Id) : source.OrderBy(item => item.Line.FunctionalCredit).ThenBy(item => item.Line.Id),
+            "journal" => page.SortDirection == "desc" ? source.OrderByDescending(item => item.Journal.JournalNumber).ThenByDescending(item => item.Line.Id) : source.OrderBy(item => item.Journal.JournalNumber).ThenBy(item => item.Line.Id),
+            _ => page.SortDirection == "asc" ? source.OrderBy(item => item.Journal.PostingDate).ThenBy(item => item.Journal.JournalSequence).ThenBy(item => item.Line.LineNumber).ThenBy(item => item.Line.Id) : source.OrderByDescending(item => item.Journal.PostingDate).ThenByDescending(item => item.Journal.JournalSequence).ThenByDescending(item => item.Line.LineNumber).ThenByDescending(item => item.Line.Id)
+        };
+        var pageValues = await ordered.Skip(page.Offset).Take(page.PageSize).ToListAsync(cancellationToken);
+        var journalIds = pageValues.Select(item => item.Journal.Id).Distinct().ToArray();
+        var journals = await db.Journals.AsNoTracking().Include(item => item.Lines).Where(item => journalIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, cancellationToken);
+        var evidence = journalIds.Length == 0
+            ? new Dictionary<Guid, FinanceJournalMonetaryEvidenceEntity>()
+            : await db.JournalMonetaryEvidence.AsNoTracking().Where(item => journalIds.Contains(item.JournalId)).ToDictionaryAsync(item => item.JournalId, cancellationToken);
+        var balances = await source.Where(item => pageValues.Select(value => value.Line.AccountId).Contains(item.Line.AccountId))
+            .GroupBy(item => item.Line.AccountId)
+            .Select(group => new { AccountId = group.Key, Balance = group.Sum(item => item.Line.FunctionalDebit - item.Line.FunctionalCredit) })
+            .ToDictionaryAsync(item => item.AccountId, item => item.Balance, cancellationToken);
+        var records = pageValues.Select(item =>
+        {
+            var journal = journals[item.Journal.Id];
+            var line = item.Line;
+            var amount = ReportLineAmount(new JournalFact(journal, line, evidence.GetValueOrDefault(journal.Id)), query.PresentationCurrencyCode);
+            return new FinanceGeneralLedgerLineRecord(journal.Id, journal.JournalNumber, journal.JournalSequence, journal.PostingDate, line.AccountId, line.AccountCode, line.AccountName, null, journal.FiscalPeriodId, line.CostCenterId, line.CostCenterCode, journal.SourceContract, journal.SourceEvent, journal.SourceEvidenceId, line.LineNumber, line.Debit, line.Credit, line.FunctionalDebit, line.FunctionalCredit, balances.GetValueOrDefault(line.AccountId), company.FunctionalCurrencyCode, line.TransactionCurrencyCode, line.TransactionAmount, amount.Amount, amount.Status, journal.ReversalOfJournalId is not null);
+        }).ToArray();
+        return new ReportingSourcePage<FinanceGeneralLedgerLineRecord>(records, total, "postingDate,journalSequence,lineNumber,lineId", asOf);
+    }
+
     public async Task<IReadOnlyList<FinanceAgingReportRow>> QueryAgingAsync(FinanceRequestContext context, FinanceAgingReportQuery query, CancellationToken cancellationToken = default)
     {
         if (Company(context, query.CompanyId) is null) return [];
@@ -264,6 +316,60 @@ internal sealed class FinanceMesp135Persistence(
             var status = outstanding == 0m ? FinanceOpenItemStatus.Settled : allocated == 0m ? FinanceOpenItemStatus.Open : FinanceOpenItemStatus.PartiallySettled;
             return new FinanceAgingReportRow(item.Id, item.Kind, item.SupplierId, item.CustomerId, item.Reference, item.DocumentDate, item.DueDate, query.AsOfDate, days, days == 0 ? "Current" : days <= 30 ? "1-30" : days <= 60 ? "31-60" : days <= 90 ? "61-90" : "90+", item.CurrencyCode, item.OriginalAmount, allocated, outstanding, item.FunctionalCurrencyCode, item.OriginalFunctionalAmount, functionalOutstanding, status);
         }).Where(item => item.OutstandingAmount != 0m).OrderBy(item => item.DueDate).ToArray();
+    }
+
+    public async Task<ReportingSourcePage<FinanceAgingReportRow>> QueryAgingPageAsync(
+        FinanceRequestContext context,
+        FinanceAgingReportQuery query,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default)
+    {
+        if (Company(context, query.CompanyId) is null)
+            return ReportingSourcePage<FinanceAgingReportRow>.Empty("dueDate,openItemId");
+
+        await using var db = CreateContext(context);
+        var activeAllocations = db.Allocations.AsNoTracking()
+            .Where(item => item.CompanyId == query.CompanyId
+                && item.Status == FinanceAllocationStatus.Active
+                && item.ReversalOfAllocationId == null
+                && item.AllocationDate <= query.AsOfDate)
+            .Where(item => !db.Allocations.Any(reversal => reversal.ReversalOfAllocationId == item.Id
+                && reversal.Status == FinanceAllocationStatus.Reversed
+                && reversal.AllocationDate <= query.AsOfDate));
+        var source = from item in db.OpenItems.AsNoTracking()
+                     where item.CompanyId == query.CompanyId
+                         && item.Kind == query.Kind
+                         && item.DocumentDate <= query.AsOfDate
+                         && (!query.PartyId.HasValue || (query.Kind == FinanceOpenItemKind.Payable ? item.SupplierId == query.PartyId : item.CustomerId == query.PartyId))
+                         && (query.CurrencyCode == null || item.CurrencyCode == query.CurrencyCode)
+                     let allocated = activeAllocations.Where(value => value.OpenItemId == item.Id).Select(value => (decimal?)value.Amount).Sum() ?? 0m
+                     let functionalAllocated = activeAllocations.Where(value => value.OpenItemId == item.Id).Select(value => (decimal?)value.FunctionalAmount).Sum() ?? 0m
+                     where item.OriginalAmount - allocated > 0m
+                     select new { Item = item, Allocated = allocated, FunctionalAllocated = functionalAllocated };
+        var total = await source.CountAsync(cancellationToken);
+        var ordered = page.SortBy?.ToLowerInvariant() switch
+        {
+            "outstanding" => page.SortDirection == "desc"
+                ? source.OrderByDescending(item => item.Item.OriginalAmount - item.Allocated).ThenByDescending(item => item.Item.Id)
+                : source.OrderBy(item => item.Item.OriginalAmount - item.Allocated).ThenBy(item => item.Item.Id),
+            "status" => page.SortDirection == "desc"
+                ? source.OrderByDescending(item => item.Allocated).ThenByDescending(item => item.Item.Id)
+                : source.OrderBy(item => item.Allocated).ThenBy(item => item.Item.Id),
+            _ => page.SortDirection == "desc"
+                ? source.OrderByDescending(item => item.Item.DueDate).ThenByDescending(item => item.Item.Id)
+                : source.OrderBy(item => item.Item.DueDate).ThenBy(item => item.Item.Id)
+        };
+        var values = await ordered.Skip(page.Offset).Take(page.PageSize).ToListAsync(cancellationToken);
+        var rows = values.Select(value =>
+        {
+            var item = value.Item;
+            var outstanding = Math.Max(0m, item.OriginalAmount - value.Allocated);
+            var functionalOutstanding = Math.Max(0m, item.OriginalFunctionalAmount - value.FunctionalAllocated);
+            var days = Math.Max(0, query.AsOfDate.DayNumber - item.DueDate.DayNumber);
+            var status = value.Allocated == 0m ? FinanceOpenItemStatus.Open : FinanceOpenItemStatus.PartiallySettled;
+            return new FinanceAgingReportRow(item.Id, item.Kind, item.SupplierId, item.CustomerId, item.Reference, item.DocumentDate, item.DueDate, query.AsOfDate, days, days == 0 ? "Current" : days <= 30 ? "1-30" : days <= 60 ? "31-60" : days <= 90 ? "61-90" : "90+", item.CurrencyCode, item.OriginalAmount, value.Allocated, outstanding, item.FunctionalCurrencyCode, item.OriginalFunctionalAmount, functionalOutstanding, status);
+        }).ToArray();
+        return new ReportingSourcePage<FinanceAgingReportRow>(rows, total, "dueDate,openItemId", query.AsOfDate.ToDateTime(TimeOnly.MinValue));
     }
 
     public async Task<FinanceCloseReconciliationRecord> QueryReconciliationAsync(FinanceRequestContext context, Guid companyId, DateOnly asOfDate, Guid? periodId = null, CancellationToken cancellationToken = default)

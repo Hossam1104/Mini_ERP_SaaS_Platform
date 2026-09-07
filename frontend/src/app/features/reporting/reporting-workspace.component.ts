@@ -45,6 +45,18 @@ const copy: Record<string, Bilingual> = {
   scheduleLead: { en: 'Schedules are disabled by default and remain a local control-plane record until a delivery provider is approved.', ar: '\u062a\u0628\u0642\u0649 \u0627\u0644\u062c\u062f\u0627\u0648\u0644 \u0645\u0639\u0637\u0651\u0644\u0629 \u0627\u0641\u062a\u0631\u0627\u0636\u064a\u064b\u0627 \u0648\u0645\u062d\u0644\u064a\u0629 \u062d\u062a\u0649 \u0627\u0639\u062a\u0645\u0627\u062f \u0645\u0648\u0632\u0651\u0639.' },
   addSchedule: { en: 'Add disabled schedule', ar: '\u0625\u0636\u0627\u0641\u0629 \u062c\u062f\u0648\u0644 \u0645\u0639\u0637\u0651\u0644' },
   pending: { en: 'Pending approved source decision', ar: '\u0645\u0639\u0644\u0651\u0642 \u0644\u062d\u064a\u0646 \u0627\u0639\u062a\u0645\u0627\u062f \u0627\u0644\u0645\u0635\u062f\u0631' },
+  sourceUnavailable: { en: 'Source capability unavailable', ar: '\u0642\u062f\u0631\u0629 \u0627\u0644\u0645\u0635\u062f\u0631 \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629' },
+  productionPolicy: { en: 'Production policy pending', ar: '\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0642\u064a\u062f \u0627\u0644\u0627\u0639\u062a\u0645\u0627\u062f' },
+  freshState: { en: 'Fresh', ar: '\u062d\u062f\u064a\u062b' },
+  staleState: { en: 'Stale', ar: '\u0642\u062f\u064a\u0645' },
+  partialState: { en: 'Partial', ar: '\u062c\u0632\u0626\u064a' },
+  unknownState: { en: 'Unknown', ar: '\u063a\u064a\u0631 \u0645\u0639\u0631\u0648\u0641' },
+  unavailableState: { en: 'Unavailable', ar: '\u063a\u064a\u0631 \u0645\u062a\u0627\u062d' },
+  failedState: { en: 'Failed', ar: '\u0641\u0634\u0644' },
+  deniedState: { en: 'Not authorized', ar: '\u063a\u064a\u0631 \u0645\u0635\u0631\u062d \u0628\u0647' },
+  scheduleControlPlane: { en: 'Control plane only', ar: '\u0644\u0648\u062d\u0629 \u062a\u062d\u0643\u0645 \u0641\u0642\u0637' },
+  enabledLocalTest: { en: 'Enabled (local/test only)', ar: '\u0645\u0641\u0639\u0644 (\u0645\u062d\u0644\u064a/\u0627\u062e\u062a\u0628\u0627\u0631 \u0641\u0642\u0637)' },
+  disabledSchedule: { en: 'Disabled', ar: '\u0645\u0639\u0637\u0651\u0644' },
   noRows: { en: 'The source returned no rows for these parameters.', ar: '\u0644\u0645 \u064a\u0639\u062f \u0627\u0644\u0645\u0635\u062f\u0631 \u0628\u0623\u064a \u0635\u0641\u0648\u0641 \u0644\u0647\u0630\u0647 \u0627\u0644\u0645\u0639\u0627\u064a\u064a\u0631.' },
   error: { en: 'The reporting operation could not be completed safely.', ar: '\u062a\u0639\u0630\u0651\u0631 \u0625\u0643\u0645\u0627\u0644 \u0639\u0645\u0644\u064a\u0629 \u0627\u0644\u062a\u0642\u0627\u0631\u064a\u0631 \u0628\u0623\u0645\u0627\u0646.' },
   enterCompany: { en: 'Enter an authorized Company identifier for this report.', ar: '\u0623\u062f\u062e\u0644 \u0645\u0639\u0631\u0651\u0641 \u0634\u0631\u0643\u0629 \u0645\u0635\u0631\u0651\u062d \u0628\u0647 \u0644\u0647\u0630\u0627 \u0627\u0644\u062a\u0642\u0631\u064a\u0631.' },
@@ -64,9 +76,9 @@ const copy: Record<string, Bilingual> = {
       </header>
 
       <div class="signal-strip" [attr.aria-label]="text('metadata')">
-        <div><span class="signal-strip__label">{{ text('status') }}</span><strong>{{ result()?.metadata?.state ?? '—' }}</strong></div>
+        <div><span class="signal-strip__label">{{ text('status') }}</span><strong>{{ result()?.metadata?.state ? stateLabel(result()!.metadata.state) : '—' }}</strong></div>
         <div><span class="signal-strip__label">{{ text('asOf') }}</span><strong>{{ result()?.metadata?.dataAsOf ? (result()?.metadata?.dataAsOf | date:'medium') : '—' }}</strong></div>
-        <div><span class="signal-strip__label">{{ text('freshness') }}</span><strong>{{ result()?.metadata?.freshness ?? text('awaitingRun') }}</strong></div>
+        <div><span class="signal-strip__label">{{ text('freshness') }}</span><strong>{{ result()?.metadata?.freshness ? stateLabel(result()!.metadata.freshness) : text('awaitingRun') }}</strong></div>
         <div><span class="signal-strip__label">{{ text('reconciliation') }}</span><strong>{{ result()?.metadata?.reconciliationStatus ?? text('notEvaluated') }}</strong></div>
       </div>
 
@@ -80,7 +92,8 @@ const copy: Record<string, Bilingual> = {
               @for (definition of definitionsByDomain(group); track definition.code) {
                 <button type="button" class="catalogue-item" [class.is-selected]="selectedCode() === definition.code" (click)="select(definition)">
                   <strong>{{ language.language() === 'ar' ? definition.arabicName : definition.name }}</strong><small>{{ definition.code }}</small>
-                  @if (definition.pendingDecision) { <em>{{ text('pending') }}</em> }
+                  @if (definition.pendingDecision || definition.implementationState === 'OPEN_PRODUCTION_POLICY_ONLY') { <em>{{ text('productionPolicy') }}</em> }
+                  @if (definition.implementationState === 'SOURCE_CAPABILITY_UNAVAILABLE') { <em>{{ text('sourceUnavailable') }}</em> }
                 </button>
               }
             </div>
@@ -104,11 +117,11 @@ const copy: Record<string, Bilingual> = {
           @if (result(); as current) {
             <section class="result-panel" aria-live="polite">
               <div class="result-panel__heading"><div><span class="eyebrow">{{ current.metadata.scope }}</span><h2>{{ current.totalRows }} source rows</h2></div><div class="result-actions"><button class="secondary-button" type="button" (click)="exportReport()" [disabled]="busy() || !current.definition.exportEnabled">{{ exportBusy() ? '…' : text('export') }}</button><span class="correlation">{{ current.metadata.correlationId }}</span></div></div>
-              @if (current.metadata.explanation) { <p class="result-note" [class.result-note--pending]="current.metadata.state === 'Pending'">{{ current.metadata.state === 'Pending' ? text('pending') : current.metadata.explanation }}</p> }
+              @if (current.metadata.explanation) { <p class="result-note" [class.result-note--pending]="current.metadata.state === 'Pending'" [class.result-note--unavailable]="current.metadata.state === 'Unavailable'">{{ current.metadata.state === 'Pending' ? text('pending') : current.metadata.state === 'Unavailable' ? text('sourceUnavailable') : current.metadata.explanation }}</p> }
               @if (current.rows.length) {
                 <div class="table-wrap"><table><thead><tr>@for (column of current.columns; track column.key) { <th><button type="button" (click)="sort(column.key)">{{ language.language() === 'ar' ? column.arabicLabel : column.label }} <span aria-hidden="true">{{ sortBy() === column.key ? (sortDirection() === 'asc' ? '↑' : '↓') : '↕' }}</span></button></th> }</tr></thead><tbody>@for (row of current.rows; track row.key) { <tr (click)="selectRow(row)" [class.is-focused]="focusedRow()?.key === row.key">@for (column of current.columns; track column.key) { <td>{{ value(row, column.key) ?? '—' }}</td> }</tr> }</tbody></table></div>
                 <div class="pager"><span>Page {{ page() }} / {{ pageCount() }}</span><div><button class="secondary-button" type="button" (click)="previousPage()" [disabled]="page() <= 1 || busy()">{{ text('previous') }}</button><button class="secondary-button" type="button" (click)="nextPage()" [disabled]="page() >= pageCount() || busy()">{{ text('next') }}</button></div></div>
-              } @else { <div class="empty-result"><strong>{{ current.metadata.state === 'Pending' ? text('pending') : text('noRows') }}</strong><span>{{ current.metadata.reconciliationStatus }}</span></div> }
+              } @else { <div class="empty-result"><strong>{{ current.metadata.state === 'Pending' ? text('pending') : current.metadata.state === 'Unavailable' ? text('sourceUnavailable') : text('noRows') }}</strong><span>{{ current.metadata.reconciliationStatus }}</span></div> }
             </section>
 
             <section class="evidence-grid">
@@ -117,7 +130,7 @@ const copy: Record<string, Bilingual> = {
             </section>
           } @else { <section class="empty-result"><strong>{{ text('choose') }}</strong><span>Catalogue metadata stays visible until a server-authorized query is run.</span></section> }
 
-          <section class="schedule-panel"><div class="section-heading"><div><p class="eyebrow">{{ text('schedules') }}</p><h2>Control plane only</h2></div><button class="secondary-button" type="button" (click)="addSchedule()" [disabled]="!selectedDefinition()?.schedulingEnabled || scheduleBusy()">{{ text('addSchedule') }}</button></div><p>{{ text('scheduleLead') }}</p>@if (job()) { <div class="job-callout"><strong>Export {{ job()!.status }}</strong><span>{{ job()!.failureCode ?? (job()!.artifactId ? 'Artifact ready' : 'No artifact published') }}</span>@if (job()!.artifactId) { <a [href]="service.artifactUrl(job()!.artifactId!)" target="_blank" rel="noopener">Download CSV</a> }</div> } @for (schedule of schedules(); track schedule.scheduleId) { <div class="schedule-row"><div><strong>{{ schedule.reportCode }}</strong><small>{{ schedule.recurrence }} · {{ schedule.timeZone }} · {{ schedule.destinationKind }}</small></div><button class="secondary-button" type="button" (click)="toggleSchedule(schedule)">{{ schedule.status === 'Enabled' ? 'Disable' : 'Enable' }}</button></div> } @if (!schedules().length) { <p class="muted">No local schedules have been recorded.</p> }</section>
+          <section class="schedule-panel"><div class="section-heading"><div><p class="eyebrow">{{ text('schedules') }}</p><h2>{{ text('scheduleControlPlane') }}</h2></div><button class="secondary-button" type="button" (click)="addSchedule()" [disabled]="!selectedDefinition()?.schedulingEnabled || scheduleBusy()">{{ text('addSchedule') }}</button></div><p>{{ text('scheduleLead') }}</p>@if (job()) { <div class="job-callout"><strong>Export {{ job()!.status }}</strong><span>{{ job()!.failureCode ?? (job()!.artifactId ? text('artifactReady') : text('noArtifact')) }}</span>@if (job()!.artifactId) { <a [href]="service.artifactUrl(job()!.artifactId!)" target="_blank" rel="noopener">{{ text('downloadCsv') }}</a> }</div> } @for (schedule of schedules(); track schedule.scheduleId) { <div class="schedule-row"><div><strong>{{ schedule.reportCode }}</strong><small>{{ schedule.recurrence }} · {{ schedule.timeZone }} · {{ schedule.destinationKind }}</small></div><button class="secondary-button" type="button" (click)="toggleSchedule(schedule)">{{ schedule.status === 'Enabled' ? text('enabledLocalTest') : text('disabledSchedule') }}</button></div> } @if (!schedules().length) { <p class="muted">{{ text('noSchedules') }}</p> }</section>
         </main>
       </div>
     </section>
@@ -188,6 +201,10 @@ export class ReportingWorkspaceComponent implements OnInit {
     const value = copy[key];
     return this.language.language() === 'ar' ? arabicOverrides[key] ?? value?.ar ?? value?.en ?? key : value?.en ?? key;
   }
+  stateLabel(state: string): string {
+    const key = ({ Fresh: 'freshState', Stale: 'staleState', Partial: 'partialState', Unknown: 'unknownState', Unavailable: 'unavailableState', Failed: 'failedState', Denied: 'deniedState', Pending: 'pending' } as Record<string, string>)[state] ?? state;
+    return this.text(key);
+  }
   definitionsByDomain(domain: string): ReportingDefinition[] { return this.definitions().filter(item => item.domain === domain); }
   operationalContextLabel(): string { return this.context.currentOperationalContext()?.displayName ?? this.context.entry()?.candidateTenantDisplayName ?? 'Server-selected Tenant context'; }
   select(definition: ReportingDefinition): void { this.selectedCode.set(definition.code); this.result.set(null); this.focusedRow.set(null); this.page.set(1); this.error.set(null); }
@@ -217,6 +234,18 @@ export class ReportingWorkspaceComponent implements OnInit {
     void this.service.createSchedule({ reportCode: definition.code, query: this.query(), recurrence: '0 09 * * 1', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, destinationKind: 'local-test-sink' }).then(() => this.loadSchedules()).catch(() => this.error.set(this.text('error'))).finally(() => this.scheduleBusy.set(false));
   }
   toggleSchedule(schedule: ReportingSchedule): void { this.scheduleBusy.set(true); void this.service.setScheduleStatus(schedule, schedule.status === 'Enabled' ? 'Disabled' : 'Enabled').then(() => this.loadSchedules()).catch(() => this.error.set(this.text('error'))).finally(() => this.scheduleBusy.set(false)); }
-  private query(): ReportingQuery { return { asOfDate: this.asOfDate || undefined, fromDate: this.fromDate || undefined, toDate: this.toDate || undefined, status: this.status.trim() || undefined, sortBy: this.sortBy() || undefined, sortDirection: this.sortDirection(), page: this.page(), pageSize: this.pageSize }; }
+  private query(): ReportingQuery {
+    const allowed = new Set(this.selectedDefinition()?.allowedFilters ?? []);
+    return {
+      asOfDate: allowed.has('asOfDate') && this.asOfDate ? this.asOfDate : undefined,
+      fromDate: allowed.has('fromDate') && this.fromDate ? this.fromDate : undefined,
+      toDate: allowed.has('toDate') && this.toDate ? this.toDate : undefined,
+      status: allowed.has('status') && this.status.trim() ? this.status.trim() : undefined,
+      sortBy: this.sortBy() || undefined,
+      sortDirection: this.sortDirection(),
+      page: this.page(),
+      pageSize: this.pageSize
+    };
+  }
   private today(): string { return new Date().toISOString().slice(0, 10); }
 }

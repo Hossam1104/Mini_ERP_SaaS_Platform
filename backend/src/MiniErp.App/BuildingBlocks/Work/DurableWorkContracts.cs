@@ -188,6 +188,12 @@ public interface IOrganizationScopeOwnershipResolver
         TenantWorkScopeRequest requestedScope);
 }
 
+/// <summary>Optional extension for resolving the server-selected scope marker.</summary>
+public interface ICurrentOrganizationScopeResolver
+{
+    TenantWorkScopeResolution ResolveCurrent(TenantContext trustedTenantContext);
+}
+
 /// <summary>Verified organization scope derived by the ownership resolver.</summary>
 public sealed class TenantWorkScope
 {
@@ -329,6 +335,13 @@ public sealed class TenantWorkScope
         // then contains every record within the same Tenant.
         return true;
     }
+
+    /// <summary>
+    /// Safe organization-only containment check for read adapters. The
+    /// authorization facts remain private and are still validated by the
+    /// issuing resolver.
+    /// </summary>
+    public bool ContainsAuthorizedDescendant(TenantWorkScope candidate) => ContainsDescendant(candidate);
 }
 
 /// <summary>Immutable initiating authorization facts for durable work.</summary>

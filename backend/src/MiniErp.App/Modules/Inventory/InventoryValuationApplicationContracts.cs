@@ -1,6 +1,7 @@
 #pragma warning disable CS1591
 
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.Contracts.Modules.Inventory;
 
 namespace MiniErp.App.Modules.Inventory;
@@ -107,6 +108,21 @@ public interface IInventoryValuationPersistence
     Task<InventoryPersistenceResult<InventoryMovementValuationEventRecord>> CorrectAsync(
         InventoryRequestContext context,
         InventoryValuationCorrectionCommand command,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IInventoryReportingReadPort
+{
+    Task<ReportingSourcePage<InventoryValuationStateRecord>> ListStatesReportingPageAsync(
+        InventoryRequestContext context,
+        InventoryValuationQuery query,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default);
+
+    Task<ReportingSourcePage<InventoryMovementValuationEventRecord>> ListEventsReportingPageAsync(
+        InventoryRequestContext context,
+        InventoryValuationQuery query,
+        ReportingPageRequest page,
         CancellationToken cancellationToken = default);
 }
 
