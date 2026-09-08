@@ -1,21 +1,18 @@
-## MESP-140 Cross-cutting controls - accepted lifecycle finalization
+## MESP-140 Cross-cutting controls — ACCEPTED / MERGED / DONE
 
-MESP-140 is the accepted capability under **MESP-13 — Security, Audit, and
-Data Governance**, activated by Sol comment `12383`, technically accepted by
-GPT-5.6 Sol comment `12392`, and authorized for lifecycle finalization by
-comment `12394`. The exact accepted technical head is
-`b1491878c8f35bce62b29c049fb6ed8f250ae78e`, based on
-`origin/main` = `76c7885282eeccde2f114aaabd268b0389754ff4` at activation. Work
-is bounded to branch `feat/MESP-140-cross-cutting-controls` in the dedicated
-worktree `D:\\AI Tools\\Active Projects\\Mini_ERP_SaaS_Platform-MESP-140`. PR **#89** is the one
-Open/Draft/Unmerged PR against `main` before lifecycle actions. HOLD-140-A
-through HOLD-140-D are **CLOSED**. MESP-13 remains **In Progress**.
+This current section supersedes the historical record below. MESP-140 is
+**ACCEPTED / MERGED / DONE**: GPT-5.6 Sol technical acceptance is comment
+`12392`, lifecycle authorization is comment `12394`, and lifecycle closure is
+comment `12396`. MESP-13 reconciliation is comment `12397`. HOLD-140-A through
+HOLD-140-D are **CLOSED**. The MESP-140 lifecycle squash-merge SHA is
+`0316a2623dfc1b9d8df6952c535757c03dd740b0` (PR #89, Closed / Merged / Non-Draft).
+Repository head authority: resolve live `origin/main` from Git; mutable repository
+head must not be hard-coded as current authority.
 
-This session is lifecycle finalization and repository governance
-reconciliation only. No product implementation, acceptance expansion,
-rebase, force-push, auto-merge, unrelated cleanup, or next-capability
-activation is authorized. The only permitted repository changes are the
-governance files `.ai/CURRENT_STATE.md`, `TASK.md`, and `docs/staticts.md`.
+The former implementation branch was `feat/MESP-140-cross-cutting-controls`.
+Current executor task: **NONE**. Active implementation capability: **NONE**.
+Next capability: **NOT ACTIVATED** (MESP-141 and MESP-142 remain not activated).
+No Jira write is authorized or required.
 
 GPT-5.6 Sol's independent HOLD 2 review (comment `12390`) identified three
 residual contract defects across the HOLD-1 remediation; HOLD-140-A remained
@@ -44,13 +41,12 @@ Implementation evidence:
 - Full Chromium: **51 / 51**; production-only and full npm audits: **0 vulnerabilities**.
 - `git diff --check`: clean; `frontend/assets`: untouched.
 
-Accepted fast-track completion remains **23 / 26 = 88.5%** until PR #89 is
-merged and MESP-140 is Done in authoritative Jira. MESP-140 is **Technically
-Accepted / Lifecycle Finalization**; MESP-13 remains **In Progress**.
-Production readiness remains approximately **47% overall / 41% Procurement/P2P**;
-MESP-48 and MESP-50 remain open; MESP-141/MESP-142 remain not activated. The
-available Jira connection points to `pssmena.atlassian.net`, not authoritative
-`hossamsqa.atlassian.net`; no Jira mutation is performed through it.
+Accepted fast-track completion is **24 / 26 = 92.3%**. MESP-13 remains **In
+Progress**; MESP-48 and MESP-50 remain open production gates. Production
+readiness remains approximately **47% overall / 41% Procurement/P2P** and is
+not recalculated by MESP-140 closure. PR #89 is Closed / Merged / Non-Draft.
+No reviewer request, auto-merge, rebase, force-push, Jira write,
+production-provider activation, or next capability is authorized.
 
 ## Historical MESP-139 Release 1 Reporting — ACCEPTED / MERGED / DONE
 
