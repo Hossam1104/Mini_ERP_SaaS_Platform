@@ -19,7 +19,8 @@
 | Canonical project identity | `Mini_ERP_SaaS_Platform` |
 | Authoritative SCM | GitHub — `Hossam1104/Mini_ERP_SaaS_Platform` |
 | Authoritative tracker | Jira — project `Mini_ERP_SaaS_Platform`, key `MESP` |
-| Accepted main | `origin/main` = `8718afab41754667cda38642a2b4f3e3437250e3` |
+| MESP-139 merged lifecycle main | `8718afab41754667cda38642a2b4f3e3437250e3` — squash merge of PR #88 |
+| Repository head authority | Resolve live `origin/main` from Git; mutable repository head must not be hard-coded as current authority |
 | Active implementation capability | **NONE** |
 | Next capability | **NOT ACTIVATED** |
 | Epic / capability state | MESP-11 **In Progress**; MESP-139 **ACCEPTED / MERGED / DONE** |
@@ -39,7 +40,7 @@ performs no Jira write and does not activate a next capability.
 | --- | --- |
 | Merged implementation branch | `feat/MESP-139-release1-reporting` |
 | PR | **#88** — Closed / Merged / Non-Draft |
-| Accepted main | `8718afab41754667cda38642a2b4f3e3437250e3` — squash merge of PR #88 |
+| MESP-139 merged lifecycle main | `8718afab41754667cda38642a2b4f3e3437250e3` — squash merge of PR #88 |
 | HOLD 1 starting feature head | `a76dd67803868cbefdd27db80ada4dba47306efa` |
 | Implementation commit | `2a6c2ad53cc622293336ae6a08c8b18f8b2d14d1` |
 | Classification clarification commit | `75ea6bd17f0d2046aa1ed4c2f399a685559575af` |
