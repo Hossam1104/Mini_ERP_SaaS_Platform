@@ -164,7 +164,8 @@ public sealed class TenantNotificationIntent : ITenantOwned
         string template,
         string locale,
         string idempotencyKey,
-        DateTimeOffset? createdAt = null)
+        DateTimeOffset? createdAt = null,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(trustedTenantContext);
         ArgumentNullException.ThrowIfNull(scope);
@@ -189,7 +190,7 @@ public sealed class TenantNotificationIntent : ITenantOwned
             trustedTenantContext.CorrelationId
                 ?? throw new ArgumentException("Notification requires a trusted correlation identifier.", nameof(trustedTenantContext)),
             Bounded(idempotencyKey, nameof(idempotencyKey)),
-            createdAt ?? DateTimeOffset.UtcNow);
+            createdAt ?? (timeProvider ?? TimeProvider.System).GetUtcNow());
     }
 
     private static string Bounded(string value, string name)
@@ -220,7 +221,14 @@ public sealed record NotificationDeliveryResult(
     bool Duplicate,
     NotificationDeliveryState State,
     DurableWorkFailureCategory FailureCategory,
-    string SafeOutcome);
+    string SafeOutcome)
+{
+    /// <summary>
+    /// Identifies the evidence boundary. A local adapter is test/development
+    /// evidence only and is never presented as a production provider.
+    /// </summary>
+    public string EvidenceSource { get; init; } = "adapter";
+}
 
 /// <summary>Provider-neutral notification adapter contract.</summary>
 public interface INotificationDeliveryAdapter
@@ -229,6 +237,33 @@ public interface INotificationDeliveryAdapter
         TenantContext tenantContext,
         TenantNotificationIntent intent,
         CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Explicit unavailable boundary used when no approved external provider is
+/// configured. It records a structured unavailable outcome and never claims a
+/// notification was sent.
+/// </summary>
+public sealed class UnavailableNotificationDeliveryAdapter : INotificationDeliveryAdapter
+{
+    public ValueTask<NotificationDeliveryResult> DeliverAsync(
+        TenantContext tenantContext,
+        TenantNotificationIntent intent,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(intent);
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(new NotificationDeliveryResult(
+            false,
+            false,
+            NotificationDeliveryState.RetryScheduled,
+            DurableWorkFailureCategory.ProviderUnavailable,
+            "provider_unavailable")
+        {
+            EvidenceSource = "no-provider"
+        });
+    }
 }
 
 /// <summary>
@@ -275,7 +310,10 @@ public sealed class InMemoryNotificationAdapter : INotificationDeliveryAdapter
                 false,
                 currentState,
                 DurableWorkFailureCategory.TenantMismatch,
-                "tenant_denied"));
+                "tenant_denied")
+            {
+                EvidenceSource = "local-test-adapter"
+            });
         }
 
         lock (syncRoot)
@@ -289,7 +327,10 @@ public sealed class InMemoryNotificationAdapter : INotificationDeliveryAdapter
                     false,
                     NotificationDeliveryState.DeadLetter,
                     intent.FailureCategory,
-                    "dead_lettered"));
+                    "dead_lettered")
+                {
+                    EvidenceSource = "local-test-adapter"
+                });
             }
 
             var key = (intent.TenantId, intent.IdempotencyKey);
@@ -302,7 +343,10 @@ public sealed class InMemoryNotificationAdapter : INotificationDeliveryAdapter
                     true,
                     NotificationDeliveryState.Duplicate,
                     DurableWorkFailureCategory.None,
-                    "duplicate"));
+                    "duplicate")
+                {
+                    EvidenceSource = "local-test-adapter"
+                });
             }
 
             intent.AttemptCount++;
@@ -320,7 +364,10 @@ public sealed class InMemoryNotificationAdapter : INotificationDeliveryAdapter
                         false,
                         NotificationDeliveryState.DeadLetter,
                         failureCategory.Value,
-                        "dead_lettered"));
+                        "dead_lettered")
+                    {
+                        EvidenceSource = "local-test-adapter"
+                    });
                 }
 
                 intent.DeliveryState = NotificationDeliveryState.RetryScheduled;
@@ -330,7 +377,10 @@ public sealed class InMemoryNotificationAdapter : INotificationDeliveryAdapter
                     false,
                     NotificationDeliveryState.RetryScheduled,
                     failureCategory.Value,
-                    "provider_unavailable"));
+                    "provider_unavailable")
+                {
+                    EvidenceSource = "local-test-adapter"
+                });
             }
 
             intent.DeliveryState = NotificationDeliveryState.Delivered;
@@ -340,7 +390,10 @@ public sealed class InMemoryNotificationAdapter : INotificationDeliveryAdapter
                 false,
                 NotificationDeliveryState.Delivered,
                 DurableWorkFailureCategory.None,
-                "delivered"));
+                "delivered")
+            {
+                EvidenceSource = "local-test-adapter"
+            });
         }
     }
 

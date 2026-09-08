@@ -1,4 +1,52 @@
-## MESP-139 Release 1 Reporting — ACCEPTED / MERGED / DONE
+## MESP-140 Cross-cutting controls - ACTIVATED implementation handoff
+
+MESP-140 is the single active implementation capability under MESP-9, activated
+by the Owner-provided task prompt on 8 September 2026. The exact starting
+baseline is `origin/main` =
+`76c7885282eeccde2f114aaabd268b0389754ff4`. Work is bounded to branch
+`feat/MESP-140-cross-cutting-controls` in the dedicated worktree
+`D:\\AI Tools\\Active Projects\\Mini_ERP_SaaS_Platform-MESP-140`. The
+executor must finish with one Open/Draft/Unmerged PR against `main`, then
+stop for independent GPT-5.6 Sol review. No Ready transition, merge,
+auto-merge, review request, rebase, force-push, Jira mutation, provider
+credential, or next-capability activation is authorized.
+
+The audit-first inventory classified the eight cross-cutting workstreams as:
+
+| Workstream | Classification and bounded action |
+| --- | --- |
+| Security / Tenant isolation / authorization | PARTIALLY_SATISFIED - preserve server-owned authority; add exact live support-grant validation. |
+| Audit / observability | PARTIALLY_SATISFIED - add bounded tenant-scoped evidence search, source/target/change fields, deterministic paging, and fail-closed scope handling; keep telemetry distinct. |
+| Files / attachments | PARTIALLY_SATISFIED - add request-time expiry clock and explicit scan state; local adapter stays Unavailable. |
+| Notifications / durable work | PARTIALLY_SATISFIED - add recipient authorization, mandatory pre-effect audit, final outcome evidence, retry linkage, and explicit no-provider Unavailable. |
+| Localization / RTL / accessibility | PARTIALLY_SATISFIED - preserve EN/AR RTL and add shared loading/empty/denied/failed/unavailable/unknown/pending semantics. |
+| Support access | MISSING_IMPLEMENTABLE_NOW - add bounded evidence-only session tracking, exact grant/case/auth-session binding, revalidation, expiry, revocation, and capacity. |
+| Exports / Reporting | ALREADY_SATISFIED / PRESERVED - retain MESP-139 source-linked bounded catalogue, exports, private artifacts, and unavailable-source semantics. |
+| External providers / production policy / legal governance | EXTERNAL_PROVIDER_UNAVAILABLE / POLICY-ONLY - do not invent scanner/provider/sink, retention, RLS, residency, backup, capacity, legal, statutory, or credential policy. |
+
+No `frontend/assets` file was touched; no Wafra-specific behavior, generic
+mega-framework, database migration, or later capability was added. Existing
+Tenant isolation, authorization, file ownership/concurrency, notification
+retry/idempotency/revocation, EN/AR RTL, and MESP-139 reporting/export seams
+were preserved.
+
+Implementation evidence:
+
+- Release solution build: **0 warnings / 0 errors**.
+- Sanctioned disposable-LocalDB backend runner: **1,214 / 1,214 passed**, **0 failed / 0 skipped**.
+- MESP-140 focused controls: **5 / 5**; REST/OpenAPI: **37 / 37**; safety catalogue: **4 / 4**; Audit: **37 / 37**; private-file/notification security: **73 / 73**.
+- Angular: **316 / 316** across **45** files.
+- Production frontend build: passed with the existing **514.26 kB** initial-bundle warning against the **500 kB** budget.
+- Full Chromium: **51 / 51**; production-only and full npm audits: **0 vulnerabilities**.
+- `git diff --check`: clean; `frontend/assets`: untouched.
+
+Accepted fast-track completion remains **23 / 26 = 88.5%** until Sol accepts,
+merges, and closes MESP-140. Production readiness remains approximately **47%
+overall / 41% Procurement/P2P**; MESP-48 and MESP-50 remain open. Jira
+handoff is deferred to GPT-5.6 Sol because no authoritative Jira connector is
+available in this executor.
+
+## Historical MESP-139 Release 1 Reporting — ACCEPTED / MERGED / DONE
 
 This current section supersedes the historical record below. MESP-139 is
 **ACCEPTED / MERGED / DONE**: GPT-5.6 Sol technical acceptance is comment

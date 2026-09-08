@@ -30,6 +30,7 @@ public sealed class PrivateFileMetadata : ITenantOwned
         CreatedAt = createdAt;
         ExpiresAt = expiresAt;
         Disposition = PrivateFileDisposition.Available;
+        ScanState = PrivateFileScanState.Unavailable;
         ConcurrencyVersion = 1;
     }
 
@@ -52,6 +53,12 @@ public sealed class PrivateFileMetadata : ITenantOwned
     public DateTimeOffset? ExpiresAt { get; }
 
     public PrivateFileDisposition Disposition { get; internal set; }
+
+    /// <summary>
+    /// Honest scan state. The local adapter has no malware scanner and must
+    /// never claim that an object is clean.
+    /// </summary>
+    public PrivateFileScanState ScanState { get; internal set; }
 
     public long ConcurrencyVersion { get; internal set; }
 }
@@ -110,6 +117,16 @@ public interface IPrivateObjectStorage
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>Honest file-safety state; provider-backed clean evidence is external.</summary>
+public enum PrivateFileScanState
+{
+    NotScanned = 1,
+    Pending = 2,
+    Clean = 3,
+    Rejected = 4,
+    Unavailable = 5
+}
+
 /// <summary>
 /// Deterministic local private-file adapter for tests/development only. It is
 /// not a public object store and does not implement purge, signed URLs or
@@ -120,6 +137,12 @@ public sealed class InMemoryPrivateObjectStorage : IPrivateObjectStorage
     private readonly object syncRoot = new();
     private readonly Dictionary<Guid, (PrivateFileMetadata Metadata, byte[] Content)> objects = [];
     private readonly List<(TenantId TenantId, Guid ObjectId, PrivateFileAccessOutcome Outcome)> accessEvidence = [];
+    private readonly TimeProvider timeProvider;
+
+    public InMemoryPrivateObjectStorage(TimeProvider? timeProvider = null)
+    {
+        this.timeProvider = timeProvider ?? TimeProvider.System;
+    }
 
     public async ValueTask<PrivateFileMetadata> StoreAsync(
         TenantContext tenantContext,
@@ -135,7 +158,7 @@ public sealed class InMemoryPrivateObjectStorage : IPrivateObjectStorage
         var bytes = await ReadBytesAsync(content, cancellationToken);
         var safeName = SafeFileName(originalFileName);
         var safeType = SafeValue(contentType, nameof(contentType));
-        var now = DateTimeOffset.UtcNow;
+        var now = timeProvider.GetUtcNow();
         var metadata = new PrivateFileMetadata(
             Guid.NewGuid(),
             tenantContext.TenantId,
@@ -183,7 +206,7 @@ public sealed class InMemoryPrivateObjectStorage : IPrivateObjectStorage
                 return ValueTask.FromResult(PrivateFileAccessResult.Denied(PrivateFileAccessOutcome.NotFound));
             }
 
-            if (EvaluateLifecycleOutcome(stored.Metadata, DateTimeOffset.UtcNow) is { } lifecycleOutcome)
+            if (EvaluateLifecycleOutcome(stored.Metadata, timeProvider.GetUtcNow()) is { } lifecycleOutcome)
             {
                 accessEvidence.Add((tenantContext.TenantId, objectId, lifecycleOutcome));
                 return ValueTask.FromResult(PrivateFileAccessResult.Denied(lifecycleOutcome));
@@ -235,7 +258,7 @@ public sealed class InMemoryPrivateObjectStorage : IPrivateObjectStorage
             // An object in any prohibited lifecycle state fails closed instead
             // of being silently overwritten (M-4), reported with its exact
             // classification rather than a generic Expired (M93-02).
-            if (EvaluateLifecycleOutcome(stored.Metadata, DateTimeOffset.UtcNow) is { } lifecycleOutcome)
+            if (EvaluateLifecycleOutcome(stored.Metadata, timeProvider.GetUtcNow()) is { } lifecycleOutcome)
             {
                 accessEvidence.Add((tenantContext.TenantId, objectId, lifecycleOutcome));
                 return PrivateFileAccessResult.Denied(lifecycleOutcome);

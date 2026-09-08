@@ -24,10 +24,15 @@ public static class IdentityModuleRegistration
                 operationCatalogue: serviceProvider.GetRequiredService<IDurableWorkOperationCatalogue>()));
         services.AddSingleton<IOrganizationScopeOwnershipResolver>(serviceProvider =>
             serviceProvider.GetRequiredService<IdentityAuthorizationService>());
+        services.AddSingleton<ICurrentOrganizationScopeResolver>(serviceProvider =>
+            serviceProvider.GetRequiredService<IdentityAuthorizationService>());
         services.AddSingleton<IDurableWorkAuthorityRevalidator>(serviceProvider =>
             serviceProvider.GetRequiredService<IdentityAuthorizationService>());
         services.AddSingleton<INotificationRecipientAuthorizer>(serviceProvider =>
             serviceProvider.GetRequiredService<IdentityAuthorizationService>());
+        services.AddSingleton<ISupportAccessContextValidator>(serviceProvider =>
+            serviceProvider.GetRequiredService<IdentityAuthorizationService>());
+        services.AddSingleton<SupportAccessSessionStore>();
         services.AddSingleton<IAuthenticationAssuranceEvidenceSource, UnavailableAuthenticationAssuranceEvidenceSource>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ITenantDisplayNameProvider, ConfiguredTenantDisplayNameProvider>();

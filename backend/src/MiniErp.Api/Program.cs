@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using System.Globalization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Antiforgery;
@@ -7,9 +8,12 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.HttpOverrides;
 using Scalar.AspNetCore;
 using MiniErp.App.BuildingBlocks.Rest;
+using MiniErp.App.BuildingBlocks.Reporting;
+using MiniErp.App.BuildingBlocks.Work;
 using MiniErp.App.Modules.Audit;
 using MiniErp.App.Modules.BusinessParties;
 using MiniErp.App.Modules.Identity;
+using MiniErp.App.Modules.Notifications;
 using MiniErp.App.Modules.MasterData;
 using MiniErp.App.Modules.Platform;
 using MiniErp.App.Modules.Procurement;
@@ -325,6 +329,8 @@ builder.Services.AddSingleton<IFoundationAuditEvidenceSink>(services =>
     services.GetRequiredService<LocalImmutableAuditEvidenceStore>());
 builder.Services.AddSingleton<IFoundationAuditEvidenceReader>(services =>
     services.GetRequiredService<LocalImmutableAuditEvidenceStore>());
+builder.Services.AddSingleton<IFoundationAuditSearchReader>(services =>
+    services.GetRequiredService<LocalImmutableAuditEvidenceStore>());
 builder.Services.AddSingleton<LocalFoundationAuditTelemetrySink>();
 builder.Services.AddSingleton<IFoundationAuditTelemetrySink>(services =>
     services.GetRequiredService<LocalFoundationAuditTelemetrySink>());
@@ -332,6 +338,8 @@ builder.Services.AddSingleton<LocalFoundationAuditOperationalSignalSink>();
 builder.Services.AddSingleton<IFoundationAuditOperationalSignalSink>(services =>
     services.GetRequiredService<LocalFoundationAuditOperationalSignalSink>());
 builder.Services.AddSingleton<FoundationAuditCoordinator>();
+builder.Services.AddSingleton<INotificationDeliveryAdapter, UnavailableNotificationDeliveryAdapter>();
+builder.Services.AddSingleton<NotificationDeliveryApplication>();
 builder.Services.AddSingleton<FoundationRestApplication>();
 builder.Services.AddOpenApi("v1", options =>
 {
@@ -832,6 +840,74 @@ app.MapGet("/api/v1/foundation/tenant-context", async (
     .WithName("foundation.tenant-context.read")
     .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("foundation.tenant-context.read")));
 
+app.MapGet("/api/v1/audit/evidence", async (
+        HttpContext httpContext,
+        ITrustedRequestContextResolver resolver,
+        IOrganizationScopeOwnershipResolver scopeOwnership,
+        ICurrentOrganizationScopeResolver currentScope,
+        IFoundationAuditSearchReader auditReader) =>
+    await ExecuteAsync(
+        httpContext,
+        resolver,
+        async context =>
+        {
+            if (context.TenantContext is null
+                || !TryBuildAuditSearch(httpContext.Request, out var requestedScope, out var search, out var hasExplicitScope))
+            {
+                return FoundationOperationResult<ReportingSourcePage<FoundationAuditEvidence>>.Failure(
+                    StatusCodes.Status400BadRequest,
+                    "validation_failed",
+                    "Validation failed",
+                    "The audit query is invalid.",
+                    "audit.evidence.search",
+                    GetCorrelation(httpContext));
+            }
+
+            if (!hasExplicitScope)
+            {
+                var current = currentScope.ResolveCurrent(context.TenantContext);
+                if (!current.Allowed || current.Scope is null)
+                {
+                    return FoundationOperationResult<ReportingSourcePage<FoundationAuditEvidence>>.Failure(
+                        StatusCodes.Status403Forbidden,
+                        "scope_denied",
+                        "Access denied",
+                        "The current organization scope is not authorized.",
+                        "audit.evidence.search",
+                        GetCorrelation(httpContext));
+                }
+
+                requestedScope = current.Scope.WarehouseId is { } warehouse
+                    ? TenantWorkScopeRequest.ForWarehouse(current.Scope.CompanyId!.Value, current.Scope.BranchId!.Value, warehouse)
+                    : current.Scope.BranchId is { } branch
+                        ? TenantWorkScopeRequest.ForBranch(current.Scope.CompanyId!.Value, branch)
+                        : current.Scope.CompanyId is { } company
+                            ? TenantWorkScopeRequest.ForCompany(company)
+                            : TenantWorkScopeRequest.TenantWide();
+            }
+
+            var resolution = scopeOwnership.Resolve(context.TenantContext, requestedScope);
+            if (!resolution.Allowed || resolution.Scope is null)
+            {
+                return FoundationOperationResult<ReportingSourcePage<FoundationAuditEvidence>>.Failure(
+                    StatusCodes.Status403Forbidden,
+                    "scope_denied",
+                    "Access denied",
+                    "The requested organization scope is not authorized.",
+                    "audit.evidence.search",
+                    GetCorrelation(httpContext));
+            }
+
+            var page = await auditReader.SearchAsync(context.TenantContext, resolution.Scope, search, httpContext.RequestAborted);
+            return FoundationOperationResult<ReportingSourcePage<FoundationAuditEvidence>>.Success(
+                page,
+                "audit.evidence.search",
+                GetCorrelation(httpContext));
+        },
+        StatusCodes.Status200OK))
+    .WithName("audit.evidence.search")
+    .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("audit.evidence.search")));
+
 app.MapGet("/api/v1/foundation/support-context", async (
         HttpContext httpContext,
         ITrustedRequestContextResolver resolver,
@@ -961,6 +1037,129 @@ static async Task<bool> EnsureAntiforgeryAsync(HttpContext httpContext)
     {
         return false;
     }
+}
+
+static bool TryBuildAuditSearch(
+    HttpRequest request,
+    out TenantWorkScopeRequest requestedScope,
+    out FoundationAuditSearch search,
+    out bool hasExplicitScope)
+{
+    requestedScope = TenantWorkScopeRequest.TenantWide();
+    search = null!;
+    hasExplicitScope = request.Query.ContainsKey("companyId")
+        || request.Query.ContainsKey("branchId")
+        || request.Query.ContainsKey("warehouseId");
+    if (!TryReadGuid(request, "companyId", out var companyId)
+        || !TryReadGuid(request, "branchId", out var branchId)
+        || !TryReadGuid(request, "warehouseId", out var warehouseId))
+    {
+        return false;
+    }
+
+    try
+    {
+        requestedScope = warehouseId is { } warehouse
+            ? TenantWorkScopeRequest.ForWarehouse(companyId ?? throw new ArgumentException("companyId is required."), branchId ?? throw new ArgumentException("branchId is required."), warehouse)
+            : branchId is { } branch
+                ? TenantWorkScopeRequest.ForBranch(companyId ?? throw new ArgumentException("companyId is required."), branch)
+                : companyId is { } company
+                    ? TenantWorkScopeRequest.ForCompany(company)
+                    : TenantWorkScopeRequest.TenantWide();
+
+        if (!TryReadDateTimeOffset(request, "from", out var from)
+            || !TryReadDateTimeOffset(request, "to", out var to)
+            || !TryReadGuid(request, "actorId", out var actorId)
+            || !TryReadEnum(request, "decision", out FoundationAuditDecision? decision)
+            || !TryReadEnum(request, "reason", out FoundationAuditReason? reason))
+        {
+            return false;
+        }
+
+        var page = ReadPositiveInt(request, "page", 1);
+        var pageSize = ReadPositiveInt(request, "pageSize", 100);
+        if (page is null || pageSize is null)
+        {
+            return false;
+        }
+
+        search = FoundationAuditSearch.Create(
+            ReportingPageRequest.Create(page.Value, pageSize.Value, "occurredAt", "desc"),
+            from,
+            to,
+            actorId,
+            QueryValue(request, "operationId"),
+            decision,
+            reason,
+            QueryValue(request, "source"),
+            QueryValue(request, "targetType"),
+            QueryValue(request, "targetReference"),
+            QueryValue(request, "correlationId"));
+        return true;
+    }
+    catch (ArgumentException)
+    {
+        return false;
+    }
+}
+
+static string? QueryValue(HttpRequest request, string name)
+{
+    var values = request.Query[name];
+    return values.Count == 1 ? values[0] : values.Count == 0 ? null : string.Empty;
+}
+
+static bool TryReadGuid(HttpRequest request, string name, out Guid? value)
+{
+    value = null;
+    if (!request.Query.ContainsKey(name))
+    {
+        return true;
+    }
+
+    var raw = QueryValue(request, name);
+    return Guid.TryParse(raw, out var parsed) && parsed != Guid.Empty && (value = parsed).HasValue;
+}
+
+static bool TryReadDateTimeOffset(HttpRequest request, string name, out DateTimeOffset? value)
+{
+    value = null;
+    if (!request.Query.ContainsKey(name))
+    {
+        return true;
+    }
+
+    var raw = QueryValue(request, name);
+    return DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed)
+        && (value = parsed).HasValue;
+}
+
+static bool TryReadEnum<TEnum>(HttpRequest request, string name, out TEnum? value)
+    where TEnum : struct, Enum
+{
+    value = null;
+    if (!request.Query.ContainsKey(name))
+    {
+        return true;
+    }
+
+    var raw = QueryValue(request, name);
+    return Enum.TryParse<TEnum>(raw, ignoreCase: true, out var parsed)
+        && Enum.IsDefined(parsed)
+        && (value = parsed).HasValue;
+}
+
+static int? ReadPositiveInt(HttpRequest request, string name, int defaultValue)
+{
+    if (!request.Query.ContainsKey(name))
+    {
+        return defaultValue;
+    }
+
+    var raw = QueryValue(request, name);
+    return int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value > 0
+        ? value
+        : null;
 }
 
 static async Task<IResult> ExecuteAsync<T>(HttpContext httpContext, ITrustedRequestContextResolver resolver, Func<FoundationRequestContext, Task<FoundationOperationResult<T>>> operation, int successStatus)

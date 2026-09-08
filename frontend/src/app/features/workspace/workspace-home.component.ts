@@ -23,12 +23,14 @@ import { StatusCardComponent } from '../../shared/ui/status-card.component';
         <app-status-card
           [title]="language.text('noAccessTitle')"
           [message]="language.text('noAccessMessage')"
+          state="denied"
           tone="danger"
         />
       } @else if (isPlatformControlPlane()) {
         <app-status-card
           [title]="language.text('platformControlPlaneTitle')"
           [message]="language.text('platformControlPlaneMessage')"
+          state="unknown"
           tone="neutral"
         />
       } @else {
@@ -69,6 +71,7 @@ import { StatusCardComponent } from '../../shared/ui/status-card.component';
           <app-status-card
             [title]="language.text('operationalContextPending')"
             [message]="language.text('operationalContextPendingMessage')"
+            state="pending"
             tone="neutral"
           />
         }

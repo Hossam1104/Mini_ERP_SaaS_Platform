@@ -84,7 +84,11 @@ public sealed class FoundationAuditEvidence
         string? idempotencyKey,
         string? operationVersion,
         Guid? retryOfEvidenceId,
-        int attempt)
+        int attempt,
+        string source,
+        string? targetType,
+        string? targetReference,
+        string? changeSummary)
     {
         EvidenceId = evidenceId;
         OccurredAt = occurredAt;
@@ -106,6 +110,10 @@ public sealed class FoundationAuditEvidence
         OperationVersion = operationVersion;
         RetryOfEvidenceId = retryOfEvidenceId;
         Attempt = attempt;
+        Source = source;
+        TargetType = targetType;
+        TargetReference = targetReference;
+        ChangeSummary = changeSummary;
     }
 
     public Guid EvidenceId { get; }
@@ -147,6 +155,18 @@ public sealed class FoundationAuditEvidence
     public Guid? RetryOfEvidenceId { get; }
 
     public int Attempt { get; }
+
+    /// <summary>Safe source module/control that produced the evidence.</summary>
+    public string Source { get; }
+
+    /// <summary>Allow-listed target type, never a serialized request payload.</summary>
+    public string? TargetType { get; }
+
+    /// <summary>Opaque bounded target reference when one is required.</summary>
+    public string? TargetReference { get; }
+
+    /// <summary>Bounded human-readable change summary without sensitive payload.</summary>
+    public string? ChangeSummary { get; }
 }
 
 /// <summary>
