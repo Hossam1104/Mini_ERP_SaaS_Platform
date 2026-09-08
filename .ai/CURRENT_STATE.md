@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY - 8 September 2026 (MESP-140 HOLD 1 remediation)
+## CURRENT AUTHORITY - 9 September 2026 (MESP-140 HOLD 2 remediation)
 
 ### Identity and activation
 
@@ -21,8 +21,10 @@
 | Authoritative tracker | Jira - project `Mini_ERP_SaaS_Platform`, key `MESP` |
 | Activation baseline | `origin/main` = `76c7885282eeccde2f114aaabd268b0389754ff4` |
 | Active implementation capability | **MESP-140 - Cross-cutting Security, Audit, Files, Notifications, Localization, and Support** |
-| HOLD authority | GPT-5.6 Sol HOLD 1 comment `12388` |
-| Capability state | **IN PROGRESS / HOLD 1 REMEDIATED PENDING SOL REVIEW** under MESP-13; acceptance remains GPT-5.6 Sol authority |
+| MESP-140 activation authority | Sol comment `12383` |
+| HOLD 1 authority | GPT-5.6 Sol HOLD 1 comment `12388` |
+| HOLD 2 authority | GPT-5.6 Sol independent HOLD 2 review, comment `12390` |
+| Capability state | **IN PROGRESS / HOLD 2 REMEDIATED PENDING SOL REVIEW** under MESP-13; acceptance remains GPT-5.6 Sol authority |
 | Executor branch / worktree | `feat/MESP-140-cross-cutting-controls` / `D:\\AI Tools\\Active Projects\\Mini_ERP_SaaS_Platform-MESP-140` |
 | Source-control boundary | PR **#89** against `main`, Open / Draft / Unmerged; no Ready, merge, rebase, force-push, or review request |
 | Next capability | MESP-141 / MESP-142 **inactive** |
@@ -33,10 +35,10 @@
 | --- | --- | --- |
 | Security, Tenant isolation, authorization | **PRESERVED** | Preserved server-owned Tenant/scope authority and the Identity-owned live support-grant validation path. |
 | Audit and observability | **PARTIALLY_SATISFIED** | Added bounded tenant-scoped evidence search/API with deterministic paging, time-window and target/source filters, immutable business evidence fields, and fail-closed foreign-scope handling; telemetry remains separate. |
-| Private files and attachments | **HOLD-1 REMEDIATED** | Scan-required content is unavailable unless Clean evidence exists; explicit TrustedGenerated / NotApplicable semantics preserve server-generated Reporting artifacts; overwrite resets safety; no scanner is invented. |
-| Notifications and durable work | **HOLD-1 REMEDIATED** | The catalogued authorized notification shipping endpoint calls the existing application, recipient authorizer, mandatory pre-effect audit, adapter, retry, idempotency, and final-evidence seams; no-provider and adapter-unknown outcomes remain truthful. |
+| Private files and attachments | **HOLD-2 REMEDIATED** | `OverwriteAsync` for `ExternalScanRequired` content no longer mutates state while falsely returning `Denied(SafetyBlocked)`; the new `PrivateFileOverwriteResult.Mutated` flag distinguishes "mutated but quarantined" from "precondition rejected, nothing mutated"; explicit TrustedGenerated / NotApplicable semantics preserve server-generated Reporting artifacts; the foreign-Tenant/missing-object indistinguishability fold is preserved; no scanner is invented. |
+| Notifications and durable work | **HOLD-2 REMEDIATED** | The notification endpoint resolves the caller's own current organization scope (Tenant/Company/Branch/Warehouse) via `ICurrentOrganizationScopeResolver` instead of a hardcoded Tenant-wide scope; invalid template/locale/idempotency shape maps to a distinct `ValidationFailed` outcome / HTTP 400 separate from authorization (403) and auth (401); the `notification.intent.dispatch` Foundation descriptor declares `FoundationIdempotencyPolicy.Required` and enforces the canonical `Idempotency-Key` HTTP header as authoritative; the body `IdempotencyKey` field was removed from the public request contract. |
 | Localization, RTL, accessibility | **PARTIALLY_SATISFIED** | Preserved existing EN/AR RTL foundation and added shared loading/empty/denied/failed/unavailable/unknown/pending status semantics with AR labels and live-region behavior. |
-| Support access lifecycle | **HOLD-1 REMEDIATED VIA ROUTE B** | Removed the unused process-local SupportAccessSessionStore and dead registrations/types. Identity-owned SupportGrant/authentication-session lifecycle remains authoritative; the shipping support-context path records bounded evidence and cannot mint Tenant authority. |
+| Support access lifecycle | **HOLD-1 REMEDIATED VIA ROUTE B** | Removed the unused process-local SupportAccessSessionStore and dead registrations/types. Identity-owned SupportGrant/authentication-session lifecycle remains authoritative; the shipping support-context path records bounded evidence and cannot mint Tenant authority. No HOLD-2 residual was identified for this workstream. |
 | Exports and Reporting | **ALREADY_SATISFIED / PRESERVED** | MESP-139 source-linked bounded catalogue, read-only exports, private artifacts, and unavailable-source semantics remain unchanged; no generic export framework was added. |
 | External providers, production policy, legal/data governance | **EXTERNAL_PROVIDER_UNAVAILABLE / POLICY-ONLY** | No scanner, notification provider, production sink, retention, RLS, residency, backup, capacity, legal, statutory, or credential decision was invented; safe unavailable evidence is explicit. |
 
@@ -46,10 +48,18 @@ policy, or later capability was added.
 
 ### Validation and completion boundary
 
-Final HOLD-1 validation is recorded below after the exact pushed head is
-verified. The previously reviewed baseline evidence is retained for frontend
-and unaffected capabilities; this remediation changes backend composition and
-governance only.
+Post-HOLD-2-fix validation: Release solution build **0 warnings / 0 errors**;
+sanctioned disposable-LocalDB backend runner **1,223 / 1,223 passed**, 0
+failed / 0 skipped (includes **87 / 87** SQL-safety tests); MESP-140 focused
+controls (`Mesp140CrossCuttingControlTests`) **7 / 7**; REST/Foundation
+(`RestFoundationTests`) **37 / 37**; private-file/notification security
+(`PrivateFileAndNotificationSecurityTests`) **80 / 80**; DurableWork
+(`DurableWorkTests`) **46 / 46**; Angular unit tests **316 / 316** across 45
+files; production frontend build passed with the existing **514.26 kB**
+initial-bundle warning against the **500 kB** budget (unchanged; no frontend
+source was touched); full Chromium and both npm audits recorded in `TASK.md`
+and `docs/staticts.md`. All seven EF contexts have no pending model changes;
+`git diff --check` clean.
 
 Accepted fast-track completion remains **23 / 26 = 88.5%** until Sol accepts,
 merges, and closes MESP-140. Production readiness remains approximately **47%
@@ -59,11 +69,11 @@ authoritative Jira connector is available in this executor.
 
 ### Current execution boundary
 
-MESP-140 HOLD 1 remediation is complete for this bounded handoff and remains
+MESP-140 HOLD 2 remediation is complete for this bounded handoff and remains
 **not accepted**. PR **#89** is the exactly-one Open/Draft/Unmerged PR against
 `main`; the executor stops after push and PR verification.
-Independent GPT-5.6 Sol review is required before Ready, merge, Jira lifecycle
-finalization, or any next capability.
+Independent GPT-5.6 Sol review of the exact pushed PR #89 head is required
+before Ready, merge, Jira lifecycle finalization, or any next capability.
 
 ## HISTORICAL MESP-139 AUTHORITY - 8 September 2026 (superseded by MESP-140 activation)
 

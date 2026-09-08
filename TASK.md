@@ -1,9 +1,8 @@
-## MESP-140 Cross-cutting controls - HOLD 1 remediation handoff
+## MESP-140 Cross-cutting controls - HOLD 2 remediation handoff
 
 MESP-140 is the single active implementation capability under **MESP-13 —
-Security, Audit, and Data Governance**, activated by the Owner-provided HOLD 1
-remediation prompt on 8 September 2026. The exact starting
-baseline is `origin/main` =
+Security, Audit, and Data Governance**, activated by Sol comment `12383`. The
+exact starting baseline is `origin/main` =
 `76c7885282eeccde2f114aaabd268b0389754ff4`. Work is bounded to branch
 `feat/MESP-140-cross-cutting-controls` in the dedicated worktree
 `D:\\AI Tools\\Active Projects\\Mini_ERP_SaaS_Platform-MESP-140`. The implementation is
@@ -12,37 +11,39 @@ stop for independent GPT-5.6 Sol review. No Ready transition, merge,
 auto-merge, review request, rebase, force-push, Jira mutation, provider
 credential, or next-capability activation is authorized.
 
-The HOLD-1 audit remediated only the four authorized findings:
+GPT-5.6 Sol's independent HOLD 2 review (comment `12390`) identified three
+residual contract defects across the HOLD-1 remediation; HOLD-140-A remained
+closed and was not reopened:
 
 | Workstream | Classification and bounded action |
 | --- | --- |
-| HOLD-140-A Support access | REMEDIATED via Route B - removed the unused process-local support-session store and retained Identity-owned SupportGrant/authentication-session authority; the shipping support-context path records bounded audit evidence. |
-| HOLD-140-B Notifications / durable work | REMEDIATED - the catalogued authorized notification endpoint calls the existing application, recipient-authorizer, audit, adapter, retry, and idempotency seams; no-provider remains truthful Unavailable. |
-| HOLD-140-C Files / attachments | REMEDIATED - scan-required content fails closed unless Clean evidence exists; Reporting-generated artifacts use explicit TrustedGenerated / NotApplicable semantics; overwrite resets safety. |
-| HOLD-140-D Governance | REMEDIATED - current MESP-140 authority is under MESP-13; historical MESP-9 records remain unchanged. |
+| HOLD-140-A Support access | CLOSED at HOLD 1 - no residual identified at HOLD 2; unchanged in this pass. |
+| HOLD-140-B Notifications / durable work | HOLD 2 REMEDIATED - the notification endpoint now resolves the caller's own current organization scope (Tenant/Company/Branch/Warehouse) instead of a hardcoded Tenant-wide scope; validation failures (template/locale/idempotency shape) map to a distinct `ValidationFailed` outcome / HTTP 400 separate from authorization (403) and auth (401); the `notification.intent.dispatch` Foundation descriptor declares `FoundationIdempotencyPolicy.Required` and enforces the canonical `Idempotency-Key` HTTP header as authoritative, with the body `IdempotencyKey` field removed from the public request contract. |
+| HOLD-140-C Files / attachments | HOLD 2 REMEDIATED - `OverwriteAsync` for `ExternalScanRequired` content no longer mutates state while falsely returning a `Denied(SafetyBlocked)` result; the new `PrivateFileOverwriteResult.Mutated` flag distinguishes "mutated but quarantined" from "precondition rejected, nothing mutated"; TrustedGenerated/NotApplicable Reporting semantics and the foreign-Tenant/missing-object indistinguishability fold are preserved. |
+| HOLD-140-D Governance | HOLD 2 REMEDIATED - current-state sections of `.ai/CURRENT_STATE.md`, `TASK.md`, and `docs/staticts.md` correct the HOLD-1 activation misattribution and replace stale validation counts with actual post-HOLD-2-fix figures; MESP-13 parent ownership and historical MESP-9/MESP-139 records remain unchanged. |
 
 No `frontend/assets` file was touched; no Wafra-specific behavior, generic
-mega-framework, database migration, or later capability was added. Existing
-Tenant isolation, authorization, file ownership/concurrency, notification
-retry/idempotency/revocation, EN/AR RTL, and MESP-139 reporting/export seams
-were preserved.
+mega-framework, database migration, provider credential, or later capability
+was added. Existing Tenant isolation, authorization, file
+ownership/concurrency, notification retry/idempotency/revocation, EN/AR RTL,
+and MESP-139 reporting/export seams were preserved.
 
 Implementation evidence:
 
 - Release solution build: **0 warnings / 0 errors**.
-- Sanctioned disposable-LocalDB backend runner: **1,214 / 1,214 passed**, **0 failed / 0 skipped**.
-- MESP-140 focused controls: **pending final HOLD-1 rerun**; REST/OpenAPI: **pending final HOLD-1 rerun**; safety catalogue: **pending final HOLD-1 rerun**; Audit: **pending final HOLD-1 rerun**; private-file/notification security: **pending final HOLD-1 rerun**.
+- Sanctioned disposable-LocalDB backend runner: **1,223 / 1,223 passed**, **0 failed / 0 skipped** (includes **87 / 87** SQL-safety tests).
+- MESP-140 focused controls (`Mesp140CrossCuttingControlTests`): **7 / 7 passed**; REST/Foundation (`RestFoundationTests`): **37 / 37 passed**; private-file/notification security (`PrivateFileAndNotificationSecurityTests`): **80 / 80 passed**; DurableWork (`DurableWorkTests`): **46 / 46 passed**.
 - Angular: **316 / 316** across **45** files.
-- Production frontend build: passed with the existing **514.26 kB** initial-bundle warning against the **500 kB** budget.
+- Production frontend build: passed with the existing **514.26 kB** initial-bundle warning against the **500 kB** budget (unchanged; no frontend source was touched).
 - Full Chromium: **51 / 51**; production-only and full npm audits: **0 vulnerabilities**.
 - `git diff --check`: clean; `frontend/assets`: untouched.
 
 Accepted fast-track completion remains **23 / 26 = 88.5%** until Sol accepts,
-merges, and closes MESP-140. MESP-140 remains **In Progress / HOLD 1 remediated
-pending Sol review**. Production readiness remains approximately **47%
-overall / 41% Procurement/P2P**; MESP-48 and MESP-50 remain open. Jira
-handoff is deferred to GPT-5.6 Sol because no authoritative Jira connector is
-available in this executor.
+merges, and closes MESP-140. MESP-140 remains **In Progress / HOLD 2
+remediated pending Sol review**. Production readiness remains approximately
+**47% overall / 41% Procurement/P2P**; MESP-48 and MESP-50 remain open;
+MESP-141/MESP-142 remain not activated. Jira handoff is deferred to GPT-5.6
+Sol because no authoritative Jira connector is available in this executor.
 
 ## Historical MESP-139 Release 1 Reporting — ACCEPTED / MERGED / DONE
 
