@@ -1,8 +1,8 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 8 September 2026 (MESP-140 implementation handoff)
+**Last Updated:** 8 September 2026 (MESP-140 HOLD 1 remediation)
 
-## Current authoritative snapshot - 8 September 2026 (MESP-140 ACTIVATED / IMPLEMENTED / AWAITING SOL REVIEW)
+## Current authoritative snapshot - 8 September 2026 (MESP-140 HOLD 1 REMEDIATED / AWAITING SOL REVIEW)
 
 This section is the current production-progress authority for the bounded
 MESP-140 handoff. Live Jira and GitHub remain authoritative for mutable
@@ -10,55 +10,53 @@ lifecycle facts.
 
 | Measure | Value | Basis |
 |---|---|---|
-| Active implementation capability | **MESP-140** | Activated by Owner-provided task prompt; branch `feat/MESP-140-cross-cutting-controls` |
+| Active implementation capability | **MESP-140** | HOLD 1 remediation under **MESP-13 — Security, Audit, and Data Governance**; branch `feat/MESP-140-cross-cutting-controls` |
 | Activation baseline | `76c7885282eeccde2f114aaabd268b0389754ff4` | Exact `origin/main` at activation |
-| MESP-140 lifecycle | **IN PROGRESS / IMPLEMENTED / NOT ACCEPTED** | PR **#89** is Open / Draft / Unmerged; GPT-5.6 Sol owns acceptance and lifecycle finalization |
+| MESP-140 lifecycle | **IN PROGRESS / HOLD 1 REMEDIATED / NOT ACCEPTED** | PR **#89** is Open / Draft / Unmerged; GPT-5.6 Sol owns acceptance and lifecycle finalization |
 | Accepted fast-track capability completion | **23 / 26 = 88.5%** | MESP-140 is not counted until Sol acceptance, merge, and Jira Done closure |
 | Production readiness - overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
 | Production readiness - Procurement / P2P | ~**41%** | Unchanged |
 | MESP-48 / MESP-50 | **Open production gates** | No production provider, retention, RLS, residency, capacity, legal, or statutory policy was invented |
 
-### MESP-140 audit-first classification
+### MESP-140 HOLD 1 remediation classification
 
-The eight workstreams were audited before implementation: Security/Tenant
-isolation/authorization, Audit/observability, Files/attachments,
-Notifications/durable work, Localization/RTL/accessibility, Support access,
-Exports/Reporting, and External providers/production policy/legal governance.
-The first six were partial or missing but implementable within the repository;
-Exports/Reporting was already satisfied by MESP-139 and preserved; and external
-provider/policy/legal items remain explicitly unavailable or policy-only.
-The bounded implementation adds tenant-bound audit search, source/target
-evidence, request-time file and notification clocks, honest file scan state,
-audited notification dispatch with structured no-provider outcomes,
-evidence-only support sessions with live revalidation, and shared localized UI
-state semantics. No provider credentials, Wafra-specific behavior,
-`frontend/assets` change, database migration, RLS/retention/residency policy,
-or later capability was added.
+HOLD-140-A uses Route B: the unused process-local support-session store and
+dead registrations/types were removed; Identity-owned SupportGrant and
+authentication-session authority remains canonical, and the shipping support
+context path records bounded evidence. HOLD-140-B wires the existing
+NotificationDeliveryApplication into the authorized notification endpoint with
+pre-effect audit, provider-neutral outcomes, retry linkage, and idempotency.
+HOLD-140-C makes scan-required private-file reads fail closed while preserving
+MESP-139 Reporting exports through explicit TrustedGenerated/NotApplicable
+semantics; overwrite resets safety. HOLD-140-D moves the current parent
+authority to MESP-13 without rewriting historical MESP-9 records. No provider
+credentials, Wafra-specific behavior, `frontend/assets` change, database
+migration, RLS/retention/residency policy, or later capability was added.
 
 ### MESP-140 validation evidence
 
 | Check | Result |
 |---|---|
 | Release solution build | **0 warnings / 0 errors** |
-| Sanctioned disposable-LocalDB backend suite | **1,214 / 1,214 passed**, 0 failed, 0 skipped |
-| MESP-140 focused controls | **5 / 5 passed** |
+| Sanctioned disposable-LocalDB backend suite | **1,222 / 1,222 passed**, 0 failed, 0 skipped; 87 SQL-safety tests included |
+| MESP-140 focused controls | **6 / 6 passed** |
 | REST/OpenAPI and safety catalogue | **37 / 37** and **4 / 4 passed** |
-| Audit and private-file/notification security | **37 / 37** and **73 / 73 passed** |
+| Audit and private-file/notification security | **37 / 37** and **80 / 80 passed** |
 | Angular unit tests | **316 / 316** across 45 files |
 | Production frontend build | Passed; initial bundle **514.26 kB** and existing 500 kB warning retained |
 | Full Chromium | **51 / 51 passed** |
-| npm audits | **0 vulnerabilities** in production-only and full audits |
-| Whitespace / protected assets | `git diff --check` clean; `frontend/assets` untouched |
+| npm audits / NuGet scan | **0 vulnerabilities** in production-only and full npm audits; no vulnerable packages across five backend projects |
+| EF model / whitespace / protected assets | All seven EF contexts have no pending model changes; `git diff --check` clean; `frontend/assets` untouched |
 
-### Progress history - 8 September 2026 (MESP-140 implementation)
+### Progress history - 8 September 2026 (MESP-140 HOLD 1 remediation)
 
-GPT-5.6 Luna xHigh implemented the activated MESP-140 bounded cross-cutting
-controls from exact `origin/main` baseline
+GPT-5.6 Luna xHigh remediated the authorized HOLD-140-A through HOLD-140-D
+findings on the existing branch and PR #89 from exact `origin/main` baseline
 `76c7885282eeccde2f114aaabd268b0389754ff4`. The accepted fast-track
-percentage remains unchanged at 23/26 because the capability is awaiting
-independent GPT-5.6 Sol review, merge, and Jira closure. Production readiness
-remains approximately 47% overall and 41% Procurement/P2P; MESP-48 and MESP-50
-remain open.
+percentage remains unchanged at 23/26 because MESP-140 is awaiting independent
+GPT-5.6 Sol review, merge, and Jira closure. Production readiness remains
+approximately 47% overall and 41% Procurement/P2P; MESP-48 and MESP-50 remain
+open. Jira HOLD 1 handoff is deferred to GPT-5.6 Sol.
 
 ## Historical snapshot - 8 September 2026 (MESP-139 ACCEPTED / MERGED / DONE)
 

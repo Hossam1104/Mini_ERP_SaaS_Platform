@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY - 8 September 2026 (MESP-140 active implementation)
+## CURRENT AUTHORITY - 8 September 2026 (MESP-140 HOLD 1 remediation)
 
 ### Identity and activation
 
@@ -21,7 +21,8 @@
 | Authoritative tracker | Jira - project `Mini_ERP_SaaS_Platform`, key `MESP` |
 | Activation baseline | `origin/main` = `76c7885282eeccde2f114aaabd268b0389754ff4` |
 | Active implementation capability | **MESP-140 - Cross-cutting Security, Audit, Files, Notifications, Localization, and Support** |
-| Capability state | **IN PROGRESS / ACTIVATED** under MESP-9; acceptance remains GPT-5.6 Sol authority |
+| HOLD authority | GPT-5.6 Sol HOLD 1 comment `12388` |
+| Capability state | **IN PROGRESS / HOLD 1 REMEDIATED PENDING SOL REVIEW** under MESP-13; acceptance remains GPT-5.6 Sol authority |
 | Executor branch / worktree | `feat/MESP-140-cross-cutting-controls` / `D:\\AI Tools\\Active Projects\\Mini_ERP_SaaS_Platform-MESP-140` |
 | Source-control boundary | PR **#89** against `main`, Open / Draft / Unmerged; no Ready, merge, rebase, force-push, or review request |
 | Next capability | MESP-141 / MESP-142 **inactive** |
@@ -30,12 +31,12 @@
 
 | Workstream | Audit classification | Bounded result |
 | --- | --- | --- |
-| Security, Tenant isolation, authorization | **PARTIALLY_SATISFIED** | Preserved server-owned Tenant/scope authority and added live support-grant validation with exact actor, session, case, purpose, permission, MFA/freshness, expiry, and revocation checks. |
+| Security, Tenant isolation, authorization | **PRESERVED** | Preserved server-owned Tenant/scope authority and the Identity-owned live support-grant validation path. |
 | Audit and observability | **PARTIALLY_SATISFIED** | Added bounded tenant-scoped evidence search/API with deterministic paging, time-window and target/source filters, immutable business evidence fields, and fail-closed foreign-scope handling; telemetry remains separate. |
-| Private files and attachments | **PARTIALLY_SATISFIED** | Added request-time clock injection and explicit `NotScanned`/`Pending`/`Clean`/`Rejected`/`Unavailable` scan state; the local adapter remains `Unavailable` and never claims malware clearance. |
-| Notifications and durable work | **PARTIALLY_SATISFIED** | Added recipient-authorized intent dispatch with mandatory audit before effect, final outcome evidence, retry linkage, explicit adapter evidence source, and structured no-provider `Unavailable`; existing bounded retry/idempotency/revocation behavior is preserved. |
+| Private files and attachments | **HOLD-1 REMEDIATED** | Scan-required content is unavailable unless Clean evidence exists; explicit TrustedGenerated / NotApplicable semantics preserve server-generated Reporting artifacts; overwrite resets safety; no scanner is invented. |
+| Notifications and durable work | **HOLD-1 REMEDIATED** | The catalogued authorized notification shipping endpoint calls the existing application, recipient authorizer, mandatory pre-effect audit, adapter, retry, idempotency, and final-evidence seams; no-provider and adapter-unknown outcomes remain truthful. |
 | Localization, RTL, accessibility | **PARTIALLY_SATISFIED** | Preserved existing EN/AR RTL foundation and added shared loading/empty/denied/failed/unavailable/unknown/pending status semantics with AR labels and live-region behavior. |
-| Support access lifecycle | **MISSING IMPLEMENTABLE_NOW** | Added bounded evidence-only support-session tracking with request-time expiry, exact authentication-session/grant/case binding, live revalidation, revocation, capacity bound, and no Tenant-context minting path. |
+| Support access lifecycle | **HOLD-1 REMEDIATED VIA ROUTE B** | Removed the unused process-local SupportAccessSessionStore and dead registrations/types. Identity-owned SupportGrant/authentication-session lifecycle remains authoritative; the shipping support-context path records bounded evidence and cannot mint Tenant authority. |
 | Exports and Reporting | **ALREADY_SATISFIED / PRESERVED** | MESP-139 source-linked bounded catalogue, read-only exports, private artifacts, and unavailable-source semantics remain unchanged; no generic export framework was added. |
 | External providers, production policy, legal/data governance | **EXTERNAL_PROVIDER_UNAVAILABLE / POLICY-ONLY** | No scanner, notification provider, production sink, retention, RLS, residency, backup, capacity, legal, statutory, or credential decision was invented; safe unavailable evidence is explicit. |
 
@@ -45,15 +46,10 @@ policy, or later capability was added.
 
 ### Validation and completion boundary
 
-Release solution build is **0 warnings / 0 errors**. The sanctioned disposable
-LocalDB backend runner passed **1,214 / 1,214**, with **0 failures / 0 skips**;
-the final post-run graph/control regression is MESP-140 **5/5**, REST/OpenAPI
-**37/37**, safety catalogue **4/4**, Audit **37/37**, private-file/notification
-security **73/73**, and Identity/host coverage is included in the canonical
-runner. Angular unit tests passed **316/316** across **45** files; the
-production build passed with the existing initial-bundle budget warning at
-**514.26 kB** against **500 kB**; full Chromium passed **51/51**; both npm
-audits reported **0 vulnerabilities**; and `git diff --check` is clean.
+Final HOLD-1 validation is recorded below after the exact pushed head is
+verified. The previously reviewed baseline evidence is retained for frontend
+and unaffected capabilities; this remediation changes backend composition and
+governance only.
 
 Accepted fast-track completion remains **23 / 26 = 88.5%** until Sol accepts,
 merges, and closes MESP-140. Production readiness remains approximately **47%
@@ -63,7 +59,7 @@ authoritative Jira connector is available in this executor.
 
 ### Current execution boundary
 
-MESP-140 implementation is complete for this bounded handoff and remains
+MESP-140 HOLD 1 remediation is complete for this bounded handoff and remains
 **not accepted**. PR **#89** is the exactly-one Open/Draft/Unmerged PR against
 `main`; the executor stops after push and PR verification.
 Independent GPT-5.6 Sol review is required before Ready, merge, Jira lifecycle
