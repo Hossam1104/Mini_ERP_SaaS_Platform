@@ -1,4 +1,63 @@
-# MESP-138 accepted lifecycle finalization — 6 September 2026
+## MESP-139 Release 1 Reporting — technically accepted / lifecycle finalization
+
+This current section supersedes the historical record below. GPT-5.6 Sol
+technically accepted MESP-139 at comment `12375` and explicitly authorized
+GitHub/repository lifecycle continuation at comment `12377`. The accepted
+technical head is `5fdb619bb6e19ff188949100b3a9a4034cf2bf9a`; HOLD-139-A
+through HOLD-139-E are closed. The accepted baseline is exact `origin/main`
+`293f7442677b4142ae45cde0f6d48dcd9ccf6077`.
+
+Work remained bounded to branch `feat/MESP-139-release1-reporting` in the
+preferred worktree `D:\AI Tools\Active Projects\Mini_ERP_SaaS_Platform-MESP-139`.
+The current operation is lifecycle finalization only; no implementation
+capability is active. The Jira executor mismatch is acknowledged and no Jira
+write is authorized or required from this executor.
+
+HOLD-139-A is closed in the executor implementation only. Four reports now
+consume directly injected, registered, source-owned bounded read ports over
+accepted truth: Finance `finance.cash-movement`, Procurement
+`procurement.match-exceptions`, Sales `sales.fulfillment`, and Sales
+`sales.returns-credits`. `finance.bank-reconciliation` remains unavailable
+because no accepted bank-statement/provider capability exists, and
+`inventory.count-variance` remains unavailable because no accepted stock-count
+workflow/entities capability exists. HOLD-139-B/C/D/E are preserved.
+
+Reporting remains read-only and does not mutate source ledgers, operational
+documents, inventory, accounting, or lifecycle state. No Reporting persistence
+context/migration, external distribution/provider, production policy, statutory
+certification, Wafra-specific behavior, later capability, Jira write, or
+MESP-48/MESP-50 decision was added.
+
+Validation is Release `0 warnings / 0 errors`; complete disposable-LocalDB
+backend regression `1,209/1,209` with `0` failures and `0` skips, including
+`87/87` SQL-safety tests and all seven EF contexts clear of pending model
+changes; HOLD coverage `13/13`; source-adapter coverage `4/4`; full Reporting
+filtered coverage `29/29`; Angular `309/309`; focused/full Chromium `2/2` and
+`51/51`; solution-wide NuGet scan clear across five projects; and both
+frontend audits at `0 vulnerabilities`. The initial Angular bundle remains
+`513.21 kB`, retaining the existing `500 kB` warning budget, with a `37.59 kB`
+Reporting lazy chunk. `frontend/assets` is untouched.
+
+PR #88 begins this operation Open/Draft/Unmerged against `main`. The current
+authority permits PR body refresh, Draft-to-Ready, final live mergeability
+recheck, and squash merge only. No reviewer request, auto-merge, rebase,
+force-push, Jira write, production-provider activation, or next capability is
+authorized.
+
+The Release-1 catalogue has 22 entries. Confirmed IMPLEMENTABLE_NOW residual
+reports are `finance.cash-movement`, `procurement.match-exceptions`,
+`sales.fulfillment`, and `sales.returns-credits`; `finance.bank-reconciliation`
+and `inventory.count-variance` are unavailable because their source
+capabilities are absent. Accepted validation is backend `1,209/1,209`, SQL
+safety `87/87`, Reporting-filtered `29/29`, HOLD `13/13`, source adapters
+`4/4`, Angular `309/309`, Chromium `51/51`, Release `0 warnings / 0 errors`,
+seven EF contexts with no pending model changes, and clear NuGet/npm audits.
+
+Fast-track completion remains **22 / 26 = 84.6%** pending GPT-5.6 Sol Jira
+Done closure after verified merge; do not record 23/26 yet. MESP-11 remains In
+Progress; MESP-48 and MESP-50 remain open production gates.
+
+# Historical MESP-138 accepted lifecycle finalization — 6 September 2026
 
 MESP-138 is technically accepted by GPT-5.6 Sol at Jira comment `12359`, at
 exact feature head `77eafb21b05379992c92be7b4f6e3ff347dfb1b7`. HOLD-138-S,

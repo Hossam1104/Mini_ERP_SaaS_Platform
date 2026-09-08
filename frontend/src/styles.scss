@@ -118,6 +118,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ui-field__label { color: var(--ink-muted); font-size: 0.78rem; font-weight: 800; }
 .ui-field__control { min-height: 2.7rem; border-color: var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); }
 
+.scope-readout { display: grid; gap: .3rem; min-height: 2.55rem; padding: .42rem .65rem; border: 1px solid var(--line-strong); border-radius: .5rem; background: var(--surface-tint); }
+.scope-readout span, .scope-readout small { color: var(--ink-muted); font-size: .62rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.scope-readout strong { font-size: .78rem; }
+
 @media (max-width: 620px) {
   .ui-page-header { align-items: flex-start; flex-direction: column; }
 }

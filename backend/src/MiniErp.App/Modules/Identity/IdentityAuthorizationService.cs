@@ -17,6 +17,7 @@ namespace MiniErp.App.Modules.Identity;
 /// </remarks>
 internal sealed class IdentityAuthorizationService :
     IOrganizationScopeOwnershipResolver,
+    ICurrentOrganizationScopeResolver,
     IDurableWorkAuthorityRevalidator,
     IDurableWorkReconciliationAuthorizer,
     INotificationRecipientAuthorizer
@@ -79,6 +80,25 @@ internal sealed class IdentityAuthorizationService :
 
             return TenantWorkScopeResolution.Resolved(
                 TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, requestedScope));
+        }
+    }
+
+    public TenantWorkScopeResolution ResolveCurrent(TenantContext trustedTenantContext)
+    {
+        ArgumentNullException.ThrowIfNull(trustedTenantContext);
+        lock (store.SyncRoot)
+        {
+            if (!TryResolveContextScopeUnsafe(trustedTenantContext, out var selected))
+                return TenantWorkScopeResolution.Denied("scope_not_authorized");
+            var request = selected.Kind switch
+            {
+                ScopeKind.Tenant => TenantWorkScopeRequest.TenantWide(),
+                ScopeKind.Company => TenantWorkScopeRequest.ForCompany(selected.TargetId),
+                ScopeKind.Branch when store.ParentScopes.TryGetValue((selected.TenantId, selected.Kind, selected.TargetId), out var company) && company is { Kind: ScopeKind.Company } => TenantWorkScopeRequest.ForBranch(company.Value.TargetId, selected.TargetId),
+                ScopeKind.Warehouse when store.ParentScopes.TryGetValue((selected.TenantId, selected.Kind, selected.TargetId), out var branch) && branch is { Kind: ScopeKind.Branch } && store.ParentScopes.TryGetValue((branch.Value.TenantId, branch.Value.Kind, branch.Value.TargetId), out var warehouseCompany) && warehouseCompany is { Kind: ScopeKind.Company } => TenantWorkScopeRequest.ForWarehouse(warehouseCompany.Value.TargetId, branch.Value.TargetId, selected.TargetId),
+                _ => null
+            };
+            return request is null ? TenantWorkScopeResolution.Denied("scope_not_authorized") : Resolve(trustedTenantContext, request);
         }
     }
 

@@ -5,12 +5,13 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.Modules.Procurement;
 using MiniErp.Contracts.Modules.Procurement;
 
 namespace MiniErp.Infrastructure.Persistence.Modules.Procurement;
 
-public sealed class PurchaseOrderPersistence : IPurchaseOrderPersistence
+public sealed class PurchaseOrderPersistence : IPurchaseOrderPersistence, IPurchaseOrderReportingReadPort
 {
     private const string CreateOperationId = "procurement.purchase-order.create";
     private const int ReplayResponseSchemaVersion = 1;
@@ -54,6 +55,33 @@ public sealed class PurchaseOrderPersistence : IPurchaseOrderPersistence
                 item.Version.ToArray()))
             .ToArray();
         return records.OrderByDescending(item => item.CreatedAt).ThenByDescending(item => item.Id).ToArray();
+    }
+
+    public async Task<ReportingSourcePage<PurchaseOrderListRecord>> ListReportingPageAsync(
+        TenantContext tenantContext,
+        PurchaseOrderStatus? status,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = CreateContext(tenantContext);
+        var query = ApplyTrustedScope(db.PurchaseOrders.AsNoTracking(), tenantContext.Scope);
+        if (status is { } selectedStatus) query = query.Where(item => item.Status == selectedStatus);
+        var total = await query.CountAsync(cancellationToken);
+        var asOf = total == 0 ? null : await query.Select(item => (DateTimeOffset?)item.UpdatedAt).MaxAsync(cancellationToken);
+        var ordered = page.SortBy?.ToLowerInvariant() switch
+        {
+            "supplier" => page.SortDirection == "desc" ? query.OrderByDescending(item => item.SupplierName).ThenByDescending(item => item.Id) : query.OrderBy(item => item.SupplierName).ThenBy(item => item.Id),
+            "status" => page.SortDirection == "desc" ? query.OrderByDescending(item => item.Status).ThenByDescending(item => item.Id) : query.OrderBy(item => item.Status).ThenBy(item => item.Id),
+            "currency" => page.SortDirection == "desc" ? query.OrderByDescending(item => item.CurrencyCode).ThenByDescending(item => item.Id) : query.OrderBy(item => item.CurrencyCode).ThenBy(item => item.Id),
+            "createdat" => page.SortDirection == "desc" ? query.OrderByDescending(item => item.CreatedAt).ThenByDescending(item => item.Id) : query.OrderBy(item => item.CreatedAt).ThenBy(item => item.Id),
+            _ => page.SortDirection == "asc" ? query.OrderBy(item => item.UpdatedAt).ThenBy(item => item.Id) : query.OrderByDescending(item => item.UpdatedAt).ThenByDescending(item => item.Id)
+        };
+        var entities = await ordered.Include(item => item.Lines).Skip(page.Offset).Take(page.PageSize).ToListAsync(cancellationToken);
+        var records = entities.Select(item => new PurchaseOrderListRecord(
+            item.Id, item.TenantId.Value, new PurchaseRequestScope(item.TenantId.Value, item.CompanyId, item.BranchId), item.Status,
+            item.SupplierCode, item.SupplierName, item.SupplierQuotationReference, item.CurrencyCode,
+            item.Lines.Sum(CommercialLineTotal), item.Lines.Count, item.CreatedAt, item.UpdatedAt, item.Version.ToArray())).ToArray();
+        return new ReportingSourcePage<PurchaseOrderListRecord>(records, total, "updatedAt,id", asOf);
     }
 
     private static decimal CommercialLineTotal(PurchaseOrderLineEntity line)

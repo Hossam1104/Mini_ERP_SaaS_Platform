@@ -1,8 +1,71 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 6 September 2026 (MESP-138 accepted lifecycle finalization)
+**Last Updated:** 8 September 2026 (MESP-139 technically accepted / lifecycle finalization)
 
-## Current authoritative snapshot - 6 September 2026 (MESP-138 lifecycle finalization; supersedes every dated record below)
+## Current authoritative snapshot - 8 September 2026 (MESP-139 technically accepted / lifecycle finalization)
+
+This section supersedes the historical MESP-138 lifecycle snapshot below. Live
+Jira and GitHub remain authoritative for mutable lifecycle facts.
+
+| Measure | Value | Basis |
+|---|---|---|
+| Active implementation capability | **NONE - lifecycle finalization only** | No next capability is activated |
+| Implementation branch | `feat/MESP-139-release1-reporting` | Accepted technical head `5fdb619bb6e19ff188949100b3a9a4034cf2bf9a`; PR #88 starts Open/Draft/Unmerged against baseline `293f7442677b4142ae45cde0f6d48dcd9ccf6077` |
+| Sol technical acceptance | MESP-139 comment `12375` | HOLD-139-A through HOLD-139-E closed |
+| Sol lifecycle continuation authority | MESP-139 comment `12377` | Authorizes repository/GitHub finalization despite executor Jira connector mismatch; no Jira write by this executor |
+| MESP-11 / MESP-139 | **In Progress** | Jira activation was completed by Sol before this continuation; no executor Jira write performed |
+| Accepted fast-track capability completion | **22 / 26 = 84.6%** | MESP-139 becomes 23 / 26 only after verified merge and GPT-5.6 Sol verifies Jira Done |
+| Production readiness - overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
+| Production readiness - Procurement / P2P | ~**41%** | Unchanged |
+| MESP-48 / MESP-50 | **Open production gates** | No production limits, retention, provider, SLA, statutory, or deployment policy was invented |
+
+### MESP-139 implementation evidence
+
+The bounded residual closes only the Reporting source-classification defect.
+Finance cash movement, Procurement match exceptions, Sales fulfillment, and
+Sales returns/credits now use directly injected, registered, source-owned
+bounded read ports over accepted truth. Finance bank reconciliation remains
+unavailable because no accepted bank-statement/provider capability exists;
+Inventory count variance remains unavailable because no accepted stock-count
+workflow/entities capability exists. HOLD-139-B/C/D/E remain preserved. The
+Reporting-owned catalogue, read-only orchestration, trusted scope, source-side
+filtering/paging/sorting, freshness/as-of, reconciliation metadata, lineage,
+export jobs/private artifacts, disabled/local-test scheduling truth,
+REST/OpenAPI metadata, and bilingual RTL workspace remain intact. No source
+ledger or operational record is mutated and no Reporting persistence context or
+migration is added.
+
+Validation recorded for this residual: Release backend build `0 warnings / 0
+errors`; disposable-LocalDB backend suite `1,209 / 1,209 passed, 0 skipped`,
+split into `1,122` non-SQL and `87` SQL-safety tests; HOLD 1 architecture
+coverage `13/13`; source-adapter coverage `4/4`; full Reporting-filtered
+coverage `29/29`; fresh affected-domain
+evidence: Finance MESP-135 `31/31`, Finance MESP-134 `27/27`, Inventory
+valuation `44/44`, Inventory ledger/control `46/46`, Procurement PO `14/14`,
+Procurement receipts `13/13`, Sales `38/38`, Audit `37/37`, Identity `89/89`,
+and REST/OpenAPI `37/37`; Angular unit tests `309 / 309` across 44 files;
+focused Reporting component tests `4/4`; production build `513.21 kB` initial
+bundle with the existing 500 kB budget warning retained and `37.59 kB`
+Reporting lazy chunk; focused/full Chromium `2/2` and `51/51`; all seven EF
+contexts clear of pending model changes; NuGet vulnerable-package scan clear
+across all five backend projects; both frontend audits `0 vulnerabilities`;
+and `git diff --check` clean. Owner-managed `frontend/assets` remains
+untouched.
+
+### Progress history - 8 September 2026 (MESP-139 technically accepted / lifecycle finalization)
+
+GPT-5.6 Sol technically accepted MESP-139 at comment `12375`, accepting
+HOLD-139-A through HOLD-139-E at exact head
+`5fdb619bb6e19ff188949100b3a9a4034cf2bf9a`, and authorized GitHub/repository
+lifecycle continuation at comment `12377`. This governance-only normalization
+prepares PR #88 for its separately authorized Ready and squash-merge sequence.
+The active implementation capability is none; MESP-11 and MESP-139 remain In
+Progress. Fast-track stays `22/26 = 84.6%` until GPT-5.6 Sol performs and
+verifies Jira Done after the GitHub merge. MESP-48/MESP-50 remain open, with no
+production provider, statutory certification, Wafra-specific behavior, or
+next-capability work introduced.
+
+## Historical snapshot - 6 September 2026 (MESP-138 lifecycle finalization)
 
 This section is the current authoritative tracker snapshot. Every dated record
 below it is preserved historical evidence and is **not** current authority,

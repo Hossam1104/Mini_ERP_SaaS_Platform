@@ -37,6 +37,8 @@ public static class FinancePersistenceServiceCollectionExtensions
             provider.GetRequiredService<IMasterDataCurrencyPaymentTermPersistence>(),
             provider.GetRequiredService<IFinanceSupplierInvoiceSourceProvider>(),
             provider.GetRequiredService<IFinanceSourceApprovalPolicy>()));
+        services.AddSingleton<IFinanceSettlementReportingReadPort>(provider =>
+            (IFinanceSettlementReportingReadPort)provider.GetRequiredService<IFinanceSettlementPersistence>());
         services.AddSingleton<IFinanceMesp134Persistence>(provider => new FinanceMesp134Persistence(
             optionsBuilder.Options,
             provider.GetRequiredService<IFinanceCompanyProvider>(),

@@ -1,6 +1,7 @@
 #pragma warning disable CS1591
 
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.Contracts.Modules.Finance;
 using MiniErp.Contracts.Modules.Procurement;
 
@@ -172,6 +173,38 @@ public sealed record FinanceAllocationReversalCommand(
 
 public sealed record FinanceSettlementQuery(Guid CompanyId, FinancePaymentMethodDirection? Direction = null);
 
+public sealed record FinanceCashMovementReportingRecord(
+    Guid Id,
+    Guid TenantId,
+    Guid CompanyId,
+    FinanceSettlementDocumentStatus Status,
+    FinancePaymentMethodDirection Direction,
+    Guid CashAccountId,
+    Guid PaymentMethodId,
+    DateOnly DocumentDate,
+    string CurrencyCode,
+    decimal Amount,
+    string FunctionalCurrencyCode,
+    decimal FunctionalAmount,
+    string? ExternalReference,
+    string? Description,
+    Guid? PostedJournalId,
+    Guid? ReversalJournalId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? PostedAt,
+    byte[] Version);
+
+public interface IFinanceSettlementReportingReadPort
+{
+    Task<ReportingSourcePage<FinanceCashMovementReportingRecord>> ListCashMovementReportingPageAsync(
+        FinanceRequestContext context,
+        Guid companyId,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed record FinanceAgingQuery(Guid CompanyId, DateOnly AsOfDate, FinanceOpenItemKind? Kind = null, Guid? PartyId = null);
 
 public sealed record FinanceExposureQuery(Guid CompanyId, Guid CustomerId, DateOnly AsOfDate);
@@ -282,7 +315,7 @@ public interface IFinanceSettlementPersistence
     Task<IReadOnlyList<FinanceReconciliationRecord>> GetReconciliationAsync(FinanceRequestContext context, Guid companyId, DateOnly asOfDate, CancellationToken cancellationToken = default);
 }
 
-public sealed class UnavailableFinanceSettlementPersistence : IFinanceSettlementPersistence
+public sealed class UnavailableFinanceSettlementPersistence : IFinanceSettlementPersistence, IFinanceSettlementReportingReadPort
 {
     private static Task<T> Empty<T>() => Task.FromResult<T>(default!);
     private static Task<IReadOnlyList<T>> EmptyList<T>() => Task.FromResult<IReadOnlyList<T>>([]);
@@ -317,6 +350,7 @@ public sealed class UnavailableFinanceSettlementPersistence : IFinanceSettlement
     public Task<FinanceCustomerExposureRecord?> GetExposureAsync(FinanceRequestContext context, FinanceExposureQuery query, CancellationToken cancellationToken = default) => Empty<FinanceCustomerExposureRecord?>();
     public Task<IReadOnlyList<FinanceReconciliationRecord>> GetReconciliationAsync(FinanceRequestContext context, Guid companyId, CancellationToken cancellationToken = default) => EmptyList<FinanceReconciliationRecord>();
     public Task<IReadOnlyList<FinanceReconciliationRecord>> GetReconciliationAsync(FinanceRequestContext context, Guid companyId, DateOnly asOfDate, CancellationToken cancellationToken = default) => EmptyList<FinanceReconciliationRecord>();
+    public Task<ReportingSourcePage<FinanceCashMovementReportingRecord>> ListCashMovementReportingPageAsync(FinanceRequestContext context, Guid companyId, DateOnly? fromDate, DateOnly? toDate, ReportingPageRequest page, CancellationToken cancellationToken = default) => throw new InvalidOperationException("finance_settlement_reporting_unavailable");
 }
 
 #pragma warning restore CS1591

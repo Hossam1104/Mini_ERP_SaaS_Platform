@@ -10,7 +10,107 @@
 
 ---
 
-## CURRENT AUTHORITY — 6 September 2026 (MESP-138 accepted lifecycle finalization)
+## CURRENT AUTHORITY — 8 September 2026 (MESP-139 HOLD-1 residual close)
+
+### Identity and activation
+
+| Item | Value |
+| --- | --- |
+| Canonical project identity | `Mini_ERP_SaaS_Platform` |
+| Authoritative SCM | GitHub — `Hossam1104/Mini_ERP_SaaS_Platform` |
+| Authoritative tracker | Jira — project `Mini_ERP_SaaS_Platform`, key `MESP` |
+| Accepted baseline | `origin/main` = `293f7442677b4142ae45cde0f6d48dcd9ccf6077` |
+| Active implementation capability | **NONE — lifecycle finalization only** |
+| Epic / capability state | MESP-11 **In Progress**; MESP-139 **In Progress** |
+| Sol technical acceptance | MESP-139 comment `12375` |
+| Sol lifecycle continuation authority | MESP-139 comment `12377` |
+| Accepted technical head | `5fdb619bb6e19ff188949100b3a9a4034cf2bf9a` |
+| HOLD-139-A through HOLD-139-E | **CLOSED** |
+
+Sol completed the Jira activation before this continuation. The earlier
+executor block was an Atlassian connector/workspace mismatch, not project-state
+drift. This executor performed no Jira write.
+
+### Source-control position
+
+| Item | Value |
+| --- | --- |
+| Implementation branch | `feat/MESP-139-release1-reporting` |
+| Preferred worktree | `D:\AI Tools\Active Projects\Mini_ERP_SaaS_Platform-MESP-139` |
+| Pre-lifecycle PR state | **#88** — Open / Draft / Unmerged, base `main`; Ready and authorized squash merge are the current GitHub-only lifecycle operation |
+| HOLD 1 starting feature head | `a76dd67803868cbefdd27db80ada4dba47306efa` |
+| Implementation commit | `2a6c2ad53cc622293336ae6a08c8b18f8b2d14d1` |
+| Classification clarification commit | `75ea6bd17f0d2046aa1ed4c2f399a685559575af` |
+| Active PR | **#88** — Open / Draft / Unmerged before authorized lifecycle actions |
+| CI | **NONE / NOT CLAIMED** — local validation only |
+
+### Bounded capability
+
+MESP-139 Release 1 Reporting is implemented as a Reporting-owned read-only
+catalogue and orchestration boundary over existing Finance, Inventory,
+Procurement, Sales, and Foundation audit/source contracts. This bounded HOLD 1
+residual closes only the source-classification defect: Finance cash movement,
+Procurement match exceptions, Sales fulfillment, and Sales returns/credits now
+consume four directly injected, registered, source-owned bounded read ports;
+Finance bank reconciliation and Inventory count variance remain unavailable
+because the accepted source capabilities are absent. HOLD-139-B/C/D/E remain
+preserved: trusted Tenant/company/branch/warehouse scope, bounded source-side
+filtering/paging/sorting, explicit disabled/local-test scheduling, and
+request-time oldest-source/unknown freshness semantics. The capability retains
+source evidence, reconciliation metadata, row lineage, CSV export jobs/private
+artifacts, explicit capability/policy states, REST/OpenAPI metadata, and
+bilingual RTL Angular UI. It does not mutate source ledgers or operational
+records, add a Reporting persistence context/migration, activate external
+distribution, or certify production readiness.
+
+### Completion and gates
+
+Accepted fast-track completion remains **22 / 26 = 84.6%**. MESP-139 becomes
+**23 / 26 = 88.5%** only after both verified GitHub merge and GPT-5.6 Sol's
+Jira Done closure. Production
+readiness remains approximately **47% overall** and **41% Procurement/P2P**.
+MESP-48 and MESP-50 remain open production gates. No production limit,
+retention, SLA, provider, statutory, deployment, or Wafra-specific policy was
+invented.
+
+### Validation evidence
+
+Release backend build: **0 warnings / 0 errors**. Safe disposable-LocalDB
+backend suite: **1,209 / 1,209 passed, 0 skipped**, split into **1,122
+non-SQL** and **87 SQL-safety** tests against disposable database
+`MiniErpFoundation_20260908003723_08a33a50`; the persistent MESP connection was
+unchanged. HOLD 1 architecture coverage is **13 / 13**, the four real source
+adapter tests are **4 / 4**, and the full Reporting-filtered regression is
+**29 / 29**. Fresh affected-domain evidence is Finance
+MESP-135 **31/31**, Finance MESP-134 **27/27**, Inventory valuation **44/44**,
+Inventory ledger/control **46/46**, Procurement PO **14/14**, Procurement
+receipts **13/13**, Sales **38/38**, Audit **37/37**, Identity **89/89**, and
+REST/OpenAPI **37/37**. All seven existing EF contexts report no pending model
+changes, and NuGet vulnerable-package scanning is clear across five projects.
+
+Angular unit tests: **309 / 309** across 44 files; focused Reporting component
+tests: **4 / 4**. The production initial bundle is **513.21 kB**, retaining the
+existing 500 kB warning budget; the Reporting lazy chunk is **37.59 kB**.
+Focused Reporting Chromium journeys are **2 / 2** and full applicable Chromium
+regression is **51 / 51**. Both production-only and full frontend `npm audit`
+are **0 vulnerabilities** after a narrow lockfile-only repair of the two
+transitive advisories. Authenticated loopback smoke returned HTTP 200 for API
+health, OpenAPI, Reporting catalogue, Finance companies, Trial Balance, and
+frontend `/` and `/main.js`. `git diff --check` is clean and owner-managed
+`frontend/assets` is untouched. No Reporting database context or migration was
+added.
+
+### Current lifecycle boundary
+
+GPT-5.6 Sol accepted the technical head at comment `12375` and authorized this
+GitHub/repository continuation at comment `12377`. The allowed operation is
+governance normalization, PR body refresh, Draft-to-Ready, mergeability
+recheck, and authorized squash merge of PR #88. The executor must not perform
+Jira writes, activate a next capability, or alter product/source/test/frontend/
+package files. GPT-5.6 Sol alone performs the later Jira Done closure and
+MESP-11 reconciliation.
+
+## HISTORICAL MESP-138 AUTHORITY — 6 September 2026 (superseded by MESP-139 continuation)
 
 ### Identity
 

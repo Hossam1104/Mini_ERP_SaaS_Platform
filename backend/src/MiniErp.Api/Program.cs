@@ -16,6 +16,7 @@ using MiniErp.App.Modules.Procurement;
 using MiniErp.App.Modules.Inventory;
 using MiniErp.App.Modules.Finance;
 using MiniErp.App.Modules.Sales;
+using MiniErp.App.Modules.Reporting;
 using MiniErp.Contracts.Modules.Audit;
 using MiniErp.Contracts.Modules.BusinessParties;
 using MiniErp.Contracts.Modules.Foundation;
@@ -96,6 +97,7 @@ builder.Services.AddPurchaseRequestApprovalFoundation(builder.Configuration);
 builder.Services.AddInventoryApplication();
 builder.Services.AddFinanceApplication();
 builder.Services.AddSalesApplication(builder.Configuration);
+builder.Services.AddReportingApplication();
 builder.Services.AddSingleton<IInventoryProductProvider, MasterDataInventoryProductProvider>();
 string? developmentMasterDataSqliteConnectionString = null;
 string? developmentBusinessPartiesSqliteConnectionString = null;
@@ -920,6 +922,7 @@ app.MapInventoryEndpoints();
 app.MapFinanceEndpoints();
 app.MapSalesEndpoints();
 app.MapCustomerReturnEndpoints();
+app.MapReportingEndpoints();
 
 app.MapOpenApi("/openapi/v1.json")
     .WithName("platform.openapi")

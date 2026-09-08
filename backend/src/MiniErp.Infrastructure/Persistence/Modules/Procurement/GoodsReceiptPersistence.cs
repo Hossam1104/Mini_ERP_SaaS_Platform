@@ -5,12 +5,13 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.Modules.Procurement;
 using MiniErp.Contracts.Modules.Procurement;
 
 namespace MiniErp.Infrastructure.Persistence.Modules.Procurement;
 
-public sealed class GoodsReceiptPersistence : IGoodsReceiptPersistence
+public sealed class GoodsReceiptPersistence : IGoodsReceiptPersistence, IGoodsReceiptReportingReadPort
 {
     private const string CreateOperationId = "procurement.goods-receipt.create";
     private const int ReplayResponseSchemaVersion = 1;
@@ -63,6 +64,36 @@ public sealed class GoodsReceiptPersistence : IGoodsReceiptPersistence
                 item.Version.ToArray()))
             .ToArray();
         return records.OrderByDescending(item => item.CreatedAt).ThenByDescending(item => item.Id).ToArray();
+    }
+
+    public async Task<ReportingSourcePage<GoodsReceiptListRecord>> ListReportingPageAsync(
+        TenantContext tenantContext,
+        GoodsReceiptStatus? status,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = CreateContext(tenantContext);
+        var query = ApplyTrustedScope(db.GoodsReceipts.AsNoTracking(), tenantContext.Scope);
+        if (status is { } selectedStatus) query = query.Where(item => item.Status == selectedStatus);
+        if (fromDate is { } from) query = query.Where(item => item.ReceivedDate >= from);
+        if (toDate is { } to) query = query.Where(item => item.ReceivedDate <= to);
+        var total = await query.CountAsync(cancellationToken);
+        var asOf = total == 0 ? null : await query.Select(item => (DateTimeOffset?)item.UpdatedAt).MaxAsync(cancellationToken);
+        var ordered = page.SortBy?.ToLowerInvariant() switch
+        {
+            "receiveddate" => page.SortDirection == "desc" ? query.OrderByDescending(item => item.ReceivedDate).ThenByDescending(item => item.Id) : query.OrderBy(item => item.ReceivedDate).ThenBy(item => item.Id),
+            "status" => page.SortDirection == "desc" ? query.OrderByDescending(item => item.Status).ThenByDescending(item => item.Id) : query.OrderBy(item => item.Status).ThenBy(item => item.Id),
+            "supplier" => page.SortDirection == "desc" ? query.OrderByDescending(item => item.SupplierName).ThenByDescending(item => item.Id) : query.OrderBy(item => item.SupplierName).ThenBy(item => item.Id),
+            _ => page.SortDirection == "asc" ? query.OrderBy(item => item.UpdatedAt).ThenBy(item => item.Id) : query.OrderByDescending(item => item.UpdatedAt).ThenByDescending(item => item.Id)
+        };
+        var entities = await ordered.Include(item => item.Lines).Skip(page.Offset).Take(page.PageSize).ToListAsync(cancellationToken);
+        var records = entities.Select(item => new GoodsReceiptListRecord(
+            item.Id, item.TenantId.Value, new PurchaseRequestScope(item.TenantId.Value, item.CompanyId, item.BranchId), item.PurchaseOrderId,
+            item.WarehouseId, item.Status, item.SupplierCode, item.SupplierName, item.ReceivedDate, item.Lines.Count,
+            item.Lines.Sum(line => line.AcceptedQuantity), item.CreatedAt, item.Version.ToArray())).ToArray();
+        return new ReportingSourcePage<GoodsReceiptListRecord>(records, total, "updatedAt,id", asOf);
     }
 
     public async Task<IReadOnlyList<GoodsReceiptEligibleSourceRecord>> ListEligibleSourcesAsync(
@@ -608,6 +639,7 @@ public sealed class GoodsReceiptPersistence : IGoodsReceiptPersistence
         {
             "Company" => query.Where(item => item.CompanyId == id),
             "Branch" => query.Where(item => item.BranchId == id),
+            "Warehouse" => query.Where(item => item.WarehouseId == id),
             "Tenant" => query,
             _ => query.Where(_ => false)
         };

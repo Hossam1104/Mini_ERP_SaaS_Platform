@@ -7,13 +7,14 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.Modules.Procurement;
 using MiniErp.Contracts.Modules.Procurement;
 
 namespace MiniErp.Infrastructure.Persistence.Modules.Procurement;
 
-public sealed class PurchaseInvoiceMatchPersistence : IPurchaseInvoiceMatchPersistence
+public sealed class PurchaseInvoiceMatchPersistence : IPurchaseInvoiceMatchPersistence, IPurchaseInvoiceMatchReportingReadPort
 {
     private const int ReplayResponseSchemaVersion = 1;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -48,6 +49,38 @@ public sealed class PurchaseInvoiceMatchPersistence : IPurchaseInvoiceMatchPersi
             .ThenByDescending(item => item.Id)
             .Select(ToListRecord)
             .ToArray();
+    }
+
+    public async Task<ReportingSourcePage<PurchaseInvoiceMatchReportingRecord>> ListReportingPageAsync(
+        TenantContext tenantContext,
+        PurchaseInvoiceMatchResult? result,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = CreateContext(tenantContext);
+        var evaluations = ApplyTrustedScope(db.PurchaseInvoiceMatchEvaluations.AsNoTracking(), tenantContext.Scope);
+        if (result is { } selectedResult) evaluations = evaluations.Where(item => item.Result == selectedResult);
+        if (fromDate is { } from) evaluations = evaluations.Where(item => item.EvaluatedAt >= new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)));
+        if (toDate is { } to) evaluations = evaluations.Where(item => item.EvaluatedAt < new DateTimeOffset(to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)));
+
+        var total = await evaluations.CountAsync(cancellationToken);
+        DateTimeOffset? dataAsOf = null;
+        if (total > 0)
+        {
+            dataAsOf = db.Database.IsSqlite()
+                ? (await evaluations.Select(item => item.EvaluatedAt).ToListAsync(cancellationToken)).Max()
+                : await evaluations.Select(item => (DateTimeOffset?)item.EvaluatedAt).MaxAsync(cancellationToken);
+        }
+        var ordered = page.SortBy?.ToLowerInvariant() switch
+        {
+            "status" => page.SortDirection == "desc" ? evaluations.OrderByDescending(item => item.Result).ThenByDescending(item => item.Id) : evaluations.OrderBy(item => item.Result).ThenBy(item => item.Id),
+            "lifecycle" => page.SortDirection == "desc" ? evaluations.OrderByDescending(item => item.Lifecycle).ThenByDescending(item => item.Id) : evaluations.OrderBy(item => item.Lifecycle).ThenBy(item => item.Id),
+            _ => page.SortDirection == "asc" ? evaluations.OrderBy(item => item.EvaluatedAt).ThenBy(item => item.Id) : evaluations.OrderByDescending(item => item.EvaluatedAt).ThenByDescending(item => item.Id)
+        };
+        var values = await ordered.Skip(page.Offset).Take(page.PageSize).ToListAsync(cancellationToken);
+        return new ReportingSourcePage<PurchaseInvoiceMatchReportingRecord>(values.Select(ToReportingRecord).ToArray(), total, "evaluatedAt,id", dataAsOf);
     }
 
     public async Task<PurchaseInvoiceMatchRecord?> FindAsync(
@@ -675,6 +708,38 @@ public sealed class PurchaseInvoiceMatchPersistence : IPurchaseInvoiceMatchPersi
     }
 
     private static PurchaseInvoiceMatchListRecord ToListRecord(PurchaseInvoiceMatchEvaluationEntity entity) => new(entity.Id, new PurchaseRequestScope(entity.TenantId.Value, entity.CompanyId, entity.BranchId), entity.PurchaseInvoiceHandoffId, entity.PurchaseOrderId, entity.Lifecycle, entity.Result, entity.EvaluatedAt, entity.ResolvedByActorId, CountVariances(entity.VariancesJson), entity.Version.ToArray());
+
+    private static PurchaseInvoiceMatchReportingRecord ToReportingRecord(PurchaseInvoiceMatchEvaluationEntity entity) => new(
+        entity.Id,
+        entity.TenantId.Value,
+        new PurchaseRequestScope(entity.TenantId.Value, entity.CompanyId, entity.BranchId),
+        entity.PurchaseInvoiceHandoffId,
+        entity.PurchaseOrderId,
+        entity.Lifecycle,
+        entity.Result,
+        entity.EvaluatedAt,
+        entity.ResolvedByActorId,
+        entity.ResolvedAt,
+        entity.ResolutionReason,
+        entity.DeclaredEvidenceId,
+        entity.DeclaredEvidenceVersion,
+        entity.SourceFingerprint,
+        JsonSerializer.Deserialize<IReadOnlyList<PurchaseInvoiceMatchVarianceRecord>>(entity.VariancesJson, JsonOptions) ?? [],
+        entity.Version.ToArray());
+
+    private static IQueryable<PurchaseInvoiceMatchEvaluationEntity> ApplyTrustedScope(IQueryable<PurchaseInvoiceMatchEvaluationEntity> query, ScopeReference? scope)
+    {
+        if (scope is not { } reference) return query;
+        var parts = reference.Value.Split(':', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length != 2 || !Guid.TryParse(parts[1], out var id)) return query.Where(_ => false);
+        return parts[0] switch
+        {
+            "Tenant" => query,
+            "Company" => query.Where(item => item.CompanyId == id),
+            "Branch" => query.Where(item => item.BranchId == id),
+            _ => query.Where(_ => false)
+        };
+    }
 
     private static PurchaseInvoiceMatchRecord ToRecord(PurchaseInvoiceMatchEvaluationEntity entity)
     {

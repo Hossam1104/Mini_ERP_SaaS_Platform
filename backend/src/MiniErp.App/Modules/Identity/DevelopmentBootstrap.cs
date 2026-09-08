@@ -62,7 +62,7 @@ public static class DevelopmentBootstrap
 
         lock (identity.Store.SyncRoot)
         {
-            SeedDevelopmentUserAndPermissions(identity, login.Trim(), password);
+            SeedDevelopmentUserAndPermissions(identity, login.Trim(), password, config);
         }
 
         return host;
@@ -71,7 +71,8 @@ public static class DevelopmentBootstrap
     private static void SeedDevelopmentUserAndPermissions(
         IdentityAuthorizationService identity,
         string login,
-        string password)
+        string password,
+        IConfiguration config)
     {
         var store = identity.Store;
         var normalizedAdminEmail = login.Trim().ToLowerInvariant();
@@ -158,6 +159,41 @@ public static class DevelopmentBootstrap
             var grant = new AccessScopeGrant(scopeId, membership.Id, adminUser.Id, OrganizationScope.ForTenant(DevTenantId), approverUser.Id);
             store.ScopeGrants.Add(scopeId, grant);
             scopeGrantIds.Add(scopeId);
+        }
+
+        // The Development operational-context fixture is intentionally
+        // configuration-led. Keep its published Company/Branch/Warehouse
+        // candidates backed by the same Identity-owned parent graph consumed
+        // by Reporting's trusted scope resolver. This is not a production
+        // organization provider and is only seeded in the Development
+        // bootstrap path.
+        var configuredTenant = Guid.TryParse(config["MESP_DEV_ORG_SCOPE_TENANT_ID"], out var tenantId)
+            ? tenantId
+            : DevTenantId.Value;
+        if (configuredTenant != DevTenantId.Value)
+        {
+            return;
+        }
+
+        var companyId = Guid.TryParse(config["MESP_DEV_ORG_SCOPE_COMPANY_ID"], out var configuredCompany)
+            ? configuredCompany
+            : Guid.Parse("99999999-9999-9999-9999-999999999999");
+        identity.SetOrganizationParent(
+            OrganizationScope.ForCompany(DevTenantId, companyId),
+            OrganizationScope.ForTenant(DevTenantId));
+
+        if (Guid.TryParse(config["MESP_DEV_ORG_SCOPE_BRANCH_ID"], out var branchId))
+        {
+            identity.SetOrganizationParent(
+                OrganizationScope.ForBranch(DevTenantId, branchId),
+                OrganizationScope.ForCompany(DevTenantId, companyId));
+
+            if (Guid.TryParse(config["MESP_DEV_ORG_SCOPE_WAREHOUSE_ID"], out var warehouseId))
+            {
+                identity.SetOrganizationParent(
+                    OrganizationScope.ForWarehouse(DevTenantId, warehouseId),
+                    OrganizationScope.ForBranch(DevTenantId, branchId));
+            }
         }
     }
 }

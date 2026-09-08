@@ -45,6 +45,9 @@ import { OperationalContextSwitcherComponent } from '../../shared/ui/operational
           <a routerLink="/app/finance" routerLinkActive="is-active">
             <span class="nav-icon" aria-hidden="true">ƒ</span>{{ language.language() === 'ar' ? 'المالية' : 'Finance' }}
           </a>
+          <a routerLink="/app/reporting" routerLinkActive="is-active">
+            <span class="nav-icon" aria-hidden="true">⌁</span>{{ language.language() === 'ar' ? '\\u0627\\u0644\\u062a\\u0642\\u0627\\u0631\\u064a\\u0631' : 'Reporting' }}
+          </a>
           <a routerLink="/app/sales/quotations" routerLinkActive="is-active">
             <span class="nav-icon" aria-hidden="true">↗</span>{{ language.text('salesNavLabel') }}
           </a>

@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.Modules.BusinessParties;
 using MiniErp.App.Modules.Finance;
@@ -23,7 +24,7 @@ internal sealed class FinanceSettlementPersistence(
     ISupplierPersistence suppliers,
     IMasterDataCurrencyPaymentTermPersistence paymentTerms,
     IFinanceSupplierInvoiceSourceProvider supplierInvoiceSources,
-    IFinanceSourceApprovalPolicy? approvalPolicy = null) : IFinanceSettlementPersistence
+    IFinanceSourceApprovalPolicy? approvalPolicy = null) : IFinanceSettlementPersistence, IFinanceSettlementReportingReadPort
 {
     private const string ManualArContract = "manual-ar.v1";
     private const string ApContract = "procurement-supplier-invoice.v1";
@@ -209,6 +210,62 @@ internal sealed class FinanceSettlementPersistence(
     public async Task<IReadOnlyList<FinanceSettlementDocumentRecord>> ListSettlementDocumentsAsync(FinanceRequestContext context, FinanceSettlementQuery query, CancellationToken cancellationToken = default)
     {
         if (Company(context, query.CompanyId) is null) return []; await using var db = CreateContext(context); var documents = db.SettlementDocuments.AsNoTracking().Where(item => item.CompanyId == query.CompanyId); if (query.Direction is { } direction) documents = documents.Where(item => item.Direction == direction); var values = await documents.OrderByDescending(item => item.DocumentDate).Take(1000).ToListAsync(cancellationToken); return await ToDocumentsAsync(db, values, cancellationToken);
+    }
+
+    public async Task<ReportingSourcePage<FinanceCashMovementReportingRecord>> ListCashMovementReportingPageAsync(
+        FinanceRequestContext context,
+        Guid companyId,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default)
+    {
+        if (Company(context, companyId) is null) return ReportingSourcePage<FinanceCashMovementReportingRecord>.Empty("documentDate,id");
+        await using var db = CreateContext(context);
+        var documents = db.SettlementDocuments.AsNoTracking().Where(item => item.CompanyId == companyId);
+        if (fromDate is { } from) documents = documents.Where(item => item.DocumentDate >= from);
+        if (toDate is { } to) documents = documents.Where(item => item.DocumentDate <= to);
+
+        var total = await documents.CountAsync(cancellationToken);
+        DateTimeOffset? dataAsOf = null;
+        if (total > 0)
+        {
+            dataAsOf = db.Database.IsSqlite()
+                ? (await documents.Select(item => item.CreatedAt).ToListAsync(cancellationToken)).Max()
+                : await documents.Select(item => (DateTimeOffset?)item.CreatedAt).MaxAsync(cancellationToken);
+        }
+        var ordered = page.SortBy?.ToLowerInvariant() switch
+        {
+            "amount" => page.SortDirection == "desc" ? documents.OrderByDescending(item => item.Amount).ThenByDescending(item => item.Id) : documents.OrderBy(item => item.Amount).ThenBy(item => item.Id),
+            "direction" => page.SortDirection == "desc" ? documents.OrderByDescending(item => item.Direction).ThenByDescending(item => item.Id) : documents.OrderBy(item => item.Direction).ThenBy(item => item.Id),
+            "status" => page.SortDirection == "desc" ? documents.OrderByDescending(item => item.Status).ThenByDescending(item => item.Id) : documents.OrderBy(item => item.Status).ThenBy(item => item.Id),
+            _ => page.SortDirection == "asc" ? documents.OrderBy(item => item.DocumentDate).ThenBy(item => item.Id) : documents.OrderByDescending(item => item.DocumentDate).ThenByDescending(item => item.Id)
+        };
+        var values = await ordered.Skip(page.Offset).Take(page.PageSize).ToListAsync(cancellationToken);
+        return new ReportingSourcePage<FinanceCashMovementReportingRecord>(
+            values.Select(item => new FinanceCashMovementReportingRecord(
+                item.Id,
+                item.TenantId.Value,
+                item.CompanyId,
+                item.Status,
+                item.Direction,
+                item.CashAccountId,
+                item.PaymentMethodId,
+                item.DocumentDate,
+                item.CurrencyCode,
+                item.Amount,
+                item.FunctionalCurrencyCode,
+                item.FunctionalAmount,
+                item.ExternalReference,
+                item.Description,
+                item.PostedJournalId,
+                item.ReversalJournalId,
+                item.CreatedAt,
+                item.PostedAt,
+                item.Version.ToArray())).ToArray(),
+            total,
+            "documentDate,id",
+            dataAsOf);
     }
 
     public async Task<FinanceSettlementDocumentRecord?> GetSettlementDocumentAsync(FinanceRequestContext context, Guid documentId, FinancePaymentMethodDirection? expectedDirection = null, CancellationToken cancellationToken = default)

@@ -65,6 +65,21 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
     }
 
     [Fact]
+    public async Task Reporting_catalogue_requires_the_exact_tenant_permission()
+    {
+        using var client = factory.CreateClient();
+
+        factory.Resolver.Context = CreateTenantContext(factory.TenantA, factory.ActorA, "tenant.reporting.report.view");
+        var allowed = await client.GetAsync("/api/v1/reporting/catalogue");
+        Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+        Assert.Contains("finance.trial-balance", await allowed.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        factory.Resolver.Context = CreateTenantContext(factory.TenantA, factory.ActorA, "tenant.finance.report.view");
+        var denied = await client.GetAsync("/api/v1/reporting/catalogue");
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+    }
+
+    [Fact]
     public async Task Generated_openapi_documents_every_public_operation_and_tax_contract()
     {
         using var client = factory.CreateClient();

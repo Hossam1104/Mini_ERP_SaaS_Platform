@@ -1,6 +1,7 @@
 #pragma warning disable CS1591
 
 using MiniErp.Contracts.Modules.Finance;
+using MiniErp.App.BuildingBlocks.Reporting;
 
 namespace MiniErp.App.Modules.Finance;
 
@@ -69,6 +70,22 @@ public interface IFinanceMesp135Persistence
     Task<IReadOnlyList<FinanceAgingReportRow>> QueryAgingAsync(FinanceRequestContext context, FinanceAgingReportQuery query, CancellationToken cancellationToken = default);
     Task<FinanceCloseReconciliationRecord> QueryReconciliationAsync(FinanceRequestContext context, Guid companyId, DateOnly asOfDate, Guid? periodId = null, CancellationToken cancellationToken = default);
     Task<FinanceStatementReport> QueryStatementAsync(FinanceRequestContext context, Guid companyId, FinanceStatementKind kind, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Source-owned bounded read ports used by Reporting detail views.</summary>
+public interface IFinanceReportingReadPort
+{
+    Task<ReportingSourcePage<FinanceGeneralLedgerLineRecord>> QueryGeneralLedgerPageAsync(
+        FinanceRequestContext context,
+        FinanceGeneralLedgerQuery query,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default);
+
+    Task<ReportingSourcePage<FinanceAgingReportRow>> QueryAgingPageAsync(
+        FinanceRequestContext context,
+        FinanceAgingReportQuery query,
+        ReportingPageRequest page,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class UnavailableFinanceMesp135Persistence : IFinanceMesp135Persistence
