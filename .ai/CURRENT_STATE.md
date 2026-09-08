@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY - 9 September 2026 (MESP-140 HOLD 2 remediation)
+## CURRENT AUTHORITY - 9 September 2026 (MESP-140 technically accepted / lifecycle finalization)
 
 ### Identity and activation
 
@@ -24,9 +24,12 @@
 | MESP-140 activation authority | Sol comment `12383` |
 | HOLD 1 authority | GPT-5.6 Sol HOLD 1 comment `12388` |
 | HOLD 2 authority | GPT-5.6 Sol independent HOLD 2 review, comment `12390` |
-| Capability state | **IN PROGRESS / HOLD 2 REMEDIATED PENDING SOL REVIEW** under MESP-13; acceptance remains GPT-5.6 Sol authority |
+| Technical acceptance | GPT-5.6 Sol comment `12392`; accepted technical head `b1491878c8f35bce62b29c049fb6ed8f250ae78e` |
+| Lifecycle authorization | Sol comment `12394` |
+| HOLD-140-A through HOLD-140-D | **CLOSED** |
+| Capability state | **TECHNICALLY ACCEPTED / LIFECYCLE FINALIZATION** under MESP-13; MESP-13 remains **In Progress** |
 | Executor branch / worktree | `feat/MESP-140-cross-cutting-controls` / `D:\\AI Tools\\Active Projects\\Mini_ERP_SaaS_Platform-MESP-140` |
-| Source-control boundary | PR **#89** against `main`, Open / Draft / Unmerged; no Ready, merge, rebase, force-push, or review request |
+| Source-control boundary | PR **#89** against `main`, Open / Draft / Unmerged before lifecycle actions; accepted head is immutable |
 | Next capability | MESP-141 / MESP-142 **inactive** |
 
 ### Audit-first classification and bounded delivery
@@ -61,19 +64,20 @@ source was touched); full Chromium and both npm audits recorded in `TASK.md`
 and `docs/staticts.md`. All seven EF contexts have no pending model changes;
 `git diff --check` clean.
 
-Accepted fast-track completion remains **23 / 26 = 88.5%** until Sol accepts,
-merges, and closes MESP-140. Production readiness remains approximately **47%
-overall** and **41% Procurement/P2P**. MESP-48 and MESP-50 remain open
-production gates. Jira handoff is deferred to GPT-5.6 Sol because no
-authoritative Jira connector is available in this executor.
+Accepted fast-track completion remains **23 / 26 = 88.5%** until the PR is
+merged and MESP-140 is closed in authoritative Jira. Production readiness
+remains approximately **47% overall** and **41% Procurement/P2P**. MESP-48 and
+MESP-50 remain open production gates. The available Jira connection points to
+`pssmena.atlassian.net`, not authoritative `hossamsqa.atlassian.net`; no Jira
+mutation is performed through the non-authoritative connection.
 
 ### Current execution boundary
 
-MESP-140 HOLD 2 remediation is complete for this bounded handoff and remains
-**not accepted**. PR **#89** is the exactly-one Open/Draft/Unmerged PR against
-`main`; the executor stops after push and PR verification.
-Independent GPT-5.6 Sol review of the exact pushed PR #89 head is required
-before Ready, merge, Jira lifecycle finalization, or any next capability.
+MESP-140 technical acceptance is complete at the exact accepted head under Sol
+comment `12392`; lifecycle finalization is authorized by comment `12394`.
+Before lifecycle actions, PR **#89** is the exactly-one Open/Draft/Unmerged PR
+against `main`. This bounded session performs lifecycle and governance actions
+only; no product implementation or next-capability activation is authorized.
 
 ## HISTORICAL MESP-139 AUTHORITY - 8 September 2026 (superseded by MESP-140 activation)
 
