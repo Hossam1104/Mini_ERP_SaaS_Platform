@@ -340,6 +340,13 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
                 Assert.DoesNotContain("auditCoordinator is null", applicationSource, StringComparison.Ordinal);
                 Assert.DoesNotContain("fallback", applicationSource, StringComparison.OrdinalIgnoreCase);
             }
+            else if (descriptor.OperationId == "notification.intent.dispatch")
+            {
+                Assert.Contains("EnsureAntiforgeryAsync", handler, StringComparison.Ordinal);
+                Assert.Contains("scopeOwnership.Resolve", handler, StringComparison.Ordinal);
+                Assert.Contains("DispatchAsync", handler, StringComparison.Ordinal);
+                Assert.Contains("notification.intent.dispatch", handler, StringComparison.Ordinal);
+            }
             else if (handler.Contains("ExecuteProtectedAsync", StringComparison.Ordinal))
             {
                 // The handler directly owns the mandatory audit boundary.

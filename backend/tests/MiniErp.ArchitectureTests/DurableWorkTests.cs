@@ -497,6 +497,7 @@ public sealed class DurableWorkTests
         var metadata = await storage.StoreAsync(tenantB, DurableWorkTestSupport.TenantWideScope(tenantB), "private.txt", "text/plain", Content("secret"));
         var result = await storage.OverwriteAsync(CreateContext(), metadata.ObjectId, metadata.ConcurrencyVersion, Content("forged"));
         Assert.Equal(PrivateFileAccessOutcome.NotFound, result.Outcome);
+        Assert.False(result.Mutated);
     }
 
     [Fact]
@@ -541,11 +542,14 @@ public sealed class DurableWorkTests
         var context = CreateContext();
         var storage = new InMemoryPrivateObjectStorage();
         var metadata = await storage.StoreAsync(context, DurableWorkTestSupport.TenantWideScope(context), "versioned.txt", "text/plain", Content("v1"));
+        metadata.ScanState = PrivateFileScanState.Clean;
         var staleVersion = metadata.ConcurrencyVersion;
         var first = await storage.OverwriteAsync(context, metadata.ObjectId, staleVersion, Content("v2"));
         var stale = await storage.OverwriteAsync(context, metadata.ObjectId, staleVersion, Content("stale"));
-        Assert.True(first.Allowed);
+        Assert.Equal(PrivateFileAccessOutcome.SafetyBlocked, first.Outcome);
         Assert.Equal(PrivateFileAccessOutcome.ConcurrencyConflict, stale.Outcome);
+        Assert.True(first.Mutated);
+        Assert.False(stale.Mutated);
     }
 
     [Fact]

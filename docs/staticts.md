@@ -1,8 +1,82 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 8 September 2026 (MESP-139 final governance reconciliation)
+**Last Updated:** 9 September 2026 (MESP-140 technically accepted / lifecycle finalization)
 
-## Current authoritative snapshot - 8 September 2026 (MESP-139 ACCEPTED / MERGED / DONE)
+## Current authoritative snapshot - 9 September 2026 (MESP-140 TECHNICALLY ACCEPTED / LIFECYCLE FINALIZATION)
+
+This section is the current production-progress authority for the bounded
+MESP-140 handoff. Live Jira and GitHub remain authoritative for mutable
+lifecycle facts.
+
+| Measure | Value | Basis |
+|---|---|---|
+| Active implementation capability | **MESP-140 lifecycle finalization** | Accepted capability under **MESP-13 — Security, Audit, and Data Governance**; branch `feat/MESP-140-cross-cutting-controls`; activated by Sol comment `12383` |
+| Activation baseline | `76c7885282eeccde2f114aaabd268b0389754ff4` | Exact `origin/main` at activation |
+| MESP-140 lifecycle | **TECHNICALLY ACCEPTED / LIFECYCLE FINALIZATION** | GPT-5.6 Sol technical acceptance comment `12392`; PR **#89** is Open / Draft / Unmerged before lifecycle actions |
+| MESP-140 lifecycle authority | **12392 technical acceptance; 12394 lifecycle authorization** | Accepted technical head `b1491878c8f35bce62b29c049fb6ed8f250ae78e`; HOLD-140-A through HOLD-140-D closed |
+| Accepted fast-track capability completion | **23 / 26 = 88.5%** | MESP-140 is not counted until PR #89 is merged and MESP-140 is Done in authoritative Jira |
+| MESP-13 | **In Progress** | Parent Epic remains open; it is not closed by MESP-140 lifecycle finalization |
+| Production readiness - overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
+| Production readiness - Procurement / P2P | ~**41%** | Unchanged |
+| MESP-48 / MESP-50 | **Open production gates** | No production provider, retention, RLS, residency, capacity, legal, or statutory policy was invented |
+| MESP-141 / MESP-142 | **Not activated** | No next capability is inferred or started |
+
+### MESP-140 HOLD 2 remediation classification
+
+HOLD-140-A (support access) remained closed from HOLD 1 with no residual
+identified at HOLD 2. HOLD-140-B (notifications) now resolves the caller's
+own current organization scope (Tenant/Company/Branch/Warehouse) via
+`ICurrentOrganizationScopeResolver` instead of a hardcoded Tenant-wide scope,
+maps invalid template/locale/idempotency shape to a distinct `ValidationFailed`
+outcome / HTTP 400 separate from authorization (403) and auth (401), and
+makes the `notification.intent.dispatch` Foundation descriptor declare
+`FoundationIdempotencyPolicy.Required` enforcing the canonical
+`Idempotency-Key` HTTP header as authoritative (the body `IdempotencyKey`
+field was removed from the public request contract). HOLD-140-C (private
+files) stops `OverwriteAsync` from mutating `ExternalScanRequired` content
+while falsely returning `Denied(SafetyBlocked)`, using a new
+`PrivateFileOverwriteResult.Mutated` flag to distinguish "mutated but
+quarantined" from "precondition rejected, nothing mutated" while preserving
+TrustedGenerated/NotApplicable Reporting semantics and the foreign-Tenant/
+missing-object indistinguishability fold. HOLD-140-D (governance) corrects
+the HOLD-1 activation misattribution and replaces stale validation counts
+with actual post-HOLD-2-fix figures in `.ai/CURRENT_STATE.md`, `TASK.md`, and
+this tracker, without rewriting historical MESP-9/MESP-139 records. No
+provider credentials, Wafra-specific behavior, `frontend/assets` change,
+database migration, RLS/retention/residency policy, or later capability was
+added.
+
+### MESP-140 validation evidence
+
+| Check | Result |
+|---|---|
+| Release solution build | **0 warnings / 0 errors** |
+| Sanctioned disposable-LocalDB backend suite | **1,223 / 1,223 passed**, 0 failed, 0 skipped; 87 SQL-safety tests included |
+| MESP-140 focused controls (`Mesp140CrossCuttingControlTests`) | **7 / 7 passed** |
+| REST/Foundation (`RestFoundationTests`) | **37 / 37 passed** |
+| Private-file/notification security (`PrivateFileAndNotificationSecurityTests`) | **80 / 80 passed** |
+| DurableWork (`DurableWorkTests`) | **46 / 46 passed** |
+| Angular unit tests | **316 / 316** across 45 files |
+| Production frontend build | Passed; initial bundle **514.26 kB** and existing 500 kB warning retained (unchanged; no frontend source touched) |
+| Full Chromium | **51 / 51 passed** |
+| npm audits / NuGet scan | **0 vulnerabilities** in production-only and full npm audits; no vulnerable packages across five backend projects |
+| EF model / whitespace / protected assets | All seven EF contexts have no pending model changes; `git diff --check` clean; `frontend/assets` untouched |
+
+### Progress history - 9 September 2026 (MESP-140 technical acceptance / lifecycle finalization)
+
+The three residual HOLD-140-B, HOLD-140-C, and HOLD-140-D contract defects
+identified by GPT-5.6 Sol's independent HOLD 2 review (comment `12390`) were
+remediated on the existing branch and PR #89 from exact `origin/main` baseline
+`76c7885282eeccde2f114aaabd268b0389754ff4`; HOLD-140-A remained closed and
+was not reopened. GPT-5.6 Sol technically accepted the exact head
+`b1491878c8f35bce62b29c049fb6ed8f250ae78e` in comment `12392`, and lifecycle
+finalization was authorized in comment `12394`. The accepted fast-track
+percentage remains 23/26 pending the authorized merge and authoritative Jira
+Done closure. MESP-13 remains In Progress; MESP-48 and MESP-50 remain open;
+MESP-141 and MESP-142 remain not activated. The available Jira connection
+points to `pssmena.atlassian.net`, not authoritative `hossamsqa.atlassian.net`.
+
+## Historical snapshot - 8 September 2026 (MESP-139 ACCEPTED / MERGED / DONE)
 
 This section supersedes the historical MESP-138 lifecycle snapshot below. Live
 Jira and GitHub remain authoritative for mutable lifecycle facts.

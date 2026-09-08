@@ -22,11 +22,17 @@ import { Router } from '@angular/router';
       </div>
 
       @if (context.loading()) {
-        <p class="context-switcher__hint" role="status">{{ language.text('contextLoading') }}</p>
+        <app-status-card
+          [title]="language.text('loading')"
+          [message]="language.text('contextLoading')"
+          state="loading"
+          tone="neutral"
+        />
       } @else if (tenantContexts().length === 0) {
         <app-status-card
           [title]="language.text('empty')"
           [message]="language.text('contextEmpty')"
+          state="empty"
           tone="neutral"
         />
       } @else {
@@ -54,6 +60,7 @@ import { Router } from '@angular/router';
         <app-status-card
           [title]="language.text('error')"
           [message]="errorMessage(error.code)"
+          state="failed"
           tone="danger"
         />
       }

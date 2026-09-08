@@ -38,7 +38,7 @@ const DEVELOPMENT_USERNAME = 'admin@minierp.local';
           </header>
 
           @if (errorMessage()) {
-            <app-status-card [title]="language.text('error')" [message]="errorMessage()" tone="danger" />
+            <app-status-card [title]="language.text('error')" [message]="errorMessage()" state="failed" tone="danger" />
             @if (showDevPasswordHint()) {
               <p class="dev-error-hint">{{ language.text('devPasswordHint') }}</p>
             }

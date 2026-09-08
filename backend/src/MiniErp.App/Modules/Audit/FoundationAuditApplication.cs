@@ -66,7 +66,12 @@ public static class FoundationAuditEvidenceFactory
         DateTimeOffset? supportGrantExpiresAt = null,
         Guid? retryOfEvidenceId = null,
         int attempt = 1,
-        DateTimeOffset? occurredAt = null)
+        DateTimeOffset? occurredAt = null,
+        string? source = null,
+        string? targetType = null,
+        string? targetReference = null,
+        string? changeSummary = null,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -111,6 +116,11 @@ public static class FoundationAuditEvidenceFactory
         }
 
         var version = FoundationAuditText.Optional(operationVersion, nameof(operationVersion));
+        var evidenceSource = FoundationAuditText.Required(source ?? "application", nameof(source));
+        var safeTargetType = FoundationAuditText.Optional(targetType, nameof(targetType));
+        var safeTargetReference = FoundationAuditText.Optional(targetReference, nameof(targetReference));
+        var safeChangeSummary = FoundationAuditText.Optional(changeSummary, nameof(changeSummary));
+        var clock = timeProvider ?? TimeProvider.System;
         var actorId = context.ActorId
             ?? throw new ArgumentException("A protected context requires a server actor.", nameof(context));
         var sessionId = context.SessionId
@@ -139,7 +149,12 @@ public static class FoundationAuditEvidenceFactory
                 supportGrantExpiresAt: null,
                 retryOfEvidenceId,
                 attempt,
-                occurredAt),
+                occurredAt,
+                evidenceSource,
+                safeTargetType,
+                safeTargetReference,
+                safeChangeSummary,
+                clock),
             FoundationSecurityProfile.SupportGrant => CreateTenantEvidence(
                 context,
                 operation,
@@ -155,7 +170,12 @@ public static class FoundationAuditEvidenceFactory
                 supportGrantExpiresAt,
                 retryOfEvidenceId,
                 attempt,
-                occurredAt),
+                occurredAt,
+                evidenceSource,
+                safeTargetType,
+                safeTargetReference,
+                safeChangeSummary,
+                clock),
             FoundationSecurityProfile.PlatformGovernanceContext => CreatePlatformEvidence(
                 context,
                 operation,
@@ -168,7 +188,12 @@ public static class FoundationAuditEvidenceFactory
                 version,
                 retryOfEvidenceId,
                 attempt,
-                occurredAt),
+                occurredAt,
+                evidenceSource,
+                safeTargetType,
+                safeTargetReference,
+                safeChangeSummary,
+                clock),
             _ => throw new ArgumentException(
                 "Evidence requires one explicit Tenant or platform authorization path.",
                 nameof(context))
@@ -190,7 +215,12 @@ public static class FoundationAuditEvidenceFactory
         DateTimeOffset? supportGrantExpiresAt,
         Guid? retryOfEvidenceId,
         int attempt,
-        DateTimeOffset? occurredAt)
+        DateTimeOffset? occurredAt,
+        string source,
+        string? targetType,
+        string? targetReference,
+        string? changeSummary,
+        TimeProvider timeProvider)
     {
         var tenant = context.TenantContext
             ?? throw new ArgumentException("Tenant evidence requires a trusted Tenant context.", nameof(context));
@@ -220,7 +250,7 @@ public static class FoundationAuditEvidenceFactory
 
         return new FoundationAuditEvidence(
             Guid.NewGuid(),
-            occurredAt ?? DateTimeOffset.UtcNow,
+            occurredAt ?? timeProvider.GetUtcNow(),
             operation,
             correlation,
             actorId,
@@ -238,7 +268,11 @@ public static class FoundationAuditEvidenceFactory
             idempotency,
             version,
             retryOfEvidenceId,
-            attempt);
+            attempt,
+            source,
+            targetType,
+            targetReference,
+            changeSummary);
     }
 
     private static FoundationAuditEvidence CreatePlatformEvidence(
@@ -253,7 +287,12 @@ public static class FoundationAuditEvidenceFactory
         string? version,
         Guid? retryOfEvidenceId,
         int attempt,
-        DateTimeOffset? occurredAt)
+        DateTimeOffset? occurredAt,
+        string source,
+        string? targetType,
+        string? targetReference,
+        string? changeSummary,
+        TimeProvider timeProvider)
     {
         var platform = context.PlatformGovernanceContext
             ?? throw new ArgumentException("Platform evidence requires a trusted governance context.", nameof(context));
@@ -264,7 +303,7 @@ public static class FoundationAuditEvidenceFactory
 
         return new FoundationAuditEvidence(
             Guid.NewGuid(),
-            occurredAt ?? DateTimeOffset.UtcNow,
+            occurredAt ?? timeProvider.GetUtcNow(),
             operation,
             correlation,
             actorId,
@@ -282,7 +321,11 @@ public static class FoundationAuditEvidenceFactory
             idempotency,
             version,
             retryOfEvidenceId,
-            attempt);
+            attempt,
+            source,
+            targetType,
+            targetReference,
+            changeSummary);
     }
 }
 
@@ -358,9 +401,13 @@ internal static class FoundationAuditEvidenceMapping
             throw new FoundationAuditAppendException("idempotency_invalid");
         }
 
+        _ = FoundationAuditText.Required(evidence.Source, nameof(evidence.Source));
         _ = FoundationAuditText.Optional(evidence.OrganizationScope, nameof(evidence.OrganizationScope));
         _ = FoundationAuditText.Optional(evidence.Purpose, nameof(evidence.Purpose));
         _ = FoundationAuditText.Optional(evidence.OperationVersion, nameof(evidence.OperationVersion));
+        _ = FoundationAuditText.Optional(evidence.TargetType, nameof(evidence.TargetType));
+        _ = FoundationAuditText.Optional(evidence.TargetReference, nameof(evidence.TargetReference));
+        _ = FoundationAuditText.Optional(evidence.ChangeSummary, nameof(evidence.ChangeSummary));
     }
 }
 
@@ -404,10 +451,110 @@ public interface IFoundationAuditScopedEvidenceReader
 }
 
 /// <summary>
+/// Bounded, Tenant- and organization-scope-bound audit search. The source owns
+/// filtering and deterministic ordering; callers cannot request an unscoped
+/// or unbounded evidence read.
+/// </summary>
+public interface IFoundationAuditSearchReader
+{
+    ValueTask<ReportingSourcePage<FoundationAuditEvidence>> SearchAsync(
+        TenantContext tenantContext,
+        TenantWorkScope scope,
+        FoundationAuditSearch search,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>Safe audit filters with bounded paging and time windows.</summary>
+public sealed record FoundationAuditSearch(
+    ReportingPageRequest Page,
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null,
+    Guid? ActorId = null,
+    string? OperationId = null,
+    FoundationAuditDecision? Decision = null,
+    FoundationAuditReason? Reason = null,
+    string? Source = null,
+    string? TargetType = null,
+    string? TargetReference = null,
+    string? CorrelationId = null)
+{
+    public const int MaximumWindowDays = 366;
+
+    public static FoundationAuditSearch Create(
+        ReportingPageRequest page,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        Guid? actorId = null,
+        string? operationId = null,
+        FoundationAuditDecision? decision = null,
+        FoundationAuditReason? reason = null,
+        string? source = null,
+        string? targetType = null,
+        string? targetReference = null,
+        string? correlationId = null)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        if (page.Page > 100_000)
+        {
+            throw new ArgumentException("The audit page is too deep.", nameof(page));
+        }
+        if (from.HasValue && to.HasValue && from > to)
+        {
+            throw new ArgumentException("The audit time window is invalid.");
+        }
+
+        if (from.HasValue && to.HasValue && to.Value - from.Value > TimeSpan.FromDays(MaximumWindowDays))
+        {
+            throw new ArgumentException("The audit time window is too large.");
+        }
+
+        if (actorId == Guid.Empty)
+        {
+            throw new ArgumentException("The actor filter must be a valid identifier.", nameof(actorId));
+        }
+
+        if (decision.HasValue && !Enum.IsDefined(decision.Value)
+            || reason.HasValue && !Enum.IsDefined(reason.Value))
+        {
+            throw new ArgumentException("The audit outcome filter is invalid.");
+        }
+
+        return new FoundationAuditSearch(
+            page,
+            from,
+            to,
+            actorId,
+            SafeOptional(operationId, nameof(operationId)),
+            decision,
+            reason,
+            SafeOptional(source, nameof(source)),
+            SafeOptional(targetType, nameof(targetType)),
+            SafeOptional(targetReference, nameof(targetReference)),
+            SafeOptional(correlationId, nameof(correlationId)));
+    }
+
+    private static string? SafeOptional(string? value, string name)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        if (normalized.Length == 0 || normalized.Length > FoundationAuditText.MaximumLength || normalized.Any(char.IsControl))
+        {
+            throw new ArgumentException("The audit filter is invalid or unbounded.", name);
+        }
+
+        return normalized;
+    }
+}
+
+/// <summary>
 /// A bounded local append-only store used for isolated validation only. It is
 /// not a production retention, purge or database provider.
 /// </summary>
-public sealed class LocalImmutableAuditEvidenceStore : IFoundationAuditEvidenceSink, IFoundationAuditEvidenceReader, IFoundationAuditScopedEvidenceReader
+public sealed class LocalImmutableAuditEvidenceStore : IFoundationAuditEvidenceSink, IFoundationAuditEvidenceReader, IFoundationAuditScopedEvidenceReader, IFoundationAuditSearchReader
 {
     private readonly object syncRoot = new();
     private readonly List<FoundationAuditEvidence> evidence = [];
@@ -496,23 +643,73 @@ public sealed class LocalImmutableAuditEvidenceStore : IFoundationAuditEvidenceS
             // Tenant evidence; descendant graph expansion remains an Identity
             // concern and is represented by the server-issued context passed
             // to source reads.
-            var candidates = evidence
-                .Where(item => item.TenantId == tenantId && item.AuthorizationPath == expectedPath)
-                .Where(item => scope.CompanyId is null
-                    ? true
-                    : scope.WarehouseId is { } warehouseId
-                        ? string.Equals(item.OrganizationScope, $"Warehouse:{warehouseId:D}", StringComparison.OrdinalIgnoreCase)
-                        : scope.BranchId is { } branchId
-                            ? string.Equals(item.OrganizationScope, $"Branch:{branchId:D}", StringComparison.OrdinalIgnoreCase)
-                            : string.Equals(item.OrganizationScope, $"Company:{scope.CompanyId:D}", StringComparison.OrdinalIgnoreCase))
-                .Where(item => !fromDate.HasValue || DateOnly.FromDateTime(item.OccurredAt.UtcDateTime) >= fromDate)
-                .Where(item => !toDate.HasValue || DateOnly.FromDateTime(item.OccurredAt.UtcDateTime) <= toDate)
-                .OrderByDescending(item => item.OccurredAt)
-                .ThenByDescending(item => item.EvidenceId)
-                .ToArray();
-            var rows = candidates.Skip(page.Offset).Take(page.PageSize).ToArray();
-            return ValueTask.FromResult(new ReportingSourcePage<FoundationAuditEvidence>(rows, candidates.Length, "occurredAt desc,evidenceId desc", candidates.Length == 0 ? null : candidates.Min(item => item.OccurredAt)));
+            var search = FoundationAuditSearch.Create(
+                page,
+                fromDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+                toDate?.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc));
+            return SearchUnsafe(tenantContext, scope, search, tenantId, expectedPath);
         }
+    }
+
+    public ValueTask<ReportingSourcePage<FoundationAuditEvidence>> SearchAsync(
+        TenantContext tenantContext,
+        TenantWorkScope scope,
+        FoundationAuditSearch search,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentNullException.ThrowIfNull(search);
+        cancellationToken.ThrowIfCancellationRequested();
+        var tenantId = tenantContext.TenantId.Value;
+        var expectedPath = tenantContext.AuthorizationPath switch
+        {
+            TenantAuthorizationPath.OrdinaryMembership => FoundationAuditAuthorizationPath.OrdinaryMembership,
+            TenantAuthorizationPath.SupportGrant => FoundationAuditAuthorizationPath.SupportGrant,
+            _ => throw new ArgumentOutOfRangeException(nameof(tenantContext))
+        };
+        lock (syncRoot)
+        {
+            return SearchUnsafe(tenantContext, scope, search, tenantId, expectedPath);
+        }
+    }
+
+    private ValueTask<ReportingSourcePage<FoundationAuditEvidence>> SearchUnsafe(
+        TenantContext tenantContext,
+        TenantWorkScope scope,
+        FoundationAuditSearch search,
+        Guid tenantId,
+        FoundationAuditAuthorizationPath expectedPath)
+    {
+        if (scope.TenantId != tenantContext.TenantId)
+        {
+            return ValueTask.FromResult(ReportingSourcePage<FoundationAuditEvidence>.Empty("occurredAt desc,evidenceId desc"));
+        }
+
+        var candidates = evidence
+            .Where(item => item.TenantId == tenantId && item.AuthorizationPath == expectedPath)
+            .Where(item => scope.CompanyId is null
+                ? true
+                : scope.WarehouseId is { } warehouseId
+                    ? string.Equals(item.OrganizationScope, $"Warehouse:{warehouseId:D}", StringComparison.OrdinalIgnoreCase)
+                    : scope.BranchId is { } branchId
+                        ? string.Equals(item.OrganizationScope, $"Branch:{branchId:D}", StringComparison.OrdinalIgnoreCase)
+                        : string.Equals(item.OrganizationScope, $"Company:{scope.CompanyId:D}", StringComparison.OrdinalIgnoreCase))
+            .Where(item => !search.From.HasValue || item.OccurredAt >= search.From.Value)
+            .Where(item => !search.To.HasValue || item.OccurredAt <= search.To.Value)
+            .Where(item => !search.ActorId.HasValue || item.ActorId == search.ActorId.Value)
+            .Where(item => search.OperationId is null || string.Equals(item.OperationId, search.OperationId, StringComparison.Ordinal))
+            .Where(item => !search.Decision.HasValue || item.Decision == search.Decision.Value)
+            .Where(item => !search.Reason.HasValue || item.Reason == search.Reason.Value)
+            .Where(item => search.Source is null || string.Equals(item.Source, search.Source, StringComparison.Ordinal))
+            .Where(item => search.TargetType is null || string.Equals(item.TargetType, search.TargetType, StringComparison.Ordinal))
+            .Where(item => search.TargetReference is null || string.Equals(item.TargetReference, search.TargetReference, StringComparison.Ordinal))
+            .Where(item => search.CorrelationId is null || string.Equals(item.CorrelationId, search.CorrelationId, StringComparison.Ordinal))
+            .OrderByDescending(item => item.OccurredAt)
+            .ThenByDescending(item => item.EvidenceId)
+            .ToArray();
+        var rows = candidates.Skip(search.Page.Offset).Take(search.Page.PageSize).ToArray();
+        return ValueTask.FromResult(new ReportingSourcePage<FoundationAuditEvidence>(rows, candidates.Length, "occurredAt desc,evidenceId desc", candidates.Length == 0 ? null : candidates.Min(item => item.OccurredAt)));
     }
 
     public ValueTask<IReadOnlyList<FoundationAuditEvidence>> ReadForPlatformAsync(
@@ -743,15 +940,18 @@ public sealed class FoundationAuditCoordinator
     private readonly IFoundationAuditEvidenceSink evidenceSink;
     private readonly IFoundationAuditTelemetrySink telemetrySink;
     private readonly IFoundationAuditOperationalSignalSink signalSink;
+    private readonly TimeProvider timeProvider;
 
     public FoundationAuditCoordinator(
         IFoundationAuditEvidenceSink evidenceSink,
         IFoundationAuditTelemetrySink telemetrySink,
-        IFoundationAuditOperationalSignalSink signalSink)
+        IFoundationAuditOperationalSignalSink signalSink,
+        TimeProvider? timeProvider = null)
     {
         this.evidenceSink = evidenceSink ?? throw new ArgumentNullException(nameof(evidenceSink));
         this.telemetrySink = telemetrySink ?? throw new ArgumentNullException(nameof(telemetrySink));
         this.signalSink = signalSink ?? throw new ArgumentNullException(nameof(signalSink));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<FoundationAuditRecordResult> RecordAsync(
@@ -766,7 +966,11 @@ public sealed class FoundationAuditCoordinator
         DateTimeOffset? supportGrantExpiresAt = null,
         Guid? retryOfEvidenceId = null,
         int attempt = 1,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? source = null,
+        string? targetType = null,
+        string? targetReference = null,
+        string? changeSummary = null)
     {
         FoundationAuditEvidence evidence;
         try
@@ -782,7 +986,13 @@ public sealed class FoundationAuditCoordinator
                 supportPurpose,
                 supportGrantExpiresAt,
                 retryOfEvidenceId,
-                attempt);
+                attempt,
+                occurredAt: timeProvider.GetUtcNow(),
+                source: source,
+                targetType: targetType,
+                targetReference: targetReference,
+                changeSummary: changeSummary,
+                timeProvider: timeProvider);
         }
         catch
         {
@@ -907,7 +1117,7 @@ public sealed class FoundationAuditCoordinator
         {
             signalSink.Emit(new FoundationAuditOperationalSignal(
                 Guid.NewGuid(),
-                DateTimeOffset.UtcNow,
+                timeProvider.GetUtcNow(),
                 "audit_evidence_failure",
                 safeOperation,
                 safeCorrelation,
