@@ -500,7 +500,14 @@ public sealed class ReportingService : IReportingService
         }
         var csv = ToCsv(result);
         await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
-        var file = await privateFiles.StoreAsync(context.TenantContext, scope.Scope, $"{reportCode}-{jobId:N}.csv", "text/csv", stream, cancellationToken: cancellationToken);
+        var file = await privateFiles.StoreAsync(
+            context.TenantContext,
+            scope.Scope,
+            $"{reportCode}-{jobId:N}.csv",
+            "text/csv",
+            stream,
+            safetyRequirement: PrivateFileSafetyRequirement.TrustedGenerated,
+            cancellationToken: cancellationToken);
         var artifact = new ReportingArtifactRecord(Guid.NewGuid(), context.TenantId.Value, context.ActorId, reportCode, file.ObjectId, $"{reportCode}-{jobId:N}.csv", "text/csv", clock.GetUtcNow(), jobId, StoredScopeText(query));
         runtime.SaveArtifact(artifact);
         job = job with { Status = result.Metadata.State is ReportingResultState.Failed or ReportingResultState.Unavailable ? ReportingJobStatus.Failed : ReportingJobStatus.Completed, UpdatedAt = clock.GetUtcNow(), ArtifactId = artifact.ArtifactId, FailureCode = result.Metadata.Explanation, ResultMetadata = result.Metadata };

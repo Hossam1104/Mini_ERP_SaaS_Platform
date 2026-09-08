@@ -915,10 +915,72 @@ app.MapGet("/api/v1/foundation/support-context", async (
     await ExecuteAsync(
         httpContext,
         resolver,
-        context => Task.FromResult(application.ReadSupportContext(context, GetCorrelation(httpContext))),
+        context => application.ReadSupportContextAsync(context, GetCorrelation(httpContext), httpContext.RequestAborted),
         StatusCodes.Status200OK))
     .WithName("foundation.support-context.read")
     .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("foundation.support-context.read")));
+
+app.MapPost("/api/v1/notifications", async (
+        NotificationDispatchRequest? request,
+        HttpContext httpContext,
+        ITrustedRequestContextResolver resolver,
+        IOrganizationScopeOwnershipResolver scopeOwnership,
+        NotificationDeliveryApplication application) =>
+    {
+        const string operationId = "notification.intent.dispatch";
+        if (!await EnsureAntiforgeryAsync(httpContext))
+        {
+            return (IResult)await WriteProblemAsync(httpContext, StatusCodes.Status403Forbidden, "antiforgery_failed", "Antiforgery validation failed", "The request could not be validated.", operationId);
+        }
+
+        if (request is null || request.RecipientUserId == Guid.Empty)
+        {
+            return (IResult)await WriteProblemAsync(httpContext, StatusCodes.Status400BadRequest, "validation_failed", "Validation failed", "The notification request is invalid.", operationId);
+        }
+
+        var context = await resolver.ResolveAsync(httpContext, httpContext.RequestAborted);
+        var descriptor = FoundationOperationCatalog.GetRequired(operationId);
+        if (!MatchesSecurityProfile(descriptor.SecurityProfile, context.SecurityProfile)
+            || context.TenantContext is null)
+        {
+            var code = context.SecurityProfile == FoundationSecurityProfile.Anonymous
+                ? "authentication_failed"
+                : "access_denied";
+            return (IResult)await WriteProblemAsync(
+                httpContext,
+                context.SecurityProfile == FoundationSecurityProfile.Anonymous ? StatusCodes.Status401Unauthorized : StatusCodes.Status403Forbidden,
+                code,
+                code == "authentication_failed" ? "Authentication required" : "Access denied",
+                "The notification operation is not available for this security context.",
+                operationId);
+        }
+
+        var scope = scopeOwnership.Resolve(context.TenantContext, TenantWorkScopeRequest.TenantWide());
+        if (!scope.Allowed || scope.Scope is null)
+        {
+            return (IResult)await WriteProblemAsync(httpContext, StatusCodes.Status403Forbidden, "scope_denied", "Access denied", "The notification scope is not authorized.", operationId);
+        }
+
+        var result = await application.DispatchAsync(
+            context,
+            scope.Scope,
+            new NotificationRecipientReference(request.RecipientUserId),
+            request.Template ?? string.Empty,
+            request.Locale ?? string.Empty,
+            request.IdempotencyKey ?? string.Empty,
+            httpContext.RequestAborted);
+        var response = ToNotificationResponse(result);
+        var statusCode = result.Outcome switch
+        {
+            NotificationRequestOutcome.Denied => StatusCodes.Status403Forbidden,
+            NotificationRequestOutcome.Unavailable or NotificationRequestOutcome.Unknown => StatusCodes.Status503ServiceUnavailable,
+            NotificationRequestOutcome.Failed => StatusCodes.Status502BadGateway,
+            _ => StatusCodes.Status202Accepted
+        };
+        return Results.Json(response, statusCode: statusCode);
+    })
+    .WithName("notification.intent.dispatch")
+    .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("notification.intent.dispatch")));
 
 app.MapGet("/api/v1/foundation/platform-context", async (
         HttpContext httpContext,
@@ -1242,6 +1304,15 @@ static FoundationSessionResponse ToSessionResponse(FoundationHostSessionState st
 
 static FoundationContextCandidateResponse ToContextResponse(FoundationHostContextCandidate candidate) =>
     new(candidate.ContextId, candidate.Kind.ToString(), candidate.TenantId, candidate.DisplayName, candidate.EligibilityVersion);
+
+static NotificationDispatchResponse ToNotificationResponse(NotificationDispatchResult result) =>
+    new(
+        result.Outcome,
+        result.IntentId,
+        result.DeliveryState,
+        result.FailureCategory,
+        result.SafeCode,
+        result.EvidenceSource);
 
 static FoundationOperationalContextResponse ToOperationalContextResponse(FoundationHostOperationalContextCandidate candidate) =>
     new(candidate.ContextId, candidate.Kind, candidate.DisplayName, candidate.EligibilityVersion);

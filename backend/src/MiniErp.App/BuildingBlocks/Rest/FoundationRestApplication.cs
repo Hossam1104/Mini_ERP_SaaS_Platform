@@ -512,6 +512,52 @@ public sealed class FoundationRestApplication
         "foundation.support-context.read",
         correlationId);
 
+    /// <summary>
+    /// Shipping support-context composition. Identity's selected
+    /// SupportGrant and authenticated session remain the authority; this
+    /// operation only records evidence after the normal context validation has
+    /// succeeded. No process-local support session is created.
+    /// </summary>
+    public async Task<FoundationOperationResult<FoundationContextResponse>> ReadSupportContextAsync(
+        FoundationRequestContext context,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        const string operationId = "foundation.support-context.read";
+        var result = ReadContext(
+            context,
+            FoundationSecurityProfile.SupportGrant,
+            FoundationOperationCatalog.GetRequired(operationId).ExactPermissionCode!,
+            operationId,
+            correlationId);
+        if (!result.Succeeded || context.TenantContext?.SupportGrant is not { } grant)
+        {
+            return result;
+        }
+
+        var evidence = await auditCoordinator.RecordAsync(
+            context,
+            operationId,
+            correlationId,
+            FoundationAuditDecision.Allowed,
+            FoundationAuditReason.Allowed,
+            supportPurpose: "support-context-read",
+            source: "identity-support-context",
+            targetType: "support-grant",
+            targetReference: grant.GrantId.ToString("N"),
+            changeSummary: "support context resolved",
+            cancellationToken: cancellationToken);
+        return evidence.Succeeded
+            ? result
+            : Failure<FoundationContextResponse>(
+                StatusCodes.Status503ServiceUnavailable,
+                "audit_evidence_unavailable",
+                "Operation unavailable",
+                "The support context could not be evidenced.",
+                operationId,
+                correlationId);
+    }
+
     public FoundationOperationResult<FoundationContextResponse> ReadPlatformContext(
         FoundationRequestContext context,
         string correlationId) => ReadContext(

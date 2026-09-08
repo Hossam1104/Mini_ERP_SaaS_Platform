@@ -1,10 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
-using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.BuildingBlocks.Work;
-using MiniErp.Contracts.Modules.Foundation;
 
 namespace MiniErp.App.Modules.Identity;
 
@@ -22,8 +20,7 @@ internal sealed class IdentityAuthorizationService :
     ICurrentOrganizationScopeResolver,
     IDurableWorkAuthorityRevalidator,
     IDurableWorkReconciliationAuthorizer,
-    INotificationRecipientAuthorizer,
-    ISupportAccessContextValidator
+    INotificationRecipientAuthorizer
 {
     private const string GenericDeniedCode = "access_denied";
     private const string GenericAuthenticationCode = "authentication_failed";
@@ -195,80 +192,6 @@ internal sealed class IdentityAuthorizationService :
         }
 
         return ValueTask.FromResult(result);
-    }
-
-    /// <summary>
-    /// Live-revalidates an already issued support context for the exact
-    /// purpose, permission, Tenant, grant, case and session. This port only
-    /// validates authority; it cannot mint or widen a TenantContext.
-    /// </summary>
-    public ValueTask<SupportAccessValidationResult> ValidateAsync(
-        FoundationRequestContext trustedRequestContext,
-        string purpose,
-        string permission,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(trustedRequestContext);
-        cancellationToken.ThrowIfCancellationRequested();
-        var tenantContext = trustedRequestContext.TenantContext;
-        if (trustedRequestContext.SecurityProfile != FoundationSecurityProfile.SupportGrant
-            || tenantContext?.AuthorizationPath != TenantAuthorizationPath.SupportGrant
-            || tenantContext.SupportGrant is not { } supportReference
-            || trustedRequestContext.ActorId is not { } actorId
-            || trustedRequestContext.SessionId is not { } sessionId
-            || !IdentityPermissions.TryResolve(permission, out var requestedPermission)
-            || string.IsNullOrWhiteSpace(purpose)
-            || !string.Equals(trustedRequestContext.Permission, permission.Trim(), StringComparison.OrdinalIgnoreCase))
-        {
-            return ValueTask.FromResult(new SupportAccessValidationResult(SupportAccessValidationState.Denied, null, "support_denied"));
-        }
-
-        lock (store.SyncRoot)
-        {
-            var now = Now;
-            if (!store.Users.TryGetValue(new UserId(actorId), out var user)
-                || user.Status != GlobalUserStatus.Active
-                || !store.Sessions.TryGetValue(new SessionId(sessionId), out var session)
-                || session.UserId.Value != actorId
-                || session.RevokedAt is not null
-                || session.AbsoluteExpiresAt <= now)
-            {
-                return ValueTask.FromResult(new SupportAccessValidationResult(SupportAccessValidationState.Denied, null, "support_denied"));
-            }
-
-            if (!store.SupportGrants.TryGetValue(new SupportGrantId(supportReference.GrantId), out var grant)
-                || grant.UserId.Value != actorId
-                || grant.TenantId != tenantContext.TenantId
-                || grant.CaseId.Value != supportReference.CaseId)
-            {
-                return ValueTask.FromResult(new SupportAccessValidationResult(SupportAccessValidationState.Denied, null, "support_denied"));
-            }
-
-            if (grant.RevokedAt is not null
-                || !store.SupportCases.TryGetValue(grant.CaseId, out var supportCase)
-                || !supportCase.IsActive)
-            {
-                return ValueTask.FromResult(new SupportAccessValidationResult(SupportAccessValidationState.Revoked, grant.ExpiresAt, "support_revoked"));
-            }
-
-            if (grant.ExpiresAt <= now)
-            {
-                return ValueTask.FromResult(new SupportAccessValidationResult(SupportAccessValidationState.Expired, grant.ExpiresAt, "support_expired"));
-            }
-
-            if (!string.Equals(grant.Purpose, purpose.Trim(), StringComparison.Ordinal)
-                || requestedPermission == IdentityPermissions.Export
-                || !grant.Permissions.Contains(requestedPermission)
-                || tenantContext.Scope is not { } contextScope
-                || !string.Equals(contextScope.Value, $"{grant.Scope.Kind}:{grant.Scope.TargetId}", StringComparison.Ordinal)
-                || !session.SupportGrantReferences.Contains(grant.Id)
-                || !HasMfaAndFreshAuthenticationUnsafe(session, user, $"support:{grant.Id.Value}:{requestedPermission.Value}"))
-            {
-                return ValueTask.FromResult(new SupportAccessValidationResult(SupportAccessValidationState.Denied, grant.ExpiresAt, "support_denied"));
-            }
-
-            return ValueTask.FromResult(new SupportAccessValidationResult(SupportAccessValidationState.Active, grant.ExpiresAt, "support_active"));
-        }
     }
 
     private NotificationRecipientAuthorizationResult AuthorizeNotificationRecipientUnsafe(

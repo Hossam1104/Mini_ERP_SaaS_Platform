@@ -83,16 +83,88 @@ public sealed class PrivateFileAndNotificationSecurityTests
     }
 
     [Fact]
-    public async Task Available_unexpired_object_can_still_be_overwritten()
+    public async Task Available_unexpired_object_replacement_requires_new_scan_evidence()
     {
         var context = CreateContext();
         var storage = new InMemoryPrivateObjectStorage();
         var metadata = await storage.StoreAsync(context, DurableWorkTestSupport.TenantWideScope(context), "ok.txt", "text/plain", Content("ok"));
 
+        metadata.ScanState = PrivateFileScanState.Clean;
         var result = await storage.OverwriteAsync(context, metadata.ObjectId, metadata.ConcurrencyVersion, Content("updated"));
 
-        Assert.True(result.Allowed);
-        Assert.Equal("updated", Encoding.UTF8.GetString(result.Content!));
+        Assert.Equal(PrivateFileAccessOutcome.SafetyBlocked, result.Outcome);
+        Assert.Equal(PrivateFileScanState.Unavailable, metadata.ScanState);
+    }
+
+    [Theory]
+    [InlineData(PrivateFileScanState.NotScanned)]
+    [InlineData(PrivateFileScanState.Pending)]
+    [InlineData(PrivateFileScanState.Unavailable)]
+    [InlineData(PrivateFileScanState.Rejected)]
+    public async Task Scan_required_content_is_unavailable_until_clean_evidence(
+        PrivateFileScanState state)
+    {
+        var context = CreateContext();
+        var storage = new InMemoryPrivateObjectStorage();
+        var metadata = await storage.StoreAsync(context, DurableWorkTestSupport.TenantWideScope(context), "scan-required.txt", "text/plain", Content("private"));
+        metadata.ScanState = state;
+
+        var blocked = await storage.ReadAsync(context, metadata.ObjectId);
+
+        Assert.Equal(PrivateFileAccessOutcome.SafetyBlocked, blocked.Outcome);
+        Assert.Null(blocked.Content);
+    }
+
+    [Fact]
+    public async Task Clean_evidence_allows_same_tenant_read_without_minting_clean_state()
+    {
+        var context = CreateContext();
+        var storage = new InMemoryPrivateObjectStorage();
+        var metadata = await storage.StoreAsync(context, DurableWorkTestSupport.TenantWideScope(context), "approved.txt", "text/plain", Content("private"));
+        metadata.ScanState = PrivateFileScanState.Clean;
+
+        var read = await storage.ReadAsync(context, metadata.ObjectId);
+
+        Assert.True(read.Allowed);
+        Assert.Equal("private", Encoding.UTF8.GetString(read.Content!));
+    }
+
+    [Fact]
+    public async Task Trusted_generated_artifact_is_explicitly_not_applicable_to_scanning()
+    {
+        var context = CreateContext();
+        var storage = new InMemoryPrivateObjectStorage();
+        var metadata = await storage.StoreAsync(
+            context,
+            DurableWorkTestSupport.TenantWideScope(context),
+            "report.csv",
+            "text/csv",
+            Content("generated"),
+            safetyRequirement: PrivateFileSafetyRequirement.TrustedGenerated);
+
+        var read = await storage.ReadAsync(context, metadata.ObjectId);
+
+        Assert.Equal(PrivateFileSafetyRequirement.TrustedGenerated, metadata.SafetyRequirement);
+        Assert.Equal(PrivateFileScanState.NotApplicable, metadata.ScanState);
+        Assert.True(read.Allowed);
+        Assert.Equal("generated", Encoding.UTF8.GetString(read.Content!));
+    }
+
+    [Fact]
+    public async Task Overwrite_resets_scan_required_content_and_does_not_return_new_bytes()
+    {
+        var context = CreateContext();
+        var storage = new InMemoryPrivateObjectStorage();
+        var metadata = await storage.StoreAsync(context, DurableWorkTestSupport.TenantWideScope(context), "replacement.txt", "text/plain", Content("v1"));
+        metadata.ScanState = PrivateFileScanState.Clean;
+
+        var overwritten = await storage.OverwriteAsync(context, metadata.ObjectId, metadata.ConcurrencyVersion, Content("v2"));
+        var blocked = await storage.ReadAsync(context, metadata.ObjectId);
+
+        Assert.Equal(PrivateFileAccessOutcome.SafetyBlocked, overwritten.Outcome);
+        Assert.Null(overwritten.Content);
+        Assert.Equal(PrivateFileScanState.Unavailable, metadata.ScanState);
+        Assert.Equal(PrivateFileAccessOutcome.SafetyBlocked, blocked.Outcome);
     }
 
     [Fact]
@@ -328,6 +400,7 @@ public sealed class PrivateFileAndNotificationSecurityTests
         var context = CreateContext();
         var storage = new InMemoryPrivateObjectStorage();
         var metadata = await storage.StoreAsync(context, DurableWorkTestSupport.TenantWideScope(context), "immutable.txt", "text/plain", Content("original"));
+        metadata.ScanState = PrivateFileScanState.Clean;
 
         var first = await storage.ReadAsync(context, metadata.ObjectId);
         Array.Clear(first.Content!, 0, first.Content!.Length);
@@ -345,6 +418,7 @@ public sealed class PrivateFileAndNotificationSecurityTests
         using var stream = new MemoryStream(bytes);
 
         var metadata = await storage.StoreAsync(context, DurableWorkTestSupport.TenantWideScope(context), "input.txt", "text/plain", stream);
+        metadata.ScanState = PrivateFileScanState.Clean;
         Array.Clear(bytes, 0, bytes.Length);
         var read = await storage.ReadAsync(context, metadata.ObjectId);
 
@@ -352,14 +426,16 @@ public sealed class PrivateFileAndNotificationSecurityTests
     }
 
     [Fact]
-    public async Task Mutating_returned_overwrite_content_does_not_affect_a_subsequent_read()
+    public async Task Approved_replacement_content_is_defensive_after_new_scan_evidence()
     {
         var context = CreateContext();
         var storage = new InMemoryPrivateObjectStorage();
         var metadata = await storage.StoreAsync(context, DurableWorkTestSupport.TenantWideScope(context), "double.txt", "text/plain", Content("v1"));
+        metadata.ScanState = PrivateFileScanState.Clean;
 
         var overwritten = await storage.OverwriteAsync(context, metadata.ObjectId, metadata.ConcurrencyVersion, Content("v2"));
-        Array.Clear(overwritten.Content!, 0, overwritten.Content!.Length);
+        Assert.Equal(PrivateFileAccessOutcome.SafetyBlocked, overwritten.Outcome);
+        metadata.ScanState = PrivateFileScanState.Clean;
         var read = await storage.ReadAsync(context, metadata.ObjectId);
 
         Assert.Equal("v2", Encoding.UTF8.GetString(read.Content!));

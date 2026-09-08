@@ -1,4 +1,13 @@
+using System.Net;
+using System.Net.Http.Json;
 using System.Text;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.BuildingBlocks.Tenancy;
@@ -156,7 +165,84 @@ public sealed class Mesp140CrossCuttingControlTests
     }
 
     [Fact]
-    public async Task Support_session_is_evidence_only_and_revalidates_expiry_and_revocation()
+    public async Task Notification_http_shipping_path_enforces_authorization_audit_idempotency_and_provider_truth()
+    {
+        using var factory = new NotificationApiFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = true });
+        var antiForgery = await client.GetAsync("/api/v1/auth/antiforgery");
+        var antiForgeryToken = antiForgery.Headers.GetValues("X-CSRF-TOKEN").Single();
+        var request = new NotificationDispatchRequest(
+            Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            "invoice-ready",
+            "en",
+            "http-notification-mesp140-1");
+
+        var first = await PostNotificationAsync(client, request, antiForgeryToken);
+        Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
+        var firstBody = await first.Content.ReadFromJsonAsync<NotificationDispatchResponse>();
+        Assert.NotNull(firstBody);
+        Assert.Equal(NotificationRequestOutcome.Delivered, firstBody.Outcome);
+        Assert.Equal("local-test-adapter", firstBody.EvidenceSource);
+        Assert.Equal(1, factory.Adapter.AuditEvidenceCountAtFirstEffect);
+
+        var duplicate = await PostNotificationAsync(client, request, antiForgeryToken);
+        Assert.Equal(HttpStatusCode.Accepted, duplicate.StatusCode);
+        var duplicateBody = await duplicate.Content.ReadFromJsonAsync<NotificationDispatchResponse>();
+        Assert.NotNull(duplicateBody);
+        Assert.Equal(NotificationDeliveryState.Duplicate, duplicateBody.DeliveryState);
+        Assert.Equal("duplicate", duplicateBody.SafeCode);
+        Assert.Equal(2, factory.Adapter.EffectCallCount);
+
+        factory.RecipientAuthorizer.Allowed = false;
+        var recipientDenied = await PostNotificationAsync(
+            client,
+            request with { IdempotencyKey = "http-notification-mesp140-recipient-denied" },
+            antiForgeryToken);
+        Assert.Equal(HttpStatusCode.Forbidden, recipientDenied.StatusCode);
+        Assert.Equal(2, factory.Adapter.EffectCallCount);
+
+        factory.RecipientAuthorizer.Allowed = true;
+        factory.ScopeResolver.Allowed = false;
+        var scopeDenied = await PostNotificationAsync(
+            client,
+            request with { IdempotencyKey = "http-notification-mesp140-scope-denied" },
+            antiForgeryToken);
+        Assert.Equal(HttpStatusCode.Forbidden, scopeDenied.StatusCode);
+        Assert.Equal(2, factory.Adapter.EffectCallCount);
+
+        factory.ScopeResolver.Allowed = true;
+        factory.Adapter.UseProvider = false;
+        var unavailable = await PostNotificationAsync(
+            client,
+            request with { IdempotencyKey = "http-notification-mesp140-no-provider" },
+            antiForgeryToken);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, unavailable.StatusCode);
+        var unavailableBody = await unavailable.Content.ReadFromJsonAsync<NotificationDispatchResponse>();
+        Assert.NotNull(unavailableBody);
+        Assert.Equal(NotificationRequestOutcome.Unavailable, unavailableBody.Outcome);
+        Assert.Equal("no-provider", unavailableBody.EvidenceSource);
+
+        factory.Adapter.UseProvider = true;
+        factory.Adapter.ThrowOnEffect = true;
+        var unknown = await PostNotificationAsync(
+            client,
+            request with { IdempotencyKey = "http-notification-mesp140-unknown" },
+            antiForgeryToken);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, unknown.StatusCode);
+        var unknownBody = await unknown.Content.ReadFromJsonAsync<NotificationDispatchResponse>();
+        Assert.NotNull(unknownBody);
+        Assert.Equal(NotificationRequestOutcome.Unknown, unknownBody.Outcome);
+        Assert.Equal("delivery_outcome_unknown", unknownBody.SafeCode);
+
+        var evidence = await factory.AuditStore.ReadForTenantAsync(factory.Context.TenantContext!);
+        Assert.Contains(evidence, item => item.OperationId == "notification.intent.dispatch" && item.ChangeSummary == "notification request accepted");
+        Assert.Contains(evidence, item => item.OperationId == "notification.intent.dispatch" && item.ChangeSummary == "duplicate");
+        Assert.Contains(evidence, item => item.OperationId == "notification.intent.dispatch" && item.ChangeSummary == "provider_unavailable");
+        Assert.Contains(evidence, item => item.OperationId == "notification.intent.dispatch" && item.Decision == FoundationAuditDecision.EffectFailed);
+    }
+
+    [Fact]
+    public async Task Support_context_shipping_path_uses_identity_authority_and_records_audit()
     {
         var clock = new ManualTimeProvider(new DateTimeOffset(2026, 9, 8, 14, 0, 0, TimeSpan.Zero));
         var tenant = new TenantId(Guid.NewGuid());
@@ -171,34 +257,48 @@ public sealed class Mesp140CrossCuttingControlTests
             new CorrelationId("corr-support-mesp140"),
             actor);
         var requestContext = FoundationRequestContext.ForTenant(actor, sessionId, supportContext, "support.tenant.read");
-        var validator = new MutableSupportValidator(clock, clock.GetUtcNow().AddHours(1));
-        var sessions = new SupportAccessSessionStore(validator, clock);
+        var auditStore = new LocalImmutableAuditEvidenceStore();
+        var application = new FoundationRestApplication(CreateAudit(auditStore, clock), timeProvider: clock);
 
-        var opened = await sessions.OpenAsync(requestContext, "incident diagnosis", "support.tenant.read", TimeSpan.FromHours(2));
-        Assert.True(opened.Succeeded);
-        Assert.NotNull(opened.Session);
-        Assert.Equal(SupportAccessSessionState.Active, opened.Session!.State);
-        Assert.Equal(clock.GetUtcNow().AddHours(1), opened.Session.ExpiresAt);
-        Assert.Null(typeof(SupportAccessSession).GetMethod("CreateTenantContext"));
+        var result = await application.ReadSupportContextAsync(requestContext, "corr-support-mesp140");
 
-        clock.Advance(TimeSpan.FromHours(1));
-        var expired = await sessions.RevalidateAsync(requestContext, opened.Session.SessionId);
-        Assert.False(expired.Succeeded);
-        Assert.Equal("support_session_expired", expired.SafeCode);
+        Assert.True(result.Succeeded);
+        var evidence = Assert.Single(await auditStore.ReadForTenantAsync(supportContext));
+        Assert.Equal("foundation.support-context.read", evidence.OperationId);
+        Assert.Equal(FoundationAuditAuthorizationPath.SupportGrant, evidence.AuthorizationPath);
+        Assert.Equal(grantId, evidence.SupportGrantId);
+        Assert.Equal(caseId, evidence.SupportCaseId);
+        Assert.Equal("support-context-read", evidence.Purpose);
 
-        clock = new ManualTimeProvider(new DateTimeOffset(2026, 9, 8, 15, 0, 0, TimeSpan.Zero));
-        validator = new MutableSupportValidator(clock, clock.GetUtcNow().AddHours(1));
-        sessions = new SupportAccessSessionStore(validator, clock);
-        opened = await sessions.OpenAsync(requestContext, "incident diagnosis", "support.tenant.read", TimeSpan.FromMinutes(30));
-        Assert.True(opened.Succeeded);
-        Assert.True(sessions.Revoke(requestContext, opened.Session!.SessionId));
-        var revoked = await sessions.RevalidateAsync(requestContext, opened.Session.SessionId);
-        Assert.False(revoked.Succeeded);
-        Assert.Equal("support_session_revoked", revoked.SafeCode);
+        var ordinary = FoundationRequestContext.ForTenant(
+            actor,
+            sessionId,
+            TenantContext.ForOrdinaryMembership(
+                tenant,
+                new MembershipReference(Guid.NewGuid()),
+                new ScopeReference("Tenant"),
+                new CorrelationId("corr-support-denied"),
+                actor),
+            "support.tenant.read");
+        var denied = await application.ReadSupportContextAsync(ordinary, "corr-support-denied");
+        Assert.False(denied.Succeeded);
     }
 
     private static FoundationAuditCoordinator CreateAudit(LocalImmutableAuditEvidenceStore store, TimeProvider clock) =>
         new(store, new LocalFoundationAuditTelemetrySink(), new LocalFoundationAuditOperationalSignalSink(), clock);
+
+    private static async Task<HttpResponseMessage> PostNotificationAsync(
+        HttpClient client,
+        NotificationDispatchRequest request,
+        string antiForgeryToken)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, "/api/v1/notifications")
+        {
+            Content = JsonContent.Create(request)
+        };
+        message.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", antiForgeryToken);
+        return await client.SendAsync(message);
+    }
 
     private static FoundationRequestContext OrdinaryRequestContext(TenantId tenant, Guid actor, Guid session, string scope) =>
         FoundationRequestContext.ForTenant(actor, session, OrdinaryTenantContext(tenant, actor, scope), "tenant.audit.read");
@@ -224,27 +324,120 @@ public sealed class Mesp140CrossCuttingControlTests
                 new VerifiedNotificationRecipient(currentTenantContext.TenantId, recipient.UserId)));
     }
 
-    private sealed class MutableSupportValidator : ISupportAccessContextValidator
+    private sealed class NotificationApiFactory : WebApplicationFactory<Program>
     {
-        private readonly ManualTimeProvider clock;
-        private readonly DateTimeOffset grantExpiresAt;
+        internal readonly NotificationApiResolver Resolver = new();
+        internal readonly NotificationScopeResolver ScopeResolver = new();
+        internal readonly NotificationRecipientAuthorizer RecipientAuthorizer = new();
+        internal readonly LocalImmutableAuditEvidenceStore AuditStore = new();
+        internal readonly RecordingNotificationAdapter Adapter;
+        internal readonly FoundationRequestContext Context;
 
-        public MutableSupportValidator(ManualTimeProvider clock, DateTimeOffset grantExpiresAt)
+        internal NotificationApiFactory()
         {
-            this.clock = clock;
-            this.grantExpiresAt = grantExpiresAt;
+            var tenant = new TenantId(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
+            var actor = Guid.Parse("11111111-1111-1111-1111-111111111111");
+            Context = FoundationRequestContext.ForTenant(
+                actor,
+                Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                TenantContext.ForOrdinaryMembership(
+                    tenant,
+                    new MembershipReference(Guid.Parse("44444444-4444-4444-4444-444444444444")),
+                    new ScopeReference("Tenant"),
+                    new CorrelationId("corr-http-notification-mesp140"),
+                    actor),
+                "tenant.notification.dispatch");
+            Resolver.Context = Context;
+            Adapter = new RecordingNotificationAdapter(AuditStore);
         }
 
-        public ValueTask<SupportAccessValidationResult> ValidateAsync(
-            FoundationRequestContext trustedRequestContext,
-            string purpose,
-            string permission,
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["MESP_SQLSERVER_CONNECTION_STRING"] = " "
+                });
+            });
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<ITrustedRequestContextResolver>();
+                services.AddSingleton<ITrustedRequestContextResolver>(Resolver);
+                services.RemoveAll<IOrganizationScopeOwnershipResolver>();
+                services.AddSingleton<IOrganizationScopeOwnershipResolver>(ScopeResolver);
+                services.RemoveAll<INotificationRecipientAuthorizer>();
+                services.AddSingleton<INotificationRecipientAuthorizer>(RecipientAuthorizer);
+                services.RemoveAll<INotificationDeliveryAdapter>();
+                services.AddSingleton<INotificationDeliveryAdapter>(Adapter);
+                services.RemoveAll<IFoundationAuditEvidenceSink>();
+                services.AddSingleton<IFoundationAuditEvidenceSink>(AuditStore);
+            });
+        }
+    }
+
+    private sealed class NotificationApiResolver : ITrustedRequestContextResolver
+    {
+        internal FoundationRequestContext Context { get; set; } = FoundationRequestContext.Unauthenticated();
+
+        public ValueTask<FoundationRequestContext> ResolveAsync(HttpContext httpContext, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(Context);
+    }
+
+    private sealed class NotificationScopeResolver : IOrganizationScopeOwnershipResolver
+    {
+        internal bool Allowed { get; set; } = true;
+
+        public TenantWorkScopeResolution Resolve(TenantContext trustedTenantContext, TenantWorkScopeRequest requestedScope) =>
+            Allowed
+                ? TenantWorkScopeResolution.Resolved(TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, requestedScope))
+                : TenantWorkScopeResolution.Denied("scope_denied");
+    }
+
+    private sealed class NotificationRecipientAuthorizer : INotificationRecipientAuthorizer
+    {
+        internal bool Allowed { get; set; } = true;
+
+        public ValueTask<NotificationRecipientAuthorizationResult> AuthorizeAsync(
+            TenantContext currentTenantContext,
+            NotificationRecipientReference recipient,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(Allowed
+                ? NotificationRecipientAuthorizationResult.Approved(
+                    new VerifiedNotificationRecipient(currentTenantContext.TenantId, recipient.UserId))
+                : NotificationRecipientAuthorizationResult.Denied("recipient_denied"));
+    }
+
+    private sealed class RecordingNotificationAdapter : INotificationDeliveryAdapter
+    {
+        private readonly LocalImmutableAuditEvidenceStore auditStore;
+        private readonly InMemoryNotificationAdapter local = new();
+        private readonly UnavailableNotificationDeliveryAdapter unavailable = new();
+
+        internal RecordingNotificationAdapter(LocalImmutableAuditEvidenceStore auditStore) => this.auditStore = auditStore;
+
+        internal bool UseProvider { get; set; } = true;
+        internal bool ThrowOnEffect { get; set; }
+        internal int EffectCallCount { get; private set; }
+        internal int AuditEvidenceCountAtFirstEffect { get; private set; }
+
+        public async ValueTask<NotificationDeliveryResult> DeliverAsync(
+            TenantContext tenantContext,
+            TenantNotificationIntent intent,
             CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(clock.GetUtcNow() >= grantExpiresAt
-                ? new SupportAccessValidationResult(SupportAccessValidationState.Expired, grantExpiresAt, "support_expired")
-                : new SupportAccessValidationResult(SupportAccessValidationState.Active, grantExpiresAt, "support_active"));
+            EffectCallCount++;
+            AuditEvidenceCountAtFirstEffect = Math.Max(
+                AuditEvidenceCountAtFirstEffect,
+                (await auditStore.ReadForTenantAsync(tenantContext, cancellationToken)).Count);
+            if (ThrowOnEffect)
+            {
+                throw new InvalidOperationException("test adapter failure");
+            }
+
+            return UseProvider
+                ? await local.DeliverAsync(tenantContext, intent, cancellationToken)
+                : await unavailable.DeliverAsync(tenantContext, intent, cancellationToken);
         }
     }
 

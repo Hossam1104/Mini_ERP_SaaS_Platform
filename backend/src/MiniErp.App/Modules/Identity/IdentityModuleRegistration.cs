@@ -30,9 +30,6 @@ public static class IdentityModuleRegistration
             serviceProvider.GetRequiredService<IdentityAuthorizationService>());
         services.AddSingleton<INotificationRecipientAuthorizer>(serviceProvider =>
             serviceProvider.GetRequiredService<IdentityAuthorizationService>());
-        services.AddSingleton<ISupportAccessContextValidator>(serviceProvider =>
-            serviceProvider.GetRequiredService<IdentityAuthorizationService>());
-        services.AddSingleton<SupportAccessSessionStore>();
         services.AddSingleton<IAuthenticationAssuranceEvidenceSource, UnavailableAuthenticationAssuranceEvidenceSource>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ITenantDisplayNameProvider, ConfiguredTenantDisplayNameProvider>();

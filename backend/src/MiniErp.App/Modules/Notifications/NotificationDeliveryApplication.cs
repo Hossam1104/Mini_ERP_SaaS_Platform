@@ -19,6 +19,22 @@ public enum NotificationRequestOutcome
     Unknown = 8
 }
 
+/// <summary>Authorized Release-1 notification request; contact data is never accepted.</summary>
+public sealed record NotificationDispatchRequest(
+    Guid RecipientUserId,
+    string? Template,
+    string? Locale,
+    string? IdempotencyKey);
+
+/// <summary>Safe public outcome for the notification dispatch operation.</summary>
+public sealed record NotificationDispatchResponse(
+    NotificationRequestOutcome Outcome,
+    Guid? IntentId,
+    NotificationDeliveryState? DeliveryState,
+    DurableWorkFailureCategory FailureCategory,
+    string SafeCode,
+    string EvidenceSource);
+
 /// <summary>Safe result for one Tenant-bound notification request.</summary>
 public sealed record NotificationDispatchResult(
     NotificationRequestOutcome Outcome,
@@ -148,6 +164,8 @@ public sealed class NotificationDeliveryApplication
                 targetType: "notification-intent",
                 targetReference: intent.IntentId.ToString("N"),
                 changeSummary: "delivery adapter unavailable",
+                retryOfEvidenceId: requestedEvidence.Evidence?.EvidenceId,
+                attempt: 2,
                 cancellationToken: cancellationToken);
             return new(NotificationRequestOutcome.Unknown, intent.IntentId, intent.DeliveryState, DurableWorkFailureCategory.Unknown, "delivery_outcome_unknown", "adapter", requestedEvidence.Evidence);
         }
@@ -180,8 +198,10 @@ public sealed class NotificationDeliveryApplication
             targetType: "notification-intent",
             targetReference: intent.IntentId.ToString("N"),
             changeSummary: delivery.SafeOutcome,
-            retryOfEvidenceId: decision == FoundationAuditDecision.Retry ? requestedEvidence.Evidence?.EvidenceId : null,
-            attempt: decision == FoundationAuditDecision.Retry ? 2 : 1,
+            retryOfEvidenceId: decision is FoundationAuditDecision.Retry or FoundationAuditDecision.EffectFailed
+                ? requestedEvidence.Evidence?.EvidenceId
+                : null,
+            attempt: decision is FoundationAuditDecision.Retry or FoundationAuditDecision.EffectFailed ? 2 : 1,
             cancellationToken: cancellationToken);
 
         return new(

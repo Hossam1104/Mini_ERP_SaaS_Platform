@@ -80,7 +80,8 @@ public enum PrivateFileAccessOutcome
     Expired = 4,
     ChecksumFailed = 5,
     ConcurrencyConflict = 6,
-    Disposed = 7
+    Disposed = 7,
+    SafetyBlocked = 8
 }
 
 /// <summary>Marker for a handler-specific, typed durable-work payload.</summary>
