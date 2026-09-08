@@ -6,7 +6,8 @@ baseline is `origin/main` =
 `76c7885282eeccde2f114aaabd268b0389754ff4`. Work is bounded to branch
 `feat/MESP-140-cross-cutting-controls` in the dedicated worktree
 `D:\\AI Tools\\Active Projects\\Mini_ERP_SaaS_Platform-MESP-140`. The
-executor must finish with one Open/Draft/Unmerged PR against `main`, then
+the implementation is published as PR **#89**, the one Open/Draft/Unmerged PR
+against `main`; then
 stop for independent GPT-5.6 Sol review. No Ready transition, merge,
 auto-merge, review request, rebase, force-push, Jira mutation, provider
 credential, or next-capability activation is authorized.

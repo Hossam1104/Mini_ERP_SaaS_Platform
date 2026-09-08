@@ -12,7 +12,7 @@ lifecycle facts.
 |---|---|---|
 | Active implementation capability | **MESP-140** | Activated by Owner-provided task prompt; branch `feat/MESP-140-cross-cutting-controls` |
 | Activation baseline | `76c7885282eeccde2f114aaabd268b0389754ff4` | Exact `origin/main` at activation |
-| MESP-140 lifecycle | **IN PROGRESS / IMPLEMENTED / NOT ACCEPTED** | One Draft PR is required; GPT-5.6 Sol owns acceptance and lifecycle finalization |
+| MESP-140 lifecycle | **IN PROGRESS / IMPLEMENTED / NOT ACCEPTED** | PR **#89** is Open / Draft / Unmerged; GPT-5.6 Sol owns acceptance and lifecycle finalization |
 | Accepted fast-track capability completion | **23 / 26 = 88.5%** | MESP-140 is not counted until Sol acceptance, merge, and Jira Done closure |
 | Production readiness - overall | ~**47%** | Unchanged; conservative validated-capability basis, not ticket count |
 | Production readiness - Procurement / P2P | ~**41%** | Unchanged |

@@ -23,7 +23,7 @@
 | Active implementation capability | **MESP-140 - Cross-cutting Security, Audit, Files, Notifications, Localization, and Support** |
 | Capability state | **IN PROGRESS / ACTIVATED** under MESP-9; acceptance remains GPT-5.6 Sol authority |
 | Executor branch / worktree | `feat/MESP-140-cross-cutting-controls` / `D:\\AI Tools\\Active Projects\\Mini_ERP_SaaS_Platform-MESP-140` |
-| Source-control boundary | One PR against `main`, Open / Draft / Unmerged; no Ready, merge, rebase, force-push, or review request |
+| Source-control boundary | PR **#89** against `main`, Open / Draft / Unmerged; no Ready, merge, rebase, force-push, or review request |
 | Next capability | MESP-141 / MESP-142 **inactive** |
 
 ### Audit-first classification and bounded delivery
@@ -64,8 +64,8 @@ authoritative Jira connector is available in this executor.
 ### Current execution boundary
 
 MESP-140 implementation is complete for this bounded handoff and remains
-**not accepted**. The final branch must end with exactly one Open/Draft/
-Unmerged PR against `main`; the executor stops after push and PR verification.
+**not accepted**. PR **#89** is the exactly-one Open/Draft/Unmerged PR against
+`main`; the executor stops after push and PR verification.
 Independent GPT-5.6 Sol review is required before Ready, merge, Jira lifecycle
 finalization, or any next capability.
 
