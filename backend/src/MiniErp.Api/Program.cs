@@ -925,6 +925,7 @@ app.MapPost("/api/v1/notifications", async (
         HttpContext httpContext,
         ITrustedRequestContextResolver resolver,
         IOrganizationScopeOwnershipResolver scopeOwnership,
+        ICurrentOrganizationScopeResolver currentScope,
         NotificationDeliveryApplication application) =>
     {
         const string operationId = "notification.intent.dispatch";
@@ -936,6 +937,12 @@ app.MapPost("/api/v1/notifications", async (
         if (request is null || request.RecipientUserId == Guid.Empty)
         {
             return (IResult)await WriteProblemAsync(httpContext, StatusCodes.Status400BadRequest, "validation_failed", "Validation failed", "The notification request is invalid.", operationId);
+        }
+
+        var idempotencyKey = httpContext.Request.Headers["Idempotency-Key"].FirstOrDefault();
+        if (!FoundationCorrelation.IsValid(idempotencyKey))
+        {
+            return (IResult)await WriteProblemAsync(httpContext, StatusCodes.Status400BadRequest, "idempotency_key_invalid", "Invalid idempotency key", "A valid Idempotency-Key header is required for this mutation.", operationId);
         }
 
         var context = await resolver.ResolveAsync(httpContext, httpContext.RequestAborted);
@@ -955,7 +962,21 @@ app.MapPost("/api/v1/notifications", async (
                 operationId);
         }
 
-        var scope = scopeOwnership.Resolve(context.TenantContext, TenantWorkScopeRequest.TenantWide());
+        var current = currentScope.ResolveCurrent(context.TenantContext);
+        if (!current.Allowed || current.Scope is null)
+        {
+            return (IResult)await WriteProblemAsync(httpContext, StatusCodes.Status403Forbidden, "scope_denied", "Access denied", "The current organization scope is not authorized.", operationId);
+        }
+
+        var requestedScope = current.Scope.WarehouseId is { } warehouse
+            ? TenantWorkScopeRequest.ForWarehouse(current.Scope.CompanyId!.Value, current.Scope.BranchId!.Value, warehouse)
+            : current.Scope.BranchId is { } branch
+                ? TenantWorkScopeRequest.ForBranch(current.Scope.CompanyId!.Value, branch)
+                : current.Scope.CompanyId is { } company
+                    ? TenantWorkScopeRequest.ForCompany(company)
+                    : TenantWorkScopeRequest.TenantWide();
+
+        var scope = scopeOwnership.Resolve(context.TenantContext, requestedScope);
         if (!scope.Allowed || scope.Scope is null)
         {
             return (IResult)await WriteProblemAsync(httpContext, StatusCodes.Status403Forbidden, "scope_denied", "Access denied", "The notification scope is not authorized.", operationId);
@@ -967,11 +988,12 @@ app.MapPost("/api/v1/notifications", async (
             new NotificationRecipientReference(request.RecipientUserId),
             request.Template ?? string.Empty,
             request.Locale ?? string.Empty,
-            request.IdempotencyKey ?? string.Empty,
+            idempotencyKey!,
             httpContext.RequestAborted);
         var response = ToNotificationResponse(result);
         var statusCode = result.Outcome switch
         {
+            NotificationRequestOutcome.ValidationFailed => StatusCodes.Status400BadRequest,
             NotificationRequestOutcome.Denied => StatusCodes.Status403Forbidden,
             NotificationRequestOutcome.Unavailable or NotificationRequestOutcome.Unknown => StatusCodes.Status503ServiceUnavailable,
             NotificationRequestOutcome.Failed => StatusCodes.Status502BadGateway,

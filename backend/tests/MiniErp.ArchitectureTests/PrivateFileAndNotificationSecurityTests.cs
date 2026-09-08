@@ -49,6 +49,8 @@ public sealed class PrivateFileAndNotificationSecurityTests
 
         Assert.Equal(PrivateFileAccessOutcome.NotFound, foreignResult.Outcome);
         Assert.Equal(missingResult.Outcome, foreignResult.Outcome);
+        Assert.False(foreignResult.Mutated);
+        Assert.False(missingResult.Mutated);
     }
 
     // -------------------------------------------------------------------
@@ -66,6 +68,7 @@ public sealed class PrivateFileAndNotificationSecurityTests
         var result = await storage.OverwriteAsync(context, metadata.ObjectId, metadata.ConcurrencyVersion, Content("new"));
 
         Assert.Equal(PrivateFileAccessOutcome.Expired, result.Outcome);
+        Assert.False(result.Mutated);
         Assert.True(storage.ExistsForValidation(metadata.ObjectId));
     }
 
@@ -80,6 +83,7 @@ public sealed class PrivateFileAndNotificationSecurityTests
         var result = await storage.OverwriteAsync(context, metadata.ObjectId, metadata.ConcurrencyVersion, Content("new"));
 
         Assert.Equal(PrivateFileAccessOutcome.ChecksumFailed, result.Outcome);
+        Assert.False(result.Mutated);
     }
 
     [Fact]
@@ -90,10 +94,20 @@ public sealed class PrivateFileAndNotificationSecurityTests
         var metadata = await storage.StoreAsync(context, DurableWorkTestSupport.TenantWideScope(context), "ok.txt", "text/plain", Content("ok"));
 
         metadata.ScanState = PrivateFileScanState.Clean;
+        var versionBefore = metadata.ConcurrencyVersion;
         var result = await storage.OverwriteAsync(context, metadata.ObjectId, metadata.ConcurrencyVersion, Content("updated"));
 
+        // The write is genuinely applied and quarantined pending new scan
+        // evidence -- SafetyBlocked must never be misread by a caller as "the
+        // mutation failed" (HOLD-140-C): Mutated is true, content stays
+        // withheld, and the concurrency version advances to reflect the
+        // real state change.
         Assert.Equal(PrivateFileAccessOutcome.SafetyBlocked, result.Outcome);
+        Assert.True(result.Mutated);
+        Assert.Null(result.Content);
+        Assert.NotNull(result.Metadata);
         Assert.Equal(PrivateFileScanState.Unavailable, metadata.ScanState);
+        Assert.Equal(versionBefore + 1, metadata.ConcurrencyVersion);
     }
 
     [Theory]
@@ -162,6 +176,7 @@ public sealed class PrivateFileAndNotificationSecurityTests
         var blocked = await storage.ReadAsync(context, metadata.ObjectId);
 
         Assert.Equal(PrivateFileAccessOutcome.SafetyBlocked, overwritten.Outcome);
+        Assert.True(overwritten.Mutated);
         Assert.Null(overwritten.Content);
         Assert.Equal(PrivateFileScanState.Unavailable, metadata.ScanState);
         Assert.Equal(PrivateFileAccessOutcome.SafetyBlocked, blocked.Outcome);
@@ -180,6 +195,7 @@ public sealed class PrivateFileAndNotificationSecurityTests
 
         Assert.Equal(PrivateFileAccessOutcome.Expired, read.Outcome);
         Assert.Equal(PrivateFileAccessOutcome.Expired, overwrite.Outcome);
+        Assert.False(overwrite.Mutated);
     }
 
     [Fact]
@@ -198,6 +214,7 @@ public sealed class PrivateFileAndNotificationSecurityTests
 
         Assert.Equal(PrivateFileAccessOutcome.ChecksumFailed, read.Outcome);
         Assert.Equal(PrivateFileAccessOutcome.ChecksumFailed, overwrite.Outcome);
+        Assert.False(overwrite.Mutated);
     }
 
     [Fact]
@@ -217,6 +234,7 @@ public sealed class PrivateFileAndNotificationSecurityTests
         Assert.Equal(PrivateFileAccessOutcome.Disposed, overwrite.Outcome);
         Assert.False(read.Allowed);
         Assert.False(overwrite.Allowed);
+        Assert.False(overwrite.Mutated);
     }
 
     [Fact]
@@ -232,6 +250,7 @@ public sealed class PrivateFileAndNotificationSecurityTests
         var read = await storage.ReadAsync(context, metadata.ObjectId);
 
         Assert.False(overwrite.Allowed);
+        Assert.False(overwrite.Mutated);
         Assert.Equal(versionBefore, metadata.ConcurrencyVersion);
         Assert.Equal(PrivateFileAccessOutcome.Expired, read.Outcome);
     }
@@ -435,6 +454,11 @@ public sealed class PrivateFileAndNotificationSecurityTests
 
         var overwritten = await storage.OverwriteAsync(context, metadata.ObjectId, metadata.ConcurrencyVersion, Content("v2"));
         Assert.Equal(PrivateFileAccessOutcome.SafetyBlocked, overwritten.Outcome);
+        // Bytes are genuinely persisted despite the quarantine outcome; the
+        // caller must be told the mutation applied (Mutated true) rather than
+        // being falsely told it failed, which is exactly what this test's
+        // downstream Clean-evidence read proves happened to the content.
+        Assert.True(overwritten.Mutated);
         metadata.ScanState = PrivateFileScanState.Clean;
         var read = await storage.ReadAsync(context, metadata.ObjectId);
 

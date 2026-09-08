@@ -16,15 +16,26 @@ public enum NotificationRequestOutcome
     Failed = 5,
     Unavailable = 6,
     Suppressed = 7,
-    Unknown = 8
+    Unknown = 8,
+
+    /// <summary>
+    /// The request failed structural/content validation (template, locale, or
+    /// idempotency key shape) before authorization was even evaluated. Safe
+    /// HTTP 400, distinct from the 403 <see cref="Denied"/> outcome used for
+    /// scope/recipient authorization failures.
+    /// </summary>
+    ValidationFailed = 9
 }
 
-/// <summary>Authorized Release-1 notification request; contact data is never accepted.</summary>
+/// <summary>
+/// Authorized Release-1 notification request; contact data is never accepted.
+/// The idempotency key is never accepted from the request body -- the
+/// canonical <c>Idempotency-Key</c> HTTP header is the sole authoritative key.
+/// </summary>
 public sealed record NotificationDispatchRequest(
     Guid RecipientUserId,
     string? Template,
-    string? Locale,
-    string? IdempotencyKey);
+    string? Locale);
 
 /// <summary>Safe public outcome for the notification dispatch operation.</summary>
 public sealed record NotificationDispatchResponse(
@@ -122,7 +133,14 @@ public sealed class NotificationDeliveryApplication
         }
         catch (ArgumentException)
         {
-            return await DeniedAsync(requestContext, recipient, "validation_failed", FoundationAuditReason.ValidationFailed, cancellationToken);
+            return await DeniedAsync(
+                requestContext,
+                recipient,
+                "validation_failed",
+                FoundationAuditReason.ValidationFailed,
+                cancellationToken,
+                outcome: NotificationRequestOutcome.ValidationFailed,
+                failureCategory: DurableWorkFailureCategory.ValidationFailed);
         }
 
         var requestedEvidence = await audit.RecordAsync(
@@ -219,7 +237,9 @@ public sealed class NotificationDeliveryApplication
         NotificationRecipientReference recipient,
         string code,
         FoundationAuditReason reason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        NotificationRequestOutcome outcome = NotificationRequestOutcome.Denied,
+        DurableWorkFailureCategory failureCategory = DurableWorkFailureCategory.AuthorizationDenied)
     {
         var evidence = await audit.RecordAsync(
             context,
@@ -233,10 +253,10 @@ public sealed class NotificationDeliveryApplication
             changeSummary: code,
             cancellationToken: cancellationToken);
         return new(
-            evidence.Succeeded ? NotificationRequestOutcome.Denied : NotificationRequestOutcome.Unavailable,
+            evidence.Succeeded ? outcome : NotificationRequestOutcome.Unavailable,
             null,
             null,
-            DurableWorkFailureCategory.AuthorizationDenied,
+            failureCategory,
             evidence.Succeeded ? code : "audit_evidence_unavailable",
             "none",
             evidence.Evidence);

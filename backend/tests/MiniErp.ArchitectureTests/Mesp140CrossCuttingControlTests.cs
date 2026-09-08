@@ -174,10 +174,9 @@ public sealed class Mesp140CrossCuttingControlTests
         var request = new NotificationDispatchRequest(
             Guid.Parse("33333333-3333-3333-3333-333333333333"),
             "invoice-ready",
-            "en",
-            "http-notification-mesp140-1");
+            "en");
 
-        var first = await PostNotificationAsync(client, request, antiForgeryToken);
+        var first = await PostNotificationAsync(client, request, antiForgeryToken, "http-notification-mesp140-1");
         Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
         var firstBody = await first.Content.ReadFromJsonAsync<NotificationDispatchResponse>();
         Assert.NotNull(firstBody);
@@ -185,7 +184,7 @@ public sealed class Mesp140CrossCuttingControlTests
         Assert.Equal("local-test-adapter", firstBody.EvidenceSource);
         Assert.Equal(1, factory.Adapter.AuditEvidenceCountAtFirstEffect);
 
-        var duplicate = await PostNotificationAsync(client, request, antiForgeryToken);
+        var duplicate = await PostNotificationAsync(client, request, antiForgeryToken, "http-notification-mesp140-1");
         Assert.Equal(HttpStatusCode.Accepted, duplicate.StatusCode);
         var duplicateBody = await duplicate.Content.ReadFromJsonAsync<NotificationDispatchResponse>();
         Assert.NotNull(duplicateBody);
@@ -193,11 +192,27 @@ public sealed class Mesp140CrossCuttingControlTests
         Assert.Equal("duplicate", duplicateBody.SafeCode);
         Assert.Equal(2, factory.Adapter.EffectCallCount);
 
+        var missingIdempotencyKey = await PostNotificationAsync(client, request, antiForgeryToken, idempotencyKey: null);
+        Assert.Equal(HttpStatusCode.BadRequest, missingIdempotencyKey.StatusCode);
+        Assert.Equal(2, factory.Adapter.EffectCallCount);
+
+        var invalidValidation = await PostNotificationAsync(
+            client,
+            request with { Locale = "fr-invalid" },
+            antiForgeryToken,
+            "http-notification-mesp140-validation-failed");
+        Assert.Equal(HttpStatusCode.BadRequest, invalidValidation.StatusCode);
+        var invalidValidationBody = await invalidValidation.Content.ReadFromJsonAsync<NotificationDispatchResponse>();
+        Assert.NotNull(invalidValidationBody);
+        Assert.Equal(NotificationRequestOutcome.ValidationFailed, invalidValidationBody.Outcome);
+        Assert.Equal(2, factory.Adapter.EffectCallCount);
+
         factory.RecipientAuthorizer.Allowed = false;
         var recipientDenied = await PostNotificationAsync(
             client,
-            request with { IdempotencyKey = "http-notification-mesp140-recipient-denied" },
-            antiForgeryToken);
+            request,
+            antiForgeryToken,
+            "http-notification-mesp140-recipient-denied");
         Assert.Equal(HttpStatusCode.Forbidden, recipientDenied.StatusCode);
         Assert.Equal(2, factory.Adapter.EffectCallCount);
 
@@ -205,8 +220,9 @@ public sealed class Mesp140CrossCuttingControlTests
         factory.ScopeResolver.Allowed = false;
         var scopeDenied = await PostNotificationAsync(
             client,
-            request with { IdempotencyKey = "http-notification-mesp140-scope-denied" },
-            antiForgeryToken);
+            request,
+            antiForgeryToken,
+            "http-notification-mesp140-scope-denied");
         Assert.Equal(HttpStatusCode.Forbidden, scopeDenied.StatusCode);
         Assert.Equal(2, factory.Adapter.EffectCallCount);
 
@@ -214,8 +230,9 @@ public sealed class Mesp140CrossCuttingControlTests
         factory.Adapter.UseProvider = false;
         var unavailable = await PostNotificationAsync(
             client,
-            request with { IdempotencyKey = "http-notification-mesp140-no-provider" },
-            antiForgeryToken);
+            request,
+            antiForgeryToken,
+            "http-notification-mesp140-no-provider");
         Assert.Equal(HttpStatusCode.ServiceUnavailable, unavailable.StatusCode);
         var unavailableBody = await unavailable.Content.ReadFromJsonAsync<NotificationDispatchResponse>();
         Assert.NotNull(unavailableBody);
@@ -226,8 +243,9 @@ public sealed class Mesp140CrossCuttingControlTests
         factory.Adapter.ThrowOnEffect = true;
         var unknown = await PostNotificationAsync(
             client,
-            request with { IdempotencyKey = "http-notification-mesp140-unknown" },
-            antiForgeryToken);
+            request,
+            antiForgeryToken,
+            "http-notification-mesp140-unknown");
         Assert.Equal(HttpStatusCode.ServiceUnavailable, unknown.StatusCode);
         var unknownBody = await unknown.Content.ReadFromJsonAsync<NotificationDispatchResponse>();
         Assert.NotNull(unknownBody);
@@ -239,6 +257,30 @@ public sealed class Mesp140CrossCuttingControlTests
         Assert.Contains(evidence, item => item.OperationId == "notification.intent.dispatch" && item.ChangeSummary == "duplicate");
         Assert.Contains(evidence, item => item.OperationId == "notification.intent.dispatch" && item.ChangeSummary == "provider_unavailable");
         Assert.Contains(evidence, item => item.OperationId == "notification.intent.dispatch" && item.Decision == FoundationAuditDecision.EffectFailed);
+    }
+
+    [Fact]
+    public async Task Notification_http_dispatch_uses_the_caller_current_scope_not_a_hardcoded_tenant_wide_scope()
+    {
+        using var factory = new NotificationApiFactory();
+        var companyId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+        var branchId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+        factory.ScopeResolver.CurrentScopeRequest = TenantWorkScopeRequest.ForBranch(companyId, branchId);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = true });
+        var antiForgery = await client.GetAsync("/api/v1/auth/antiforgery");
+        var antiForgeryToken = antiForgery.Headers.GetValues("X-CSRF-TOKEN").Single();
+        var request = new NotificationDispatchRequest(
+            Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            "invoice-ready",
+            "en");
+
+        var response = await PostNotificationAsync(client, request, antiForgeryToken, "http-notification-mesp140-scope-preserved");
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.NotNull(factory.ScopeResolver.LastResolvedRequest);
+        Assert.Equal(companyId, factory.ScopeResolver.LastResolvedRequest!.CompanyId);
+        Assert.Equal(branchId, factory.ScopeResolver.LastResolvedRequest!.BranchId);
+        Assert.Null(factory.ScopeResolver.LastResolvedRequest!.WarehouseId);
     }
 
     [Fact]
@@ -290,13 +332,19 @@ public sealed class Mesp140CrossCuttingControlTests
     private static async Task<HttpResponseMessage> PostNotificationAsync(
         HttpClient client,
         NotificationDispatchRequest request,
-        string antiForgeryToken)
+        string antiForgeryToken,
+        string? idempotencyKey)
     {
         using var message = new HttpRequestMessage(HttpMethod.Post, "/api/v1/notifications")
         {
             Content = JsonContent.Create(request)
         };
         message.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", antiForgeryToken);
+        if (idempotencyKey is not null)
+        {
+            message.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+        }
+
         return await client.SendAsync(message);
     }
 
@@ -366,6 +414,8 @@ public sealed class Mesp140CrossCuttingControlTests
                 services.AddSingleton<ITrustedRequestContextResolver>(Resolver);
                 services.RemoveAll<IOrganizationScopeOwnershipResolver>();
                 services.AddSingleton<IOrganizationScopeOwnershipResolver>(ScopeResolver);
+                services.RemoveAll<ICurrentOrganizationScopeResolver>();
+                services.AddSingleton<ICurrentOrganizationScopeResolver>(ScopeResolver);
                 services.RemoveAll<INotificationRecipientAuthorizer>();
                 services.AddSingleton<INotificationRecipientAuthorizer>(RecipientAuthorizer);
                 services.RemoveAll<INotificationDeliveryAdapter>();
@@ -384,13 +434,25 @@ public sealed class Mesp140CrossCuttingControlTests
             ValueTask.FromResult(Context);
     }
 
-    private sealed class NotificationScopeResolver : IOrganizationScopeOwnershipResolver
+    private sealed class NotificationScopeResolver : IOrganizationScopeOwnershipResolver, ICurrentOrganizationScopeResolver
     {
         internal bool Allowed { get; set; } = true;
 
-        public TenantWorkScopeResolution Resolve(TenantContext trustedTenantContext, TenantWorkScopeRequest requestedScope) =>
-            Allowed
+        internal TenantWorkScopeRequest CurrentScopeRequest { get; set; } = TenantWorkScopeRequest.TenantWide();
+
+        internal TenantWorkScopeRequest? LastResolvedRequest { get; private set; }
+
+        public TenantWorkScopeResolution Resolve(TenantContext trustedTenantContext, TenantWorkScopeRequest requestedScope)
+        {
+            LastResolvedRequest = requestedScope;
+            return Allowed
                 ? TenantWorkScopeResolution.Resolved(TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, requestedScope))
+                : TenantWorkScopeResolution.Denied("scope_denied");
+        }
+
+        public TenantWorkScopeResolution ResolveCurrent(TenantContext trustedTenantContext) =>
+            Allowed
+                ? TenantWorkScopeResolution.Resolved(TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, CurrentScopeRequest))
                 : TenantWorkScopeResolution.Denied("scope_denied");
     }
 

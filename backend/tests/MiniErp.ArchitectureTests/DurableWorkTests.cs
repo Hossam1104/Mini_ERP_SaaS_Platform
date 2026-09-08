@@ -497,6 +497,7 @@ public sealed class DurableWorkTests
         var metadata = await storage.StoreAsync(tenantB, DurableWorkTestSupport.TenantWideScope(tenantB), "private.txt", "text/plain", Content("secret"));
         var result = await storage.OverwriteAsync(CreateContext(), metadata.ObjectId, metadata.ConcurrencyVersion, Content("forged"));
         Assert.Equal(PrivateFileAccessOutcome.NotFound, result.Outcome);
+        Assert.False(result.Mutated);
     }
 
     [Fact]
@@ -547,6 +548,8 @@ public sealed class DurableWorkTests
         var stale = await storage.OverwriteAsync(context, metadata.ObjectId, staleVersion, Content("stale"));
         Assert.Equal(PrivateFileAccessOutcome.SafetyBlocked, first.Outcome);
         Assert.Equal(PrivateFileAccessOutcome.ConcurrencyConflict, stale.Outcome);
+        Assert.True(first.Mutated);
+        Assert.False(stale.Mutated);
     }
 
     [Fact]

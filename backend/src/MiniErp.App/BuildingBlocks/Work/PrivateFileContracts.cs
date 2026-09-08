@@ -104,6 +104,66 @@ public sealed class PrivateFileAccessResult
         new(outcome, null, null);
 }
 
+/// <summary>
+/// Safe result of a private-file overwrite. Unlike <see cref="PrivateFileAccessResult"/>,
+/// this distinguishes a rejected precondition that left storage untouched from
+/// a genuine mutation whose new content is quarantined pending external scan
+/// evidence -- so a caller is never told a mutation failed when it actually
+/// applied.
+/// </summary>
+public sealed class PrivateFileOverwriteResult
+{
+    private PrivateFileOverwriteResult(
+        PrivateFileAccessOutcome outcome,
+        bool mutated,
+        PrivateFileMetadata? metadata,
+        byte[]? content)
+    {
+        Outcome = outcome;
+        Mutated = mutated;
+        Metadata = metadata;
+        Content = content;
+    }
+
+    public PrivateFileAccessOutcome Outcome { get; }
+
+    /// <summary>
+    /// True when this call actually replaced the stored bytes/metadata,
+    /// regardless of whether the new content is safe to read yet. False for
+    /// every precondition failure (foreign Tenant, missing object, expired,
+    /// disposed, checksum failure, stale concurrency version), none of which
+    /// touch storage.
+    /// </summary>
+    public bool Mutated { get; }
+
+    /// <summary>
+    /// Safe post-mutation metadata (including the new <see cref="PrivateFileMetadata.ConcurrencyVersion"/>
+    /// and <see cref="PrivateFileMetadata.ScanState"/>) whenever <see cref="Mutated"/>
+    /// is true; never populated for a non-mutating precondition failure.
+    /// </summary>
+    public PrivateFileMetadata? Metadata { get; }
+
+    /// <summary>Content is returned only for an allowed same-Tenant overwrite whose
+    /// safety requirement does not gate on external scan evidence. Never populated
+    /// for quarantined content, even though the mutation itself succeeded.</summary>
+    public byte[]? Content { get; }
+
+    public bool Allowed => Outcome == PrivateFileAccessOutcome.Allowed;
+
+    internal static PrivateFileOverwriteResult AllowedResult(PrivateFileMetadata metadata, byte[] content) =>
+        new(PrivateFileAccessOutcome.Allowed, mutated: true, metadata, content);
+
+    /// <summary>The mutation succeeded (new bytes, hash, length and concurrency
+    /// version are already stored) but the replacement content requires fresh
+    /// external scan evidence before it can be read, so no content is exposed.</summary>
+    internal static PrivateFileOverwriteResult MutatedQuarantined(PrivateFileMetadata metadata) =>
+        new(PrivateFileAccessOutcome.SafetyBlocked, mutated: true, metadata, content: null);
+
+    /// <summary>A precondition failed before any mutation was attempted; storage is unchanged.</summary>
+    internal static PrivateFileOverwriteResult Denied(PrivateFileAccessOutcome outcome) =>
+        new(outcome, mutated: false, null, null);
+}
+
 /// <summary>Private object-storage abstraction with no public or anonymous path.</summary>
 public interface IPrivateObjectStorage
 {
@@ -122,7 +182,7 @@ public interface IPrivateObjectStorage
         Guid objectId,
         CancellationToken cancellationToken = default);
 
-    ValueTask<PrivateFileAccessResult> OverwriteAsync(
+    ValueTask<PrivateFileOverwriteResult> OverwriteAsync(
         TenantContext tenantContext,
         Guid objectId,
         long expectedConcurrencyVersion,
@@ -260,7 +320,7 @@ public sealed class InMemoryPrivateObjectStorage : IPrivateObjectStorage
         }
     }
 
-    public async ValueTask<PrivateFileAccessResult> OverwriteAsync(
+    public async ValueTask<PrivateFileOverwriteResult> OverwriteAsync(
         TenantContext tenantContext,
         Guid objectId,
         long expectedConcurrencyVersion,
@@ -271,7 +331,7 @@ public sealed class InMemoryPrivateObjectStorage : IPrivateObjectStorage
         ArgumentNullException.ThrowIfNull(content);
         if (expectedConcurrencyVersion < 1)
         {
-            return PrivateFileAccessResult.Denied(PrivateFileAccessOutcome.ConcurrencyConflict);
+            return PrivateFileOverwriteResult.Denied(PrivateFileAccessOutcome.ConcurrencyConflict);
         }
 
         var bytes = await ReadBytesAsync(content, cancellationToken);
@@ -279,7 +339,7 @@ public sealed class InMemoryPrivateObjectStorage : IPrivateObjectStorage
         {
             if (!objects.TryGetValue(objectId, out var stored))
             {
-                return PrivateFileAccessResult.Denied(PrivateFileAccessOutcome.NotFound);
+                return PrivateFileOverwriteResult.Denied(PrivateFileAccessOutcome.NotFound);
             }
 
             if (stored.Metadata.TenantId != tenantContext.TenantId)
@@ -287,16 +347,17 @@ public sealed class InMemoryPrivateObjectStorage : IPrivateObjectStorage
                 // Same fold as ReadAsync: a foreign object must not be
                 // distinguishable from a missing one to the caller (M-1).
                 accessEvidence.Add((tenantContext.TenantId, objectId, PrivateFileAccessOutcome.TenantDenied));
-                return PrivateFileAccessResult.Denied(PrivateFileAccessOutcome.NotFound);
+                return PrivateFileOverwriteResult.Denied(PrivateFileAccessOutcome.NotFound);
             }
 
             // An object in any prohibited lifecycle state fails closed instead
             // of being silently overwritten (M-4), reported with its exact
-            // classification rather than a generic Expired (M93-02).
+            // classification rather than a generic Expired (M93-02). None of
+            // these preconditions mutate storage.
             if (EvaluateLifecycleOutcome(stored.Metadata, timeProvider.GetUtcNow()) is { } lifecycleOutcome)
             {
                 accessEvidence.Add((tenantContext.TenantId, objectId, lifecycleOutcome));
-                return PrivateFileAccessResult.Denied(lifecycleOutcome);
+                return PrivateFileOverwriteResult.Denied(lifecycleOutcome);
             }
 
             var existingChecksum = Convert.ToHexString(SHA256.HashData(stored.Content));
@@ -304,15 +365,18 @@ public sealed class InMemoryPrivateObjectStorage : IPrivateObjectStorage
             {
                 stored.Metadata.Disposition = PrivateFileDisposition.ChecksumFailed;
                 accessEvidence.Add((tenantContext.TenantId, objectId, PrivateFileAccessOutcome.ChecksumFailed));
-                return PrivateFileAccessResult.Denied(PrivateFileAccessOutcome.ChecksumFailed);
+                return PrivateFileOverwriteResult.Denied(PrivateFileAccessOutcome.ChecksumFailed);
             }
 
             if (stored.Metadata.ConcurrencyVersion != expectedConcurrencyVersion)
             {
                 accessEvidence.Add((tenantContext.TenantId, objectId, PrivateFileAccessOutcome.ConcurrencyConflict));
-                return PrivateFileAccessResult.Denied(PrivateFileAccessOutcome.ConcurrencyConflict);
+                return PrivateFileOverwriteResult.Denied(PrivateFileAccessOutcome.ConcurrencyConflict);
             }
 
+            // From here on the mutation is applied unconditionally: the new
+            // bytes, hash, length and concurrency version are authoritative
+            // regardless of what the safety-requirement branch below reports.
             objects[objectId] = (stored.Metadata, bytes);
             stored.Metadata.Length = bytes.LongLength;
             stored.Metadata.Sha256 = Convert.ToHexString(SHA256.HashData(bytes));
@@ -322,14 +386,17 @@ public sealed class InMemoryPrivateObjectStorage : IPrivateObjectStorage
             {
                 // Replacement bytes are new content. Never carry forward a
                 // prior Clean decision, and never let this local adapter
-                // fabricate scanner approval.
+                // fabricate scanner approval. The mutation above already
+                // succeeded, so this reports quarantine, not mutation
+                // failure -- the caller must not be told to retry a write
+                // that already applied (HOLD-140-C).
                 stored.Metadata.ScanState = PrivateFileScanState.Unavailable;
                 accessEvidence.Add((tenantContext.TenantId, objectId, PrivateFileAccessOutcome.SafetyBlocked));
-                return PrivateFileAccessResult.Denied(PrivateFileAccessOutcome.SafetyBlocked);
+                return PrivateFileOverwriteResult.MutatedQuarantined(stored.Metadata);
             }
 
             accessEvidence.Add((tenantContext.TenantId, objectId, PrivateFileAccessOutcome.Allowed));
-            return PrivateFileAccessResult.AllowedResult(stored.Metadata, bytes.ToArray());
+            return PrivateFileOverwriteResult.AllowedResult(stored.Metadata, bytes.ToArray());
         }
     }
 
