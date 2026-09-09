@@ -871,3 +871,98 @@ Authoritative starting truths:
 ---
 
 # MIGRATION PHASE 2 READY
+
+---
+
+## 32. Phase 2 Continuation Reconciliation — 2026-09-09
+
+### Result
+
+**PARTIAL**. The GitHub Issue identity inventory is complete, but Jira source
+reconciliation and final tracker-authority cutover are not complete. Jira
+remains the authoritative tracker.
+
+### GitHub Issue inventory
+
+- Repository: `Hossam1104/Mini_ERP_SaaS_Platform`.
+- Exact Jira-key coverage: `144/144`, with `0` duplicate keys and `0` missing
+  keys.
+- Existing canonical Issues reused: `77` (`MESP-1` through `MESP-77`).
+- Continuation Issues created: `67` (`MESP-78` through `MESP-144`).
+- All `144` Issues carry the `migrated-from-jira` label.
+- The `67` continuation Issues are explicitly marked
+  `migration-exception`; their bodies do not invent unavailable Jira fields.
+- GitHub lifecycle: `48` closed as historical/completed and `96` left open.
+- Release 1 milestone: applied to `56` Issues, including MESP-138 through
+  MESP-142. MESP-48 and MESP-50 remain open production gates.
+
+### Critical state preserved from the continuation brief
+
+- MESP-138: closed/completed in GitHub, Historical / Accepted, repository
+  evidence retained, Jira acceptance not re-read.
+- MESP-139: closed/completed in GitHub, Historical / Accepted, repository
+  evidence retained, Jira acceptance not re-read.
+- MESP-140: closed/completed in GitHub, Historical / Accepted, repository
+  evidence retained, Jira acceptance not re-read.
+- MESP-141: open, Release 1, Not Activated; no implementation started.
+- MESP-142: open, Release 1, Not Activated; no implementation started.
+- Active implementation capability: NONE.
+- Next capability activation: NOT ACTIVATED.
+
+### GitHub Project
+
+Created Project:
+
+`MESP — Mini ERP SaaS Platform`
+
+URL: `https://github.com/users/Hossam1104/projects/1`
+
+Created fields include Jira Key, Work Type, Priority, Release, Capability
+State, Parent / Epic, Domain, Source, Migration State, and Classification.
+Controlled values include Historical, Accepted, Active, Not Activated, Gate,
+Backlog, and the Release 1 / Post Release 1 classifications. Named views
+created include Current Execution, Remaining Release 1, Production Gates,
+Release 1, Historical Delivered, Epics, Backlog, By Domain, and By Priority.
+
+The last successful Project validation covered all `77` reused Issues and
+their normalized fields. The `67` continuation Issues were created after that
+validation and could not be added/configured because GitHub GraphQL project
+operations began returning a rate-limit/owner-type error. Project filters and
+groupings were not falsely claimed as configured. This is a migration
+exception requiring a retry after the GitHub API limit clears.
+
+### Jira source and unsupported fields
+
+The authoritative Jira site is `https://hossamsqa.atlassian.net`, but the
+active Atlassian connector only exposes a different cloud resource and direct
+access to the authoritative site is unavailable. Therefore:
+
+- Jira items discovered live during this continuation: not determinable from
+  the active connector; the expected `144`-item baseline is retained from the
+  approved Phase 1 reconciliation.
+- Jira items mutated: `0`.
+- Jira comments migrated: `0`; source comment totals are not determinable.
+- Attachments migrated: `0`; attachments discovered are not determinable.
+- Attachment references preserved: `0` available; source is not reconciled.
+- Assignees mapped: `0`; no assignee is invented.
+- Parent/dependency relationships: preserved only where already represented in
+  reused Issue metadata; no unavailable relationship is invented and no new
+  native relationship graph is claimed.
+- Status/priority/type/label exceptions: continuation records retain explicit
+  `Not verified` / `Not defined` / `Not reconciled` values until Jira is
+  reachable.
+
+### Cutover and follow-up
+
+No Jira-to-GitHub authority cutover was performed. No product source,
+`frontend/assets`, runtime behavior, EF migration, or implementation scope was
+changed. No Jira mutation, merge, Ready transition, product PR, or CI claim was
+made; repository CI remains `NONE / NOT CLAIMED`.
+
+Required resume point: restore read access to `hossamsqa.atlassian.net`,
+reconcile all 144 live Jira records including comments, attachments,
+assignees, parents, dependencies, and field values; replace or enrich the
+67 exception Issues without duplicating keys; add/configure those Issues in
+the GitHub Project; validate the named views and workflow fields; then obtain
+the separately authorized cutover decision. Until then, Jira remains
+authority and this manifest remains a partial migration record.
