@@ -966,3 +966,94 @@ assignees, parents, dependencies, and field values; replace or enrich the
 the GitHub Project; validate the named views and workflow fields; then obtain
 the separately authorized cutover decision. Until then, Jira remains
 authority and this manifest remains a partial migration record.
+
+## Phase 2B Full-Fidelity Reconciliation — 10 September 2026
+
+### Result
+
+**PARTIAL**. Jira read access was restored and the canonical GitHub workspace
+was reconciled without Jira mutation, tracker cutover, or product
+implementation. The remaining comment backfill is temporarily limited by
+GitHub's secondary content-creation rate limit, and one Jira attachment is
+preserved as a reference only because attachment bytes were not copied.
+
+### Live Jira source reconciliation
+
+- Jira source: `https://hossamsqa.atlassian.net`, live read successful.
+- Jira inventory: `144` issues; `102` Done, `10` In Progress, `32` To Do.
+- Jira comments discovered: `657`.
+- Jira attachments discovered: `1` (`MiniERPSaaSPlatform_PRD_v1.2.docx` on MESP-16).
+- Jira assignee identities: `Hossam Mohamed` on all `144`; no verified
+  cross-service GitHub identity mapping was asserted, so GitHub assignees
+  remain empty and the limitation is recorded in each Issue body.
+- Jira issue links: `226` Blocks and `104` Relates; `122` Jira parents.
+
+### GitHub canonical Issues
+
+- Exact Jira-key coverage: `144/144` (`MESP-1` through `MESP-144`).
+- Missing keys: `0`.
+- Duplicate keys: `0`.
+- GitHub lifecycle after correction: `102` closed/completed, `42` open.
+- Status corrections: `54` Jira-Done Issues closed with state reason
+  `Completed`; no Jira To Do/In Progress item was closed by this pass.
+- All `144` Issues have readable normalized bodies, live Jira metadata,
+  `migrated-from-jira`, type, priority, and domain labels.
+- All `144` Issues have preserved parent representation where a Jira parent
+  exists (`122/122`) and readable Blocks/Relates relationship metadata
+  (`330` links).
+
+### Labels and milestones
+
+- Controlled labels created: `accepted`, `domain:foundation`.
+- Controlled taxonomy applied: all `144` Issues have the global migration,
+  type, priority, and domain labels; applicable historical/accepted,
+  active, gate, prerequisite, release, and not-activated labels were applied.
+- Milestones reused: `Release 1` and `Post Release 1`.
+- Milestone assignments after reconciliation: `82` Release 1, `0` Post
+  Release 1; governance/cross-cutting items intentionally have no milestone.
+- GitHub assignees applied: `0`; unmapped Jira assignees: `144` records for
+  `Hossam Mohamed`.
+
+### GitHub Project
+
+- Canonical Project: `MESP — Mini ERP SaaS Platform`,
+  `https://github.com/users/Hossam1104/projects/1`.
+- Membership: `144/144` canonical Issues, no unrelated item added.
+- Global field completeness: `144/144` for Jira Key, Status, Work Type,
+  Priority, Release, Capability State, Domain, Source, Migration State,
+  Classification, and Parent / Epic.
+- Project field values use the existing `Todo` option as GitHub's semantic
+  equivalent of the requested `To Do` value.
+- Named views present: Current Execution, Remaining Release 1, Production
+  Gates, Release 1, Historical Delivered, Epics, Backlog, By Domain, and By
+  Priority. Saved filters were configured for the first seven. GitHub's
+  available mutation schema exposes view grouping as read-only, so By Domain
+  and By Priority require manual grouping configuration.
+
+### Comments and attachments
+
+- Material Jira comments selected: `553`.
+- Material comments migrated so far: `395`.
+- Remaining material comments: `158`, pending GitHub secondary-rate-limit
+  cooldown/retry.
+- Existing non-migration GitHub comments observed: `13`; preserved.
+- Attachments migrated as bytes: `0`.
+- Reference-only attachments: `1` (MESP-16 source URL and filename preserved
+  in the Issue body).
+- Jira mutations: `0`.
+- Product mutations: `0`; `frontend/assets` untouched; CI remains
+  `NONE / NOT CLAIMED`.
+
+### Critical states preserved
+
+- MESP-138: Closed / Completed / Historical / Accepted; PR #86 evidence
+  preserved.
+- MESP-139: Closed / Completed / Historical / Accepted; PR #88 and merged
+  commit evidence preserved.
+- MESP-140: Closed / Completed / Historical / Accepted; PR #89 and lifecycle
+  reconciliation commit `0316a2623dfc1b9d8df6952c535757c03dd740b0` preserved.
+- MESP-141 / MESP-142: Open / Release 1 Remaining / Not Activated.
+- MESP-48 / MESP-50: Open production gates; not resolved.
+- Active implementation capability: `NONE`.
+- Next capability: `NOT ACTIVATED`.
+- Tracker authority: Jira; final cutover was not authorized or performed.

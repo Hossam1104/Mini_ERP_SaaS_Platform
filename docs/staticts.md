@@ -1,6 +1,21 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 9 September 2026 (MESP-140 final governance reconciliation)
+**Last Updated:** 10 September 2026 (MESP GitHub workspace migration Phase 2B reconciliation)
+
+## Current governance snapshot - 10 September 2026 (Jira remains authority)
+
+The Jira→GitHub workspace migration was reconciled as governance-only work.
+Live Jira read access is restored; no Jira mutation or tracker cutover was
+performed. Canonical GitHub Issue coverage is `144/144`, with `0` missing and
+`0` duplicate Jira keys; GitHub lifecycle is `102` closed/completed and `42`
+open. The GitHub Project contains `144/144` canonical Issues with all global
+operational fields populated. Material comment migration is temporarily
+partial (`395/553`) because GitHub's secondary content-creation rate limit
+blocked the remaining `158`; one Jira attachment remains reference-only.
+This migration changes no production-readiness percentage: overall remains
+approximately **47%**, Procurement/P2P approximately **41%**, active
+implementation capability remains **NONE**, and the next capability remains
+**NOT ACTIVATED**. MESP-48 and MESP-50 remain open production gates.
 
 ## Current authoritative snapshot - 9 September 2026 (MESP-140 ACCEPTED / MERGED / DONE)
 
