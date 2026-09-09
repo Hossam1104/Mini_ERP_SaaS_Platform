@@ -967,11 +967,11 @@ the GitHub Project; validate the named views and workflow fields; then obtain
 the separately authorized cutover decision. Until then, Jira remains
 authority and this manifest remains a partial migration record.
 
-## Phase 2B Full-Fidelity Reconciliation — 10 September 2026
+## Historical checkpoint - Phase 2B Full-Fidelity Reconciliation — 10 September 2026
 
 ### Result
 
-**PARTIAL**. Jira read access was restored and the canonical GitHub workspace
+**PARTIAL AT CHECKPOINT; SUPERSEDED BY PHASE 2C BELOW**. Jira read access was restored and the canonical GitHub workspace
 was reconciled without Jira mutation, tracker cutover, or product
 implementation. The remaining comment backfill is temporarily limited by
 GitHub's secondary content-creation rate limit, and one Jira attachment is
@@ -1057,3 +1057,173 @@ preserved as a reference only because attachment bytes were not copied.
 - Active implementation capability: `NONE`.
 - Next capability: `NOT ACTIVATED`.
 - Tracker authority: Jira; final cutover was not authorized or performed.
+
+## Phase 2C bounded backfill ledger — 10 September 2026
+
+The live source reconciliation identified `449` existing unique Jira-provenance
+markers, including the preserved orphan marker for deleted Jira comment `10006`.
+The deterministic selected set is `553`: those `449` existing marker identities
+plus the `104` substantive live Jira comments not yet marked. Repeated
+`Authoritative dependency:` records (`100`) and four one-line linkage notes are
+excluded because their relationship/status meaning is already represented in
+the canonical migration metadata and links.
+
+Batch 1 completed safely: Jira comment IDs `10615, 10769, 10352, 10662,
+11756, 11757, 11758, 11759, 11760, 11761`. All ten returned unambiguous
+GitHub comment IDs. Resume by recomputing the same source identity ledger and
+skipping existing `<!-- Jira comment id: N -->` markers; no Jira or product
+mutation was performed.
+
+Batch 2 completed safely: Jira comment IDs `11762, 11763, 11764, 11765,
+11766, 11768, 11770, 11772, 11774, 11775`. All ten returned unambiguous
+GitHub comment IDs.
+
+Batch 11 completed safely: Jira comment IDs `12288, 12291, 12298, 12300`. All
+four returned unambiguous GitHub comment IDs. The live selected material set
+is now fully backfilled.
+
+Batch 10 completed safely: Jira comment IDs `12392, 12394, 12396, 11324,
+11357, 11390, 11392, 11393, 12260, 12262`. All ten returned unambiguous
+GitHub comment IDs.
+
+Batch 9 completed safely: Jira comment IDs `12359, 12361, 11786, 12363,
+12370, 12374, 12375, 12379, 12383, 12388`. All ten returned unambiguous
+GitHub comment IDs.
+
+Batch 8 completed safely: Jira comment IDs `12270, 12275, 12282, 12284,
+12305, 12342, 12346, 12349, 12352, 12354`. All ten returned unambiguous
+GitHub comment IDs.
+
+Batch 7 completed safely: Jira comment IDs `12192, 12200, 12234, 12239,
+12244, 12248, 12252, 12253, 12255, 12265`. All ten returned unambiguous
+GitHub comment IDs.
+
+Batch 6 completed safely: Jira comment IDs `12120, 12122, 12123, 12130,
+12132, 12135, 12140, 12174, 12182, 12186`. All ten returned unambiguous
+GitHub comment IDs.
+
+Batch 5 completed safely: Jira comment IDs `11928, 11963, 11967, 12002,
+12003, 12037, 12039, 12044, 12080, 12117`. All ten returned unambiguous
+GitHub comment IDs.
+
+Batch 3 completed safely after one recovery: Jira comment IDs `11779, 11788,
+11789, 11794, 11797, 11799, 11835, 11839, 11840, 11841`. Comment `11799`
+returned an ambiguous disconnect; target Issue `#219` was checked and did not
+contain its marker before the single retry succeeded. All ten are now present.
+
+Batch 4 completed safely: Jira comment IDs `11842, 11785, 11845, 11848,
+11852, 11855, 11857, 11859, 11892, 11926`. All ten returned unambiguous
+GitHub comment IDs.
+
+## Phase 2C final reconciliation - 10 September 2026
+
+### Result
+
+**READY FOR FINAL CUTOVER REVIEW**. Phase 2C completed as governance-only
+work. Jira remained read-only; tracker authority cutover was not performed;
+no product implementation or source asset was changed.
+
+### Live source and canonical Issue validation
+
+- Jira source: `https://hossamsqa.atlassian.net`; live read successful.
+- Jira inventory: `144` issues - `102` Done, `10` In Progress, `32` To Do.
+- Jira comments discovered: `656` at final read. The prior `657` checkpoint
+  differs by one source record: Jira comment `10006` is no longer live, while
+  its already-migrated provenance copy remains preserved on GitHub.
+- Jira assignee identity: `Hossam Mohamed` on all `144`; verified GitHub
+  assignee mappings remain `0`.
+- Jira attachment: `1` on `MESP-16`, ID `10004`,
+  `MiniERPSaaSPlatform_PRD_v1.2.docx`; source reference and filename remain
+  preserved in the canonical Issue. Disposition: **REFERENCE ONLY - SOURCE
+  PRESERVED**.
+- Canonical GitHub Issues: `144/144`; missing Jira keys `0`; duplicate Jira
+  keys `0`; lifecycle `42` open / `102` closed-completed.
+- Normalized-label completeness: `144/144`.
+- Project parent representation: `122/122`; `0` parent exceptions; `22`
+  intentional parentless top-level items (`15` Epics and `7` top-level Tasks).
+- Dependency representation: `226` Blocks-direction entries (`113` outgoing
+  plus `113` inverse Depends On), `104` Relates, `330` total; dependency
+  exceptions `0`.
+
+### GitHub Project validation
+
+- Project: `MESP - Mini ERP SaaS Platform`, ID `PVT_kwHOCj29Cc4Bi94N`,
+  `https://github.com/users/Hossam1104/projects/1`.
+- Membership: `144/144` canonical Issues.
+- Required Project fields: `144/144` for Jira Key, Status, Work Type,
+  Priority, Release, Capability State, Domain, Source, Migration State,
+  Classification, and Parent / Epic.
+- Required saved views exist: Current Execution, Remaining Release 1,
+  Production Gates, Release 1, Historical Delivered, Epics, Backlog, By
+  Domain, and By Priority.
+- By Domain and By Priority have no arbitrary filter and contain the full
+  Project scope. GitHub's official `updateProjectV2View` mutation exposes
+  visible-field configuration but no grouping input; live `groupByFields` is
+  empty for both views. Grouping is therefore a **NON-BLOCKING MANUAL VIEW
+  CONFIGURATION** limitation, not a migration completeness defect.
+
+### Final material-comment ledger
+
+- Material Jira comments selected: `553`.
+- Previously migrated at live-run start: `449` unique markers, including the
+  preserved historical source-orphan marker for Jira comment `10006`.
+- Comments migrated during this run: `104`.
+- Final material comments migrated: `553/553`.
+- Material comments remaining: `0`.
+- Duplicate migration markers: `0`.
+- Orphan migration comments: `0` (all markers target canonical Issues and
+  carry a Jira key; source comment `10006` is documented as a preserved
+  historical source-orphan, not an orphan GitHub target).
+- Existing non-migration GitHub comments preserved: `13`.
+- Explicit GitHub secondary-rate-limit events in this run: `0`. One transient
+  ambiguous disconnect occurred for Jira comment `11799`; target verification
+  found no marker before one safe retry succeeded. Sequential batches of ten
+  (final batch four) were used; no blind retry or uncontrolled parallel write
+  was used.
+
+The deterministic selected set is the `449` existing marker identities plus
+all `104` previously unmarked substantive live comments. The `100` repeated
+`Authoritative dependency:` records and four one-line linkage notes were
+excluded because their relationship/status meaning is already represented in
+canonical migration metadata and links. All newly added comments use the
+established `<!-- Jira comment id: N -->` provenance marker, Jira key, author,
+and original timestamp.
+
+### Critical lifecycle state validation
+
+- MESP-138: GitHub Issue `#226` Closed / Completed / Historical / Accepted;
+  PR `#86` is merged (`293f7442677b4142ae45cde0f6d48dcd9ccf6077`); accepted
+  technical head `77eafb21b05379992c92be7b4f6e3ff347dfb1b7` preserved.
+- MESP-139: GitHub Issue `#227` Closed / Completed / Historical / Accepted;
+  PR `#88` is merged (`8718afab41754667cda38642a2b4f3e3437250e3`).
+- MESP-140: GitHub Issue `#228` Closed / Completed / Historical / Accepted;
+  PR `#89` is merged; reconciliation SHA
+  `0316a2623dfc1b9d8df6952c535757c03dd740b0` preserved.
+- MESP-141: GitHub Issue `#229` Open / Release 1 Remaining / Not Activated.
+- MESP-142: GitHub Issue `#230` Open / Release 1 Remaining / Not Activated.
+- MESP-48: GitHub Issue `#137` Open Production Gate.
+- MESP-50: GitHub Issue `#139` Open Production Gate.
+- Active implementation capability: `NONE`.
+- Next capability: `NOT ACTIVATED`.
+
+### Attachment, mutation, and readiness disposition
+
+- Attachments discovered: `1`; byte-migrated: `0`; reference-only: `1`;
+  unresolved attachment exceptions: `0`.
+- Jira mutations: `0`.
+- Product mutations: `0`.
+- `frontend/assets`: untouched.
+- CI: `NONE / NOT CLAIMED`.
+- Tracker authority remains Jira; final cutover was not authorized or
+  performed.
+- Remaining blockers: none for final cutover review under this bounded
+  migration scope. Production gates MESP-48/MESP-50 remain open by design and
+  are not migration defects.
+- Remaining non-blocking limitation: manually set saved-view grouping for By
+  Domain and By Priority. Exact steps: open each named view in GitHub Project
+  1, choose the view's grouping control, select Domain for By Domain and
+  Priority for By Priority, retain all items/no filter, and keep Status, Jira
+  Key, Work Type, Priority, Release, Capability State, and Domain visible.
+
+This final reconciliation does not mark Jira Historical, change tracker
+authority, activate MESP-141 or MESP-142, or begin any product capability.

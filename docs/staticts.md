@@ -1,21 +1,39 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 10 September 2026 (MESP GitHub workspace migration Phase 2B reconciliation)
+**Last Updated:** 10 September 2026 (MESP GitHub workspace migration Phase 2C final reconciliation)
 
 ## Current governance snapshot - 10 September 2026 (Jira remains authority)
 
-The Jira→GitHub workspace migration was reconciled as governance-only work.
-Live Jira read access is restored; no Jira mutation or tracker cutover was
-performed. Canonical GitHub Issue coverage is `144/144`, with `0` missing and
-`0` duplicate Jira keys; GitHub lifecycle is `102` closed/completed and `42`
-open. The GitHub Project contains `144/144` canonical Issues with all global
-operational fields populated. Material comment migration is temporarily
-partial (`395/553`) because GitHub's secondary content-creation rate limit
-blocked the remaining `158`; one Jira attachment remains reference-only.
-This migration changes no production-readiness percentage: overall remains
-approximately **47%**, Procurement/P2P approximately **41%**, active
-implementation capability remains **NONE**, and the next capability remains
-**NOT ACTIVATED**. MESP-48 and MESP-50 remain open production gates.
+The Jira→GitHub workspace migration Phase 2C was completed as governance-only
+work. Live Jira read access remains authoritative; no Jira mutation or tracker
+cutover was performed. Canonical GitHub Issue coverage is `144/144`, with `0`
+missing and `0` duplicate Jira keys; GitHub lifecycle is `102` closed/completed
+and `42` open. The GitHub Project contains `144/144` canonical Issues with all
+global operational fields populated, and the final relationship representation
+is `330` entries with `0` exceptions. Material comment migration is complete
+(`553/553`), with `0` remaining and `0` duplicate markers. One Jira attachment
+remains reference-only; no attachment bytes were migrated. The By Domain and
+By Priority grouping controls remain a non-blocking manual GitHub view
+configuration step because the official view mutation schema exposes no
+grouping input. This migration changes no production-readiness percentage:
+overall remains approximately **47%**, Procurement/P2P approximately **41%**,
+active implementation capability remains **NONE**, and the next capability
+remains **NOT ACTIVATED**. MESP-48 and MESP-50 remain open production gates.
+
+### Progress history - 10 September 2026 (MESP GitHub workspace migration Phase 2C)
+
+Phase 2C backfilled the deterministic substantive Jira-comment ledger: `449`
+unique provenance markers were present at run start and `104` unmarked
+substantive comments were added, producing `553/553` migrated material
+comments. The final read-only reconciliation verified `144/144` canonical
+Issues, complete Project fields and labels, `122/122` represented parents,
+`330` relationship entries with no exceptions, one reference-only attachment,
+and zero Jira or product mutations. The source-side deletion of Jira comment
+`10006` was preserved as historical GitHub provenance. Production-readiness
+headlines remain approximately `47%` overall / `41%` Procurement/P2P; active
+capability is NONE, next capability is NOT ACTIVATED, and MESP-48/MESP-50
+remain open. The final cutover review and manual view-grouping step remain
+outside this bounded executor action.
 
 ## Current authoritative snapshot - 9 September 2026 (MESP-140 ACCEPTED / MERGED / DONE)
 
