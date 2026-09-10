@@ -1,6 +1,6 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 10 September 2026 (Jira→GitHub tracker authority cutover APPROVED AND COMPLETED)
+**Last Updated:** 10 September 2026 (MESP-40 BRD authored; awaiting independent requirements acceptance)
 
 ## Current governance snapshot - 10 September 2026 (GitHub is work-management authority)
 
@@ -29,6 +29,38 @@ next capability remains **NOT ACTIVATED**; MESP-141 and MESP-142 remain
 fast-track completion remains **24 / 26 = 92.3%**, which is capability
 completion only — not production, deployment, launch, UAT, or compliance
 readiness. Product mutations: `0`. `frontend/assets`: untouched.
+
+## Current bounded MESP-40 BRD session - 10 September 2026
+
+MESP-40 / GitHub Issue #129 remains **OPEN** and is now a requirements-review
+candidate. The canonical BRD is
+docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md on bounded branch
+docs/mesp-40-data-migration-onboarding-brd. The Project item is **In
+Progress** because the Project has no Ready for Review option; the truthful
+handoff note is **Requirements authored — awaiting independent acceptance**.
+The artifact contains 42 stable requirements, 30 business rules, 6 workflows,
+36 acceptance criteria, 6 open decisions and complete requirement
+traceability. This is governance documentation only: product implementation
+remains 0, MESP-141 and MESP-142 remain OPEN / NOT ACTIVATED, and Jira
+mutations remain 0.
+
+The BRD records the approved contract-bound B1/PD-041 migration scope and
+explicitly preserves unresolved historical/open-document treatment, actual
+Tenant source/extract choices, production recovery authority, exact approval
+quorum, MESP-48 volume evidence and MESP-50 residency/retention/backup/legal
+gates. No production-readiness percentage changes.
+
+### Progress history - 10 September 2026 (MESP-40 BRD completion)
+
+MESP-40 requirements work produced the canonical Markdown BRD with stable
+business requirements, rules, workflows, acceptance criteria, data-domain
+classification, validation/error taxonomy, reconciliation, audit,
+Tenant-isolation, multi-currency, Arabic/English, correction/retry and
+MESP-141 handoff coverage. The issue remains Open pending independent
+requirements acceptance; the Project item is In Progress because no review
+state exists. No product code, schema, migration, test, Jira, or
+frontend/assets mutation was made, and the 24/26 capability headline and
+approximately 47% / 41% production-readiness headlines are unchanged.
 
 ### Superseded pre-cutover snapshot (preserved evidence)
 

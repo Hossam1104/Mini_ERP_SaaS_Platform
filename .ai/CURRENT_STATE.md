@@ -10,6 +10,35 @@
 
 ---
 
+## CURRENT AUTHORITY - 10 September 2026 (MESP-40 BRD review candidate)
+
+### Bounded requirements session
+
+| Item | Value |
+|---|---|
+| MESP-40 | **OPEN / READY FOR REQUIREMENTS REVIEW** in GitHub Issue #129 |
+| Project item | **In Progress** — Requirements authored — awaiting independent acceptance |
+| Canonical BRD | docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md |
+| Bounded branch | docs/mesp-40-data-migration-onboarding-brd |
+| BRD coverage | 42 requirements, 30 business rules, 6 workflows, 36 acceptance criteria, 6 open decisions, complete requirement traceability |
+| Product implementation | **0** — requirements/governance documentation only |
+| MESP-141 | **OPEN / NOT ACTIVATED** — GitHub Issue #229 remains Todo; no branch or implementation |
+| MESP-142 | **OPEN / NOT ACTIVATED** — GitHub Issue #230 remains Todo |
+| MESP-48 / MESP-50 | **OPEN PRODUCTION GATES** — no values or policy invented |
+| Jira mutations | **0** — Jira remains historical provenance only |
+| Owner-managed frontend/assets | **Untouched** |
+| CI | **NONE / NOT CLAIMED** |
+
+MESP-40 records the approved contract-bound B1/PD-041 migration boundary and
+preserves historical/open-document treatment, production volume, residency,
+retention, backup, recovery and exact sign-off choices as explicit decisions
+or gates. The work does not activate an implementation capability; active
+implementation capability remains **NONE**, accepted fast-track completion
+remains **24 / 26 = 92.3%**, and production readiness remains approximately
+**47% overall / 41% Procurement/P2P**.
+
+---
+
 ## CURRENT AUTHORITY - 9 September 2026 (MESP-140 ACCEPTED / MERGED / DONE)
 
 ### Identity and activation
