@@ -1227,3 +1227,133 @@ and original timestamp.
 
 This final reconciliation does not mark Jira Historical, change tracker
 authority, activate MESP-141 or MESP-142, or begin any product capability.
+
+---
+
+## 30. Tracker authority cutover — APPROVED AND COMPLETED (10 September 2026)
+
+This section supersedes every earlier statement in this manifest that says
+tracker authority remains Jira or that cutover was not performed. Those earlier
+statements are preserved as dated evidence of the pre-cutover position.
+
+### Decision
+
+`CUTOVER APPROVED` — independent final migration review by **Claude Opus 5**,
+performed as an adversarial verification of the executor's `READY FOR FINAL
+CUTOVER REVIEW` report against live GitHub, the live GitHub Project, the
+repository, and this manifest. The executor report was treated as evidence
+only, not as acceptance.
+
+### Authority state after cutover
+
+| Item | Value |
+| --- | --- |
+| Source control authority | **GitHub** — `Hossam1104/Mini_ERP_SaaS_Platform` |
+| Work-management authority | **GitHub Issues + GitHub Project** — `MESP — Mini ERP SaaS Platform`, <https://github.com/users/Hossam1104/projects/1> |
+| Jira | **Historical Tracker / Migration Provenance** — preserved read-only, not deleted, not mutated |
+| Canonical identity | `MESP` keys retained in every Issue title and in the Project `Jira Key` field |
+
+### Independently verified evidence
+
+- Canonical Issues `144/144`; missing keys `0`; duplicate keys `0`; no
+  non-canonical or malformed titles; every title matches `[MESP-N] <text>`.
+- Lifecycle `42` open / `102` closed, and **all** `102` closed carry state
+  reason `COMPLETED`.
+- Status mapping verified with **zero** violations: closed+completed → `Done`
+  (`102`), open → `Todo` (`32`) or `In Progress` (`10`). The `10` In Progress
+  items are `9` Epics plus the MESP-23 Open Questions Register — **no
+  implementation capability is In Progress**.
+- Project membership `144/144` canonical, `0` unrelated items, `0` duplicates.
+- Required Project fields `144/144` for Jira Key, Work Type, Priority, Release,
+  Capability State, Domain, Source, Migration State, Status and Classification.
+  Every `Jira Key` field value matches its Issue title key.
+- Labels: a controlled vocabulary of `32` terms — not exploded Jira noise.
+  `migrated-from-jira`, type, priority and domain are each `144/144`;
+  `0` unlabelled Issues.
+- Parent representation `122/122`; **all** `122` parent targets are Epics and
+  every parent reference is key- and Issue-number-consistent; `0` bad
+  references. `22` intentional parentless top-level items = `15` Epics plus `7`
+  Jira-top-level tasks, each of which explicitly records
+  `Original Jira Parent: NONE`.
+- Dependencies `330` = `113` Blocks + `113` reciprocal Depends On + `104`
+  Relates, with `0` malformed or unresolved references and **perfect
+  reciprocity** (`0` one-sided edges). MESP-141 and MESP-142 carry **no**
+  dependency edges, so no dependency can accidentally activate a capability.
+- Material comments `553/553`; `553` distinct Jira comment ids; `0` duplicate
+  markers; `0` comments missing a provenance marker, Jira key, original author
+  or original timestamp; `0` comment-key/Issue-key mismatches.
+- Comment arithmetic reconciles **exactly**: `656` live Jira comments − `552`
+  live selected = `104` excluded = `100` repeated `Authoritative dependency:`
+  records + `4` one-line linkage notes. The `553`rd selected comment is the
+  preserved source-orphan `10006`.
+- Jira comment `10006` was **not** fabricated or reconstructed. It is genuine
+  substantive historical content (Open Questions Register v0.1 on MESP-23),
+  migrated with full provenance while still live in Jira, and later deleted at
+  source. Its preserved copy is documented, not invented.
+- Native GitHub comments preserved: `13`, all on pre-migration issues/PRs
+  (`#5, #22, #23, #36, #37, #44, #52, #56, #59`); `566` total repo comments =
+  `553` migrated + `13` native. No native comment was overwritten.
+- Attachment: `1` discovered, `0` bytes migrated, disposition **REFERENCE ONLY
+  — SOURCE PRESERVED** on canonical Issue `#105`, honestly declared as
+  `Attachments migrated as bytes: 0`. Not an information-loss blocker: the
+  approved PRD is **tracked in this repository** at
+  `docs/MESP_PRD_v1.2.docx`.
+- Project views: all `9` required views exist. Seven carry meaningful filters.
+  `By Domain` and `By Priority` exist at full `144`-item scope with grouping
+  unset — accurately reported by the executor, never falsely claimed as
+  configured.
+- Milestones: `Release 1` = `82`, matching the `release-1` label and the
+  `Release` field exactly. `Post Release 1` assignments = `0`, consistent with
+  the classification data; no release date or sprint was fabricated.
+- Assignees: `0/144`. Jira `Hossam Mohamed` had no verified GitHub identity
+  mapping, so none was assumed. Original assignee is preserved in each Issue
+  body. This is correct restraint, not an omission.
+- Critical capability evidence verified against live GitHub: MESP-138 → PR #86
+  merged; MESP-139 → PR #88 merged at
+  `8718afab41754667cda38642a2b4f3e3437250e3`; MESP-140 → PR #89 merged at
+  `0316a2623dfc1b9d8df6952c535757c03dd740b0`. Both SHAs exist and are verified
+  ancestors of `origin/main`. Open PRs: `0`.
+- MESP-48 and MESP-50 remain **open production gates**, labelled
+  `production-gate` / `type:gate`, Classification `Gate`, with acceptance
+  criteria truthfully recorded as `NONE / NOT AVAILABLE`. No reference volume,
+  residency, retention, legal or compliance assumption was invented.
+- MESP-141 and MESP-142 remain **Open / Not Activated**, Classification
+  `Release 1 Remaining`. No local or remote branch exists for either.
+
+### Boundary confirmation
+
+- `PRODUCT IMPLEMENTATION = NO`. The entire migration series
+  (`942bb9d^..e61506b`, five commits) changed exactly two files:
+  `.ai/migration/MESP_GITHUB_MIGRATION_MANIFEST.md` and `docs/staticts.md`.
+- `frontend/assets` MUTATION = `NO`. Schema/EF migration change = `NO`.
+  Runtime behavior change = `NO`. Retail POS = `NO`. Wafra-specific fork = `NO`.
+- `CI = NONE / NOT CLAIMED`. No `.github/workflows` exists. The only GitHub
+  "workflow" is the Copilot Code Review bot, which is an external bot review —
+  evidence only, never authority and never CI.
+- `JIRA MUTATIONS = 0` as recorded by the executor and consistent with all
+  GitHub-side evidence. **Reviewer limitation, stated honestly:** the Atlassian
+  connector was not authenticated in the review session, so Jira was not
+  independently re-read from the Jira side. This does not affect cutover
+  safety, because cutover explicitly preserves Jira unchanged and deletes
+  nothing.
+- `RELEASE 1 FAST-TRACK CAPABILITY COMPLETION = 24 / 26 = 92.3%`, unchanged by
+  this migration and **capability completion only** — never production,
+  deployment, launch, UAT or compliance readiness.
+
+### Residual non-blocking limitations
+
+1. `By Domain` and `By Priority` saved-view grouping remains a manual GitHub UI
+   action; the official Projects v2 view mutation schema exposes no grouping
+   input. Both views exist with full scope and fully populated fields.
+2. One historical Jira attachment is reference-only; its bytes were never
+   copied. Mitigated by the tracked in-repository PRD.
+3. GitHub assignees remain unmapped pending a verified Jira→GitHub identity
+   mapping.
+
+### Post-cutover boundary
+
+This cutover transfers **work-management authority only**. It grants **no**
+implementation authority. Active implementation capability remains `NONE` and
+the next capability remains `NOT ACTIVATED`. Starting MESP-141 or MESP-142
+still requires a separate GPT-5.6 Sol governance decision and a new
+authorization prompt.

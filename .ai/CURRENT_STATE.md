@@ -18,7 +18,9 @@
 | --- | --- |
 | Canonical project identity | `Mini_ERP_SaaS_Platform` |
 | Authoritative SCM | GitHub — `Hossam1104/Mini_ERP_SaaS_Platform` |
-| Authoritative tracker | Jira — project `Mini_ERP_SaaS_Platform`, key `MESP` |
+| Work-management authority | **GitHub Issues + GitHub Project** — `MESP — Mini ERP SaaS Platform` (<https://github.com/users/Hossam1104/projects/1>) |
+| Jira | **Historical Tracker / Migration Provenance** — read-only; preserved, not deleted; `MESP` keys remain the canonical identity carried in every GitHub Issue |
+| Tracker cutover | **APPROVED AND COMPLETED — 10 September 2026** by independent Claude Opus 5 cutover review; canonical Issues `144/144`, missing `0`, duplicates `0`, Project membership `144/144` |
 | MESP-140 lifecycle squash-merge SHA | `0316a2623dfc1b9d8df6952c535757c03dd740b0` — squash merge of PR #89 |
 | Repository head authority | Resolve live `origin/main` from Git; mutable repository head must not be hard-coded as current authority |
 | Active implementation capability | **NONE** |

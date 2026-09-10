@@ -24,19 +24,26 @@ Live Jira and live GitHub outrank every Markdown file for mutable facts.
 
 ## Current position (pointer only — see `.ai/CURRENT_STATE.md`)
 
-* Canonical identity is **`Mini_ERP_SaaS_Platform`**; Jira key remains `MESP`.
-* **MESP-138 (customer returns, credit notes, receipts) is the single active
-  implementation capability**, In Progress under Epic MESP-9, published as
-  **Draft PR #86 (Open/Draft/Unmerged)** and held by **GPT-5.6 Sol HOLD 3**
-  (blockers HOLD-138-J through HOLD-138-N). It is **not accepted**.
-* **MESP-139 is To Do / not activated.** Do not start it. Do not mark MESP-138
-  Done. Do not transition, merge, or request review without positive
-  current-task authority.
-* Accepted fast-track completion is **21/26 = 80.8%**, excluding MESP-138.
-  Production readiness is separately ~**47%** overall / ~**41%** Procurement/P2P.
-  **MESP-48** and **MESP-50** remain open production gates.
+* Canonical identity is **`Mini_ERP_SaaS_Platform`**; the issue key remains
+  `MESP`.
+* **Work-management authority is GitHub Issues + the GitHub Project**
+  `MESP — Mini ERP SaaS Platform`
+  (<https://github.com/users/Hossam1104/projects/1>). **Jira is Historical
+  Tracker / Migration Provenance** — preserved read-only, never deleted, and no
+  longer the live work-management authority. Tracker cutover was approved and
+  completed on **10 September 2026** after independent Claude Opus 5 review.
+* **Active implementation capability is NONE. Next capability is NOT
+  ACTIVATED.** MESP-138, MESP-139, and MESP-140 are **Done / merged /
+  accepted**. **MESP-141 and MESP-142 remain Open / NOT ACTIVATED** — do not
+  start either without a positive Sol activation authority in a new prompt.
+* Accepted fast-track completion is **24/26 = 92.3%**. That figure is
+  **capability completion only** — it is not production, deployment, launch,
+  UAT, or compliance readiness. Production readiness remains separately
+  approximately ~**47%** overall / ~**41%** Procurement/P2P. **MESP-48** and
+  **MESP-50** remain open production gates.
 * There is **no CI** in this repository. Report CI as `NONE / NOT CLAIMED`;
-  local runs are not CI.
+  local runs are not CI, and the GitHub Copilot Code Review bot is an external
+  bot review — evidence only, never authority and never CI.
 
 ## Permanent boundaries
 

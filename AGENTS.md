@@ -37,7 +37,7 @@ velocity, or forecast:
 - Full logos/icons use `frontend/assets` as source of truth.
 - `frontend/assets/brand` is reserved only for necessary generated browser derivatives (e.g., favicons, touch icons).
 
-## Current execution overlay - 4 September 2026 (MESP-138 active under Sol HOLD 3)
+## Current execution overlay - 10 September 2026 (GitHub tracker cutover completed; no active capability)
 
 > **Single source of current state.** `.ai/CURRENT_STATE.md` carries the
 > **CURRENT AUTHORITY** block and is the one place to read live project
@@ -47,13 +47,14 @@ velocity, or forecast:
 > says "current". Live Jira and live GitHub outrank this file for mutable
 > facts.
 
-* Canonical identity is **`Mini_ERP_SaaS_Platform`**. Authoritative SCM is GitHub `Hossam1104/Mini_ERP_SaaS_Platform` (repository ID `1318676370`); authoritative tracker is Jira project `Mini_ERP_SaaS_Platform`, key `MESP`. Azure DevOps is neither.
-* Accepted `main` is `644e7b364006a3a62dc8e9756b9a9a64afbd33e1`.
-* **MESP-138 is the single active implementation capability**, In Progress under Epic MESP-9, on `feat/MESP-138-customer-return-credit-receipts` at head `8480deef9b0fa1225dfc83c0eb59bc768b1a2960`, published as **Draft PR #86 (Open/Draft/Unmerged)**.
-* MESP-138 is under **GPT-5.6 Sol HOLD 3** (MESP-138 comment `12349`) covering blockers **HOLD-138-J** through **HOLD-138-N**. It is **not accepted**; it must not be marked Ready, merged, or counted as completed capability.
-* **MESP-139 remains To Do / `not-activated`** and must not be started until Sol explicitly activates it. MESP-144 is Done and was governance/documentation only.
-* Accepted fast-track capability completion is **21/26 = 80.8%**, excluding MESP-138. Production readiness remains separately approximately **47% overall** and **41% Procurement/P2P**. **MESP-48** and **MESP-50** remain open production gates.
-* There is **no GitHub Actions CI** in this repository; report CI as `NONE / NOT CLAIMED`. Local test runs are not CI.
+* Canonical identity is **`Mini_ERP_SaaS_Platform`**. Authoritative SCM is GitHub `Hossam1104/Mini_ERP_SaaS_Platform` (repository ID `1318676370`). Azure DevOps is neither.
+* **Work-management authority is GitHub Issues + the GitHub Project** `MESP — Mini ERP SaaS Platform` (<https://github.com/users/Hossam1104/projects/1>). The issue key remains **`MESP`**, carried in every Issue title and in the Project `Jira Key` field.
+* **Jira is `Historical Tracker / Migration Provenance`** — preserved read-only evidence. It is **not** deleted and **not** the live work-management authority. Tracker cutover was independently reviewed and **approved and completed on 10 September 2026** (canonical Issues `144/144`, missing `0`, duplicates `0`, Project membership `144/144`, material comments `553/553`).
+* Repository head authority: resolve live `origin/main` from Git; a mutable head must not be hard-coded as current authority.
+* **Active implementation capability is `NONE`; next capability is `NOT ACTIVATED`.** MESP-138 (PR #86), MESP-139 (PR #88, `8718afab41754667cda38642a2b4f3e3437250e3`), and MESP-140 (PR #89, `0316a2623dfc1b9d8df6952c535757c03dd740b0`) are **Done / merged / accepted**.
+* **MESP-141 and MESP-142 remain Open / `NOT ACTIVATED`.** Neither may be started, branched, or transitioned without positive Sol activation authority issued in a new prompt. The tracker cutover granted no implementation authority.
+* Accepted fast-track capability completion is **24/26 = 92.3%** — **capability completion only**, never production, deployment, launch, UAT, or compliance readiness. Production readiness remains separately approximately **47% overall** and **41% Procurement/P2P**. **MESP-48** and **MESP-50** remain open production gates.
+* There is **no GitHub Actions CI** in this repository; report CI as `NONE / NOT CLAIMED`. Local test runs are not CI. The GitHub Copilot Code Review bot is an external bot review — evidence only, never authority and never CI.
 * `frontend/assets` remains Owner-managed and untouched. Ponytail FULL remains the default executor mode when installed and available, and is never authority.
 
 ## AI model governance and routing baseline

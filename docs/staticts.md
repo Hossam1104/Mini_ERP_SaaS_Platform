@@ -1,8 +1,38 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 10 September 2026 (MESP GitHub workspace migration Phase 2C final reconciliation)
+**Last Updated:** 10 September 2026 (Jira→GitHub tracker authority cutover APPROVED AND COMPLETED)
 
-## Current governance snapshot - 10 September 2026 (Jira remains authority)
+## Current governance snapshot - 10 September 2026 (GitHub is work-management authority)
+
+**Tracker cutover is APPROVED AND COMPLETED.** Independent Claude Opus 5 review
+verified the migration against live GitHub and approved the authority
+transition. **Work-management authority is now GitHub Issues + the GitHub
+Project** `MESP — Mini ERP SaaS Platform`
+(<https://github.com/users/Hossam1104/projects/1>). **Jira is now Historical
+Tracker / Migration Provenance** — preserved read-only, not deleted, not
+mutated. The `MESP` issue key is retained in every GitHub Issue.
+
+Independently verified at cutover: canonical Issues `144/144` (missing `0`,
+duplicates `0`); lifecycle `42` open / `102` closed with all `102` reason
+`COMPLETED`; status mapping `0` violations; Project membership `144/144` with
+required fields `144/144`; parent representation `122/122` with `0` bad
+references; dependencies `330` with perfect reciprocity and `0` malformed
+references; material comments `553/553` with `0` duplicate markers and full
+provenance; comment arithmetic reconciling exactly (`656 - 552 = 104 = 100 + 4`).
+
+This cutover transfers **work-management authority only**. It grants no
+implementation authority, changes no production-readiness percentage, and
+activates no capability. Active implementation capability remains **NONE**;
+next capability remains **NOT ACTIVATED**; MESP-141 and MESP-142 remain
+**Open / NOT ACTIVATED** with no branch started; MESP-48 and MESP-50 remain
+**open production gates**; CI remains **NONE / NOT CLAIMED**. Accepted
+fast-track completion remains **24 / 26 = 92.3%**, which is capability
+completion only — not production, deployment, launch, UAT, or compliance
+readiness. Product mutations: `0`. `frontend/assets`: untouched.
+
+### Superseded pre-cutover snapshot (preserved evidence)
+
+## Prior Phase 2C snapshot - 10 September 2026 (pre-cutover; Jira was authority)
 
 The Jira→GitHub workspace migration Phase 2C was completed as governance-only
 work. Live Jira read access remains authoritative; no Jira mutation or tracker

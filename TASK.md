@@ -14,6 +14,16 @@ Current executor task: **NONE**. Active implementation capability: **NONE**.
 Next capability: **NOT ACTIVATED** (MESP-141 and MESP-142 remain not activated).
 No Jira write is authorized or required.
 
+**Tracker authority (10 September 2026).** Work-management authority is
+**GitHub Issues + the GitHub Project** `MESP — Mini ERP SaaS Platform`
+(<https://github.com/users/Hossam1104/projects/1>). **Jira is Historical
+Tracker / Migration Provenance** — preserved read-only and never mutated by an
+executor. Lifecycle state is now recorded on the canonical GitHub Issue and its
+Project fields. The cutover transferred work-management authority only; it
+granted **no** implementation authority. Starting MESP-141 or MESP-142 still
+requires a separate GPT-5.6 Sol governance decision and a new authorization
+prompt.
+
 GPT-5.6 Sol's independent HOLD 2 review (comment `12390`) identified three
 residual contract defects across the HOLD-1 remediation; HOLD-140-A remained
 closed and was not reopened:

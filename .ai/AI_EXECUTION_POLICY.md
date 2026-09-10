@@ -78,9 +78,24 @@ inability to review is not itself a product defect.
 Ponytail (when installed and available) governs productivity, not safety or
 authorization — see the Ponytail section in `AGENTS.md` and
 `.ai/AI_TOOLING_SETUP.md`. It cannot override STOP, and it cannot authorize
-another commit, a Ready transition, a merge, a Jira mutation, or any
+another commit, a Ready transition, a merge, a tracker mutation, or any
 weakening of security, Tenant isolation, financial/accounting integrity,
 audit, concurrency, or acceptance gates.
+
+## 7a. Tracker authority after the 10 September 2026 cutover
+
+Work-management authority is **GitHub Issues + the GitHub Project**
+`MESP — Mini ERP SaaS Platform`
+(<https://github.com/users/Hossam1104/projects/1>). **Jira is `Historical
+Tracker / Migration Provenance`**: preserved read-only evidence that an
+executor must never mutate, close, reopen, or delete.
+
+Everywhere this policy restricts a "Jira write", the restriction now applies
+with equal force to a **GitHub Issue or GitHub Project mutation** that records
+lifecycle state — closing or reopening a canonical Issue, changing its Project
+`Status` or `Capability State`, or activating a capability. Those remain
+mutations beyond a bounded task and require positive current-task authority.
+The tracker cutover itself granted no implementation authority.
 
 ## Owner actions vs. executor actions
 

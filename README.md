@@ -28,15 +28,19 @@ module-owned persistence are product rules — not customer-specific forks.
 
 The canonical project identity is **`Mini_ERP_SaaS_Platform`**. The
 authoritative source repository is GitHub `Hossam1104/Mini_ERP_SaaS_Platform`;
-the authoritative tracker is the Jira project `Mini_ERP_SaaS_Platform`, whose
-issue key remains **`MESP`**.
+the authoritative work-management tracker is **GitHub Issues + the GitHub
+Project [`MESP — Mini ERP SaaS Platform`](https://github.com/users/Hossam1104/projects/1)**.
+The issue key remains **`MESP`** and is carried in every GitHub Issue title and
+in the Project `Jira Key` field. Jira is **historical tracker / migration
+provenance** only: preserved read-only evidence, not the live work-management
+authority.
 
 ## Current development status
 
 The summary below is a convenience view. The authoritative live position is the
 **CURRENT AUTHORITY** block at the top of
-[`.ai/CURRENT_STATE.md`](.ai/CURRENT_STATE.md); live Jira and live GitHub
-outrank this file for mutable facts.
+[`.ai/CURRENT_STATE.md`](.ai/CURRENT_STATE.md); live GitHub Issues, the live
+GitHub Project, and live GitHub outrank this file for mutable facts.
 
 | Item | Value |
 |---|---|
