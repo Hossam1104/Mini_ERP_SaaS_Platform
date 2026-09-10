@@ -20,6 +20,7 @@
 | Project item | **In Progress** — Requirements authored — awaiting independent acceptance |
 | Canonical BRD | docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md |
 | Bounded branch | docs/mesp-40-data-migration-onboarding-brd |
+| Draft PR | #234 — Open / Draft / Unmerged |
 | BRD coverage | 42 requirements, 30 business rules, 6 workflows, 36 acceptance criteria, 6 open decisions, complete requirement traceability |
 | Product implementation | **0** — requirements/governance documentation only |
 | MESP-141 | **OPEN / NOT ACTIVATED** — GitHub Issue #229 remains Todo; no branch or implementation |

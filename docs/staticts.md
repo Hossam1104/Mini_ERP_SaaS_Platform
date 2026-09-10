@@ -38,6 +38,7 @@ docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md on bounded branch
 docs/mesp-40-data-migration-onboarding-brd. The Project item is **In
 Progress** because the Project has no Ready for Review option; the truthful
 handoff note is **Requirements authored — awaiting independent acceptance**.
+Draft PR #234 is Open / Draft / Unmerged; it is the sole bounded review handoff.
 The artifact contains 42 stable requirements, 30 business rules, 6 workflows,
 36 acceptance criteria, 6 open decisions and complete requirement
 traceability. This is governance documentation only: product implementation
