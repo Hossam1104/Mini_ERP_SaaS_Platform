@@ -15,7 +15,7 @@
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white" alt="TypeScript 6.0"></a>
   <a href="https://www.microsoft.com/sql-server"><img src="https://img.shields.io/badge/EF%20Core-10.0.10-CC2927?logo=microsoftsqlserver&logoColor=white" alt="EF Core 10 / SQL Server"></a>
   <a href="https://playwright.dev/"><img src="https://img.shields.io/badge/Playwright-1.62-2EAD33?logo=playwright&logoColor=white" alt="Playwright 1.62"></a>
-  <img src="https://img.shields.io/badge/CI-implementation%20in%20progress-F2C94C" alt="CI implementation in progress">
+  <img src="https://img.shields.io/badge/CI-PR%20validation%20verified-0E7C66" alt="GitHub Actions PR validation verified">
   <img src="https://img.shields.io/badge/status-active%20Release%201%20development-0E7C66" alt="Active development">
 </p>
 
@@ -53,7 +53,7 @@ GitHub Project, and live GitHub outrank this file for mutable facts.
 | Accepted fast-track completion | **21 / 26 = 80.8%** (MESP-138 not counted) |
 | Production readiness | ~**47%** overall · ~**41%** Procurement/P2P |
 | Open production gates | **MESP-48** (supported volume) · **MESP-50** (retention, privacy, legal hold, purge, residency, backup/restore) |
-| Continuous integration | **GitHub Actions — implementation in progress / not yet verified.** Hosted CI has not completed a successful run yet |
+| Continuous integration | **GitHub Actions — PR validation verified.** Run `34543262572` passed all stable PR checks; `main` validation is still separate |
 
 Delivery is strictly sequential: one active capability, one executor, one
 focused branch and Pull Request, and an exact one-session
@@ -293,9 +293,10 @@ SQL Server safety suite reports as **gated** rather than passing when
 `MESP_SQLSERVER_SAFETY_CONNECTION_STRING` is absent. Gated evidence is never
 reported as passed.
 
-The first repository-owned GitHub Actions workflow is being established in
-`.github/workflows/ci.yml`. Until a hosted run succeeds, CI remains
-**implementation in progress / not yet verified**. A passing local Development
+The first repository-owned GitHub Actions workflow is established in
+`.github/workflows/ci.yml`, and PR run `34543262572` passed its stable checks.
+CI is **GitHub Actions — PR validation verified**; `main` validation and branch
+protection remain separate governance actions. A passing local Development
 suite or hosted CI run does not by itself establish production readiness.
 
 ## Documentation

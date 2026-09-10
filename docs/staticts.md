@@ -1,8 +1,8 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 11 September 2026 (GitHub Actions CI foundation implementation in progress)
+**Last Updated:** 11 September 2026 (GitHub Actions PR validation verified)
 
-## Current governance snapshot - 10 September 2026 (GitHub is work-management authority)
+## Current governance snapshot - 11 September 2026 (GitHub is work-management and CI authority)
 
 **Tracker cutover is APPROVED AND COMPLETED.** Independent Claude Opus 5 review
 verified the migration against live GitHub and approved the authority
@@ -25,8 +25,9 @@ implementation authority, changes no production-readiness percentage, and
 activates no capability. Active implementation capability remains **NONE**;
 next capability remains **NOT ACTIVATED**; MESP-141 and MESP-142 remain
 **Open / NOT ACTIVATED** with no branch started; MESP-48 and MESP-50 remain
-**open production gates**; CI is **IMPLEMENTATION IN PROGRESS / NOT YET VERIFIED**
-under GitHub-native technical-enabler Issue #235. Accepted
+**open production gates**; CI is **GitHub Actions — PR VALIDATION VERIFIED**
+under GitHub-native technical-enabler Issue #235 after successful PR run
+`34543262572`; `main` validation remains a later governance step. Accepted
 fast-track completion remains **24 / 26 = 92.3%**, which is capability
 completion only — not production, deployment, launch, UAT, or compliance
 readiness. Product mutations: `0`. `frontend/assets`: untouched.
@@ -45,8 +46,12 @@ The first repository-owned `.github/workflows/ci.yml` now defines stable
 build `0 warnings / 0 errors`, CI-equivalent backend tests `1,136/1,136`, the
 complete sanctioned disposable-LocalDB backend suite `1,223/1,223`, Angular
 unit tests `316/316`, production build success with the existing `514.26 kB`
-warning, and Chromium Playwright `51/51`. Hosted CI has not yet run
-successfully, so CI remains **IMPLEMENTATION IN PROGRESS / NOT YET VERIFIED**.
+warning, and Chromium Playwright `51/51`. The initial hosted attempt failed
+only in Backend because of a Windows-style path expectation on Ubuntu. The
+repaired PR run `34543262572` passed `Repository Validation`,
+`Backend`, and `Frontend` with no skipped required jobs, so CI is now
+**GitHub Actions — PR VALIDATION VERIFIED** for PR #236. `main` has not yet
+been validated and no required-check branch protection was enabled.
 
 The first PR workflow run (`34542920427`, commit
 `174393635e31bd9f64c8fef1da5359eebf663811`) passed Repository Validation and

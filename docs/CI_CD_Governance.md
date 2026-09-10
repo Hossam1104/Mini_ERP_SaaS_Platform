@@ -7,19 +7,19 @@ CI run is not a production-readiness, deployment, UAT, or compliance claim.
 ## Current state
 
 The first repository-owned workflow is `/.github/workflows/ci.yml`.
-Until a hosted run succeeds, the governance state is:
+The complete PR validation run `34543262572` succeeded on commit
+`fbdda32e11e0c66124ca61d039b0d69c3b739a69`, so the current governance state is:
 
-`CI = IMPLEMENTATION IN PROGRESS / NOT YET VERIFIED`
+`CI = GitHub Actions — PR VALIDATION VERIFIED`
 
 The bounded GitHub-native technical enabler is [Issue #235](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/235).
 The CI branch is `ci/github-actions-foundation`, based on the live
 `origin/main` recorded when the worktree was created.
 
-No branch protection or required checks are enabled by this work. After a
-successful PR run and independent acceptance, a later governance action may
-designate the stable checks below as required. A successful PR run may update
-the state to `CI = GitHub Actions — PR VALIDATION VERIFIED`; `ACTIVE / VERIFIED`
-requires successful validation after the workflow is merged to `main`.
+No branch protection or required checks are enabled by this work. The verified
+PR state does not establish `ACTIVE / VERIFIED`; that state requires successful
+validation after the workflow is merged to `main` and a later governance
+action. PR #236 remains Draft/Open/Unmerged for independent review.
 
 ## Workflow contract
 

@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY - 11 September 2026 (CI FOUNDATION IMPLEMENTATION IN PROGRESS)
+## CURRENT AUTHORITY - 11 September 2026 (CI PR VALIDATION VERIFIED)
 
 ### Identity and activation
 
@@ -25,7 +25,7 @@
 | Repository head authority | Resolve live `origin/main` from Git; mutable repository head must not be hard-coded as current authority |
 | Active implementation capability | **NONE** |
 | Next capability | **NOT ACTIVATED** |
-| CI | **IMPLEMENTATION IN PROGRESS / NOT YET VERIFIED** | GitHub Actions workflow is being introduced; no hosted run has succeeded yet |
+| CI | **GitHub Actions — PR VALIDATION VERIFIED** | PR #236 run `34543262572` passed all stable checks; `main` validation and branch protection remain separate |
 | CI technical enabler | **GitHub Issue #235** | `ci/github-actions-foundation`; product capabilities remain frozen |
 | Epic / capability state | MESP-13 **In Progress**; MESP-140 **ACCEPTED / MERGED / DONE** |
 | Sol technical acceptance | GPT-5.6 Sol comment `12392` |
@@ -37,7 +37,7 @@
 | PR | **#89** — Closed / Merged / Non-Draft |
 | Next capabilities | MESP-141 / MESP-142 **not activated** |
 
-Sol completed lifecycle closure (comment `12396`) and MESP-13 reconciliation (comment `12397`). MESP-140 Jira is Done. The CI foundation is an independent GitHub-native technical enabler and does not activate MESP-141 or MESP-142, change product behavior, or alter the MESP-40 branch/PR.
+Sol completed lifecycle closure (comment `12396`) and MESP-13 reconciliation (comment `12397`). MESP-140 Jira is Done. The CI foundation is an independent GitHub-native technical enabler; PR #236 remains Draft/Open/Unmerged for independent review after verified PR run `34543262572`. It does not activate MESP-141 or MESP-142, change product behavior, or alter the MESP-40 branch/PR.
 
 ### Audit-first classification and bounded delivery
 
