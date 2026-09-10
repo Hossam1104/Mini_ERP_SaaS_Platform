@@ -56,11 +56,13 @@ Stable future required-check names are:
 
 The solution has one xUnit test project, `MiniErp.ArchitectureTests`, containing
 backend unit, architecture, SQLite integration, REST/host-security, and
-SQL Server safety coverage. The hosted job includes the deterministic
-non-LocalDB set. The SQL Server LocalDB safety subset is intentionally
-`NOT YET CI-ENABLED`: GitHub's Ubuntu runner does not provide the repository's
-Windows LocalDB contract, and this task does not introduce a database service,
-container, shared database, or production connection.
+SQL Server safety coverage. The hosted job runs on `windows-latest` because
+the existing architecture test contract compares Windows-style project paths.
+It includes the deterministic non-LocalDB set. The SQL Server LocalDB safety
+subset is intentionally `NOT YET CI-ENABLED`: hosted CI does not yet provision
+the repository's disposable Windows LocalDB contract, and this task does not
+introduce a database service, container, shared database, or production
+connection.
 
 ### Frontend
 

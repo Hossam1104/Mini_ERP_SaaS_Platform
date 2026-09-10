@@ -48,6 +48,13 @@ unit tests `316/316`, production build success with the existing `514.26 kB`
 warning, and Chromium Playwright `51/51`. Hosted CI has not yet run
 successfully, so CI remains **IMPLEMENTATION IN PROGRESS / NOT YET VERIFIED**.
 
+The first PR workflow run (`34542920427`, commit
+`174393635e31bd9f64c8fef1da5359eebf663811`) passed Repository Validation and
+Frontend but exposed a hosted-runner path-separator mismatch in the unchanged
+`ModuleBoundaryTests` under Ubuntu. It was classified as a workflow/environment
+defect; the bounded repair selects `windows-latest` for the Backend job without
+weakening or skipping that test.
+
 The SQL Server LocalDB safety subset, validation-lock verification, and any
 production or shared-database execution remain local-only and are documented
 as `NOT YET CI-ENABLED`. No product capability was activated; MESP-141,

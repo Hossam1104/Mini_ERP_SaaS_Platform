@@ -47,7 +47,9 @@ jobs:
 
   backend:
     name: Backend
-    runs-on: ubuntu-latest
+    # ModuleBoundaryTests compare Windows-style project paths; preserve the
+    # repository's existing authoritative test contract on a Windows runner.
+    runs-on: windows-latest
     timeout-minutes: 30
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
