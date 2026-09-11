@@ -1039,7 +1039,7 @@ does not create automated tests or prescribe a test framework.
 
 | Risk | Required coverage | Acceptance criteria |
 |---|---|---|
-| Positive onboarding | Complete request, provisioning/configuration, valid source, dry run, reconciliation and handoff | M40-AC-001, 006, 016, 017, 023–025, 036 |
+| Positive onboarding | Complete request, provisioning/configuration, valid source, validation-only, preview, dry run, reconciliation and handoff | M40-AC-001, 006, 014, 015, 016, 017, 023–025, 036 |
 | Validation failures | Malformed template, missing fields, invalid data, unsupported domain | M40-AC-007, 008, 010, 027 |
 | Duplicate imports | Repeated source key, business duplicate, repeated batch, concurrent submission and duplicate representation of opening balances | M40-AC-009, 018, 019, 037 |
 | Partial/batch failure | One domain succeeds and another fails; row reject/quarantine remains visible | M40-AC-020, 021 |
@@ -1104,7 +1104,7 @@ defined below or in section 21.
 | M40-REQ-036 | M40-RULE-002, 007, 030 | WF-02, WF-03 | M40-AC-003, 004 | MESP-29; MESP-50 |
 | M40-REQ-037 | M40-RULE-023, 024 | WF-02, WF-03, WF-05 | M40-AC-012, 025, 026 | PD-043; MESP-54 |
 | M40-REQ-038 | M40-RULE-025, 026 | WF-02, WF-05 | M40-AC-011 | Saudi Localization BRD |
-| M40-REQ-039 | M40-RULE-029, 030 | WF-02, WF-05 | M40-AC-028, 032 | MESP-50; Security/Audit |
+| M40-REQ-039 | M40-RULE-029, 030 | WF-02, WF-05 | M40-AC-028, 032 | M40-DEC-004; MESP-50; Security/Audit |
 | M40-REQ-040 | M40-RULE-015, 016, 028 | WF-04, WF-06 | M40-AC-033, 034 | M40-DEC-005; PD-041 |
 | M40-REQ-041 | M40-RULE-005, 006, 030 | WF-05, WF-06 | M40-AC-035, 036 | M27 activation; MESP-48/50 |
 | M40-REQ-042 | M40-RULE-028, 030 | WF-05, WF-06 | M40-AC-031, 035, 036 | MESP-48/50; MESP-53 |
