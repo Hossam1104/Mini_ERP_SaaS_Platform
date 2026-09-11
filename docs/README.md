@@ -56,7 +56,11 @@ No architecture record exists yet for MESP-136, MESP-137 or MESP-138.
 - [Decisions register](Decisions.md)
 - [94 — Product delivery master plan](94_Product_Delivery_Master_Plan.md)
 
-## 5. Business requirement documents (approved baselines)
+## 5. Candidate requirements (awaiting independent acceptance)
+
+Migration and onboarding: [40 Data Migration and Tenant Onboarding](40_Data_Migration_and_Tenant_Onboarding_BRD.md) — **candidate / authored / awaiting independent acceptance** (Draft PR #234; MESP-40 remains Open / In Progress).
+
+## 6. Business requirement documents (approved baselines)
 
 Foundation and platform: [11 Platform Administration](11_SaaS_Platform_Administration_BRD.md) ·
 [12 Identity and Access](12_Identity_and_Access_BRD.md) ·
@@ -72,7 +76,7 @@ Business domains: [16 Master Data and Product Catalog](16_Master_Data_and_Produc
 [25 Reporting and Analytics](25_Reporting_and_Analytics_BRD.md) ·
 [28 Saudi Localization](28_Release_1_Saudi_Localization_BRD.md)
 
-## 6. Domain and design references
+## 7. Domain and design references
 
 [00 Business glossary](00_ERP_Business_Glossary.md) ·
 [01 Business vision](01_Business_Vision.md) ·
@@ -83,7 +87,7 @@ Business domains: [16 Master Data and Product Catalog](16_Master_Data_and_Produc
 [08 State machine](08_State_Machine.md) · [09 Module boundaries](09_Module_Boundaries.md) ·
 [10 Non-functional requirements](10_Non_Functional_Requirements.md)
 
-## 7. Implementation specifications and readiness records
+## 8. Implementation specifications and readiness records
 
 - [15 — Foundation Release 1 lean implementation specification](15_Foundation_Release_1_Lean_Implementation_Specification.md)
 - [17 — Master Data lean implementation specification](17_Master_Data_and_Product_Catalog_Lean_Implementation_Specification.md)
@@ -93,7 +97,7 @@ Business domains: [16 Master Data and Product Catalog](16_Master_Data_and_Produc
 - [26 — Saudi regulatory evidence and external validation readiness](26_Saudi_Regulatory_Evidence_and_External_Validation_Readiness.md)
 - [MESP-143 — Tenant-aware entry execution plan](MESP-143_Tenant_Aware_Entry_Execution_Plan.md)
 
-## 8. Historical review and checkpoint records
+## 9. Historical review and checkpoint records
 
 Dated evidence from completed reviews. Not current authority.
 
@@ -108,7 +112,7 @@ Dated evidence from completed reviews. Not current authority.
 [99 Independent Opus 5 Finance BRD reconciliation](99_Independent_Opus_5_Finance_BRD_Reconciliation.md) ·
 [100 Pre-MESP-38 independent review reconciliation](100_Pre_MESP_38_Independent_Review_Reconciliation.md)
 
-## 9. Note on the approved PRD
+## 10. Note on the approved PRD
 
 The canonical approved PRD is the binary `MESP_PRD_v1.2.docx`. Older filenames
 referring to it name the same unchanged file.

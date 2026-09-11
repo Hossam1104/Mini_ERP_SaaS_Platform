@@ -12,6 +12,38 @@
 
 ## CURRENT AUTHORITY - 11 September 2026 (CI ACTIVE / VERIFIED)
 
+### Bounded requirements session
+
+| Item | Value |
+|---|---|
+| MESP-40 | **OPEN / REMEDIATED CANDIDATE — FRESH INDEPENDENT REQUIREMENTS REVIEW REQUIRED** in GitHub Issue #129 |
+| Project item | **In Progress** — Remediated candidate — awaiting fresh independent acceptance |
+| Canonical BRD | docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md |
+| Bounded branch | docs/mesp-40-data-migration-onboarding-brd |
+| Draft PR | #234 — Open / Draft / Unmerged |
+| BRD coverage | 43 requirements, 31 business rules, 6 workflows, 37 acceptance criteria, 6 open decisions, complete requirement traceability |
+| Product implementation | **0** — requirements/governance documentation only |
+| MESP-141 | **OPEN / NOT ACTIVATED** — GitHub Issue #229 remains Todo; no branch or implementation |
+| MESP-142 | **OPEN / NOT ACTIVATED** — GitHub Issue #230 remains Todo |
+| MESP-48 / MESP-50 | **OPEN PRODUCTION GATES** — no values or policy invented |
+| Jira mutations | **0** — Jira remains historical provenance only |
+| Owner-managed frontend/assets | **Untouched** |
+| CI | **GitHub Actions — ACTIVE / VERIFIED** | `.github/workflows/ci.yml`; main run `34590952974` on `5b73acea322d49b7fc0f1a1d9b294005b18686f2` passed `Repository Validation`, `Backend`, and `Frontend` |
+
+MESP-40 records the approved contract-bound B1/PD-041 migration boundary and
+preserves historical/open-document treatment, production volume, residency,
+retention, backup, recovery and exact sign-off choices as explicit decisions
+or gates. The work does not activate an implementation capability; active
+implementation capability remains **NONE**, accepted fast-track completion
+remains **24 / 26 = 92.3%**, and production readiness remains approximately
+**47% overall / 41% Procurement/P2P**.
+
+The MESP-40 candidate is synchronized with current `origin/main` and remediates
+M40-REV-001 through M40-REV-004. It remains Open/In Progress and Draft for a
+fresh independent requirements review; no product capability is activated.
+
+---
+
 ### Identity and activation
 
 | Item | Value |
