@@ -1,3 +1,34 @@
+## MESP-141 Slice 1 - ACTIVATED / READY FOR INDEPENDENT REVIEW
+
+This bounded executor session is authorized by the current task prompt after
+live GitHub/repository reconciliation. MESP-40 is **ACCEPTED / MERGED / DONE**;
+MESP-141 is GitHub Issue #229, **OPEN / ACTIVE**, Project **In Progress**, on
+`feat/mesp-141-migration-foundation` from live `origin/main`
+`b1ceb21fc71d0838325efd58071d5d3f6895ab18`. Activation is recorded in Issue
+#229 comment `5638746775`.
+
+Current executor task: **MESP-141 Slice 1 only** - migration contracts,
+lifecycle/state model, server-owned Tenant context, audit/evidence seam, and
+durable idempotency skeleton. MESP-142 remains **OPEN / NOT ACTIVATED**.
+
+The session does not authorize Slice 2, MESP-142, production migration or
+cutover, CD/deployment, Ready-for-review, merge, Jira mutation, or changes under
+`frontend/assets`. The required handoff is one Draft PR with CI checks green,
+then independent Claude Opus 5 review. MESP-48 and MESP-50 remain open
+production gates; accepted capability completion remains **24 / 26 = 92.3%**
+and production readiness remains approximately **47% overall / 41%
+Procurement/P2P**.
+
+Slice 1 is pushed as Draft PR #242 at head
+`51b6993c0b6ac9131afe6205986771d349658491`. Hosted CI run `34635358309`
+passed `Repository Validation`, `Backend`, and `Frontend`. Local validation is
+Release build `0 warnings / 0 errors`; migration foundation `7/7`; related
+Tenant/audit/authorization/host/module controls `250/250`; CI-equivalent
+backend `1,143/1,143`; disposable SQL Server safety `87/87`; EF Migration
+context has no pending model changes; and `git diff --check` is clean. The PR
+remains Draft and unmerged; the exact next action is independent Claude Opus 5
+review.
+
 ## MESP-140 Cross-cutting controls — ACCEPTED / MERGED / DONE
 
 This current section supersedes the historical record below. MESP-140 is
@@ -2963,25 +2994,4 @@ head containing this handoff, with the exact SHA reported by
 `git rev-parse HEAD` after the documentation commit. Stop for independent
 GPT-5.6 Sol HOLD 6 acceptance; do not mark PR #79 Ready, merge, or start
 MESP-139 or another capability.
-## MESP-141 Slice 1 - ACTIVATED / IMPLEMENTATION IN PROGRESS
-
-This bounded executor session is authorized by the current task prompt after
-live GitHub/repository reconciliation. MESP-40 is **ACCEPTED / MERGED / DONE**;
-MESP-141 is GitHub Issue #229, **OPEN / ACTIVE**, Project **In Progress**, on
-`feat/mesp-141-migration-foundation` from live `origin/main`
-`b1ceb21fc71d0838325efd58071d5d3f6895ab18`. Activation is recorded in Issue
-#229 comment `5638746775`.
-
-Current executor task: **MESP-141 Slice 1 only** - migration contracts,
-lifecycle/state model, server-owned Tenant context, audit/evidence seam, and
-durable idempotency skeleton. MESP-142 remains **OPEN / NOT ACTIVATED**.
-
-The session does not authorize Slice 2, MESP-142, production migration or
-cutover, CD/deployment, Ready-for-review, merge, Jira mutation, or changes under
-`frontend/assets`. The required handoff is one Draft PR with CI checks green,
-then independent Claude Opus 5 review. MESP-48 and MESP-50 remain open
-production gates; accepted capability completion remains **24 / 26 = 92.3%**
-and production readiness remains approximately **47% overall / 41%
-Procurement/P2P**.
-
 ---

@@ -10,15 +10,16 @@
 
 ---
 
-## CURRENT AUTHORITY - 11 September 2026 (MESP-141 SLICE 1 IN PROGRESS)
+## CURRENT AUTHORITY - 11 September 2026 (MESP-141 SLICE 1 READY FOR INDEPENDENT REVIEW)
 
 ### Bounded implementation session
 
 | Item | Value |
 |---|---|
 | MESP-40 | **ACCEPTED / MERGED / DONE** in GitHub Issue #129; requirements prerequisite satisfied |
-| MESP-141 | **OPEN / ACTIVE / SLICE 1 IN PROGRESS** in GitHub Issue #229; Project **In Progress**; label `active` |
-| Bounded branch | `feat/mesp-141-migration-foundation`, created from live `origin/main` `b1ceb21fc71d0838325efd58071d5d3f6895ab18` |
+| MESP-141 | **OPEN / ACTIVE / SLICE 1 READY FOR INDEPENDENT REVIEW** in GitHub Issue #229; Project **In Progress**; label `active` |
+| Bounded branch | `feat/mesp-141-migration-foundation`, head `51b6993c0b6ac9131afe6205986771d349658491`, from live `origin/main` `b1ceb21fc71d0838325efd58071d5d3f6895ab18` |
+| Draft PR | **#242 OPEN / DRAFT / UNMERGED** |
 | Slice 1 | Migration contracts, lifecycle/state model, server-owned Tenant context, audit/evidence seam, and durable idempotency skeleton |
 | MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
 | MESP-48 / MESP-50 | **OPEN PRODUCTION GATES**; no values or policy invented |
@@ -30,8 +31,9 @@ The current prompt positively authorized governance activation and only the
 first bounded MESP-141 implementation slice. Activation is recorded on GitHub
 Issue #229 comment `5638746775`; MESP-40 remains accepted and M40-DEC-001,
 M40-DEC-003, and M40-DEC-006 remain unresolved constraints. The implementation
-does not authorize Slice 2, MESP-142, CD/deployment, production migration or
-cutover, Ready-for-review, merge, or Jira mutation. Accepted fast-track
+is pushed as Draft PR #242 and hosted CI run `34635358309` passed all required
+checks. It does not authorize Slice 2, MESP-142, CD/deployment, production
+migration or cutover, Ready transition, merge, or Jira mutation. Accepted fast-track
 completion remains **24 / 26 = 92.3%**; production readiness remains
 approximately **47% overall / 41% Procurement/P2P**.
 
@@ -40,9 +42,9 @@ approximately **47% overall / 41% Procurement/P2P**.
 MESP-141 is limited to the migration-owned foundation. No source import,
 Tenant/company/branch opening-data creation, production migration execution,
 API endpoint, Angular UI, external provider, or `frontend/assets` change is
-included. The handoff condition is one Draft PR with required CI green,
-followed by independent Claude Opus 5 review. No Ready transition or merge may
-occur in this bounded session.
+included. The handoff condition is satisfied by Draft PR #242 with required CI
+green. The next action is independent Claude Opus 5 review; no Ready transition
+or merge may occur in this bounded session.
 
 ---
 
