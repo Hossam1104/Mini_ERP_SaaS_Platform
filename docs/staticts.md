@@ -1,8 +1,8 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 10 September 2026 (MESP-40 BRD authored; awaiting independent requirements acceptance)
+**Last Updated:** 11 September 2026 (GitHub Actions CI active / verified)
 
-## Current governance snapshot - 10 September 2026 (GitHub is work-management authority)
+## Current governance snapshot - 11 September 2026 (GitHub is work-management and CI authority)
 
 **Tracker cutover is APPROVED AND COMPLETED.** Independent Claude Opus 5 review
 verified the migration against live GitHub and approved the authority
@@ -25,23 +25,72 @@ implementation authority, changes no production-readiness percentage, and
 activates no capability. Active implementation capability remains **NONE**;
 next capability remains **NOT ACTIVATED**; MESP-141 and MESP-142 remain
 **Open / NOT ACTIVATED** with no branch started; MESP-48 and MESP-50 remain
-**open production gates**; CI remains **NONE / NOT CLAIMED**. Accepted
-fast-track completion remains **24 / 26 = 92.3%**, which is capability
+**open production gates**; CI is **GitHub Actions — ACTIVE / VERIFIED** through
+`.github/workflows/ci.yml` under GitHub-native technical-enabler Issue #235.
+PR #236 was squash-merged at `d720a714cab5e8dafa39db278808b8150e5fb935`, and
+the first post-merge `push` run `34589791447` on `main` passed all three
+required jobs. Accepted fast-track completion remains **24 / 26 = 92.3%**,
+which is capability
 completion only — not production, deployment, launch, UAT, or compliance
-readiness. Product mutations: `0`. `frontend/assets`: untouched.
+readiness. Product mutations: `0`. `frontend/assets`: untouched. CD and
+production deployment remain **NOT IMPLEMENTED**.
 
-## Current bounded MESP-40 BRD session - 10 September 2026
+### Progress history - 11 September 2026 (GitHub Actions CI foundation and activation)
 
-MESP-40 / GitHub Issue #129 remains **OPEN** and is now a requirements-review
-candidate. The canonical BRD is
+The bounded GitHub-native technical enabler [Issue #235](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/235)
+was created and added to the `MESP - Mini ERP SaaS Platform` Project with
+applicable Technical Enabler, High, Release 1, Active, and Platform values.
+The isolated `ci/github-actions-foundation` branch was based on
+`origin/main` at `82b396108870c6f3de4b8837f5236e1c8b15f6f3`.
+
+The first repository-owned `.github/workflows/ci.yml` now defines stable
+`Repository Validation`, `Backend`, and `Frontend` checks for pull requests to
+`main`, pushes to `main`, and manual runs. Local evidence is Release backend
+build `0 warnings / 0 errors`, CI-equivalent backend tests `1,136/1,136`, the
+complete sanctioned disposable-LocalDB backend suite `1,223/1,223`, Angular
+unit tests `316/316`, production build success with the existing `514.26 kB`
+warning, and Chromium Playwright `51/51`. The initial hosted attempt failed
+only in Backend because of a Windows-style path expectation on Ubuntu. The
+repaired PR run `34543809278` passed `Repository Validation`,
+`Backend`, and `Frontend` with no skipped required jobs. PR #236 was then
+squash-merged to `main` at `d720a714cab5e8dafa39db278808b8150e5fb935`; the
+first post-merge `push` run `34589791447` passed all three required jobs with
+no skips. CI is now **GitHub Actions — ACTIVE / VERIFIED**. The hosted backend
+run executed `1,136/1,136` tests and excluded exactly `87` LocalDB-dependent
+tests; the complete local suite remains `1,223/1,223`, Angular unit tests
+`316/316`, and Chromium Playwright `51/51`. Branch protection is managed
+separately through GitHub repository governance and is not a workflow-file
+claim.
+
+The first PR workflow run (`34542920427`, commit
+`174393635e31bd9f64c8fef1da5359eebf663811`) passed Repository Validation and
+Frontend but exposed a hosted-runner path-separator mismatch in the unchanged
+`ModuleBoundaryTests` under Ubuntu. It was classified as a workflow/environment
+defect; the bounded repair selects `windows-latest` for the Backend job without
+weakening or skipping that test.
+
+The SQL Server LocalDB safety subset, validation-lock verification, and any
+production or shared-database execution remain local-only and are documented
+as `NOT YET CI-ENABLED`. No product capability was activated; MESP-141,
+MESP-142, MESP-40/PR #234, and `frontend/assets` remain untouched. Production
+readiness remains approximately **47% overall** and **41% Procurement/P2P**;
+accepted fast-track capability completion remains **24 / 26 = 92.3%**.
+
+## Current bounded MESP-40 BRD remediation session - 11 September 2026
+
+MESP-40 / GitHub Issue #129 remains **OPEN** and is now a remediated
+requirements-review candidate awaiting fresh independent acceptance. The
+canonical BRD is
 docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md on bounded branch
 docs/mesp-40-data-migration-onboarding-brd. The Project item is **In
 Progress** because the Project has no Ready for Review option; the truthful
-handoff note is **Requirements authored — awaiting independent acceptance**.
+handoff note is **Remediated candidate — awaiting fresh independent
+acceptance**.
 Draft PR #234 is Open / Draft / Unmerged; it is the sole bounded review handoff.
-The artifact contains 42 stable requirements, 30 business rules, 6 workflows,
-36 acceptance criteria, 6 open decisions and complete requirement
-traceability. This is governance documentation only: product implementation
+The artifact contains 43 stable requirements, 31 business rules, 6 workflows,
+37 acceptance criteria, 6 open decisions and complete requirement
+traceability. M40-REV-001 through M40-REV-004 are remediated in the candidate,
+and the branch is synchronized with current main. This is governance documentation only: product implementation
 remains 0, MESP-141 and MESP-142 remain OPEN / NOT ACTIVATED, and Jira
 mutations remain 0.
 
@@ -49,7 +98,19 @@ The BRD records the approved contract-bound B1/PD-041 migration scope and
 explicitly preserves unresolved historical/open-document treatment, actual
 Tenant source/extract choices, production recovery authority, exact approval
 quorum, MESP-48 volume evidence and MESP-50 residency/retention/backup/legal
-gates. No production-readiness percentage changes.
+gates. CI is GitHub Actions — ACTIVE / VERIFIED with Repository Validation,
+Backend and Frontend as required checks. No production-readiness percentage
+changes.
+
+### Progress history - 11 September 2026 (MESP-40 remediation and main sync)
+
+The bounded candidate closes the four independent-review findings without
+product implementation. It adds the Tenant-scoped subsidiary-to-GL opening
+contract, one-economic-effect/no-double-count rule, blocking mismatch behavior,
+the explicit MESP-141 generic/per-Tenant/production gate partition, AC-005
+traceability, and the accurate pending-acceptance documentation classification.
+The branch was merged from current `origin/main` with CI governance preserved;
+the PR remains Draft and requires fresh independent review.
 
 ### Progress history - 10 September 2026 (MESP-40 BRD completion)
 

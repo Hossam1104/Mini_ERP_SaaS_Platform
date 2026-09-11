@@ -278,10 +278,10 @@ Tenant acknowledgements.
 | M40-REQ-017 | Templates shall preserve Unicode, Arabic and English values, date meaning, decimal meaning, currency codes, units and source text without lossy transliteration or locale-dependent reinterpretation. |
 | M40-REQ-018 | The load order shall validate and establish configuration and reference/master data before dependent opening positions or documents. |
 | M40-REQ-019 | Release 1 migration shall support the required master-data domains in section 9, subject to each owning BRD's lifecycle, duplicate, scope and approval rules. |
-| M40-REQ-020 | General-ledger opening data shall identify the Company/Legal Entity, fiscal context, account/dimension meaning, accounting date, currency basis and source control total required for Finance reconciliation. |
-| M40-REQ-021 | Inventory opening data shall identify the Warehouse, item/product, UOM, quantity, valuation/cost basis, currency and opening date required by the Inventory ledger and valuation contract. |
-| M40-REQ-022 | Receivable and payable opening data shall identify the Customer or Supplier, Company/Legal Entity, document or source reference where available, accounting date, balance, currency and control total. |
-| M40-REQ-023 | Cash and bank opening data shall identify the Company/Legal Entity, cash/bank account concept, accounting date, balance, currency, source reference and control total where the supported Finance capability includes the account. |
+| M40-REQ-020 | General-ledger opening data shall identify the Company/Legal Entity, fiscal context, account/dimension meaning, accounting date, currency basis and source control total required for Finance reconciliation, including the applicable relationship to any subsidiary opening representation. |
+| M40-REQ-021 | Inventory opening data shall identify the Warehouse, item/product, UOM, quantity, valuation/cost basis, currency and opening date required by the Inventory ledger and valuation contract, including the relevant Inventory GL control-account relationship where the authoritative accounting model requires it. |
+| M40-REQ-022 | Receivable and payable opening data shall identify the Customer or Supplier, Company/Legal Entity, document or source reference where available, accounting date, balance, currency and the applicable AR/AP GL control-account mapping or control total. |
+| M40-REQ-023 | Cash and bank opening data shall identify the Company/Legal Entity, cash/bank account concept, accounting date, balance, currency, source reference and the applicable GL control/cash/bank account mapping or control total where the supported Finance capability includes the account. |
 | M40-REQ-024 | Tax, exchange-rate, Payment Term, price-list and other configuration/reference inputs shall be validated before dependent opening data is accepted; no missing reference may be silently defaulted. |
 | M40-REQ-025 | Historical transactions, open documents, attachments and other pre-opening activity shall be handled only according to an explicit decision recorded under M40-DEC-001; this BRD does not assume full history. |
 
@@ -311,6 +311,7 @@ Tenant acknowledgements.
 | M40-REQ-040 | Business rollback/correction shall distinguish pre-commit cancellation, failed import, correction/retry, compensating action, controlled non-production reset and production correction; it shall never promise arbitrary historical deletion. |
 | M40-REQ-041 | A migration completion result shall not activate a Tenant. Handover shall require readiness evidence, financial and operational reconciliation, required acknowledgements, unresolved-decision review and an explicit M27 activation decision. |
 | M40-REQ-042 | Migration reporting shall expose run status, source/target scope, row outcomes, exception and reconciliation status, age/freshness, owner and approval without presenting unapproved values as production capacity or compliance commitments. |
+| M40-REQ-043 | For each applicable Tenant-scoped opening domain, subsidiary opening positions shall reconcile to the corresponding GL control-account opening balances under the authoritative accounting configuration; where detailed subsidiary openings and a full Trial Balance represent the same economic positions, migration shall establish one economic opening effect with multiple reconcilable representations, and a material mismatch shall be a BLOCKING RECONCILIATION FAILURE that prevents approval/readiness until correction and re-validation. |
 
 ## 9. Release 1 migration domains
 
@@ -524,6 +525,25 @@ target basis, unit/currency, extract/opening date, result, variance and owner:
 - AR total by Customer, Company/Legal Entity and currency.
 - AP total by Supplier, Company/Legal Entity and currency.
 - Cash/bank total by account, Company/Legal Entity and currency.
+- Cross-ledger opening-balance control totals, where applicable, using the
+  authoritative Tenant accounting configuration and mapping:
+  - AR subsidiary total = the corresponding AR GL control-account opening
+    balance.
+  - AP subsidiary total = the corresponding AP GL control-account opening
+    balance.
+  - Detailed cash/bank opening total = the corresponding GL cash/bank control
+    account or accounts.
+  - Inventory opening valuation = the corresponding Inventory GL control
+    account or accounts where the accepted accounting model requires that
+    reconciliation.
+- If the authoritative accounting configuration groups control accounts by
+  currency, Company/Legal Entity, Branch, customer or supplier grouping,
+  Warehouse, or another mapping dimension, reconciliation follows that
+  configuration; MESP-40 invents no grouping model.
+- A full Trial Balance/control opening and subsidiary detail may both be
+  represented only as reconcilable views of the same opening state. Loading
+  subsidiary detail shall not create a second economic opening effect or
+  double-count a value already represented in the GL control balance.
 - Tax and exchange-rate reference completeness where used.
 - Open-document or historical-document counts only if M40-DEC-001 selects
   them.
@@ -535,6 +555,14 @@ Rounding differences may be accepted only when the owning Finance/Inventory
 contract defines the basis and the evidence preserves both source and target
 meaning. A balancing journal or stock adjustment may not conceal a source
 mapping or control-total defect.
+
+A material mismatch between an applicable subsidiary opening and its
+corresponding GL control-account opening balance is a **BLOCKING
+RECONCILIATION FAILURE**. It prevents migration approval and readiness until
+the source, mapping, or opening data is corrected and the reconciliation is
+run again. Any exact tolerance or rounding treatment remains governed by the
+existing authoritative accounting precision/rounding rules; this BRD does not
+invent a tolerance.
 
 ### 14.2 Approval
 
@@ -654,6 +682,11 @@ An unavailable or mismatched rate blocks the dependent record or domain. No
 browser-supplied, latest-available, inverse, reciprocal or external-feed
 assumption is introduced by this BRD.
 
+Cross-ledger reconciliation preserves these existing currency meanings. A
+subsidiary balance is compared with its GL control balance according to the
+Tenant's authoritative accounting configuration; this BRD invents no currency
+translation, exchange-rate, tolerance or grouping policy.
+
 Finance owns journal balance, period/account validation, source-to-GL meaning,
 subledger reconciliation, tax effects, controlled correction/reversal and
 posting evidence. Inventory owns quantity/valuation evidence and the Finance
@@ -719,7 +752,7 @@ specialist and SQL/provider gates.
 | Actor | Migration Operator, domain owners, Tenant Administrator |
 | Entry criteria | Target Tenant and source manifest approved; versioned template/source contract available |
 | Steps | Upload/declare source; validate template; validate records/references/scope; resolve deterministic mappings; quarantine duplicates/ambiguity; produce preview; run validation-only and dry run; issue exception register |
-| Validation | All validation stages in section 11; no authoritative effect; reconciliation preview is labeled non-committing |
+| Validation | All validation stages in section 11; cross-ledger opening mappings and control totals are validated where applicable; no authoritative effect; reconciliation preview is labeled non-committing |
 | Failure path | Batch is Validation Failed or quarantine; provide actionable errors and owner; correct and submit linked attempt |
 | Exit criteria | Passed validation and dry run, or an explicitly documented decision that blocks execution |
 | Evidence | Template/version, row outcomes, mapping decisions, preview, dry-run summary, exception register and correlation |
@@ -730,8 +763,8 @@ specialist and SQL/provider gates.
 |---|---|
 | Actor | Authorized Migration/Onboarding Owner with domain approvers |
 | Entry criteria | Passed validation/dry run; approved mappings; exact current authority; recovery plan; batch/session identity |
-| Steps | Confirm target and dependencies; authorize execution; load in approved order; record each domain/row outcome; stop at failure or unknown boundary; produce execution summary |
-| Validation | Domain atomicity, source-key duplicate protection, scope, current lifecycle and control-total checks |
+| Steps | Confirm target and dependencies; authorize execution; load in approved order; apply the cross-ledger opening contract; record each domain/row outcome; stop at failure or unknown boundary; produce execution summary |
+| Validation | Domain atomicity, source-key duplicate protection, scope, current lifecycle, control-total and no-double-effect checks |
 | Failure path | Quarantine/reject row; fail domain unit; preserve completed units; mark overall batch incomplete; unknown outcome requires reconciliation |
 | Exit criteria | Execution Complete only when required units have no blocking errors; otherwise Partially Completed, Failed or Outcome Unknown |
 | Evidence | Execution approval, attempt, domain/row results, counts, failures, unknown states, linked effects and operator |
@@ -754,8 +787,8 @@ specialist and SQL/provider gates.
 |---|---|
 | Actor | Migration Owner, Finance, Inventory, Procurement/Sales as applicable, Tenant Administrator, Reviewer |
 | Entry criteria | Execution result available; all required domain summaries and source controls present |
-| Steps | Reconcile row counts; master data; GL; stock quantity/value; AR/AP; cash/bank; tax/rates; applicable documents; classify variances; obtain owner review; record approval or rejection |
-| Validation | Source/target basis, currency/UOM, dates, zero or explained variance, no unresolved material error or unknown effect |
+| Steps | Reconcile row counts; master data; GL; stock quantity/value; AR/AP; cash/bank; applicable cross-ledger subsidiary-to-GL controls; tax/rates; applicable documents; classify variances; obtain owner review; record approval or rejection |
+| Validation | Source/target basis, currency/UOM, dates, zero or explained variance, subsidiary-to-GL control reconciliation where applicable, no unresolved material error, BLOCKING RECONCILIATION FAILURE or unknown effect |
 | Failure path | Reconciliation Pending; create correction/decision; reject readiness; never hide variance with an unexplained adjustment |
 | Exit criteria | Reconciled and approved, or explicitly blocked with named owner and decision |
 | Evidence | Reconciliation pack, control totals, variance register, approvals, exception disposition and final status |
@@ -767,7 +800,7 @@ specialist and SQL/provider gates.
 | Actor | Platform Onboarding Owner, Tenant Administrator, Platform Administrator, domain approvers |
 | Entry criteria | Provisioning and migration evidence complete; reconciled opening state; dry runs/rehearsal; recovery plan; gates reviewed |
 | Steps | Assemble readiness snapshot; check Tenant/organization/locale/currency/period/Plan/Entitlement/module readiness; confirm required acknowledgements; record go/no-go recommendation; hand off to M27 activation decision |
-| Validation | No blocking decision, gate, unresolved cross-Tenant outcome, financial/stock variance, unsupported effect or missing approval |
+| Validation | No blocking decision, gate, unresolved cross-Tenant outcome, financial/stock or subsidiary-to-GL variance, unsupported effect or missing approval |
 | Failure path | Return to Configuration Required or Migration Correction; keep Tenant non-Active |
 | Exit criteria | Ready for Activation evidence is accepted by responsible reviewers; activation remains a separate authorized transition |
 | Evidence | Readiness checklist, reconciliation approval, gate disposition, acknowledgements, handoff and activation decision reference |
@@ -811,6 +844,10 @@ bounded by Sol/Owner.
   unknown-outcome reconciliation.
 - Finance-owned GL/AP/AR/cash/tax/currency controls and Inventory-owned
   quantity/valuation/ledger controls.
+- The cross-ledger opening contract: applicable AR, AP, cash/bank and Inventory
+  subsidiary openings reconcile to their corresponding GL control-account
+  openings under Tenant accounting configuration, while a full Trial Balance
+  and subsidiary detail remain one economic opening effect rather than two.
 - Immutable, Tenant-scoped evidence and actionable error classification.
 - Arabic/English Unicode preservation and RTL/LTR presentation consequences.
 - Reconciliation pack, named owners/reviewers and separate M27 activation gate.
@@ -825,21 +862,65 @@ bounded by Sol/Owner.
 - Cross-Tenant search, source-owned Tenant authority, support export authority,
   automatic FX, silent defaults, direct inventory balance changes or
   arbitrary rollback.
+- Generic implementation assumptions about production volume, residency,
+  retention, recovery, legal handling or other unresolved production policy.
 
-### 23.3 MESP-141 entry blockers
+### 23.3 MESP-141 contract gate partition
 
-1. M40-DEC-001 historical/open-document boundary.
-2. M40-DEC-002 actual tenant source systems, extract baseline and owners for
-   each production onboarding.
-3. M40-DEC-005 production correction/recovery authority for irreversible
-   cutover.
-4. M40-DEC-006 exact sign-off/quorum policy where the owning policy has not
-   already named it.
-5. MESP-48 supported-volume and production-governance evidence.
-6. MESP-50 residency, retention, privacy, legal hold, purge, backup/restore
-   and production-governance evidence.
-7. Named Finance, Inventory, Migration, Security/Audit and SQL/provider
-   validation before destructive or production action.
+The following three gate types are distinct. A prerequisite in one category is
+not silently promoted into another category.
+
+#### A. Generic MESP-141 implementation-activation prerequisites
+
+These answer **whether generic MESP-141 implementation may begin**. Before
+activation, Sol must confirm MESP-40 independent acceptance and resolve or
+explicitly bound the generic contracts represented by:
+
+- M40-DEC-001, the historical/open-document boundary.
+- M40-DEC-003, the implementation file/transport and operational-volume
+  contract.
+- M40-DEC-006, the exact approval, quorum and SoD contract where the owning
+  policy has not already named it.
+- Any other unresolved generic scope or safety contract that would otherwise
+  make implementation behavior ambiguous.
+
+These blockers define what engineering may safely implement generically. They
+do not require actual production Tenant extracts, production volume evidence,
+or unresolved residency/retention policy values to be invented early.
+
+#### B. Per-Tenant onboarding and cutover prerequisites
+
+These answer **whether a specific Tenant can execute this migration or
+cutover**. They are onboarding inputs and evidence, not automatic generic
+MESP-141 implementation blockers:
+
+- Actual source systems, extracts, source owners, crosswalks and opening or
+  cutover date under M40-DEC-002.
+- Tenant-specific sensitive-field classification and support/export treatment
+  under M40-DEC-004.
+- Named Tenant, domain, reviewer and operational recovery authorities, with
+  the approved policy/quorum applied to that Tenant.
+- The actual domain scope, accounting mappings, source controls, rehearsal and
+  reconciliation evidence for the Tenant.
+- Production-specific volume evidence, hosting/data-governance inputs and
+  recovery evidence when the Tenant is seeking a production cutover.
+
+#### C. Production and release gates
+
+These answer **whether the platform or Tenant may claim production readiness
+under the unresolved gate**. MESP-48 and MESP-50 remain open production gates,
+including their performance/capacity, residency, retention, privacy,
+legal-hold, purge, backup/restore and related production-policy evidence.
+They do not automatically block MESP-40 requirements acceptance, a
+policy-neutral architecture/design, or bounded non-production implementation.
+However, any MESP-141 implementation decision that would hard-code unresolved
+performance, residency, retention, recovery or production-policy assumptions
+must remain deferred or configurable until the relevant gate is resolved.
+
+Named Finance, Inventory, Migration, Security/Audit and SQL/provider
+validation remains required before destructive or production action, whether
+the underlying need is generic implementation safety or a Tenant-specific
+cutover prerequisite.
 
 MESP-141 remains Open / Not Activated. This document does not activate it,
 move it to In Progress, create its branch or authorize its implementation.
@@ -860,17 +941,20 @@ release-candidate validation remain its later scope.
 | MESP-50 — residency, retention and data governance | Keep data/evidence Tenant-scoped, access-controlled, auditable and non-purgeable by this BRD alone; capture required hosting/support inputs during provisioning | Region, residency, retention duration, legal basis, subprocessors, backup/DR location/lifecycle, restoration promise, purge method, legal hold and compliance certification |
 
 These gates remain OPEN. No MESP-40 statement closes or substitutes for them.
+They are production/release gates, not generic MESP-141 activation blockers by
+default. They may still block a particular Tenant's production cutover or any
+implementation decision that would hard-code an unresolved gate assumption.
 
 ## 26. Open decisions register
 
 | ID | Question | Options to decide | Impact | Owner | Blocking classification | Related issue/gate |
 |---|---|---|---|---|---|---|
-| M40-DEC-001 | Will Release 1 start from controlled opening state only, or also migrate open documents and/or historical transactions? | A. Configuration, masters and opening state only (recommended by the current bounded scope); B. Add selected open PO/SO/invoice/receipt documents; C. Add a defined historical period; D. Full history | Changes domains, templates, lineage, reconciliation, reports, cutover, correction and MESP-141 acceptance | Product Owner with Tenant business owner, Finance, Inventory, Procurement and Sales | BLOCKING for MESP-141 scope and any run claiming those records | MESP-51/#140, MESP-141/#229, MESP-23 |
-| M40-DEC-002 | What source systems, extracts, owners and opening date apply to each production Tenant? | One source system; multiple source systems with crosswalk; source-specific onboarding pack | Determines cleansing, mappings, evidence, responsibility and cutover timing | Tenant business owner and Migration Owner | Blocking per production onboarding; non-blocking to generic BRD | MESP-51/#140 |
-| M40-DEC-003 | What file/transport profile and operational volume envelope will the implementation support? | One structured tabular profile; multiple versioned profiles; approved integration profile later | Determines operator workflow, limits, sizing and support evidence | Product/Architecture/Operations with MESP-48 evidence | Non-blocking to business contract; blocking for production commitment | MESP-48/#137, MESP-141/#229 |
-| M40-DEC-004 | Which source fields are sensitive/restricted for each Tenant and what export/support policy applies? | Standard classification; Tenant-specific contractual classification; stricter country/legal profile | Determines masking, reviewer access, exports and incident handling | Security/Privacy owner with Tenant owner | Blocking where restricted data is present; policy gate remains open | MESP-50/#139, MESP-38 |
-| M40-DEC-005 | What is the approved production recovery/correction authority after a cutover effect? | Domain compensating correction/reversal; controlled non-production reset only; separately approved production restoration path | Determines go/no-go, business continuity, unknown outcomes and correction evidence; no arbitrary database rollback | Product Owner with Finance, Inventory, Operations and qualified provider/backup owners | Blocking for destructive/production cutover | MESP-51/#140, MESP-50/#139 |
-| M40-DEC-006 | What exact approval quorum and SoD exceptions apply to migration, reconciliation and handover? | Named independent reviewer; domain-owner plus Platform/Tenant acknowledgements; policy-specific delegated approval | Determines who may approve, self-approval handling and readiness evidence | Product Owner with IAM, Finance, Inventory and Security/Audit | Blocking for actual cutover; generic role contract remains usable | MESP-27/#116, MESP-28/#117, MESP-38/#127 |
+| M40-DEC-001 | Will Release 1 start from controlled opening state only, or also migrate open documents and/or historical transactions? | A. Configuration, masters and opening state only (recommended by the current bounded scope); B. Add selected open PO/SO/invoice/receipt documents; C. Add a defined historical period; D. Full history | Changes domains, templates, lineage, reconciliation, reports, cutover, correction and MESP-141 acceptance | Product Owner with Tenant business owner, Finance, Inventory, Procurement and Sales | B — Does not block MESP-40 acceptance but blocks MESP-141 activation | MESP-51/#140, MESP-141/#229, MESP-23 |
+| M40-DEC-002 | What source systems, extracts, owners and opening date apply to each production Tenant? | One source system; multiple source systems with crosswalk; source-specific onboarding pack | Determines cleansing, mappings, evidence, responsibility and cutover timing | Tenant business owner and Migration Owner | C — Non-blocking to generic implementation; required per production onboarding | MESP-51/#140 |
+| M40-DEC-003 | What file/transport profile and operational volume envelope will the implementation support? | One structured tabular profile; multiple versioned profiles; approved integration profile later | Determines operator workflow, limits, sizing and support evidence | Product/Architecture/Operations with MESP-48 evidence | B — Blocks MESP-141 activation | MESP-48/#137, MESP-141/#229 |
+| M40-DEC-004 | Which source fields are sensitive/restricted for each Tenant and what export/support policy applies? | Standard classification; Tenant-specific contractual classification; stricter country/legal profile | Determines masking, reviewer access, exports and incident handling | Security/Privacy owner with Tenant owner | C — May be deferred, but blocks affected production data | MESP-50/#139, MESP-38 |
+| M40-DEC-005 | What is the approved production recovery/correction authority after a cutover effect? | Domain compensating correction/reversal; controlled non-production reset only; separately approved production restoration path | Determines go/no-go, business continuity, unknown outcomes and correction evidence; no arbitrary database rollback | Product Owner with Finance, Inventory, Operations and qualified provider/backup owners | C — May be deferred; blocks destructive production cutover | MESP-51/#140, MESP-50/#139 |
+| M40-DEC-006 | What exact approval quorum and SoD exceptions apply to migration, reconciliation and handover? | Named independent reviewer; domain-owner plus Platform/Tenant acknowledgements; policy-specific delegated approval | Determines who may approve, self-approval handling and readiness evidence | Product Owner with IAM, Finance, Inventory and Security/Audit | B — Blocks MESP-141 activation | MESP-27/#116, MESP-28/#117, MESP-38/#127 |
 
 No open decision is silently treated as a default. A decision owner must record
 the selected option, rejected alternatives, rationale, affected IDs, effective
@@ -924,9 +1008,10 @@ These are implementation-neutral, testable business acceptance criteria.
 |---|---|
 | M40-AC-023 | Given a GL opening extract, when reconciliation runs, then debit and credit totals, accounting date, Company/Legal Entity, account/dimension mapping and source control total are shown and an imbalance blocks readiness. |
 | M40-AC-024 | Given an inventory opening extract, when reconciliation runs, then quantity by Warehouse/Product/UOM and value by currency/cost basis tie to source evidence; a mismatch blocks inventory readiness. |
-| M40-AC-025 | Given AR, AP or cash/bank opening data, when reconciliation runs, then totals by party/account and currency tie to source controls and unexplained variance blocks handover. |
+| M40-AC-025 | Given AR, AP or cash/bank opening data, when reconciliation runs, then totals by party/account and currency tie to source controls and the applicable GL control-account balance, and unexplained variance blocks handover. |
 | M40-AC-026 | Given a permitted rounding difference under an owning Finance/Inventory policy, when reconciliation runs, then source value, target value, rounding basis and approval are visible; an unexplained variance is not hidden. |
 | M40-AC-027 | Given a scope that includes no historical/open documents under the current decision, when reconciliation runs, then no historical/document count is presented as migrated and the opening boundary is explicit. |
+| M40-AC-037 | Given a Tenant-scoped opening package contains a full Trial Balance with applicable AR/AP/cash/bank/Inventory control balances and subsidiary opening records for the same economic positions, when validation or execution occurs, then the applicable subsidiary totals reconcile to the GL control balances using authoritative accounting mappings, one economic opening effect is established with no duplicate posting or double counting from subsidiary detail, and any material mismatch is a BLOCKING RECONCILIATION FAILURE that blocks approval/readiness until correction and re-validation. |
 
 ### Authorization, audit and sensitive data
 
@@ -956,7 +1041,7 @@ does not create automated tests or prescribe a test framework.
 |---|---|---|
 | Positive onboarding | Complete request, provisioning/configuration, valid source, dry run, reconciliation and handoff | M40-AC-001, 006, 016, 017, 023–025, 036 |
 | Validation failures | Malformed template, missing fields, invalid data, unsupported domain | M40-AC-007, 008, 010, 027 |
-| Duplicate imports | Repeated source key, business duplicate, repeated batch, concurrent submission | M40-AC-009, 018, 019 |
+| Duplicate imports | Repeated source key, business duplicate, repeated batch, concurrent submission and duplicate representation of opening balances | M40-AC-009, 018, 019, 037 |
 | Partial/batch failure | One domain succeeds and another fails; row reject/quarantine remains visible | M40-AC-020, 021 |
 | Retry | Corrected retry, safe pre-effect retry, accepted-record protection | M40-AC-005, 018, 021 |
 | Unknown outcome | Effect uncertainty stops replay and creates reconciliation work | M40-AC-022, 034 |
@@ -965,7 +1050,7 @@ does not create automated tests or prescribe a test framework.
 | Invalid currency/rate | Foreign amount, wrong effective rate, missing rate, functional-currency no-FX case | M40-AC-012, 026 |
 | Invalid references | Customer, Supplier, Product, account, Tax, Term, UOM and organization parent | M40-AC-010, 013 |
 | Bilingual/RTL data | Unicode preservation, Arabic/English fields, mixed direction, readable errors | M40-AC-011 |
-| Financial imbalance | GL debit/credit, AR/AP/cash controls, currency basis and rounding evidence | M40-AC-023, 025, 026 |
+| Financial imbalance | GL debit/credit, AR/AP/cash controls, subsidiary-to-GL reconciliation, currency basis and rounding evidence | M40-AC-023, 025, 026, 037 |
 | Inventory mismatch | Warehouse/Product/UOM quantity and valuation tie-out; ledger boundary | M40-AC-024 |
 | Audit evidence | Initiation through correction, approval, reconciliation and handover | M40-AC-031 |
 | Sensitive data | Masking, least privilege, safe errors and export boundaries | M40-AC-032 |
@@ -986,7 +1071,7 @@ defined below or in section 21.
 | M40-REQ-003 | M40-RULE-002, 007 | WF-02, WF-03 | M40-AC-003 | MESP-13/29; ADR-019 |
 | M40-REQ-004 | M40-RULE-004 | WF-01, WF-06 | M40-AC-001, 036 | M27 / MESP-27 |
 | M40-REQ-005 | M40-RULE-005, 006 | WF-01, WF-06 | M40-AC-002, 036 | M27 lifecycle |
-| M40-REQ-006 | M40-RULE-006, 028 | WF-01, WF-03, WF-05 | M40-AC-001, 020, 031 | M27 provisioning run |
+| M40-REQ-006 | M40-RULE-005, 006, 013, 028 | WF-01, WF-03, WF-05 | M40-AC-001, 005, 020, 031 | M27 provisioning run |
 | M40-REQ-007 | M40-RULE-027 | WF-01, WF-05, WF-06 | M40-AC-030, 036 | M27/MESP-28/MESP-38 |
 | M40-REQ-008 | M40-RULE-003, 007 | WF-01 | M40-AC-001, 002 | M27 / MESP-29 |
 | M40-REQ-009 | M40-RULE-007, 008 | WF-01, WF-02 | M40-AC-002, 003 | MESP-30 |
@@ -1000,10 +1085,10 @@ defined below or in section 21.
 | M40-REQ-017 | M40-RULE-012, 025 | WF-02 | M40-AC-011, 012 | MESP-28; MESP-37; MESP-50 |
 | M40-REQ-018 | M40-RULE-014 | WF-02, WF-03 | M40-AC-010, 017 | PRD section 19.1; domain BRDs |
 | M40-REQ-019 | M40-RULE-014, 015 | WF-02, WF-03 | M40-AC-010, 017 | Master Data BRD; PD-041 |
-| M40-REQ-020 | M40-RULE-019, 020 | WF-03, WF-05 | M40-AC-023 | Finance BRD; PD-044 |
-| M40-REQ-021 | M40-RULE-021, 022 | WF-03, WF-05 | M40-AC-024 | Inventory BRD; PD-046 |
-| M40-REQ-022 | M40-RULE-020, 023 | WF-03, WF-05 | M40-AC-025 | Finance BRD; PD-044 |
-| M40-REQ-023 | M40-RULE-020, 023 | WF-03, WF-05 | M40-AC-025 | Finance BRD; PD-041 |
+| M40-REQ-020 | M40-RULE-019, 020, 031 | WF-03, WF-05 | M40-AC-023, 037 | Finance BRD; PD-044 |
+| M40-REQ-021 | M40-RULE-019, 021, 022, 031 | WF-03, WF-05 | M40-AC-024, 037 | Inventory BRD; PD-046 |
+| M40-REQ-022 | M40-RULE-019, 020, 023, 031 | WF-03, WF-05 | M40-AC-025, 037 | Finance BRD; PD-044 |
+| M40-REQ-023 | M40-RULE-019, 020, 023, 031 | WF-03, WF-05 | M40-AC-025, 037 | Finance BRD; PD-041 |
 | M40-REQ-024 | M40-RULE-014, 023, 024 | WF-02, WF-03 | M40-AC-010, 012, 013 | Master Data/Finance BRDs |
 | M40-REQ-025 | M40-RULE-016 | WF-02, WF-06 | M40-AC-027, 035 | M40-DEC-001; MESP-141 |
 | M40-REQ-026 | M40-RULE-017, 018 | WF-02, WF-05 | M40-AC-007–013, 023–026 | BR-013/ADM-003 |
@@ -1023,6 +1108,7 @@ defined below or in section 21.
 | M40-REQ-040 | M40-RULE-015, 016, 028 | WF-04, WF-06 | M40-AC-033, 034 | M40-DEC-005; PD-041 |
 | M40-REQ-041 | M40-RULE-005, 006, 030 | WF-05, WF-06 | M40-AC-035, 036 | M27 activation; MESP-48/50 |
 | M40-REQ-042 | M40-RULE-028, 030 | WF-05, WF-06 | M40-AC-031, 035, 036 | MESP-48/50; MESP-53 |
+| M40-REQ-043 | M40-RULE-019, 031 | WF-02, WF-03, WF-05, WF-06 | M40-AC-037 | Finance/Inventory BRDs; MESP-33/#122; MESP-34/#123; MESP-51/#140 |
 
 ### 29.1 Business rules register
 
@@ -1040,13 +1126,13 @@ defined below or in section 21.
 | M40-RULE-010 | Source owner, target owner, extract identity/date and scope are required for every domain. |
 | M40-RULE-011 | Stable source identifiers and approved duplicate keys protect identity and history; target identifiers from source are not trusted authority. |
 | M40-RULE-012 | Template version, encoding, field meaning, date, decimal, currency, UOM and bilingual semantics must be explicit. |
-| M40-RULE-013 | A retry reuses the original batch lineage and cannot duplicate an accepted authoritative effect. |
+| M40-RULE-013 | A retry reuses the original batch or provisioning-run lineage and cannot duplicate an accepted authoritative effect. |
 | M40-RULE-014 | Configuration and master/reference data precede dependent openings or documents. |
 | M40-RULE-015 | Each domain execution unit is atomic; independent completed units remain visible when another unit fails. |
 | M40-RULE-016 | Failed, rejected, unsupported or ambiguous records never become operational data; correction creates linked evidence. |
 | M40-RULE-017 | Validation, preview and dry run have no authoritative business effect. |
 | M40-RULE-018 | A warning cannot conceal a blocking scope, duplicate, unsupported, financial, inventory or unresolved-decision outcome. |
-| M40-RULE-019 | Financial and inventory control totals are reconciled to source basis; unexplained variance blocks completion. |
+| M40-RULE-019 | Financial and inventory control totals are reconciled to source basis and, where applicable, subsidiary opening totals are reconciled to corresponding GL control-account balances under the authoritative Tenant accounting mapping; an unexplained or material mismatch is a BLOCKING RECONCILIATION FAILURE that blocks completion and readiness. |
 | M40-RULE-020 | Finance owns GL/AP/AR/cash/tax/period and monetary posting meaning; no operational module fabricates accounting truth. |
 | M40-RULE-021 | Inventory opening quantity/value enters through the Inventory ledger and retains valuation evidence. |
 | M40-RULE-022 | Quantity and valuation use explicit Product/Item, Warehouse, UOM, date, cost and currency meaning. |
@@ -1058,6 +1144,7 @@ defined below or in section 21.
 | M40-RULE-028 | Material attempts and outcomes, including denied, rejected, failed, unknown, retried and reconciled states, are auditable and linked. |
 | M40-RULE-029 | Sensitive data is minimized and masked in errors, previews, evidence and exports; support access is not export authority. |
 | M40-RULE-030 | MESP-48, MESP-50 and unresolved M40 decisions remain visible blockers for the claims or operations they govern. |
+| M40-RULE-031 | A full Trial Balance/control opening and applicable subsidiary opening detail that represent the same positions are multiple reconcilable representations of ONE ECONOMIC OPENING EFFECT; loading both shall not create a second posting or double-count the opening value, and the Finance-owned accounting model governs how the representations are recorded. |
 
 ## 30. Assumptions and dependency register
 
@@ -1106,6 +1193,11 @@ MESP-40 is ready for independent review when:
 - Provisioning and migration are distinct.
 - Tenant isolation, currency, bilingual handling, accounting, inventory,
   audit, retry/idempotency, correction and activation gating are explicit.
+- Cross-ledger opening balances reconcile subsidiary detail to the applicable
+  GL control accounts, with one economic opening effect and blocking mismatch
+  behavior explicit.
+- Generic MESP-141 activation blockers, per-Tenant cutover prerequisites and
+  MESP-48/MESP-50 production gates are partitioned explicitly.
 - MESP-141 and MESP-142 remain not activated.
 - MESP-48 and MESP-50 remain open.
 - No product implementation or owner-managed asset was changed.
@@ -1131,4 +1223,5 @@ This document remains a review candidate until the approval record is completed.
 - Wafra-specific core behavior: 0.
 - Retail POS scope: 0.
 - frontend/assets changes: 0.
-- CI claim: NONE / NOT CLAIMED.
+- CI claim: GitHub Actions — ACTIVE / VERIFIED; Repository Validation, Backend
+  and Frontend are required checks.

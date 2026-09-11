@@ -15,7 +15,7 @@
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white" alt="TypeScript 6.0"></a>
   <a href="https://www.microsoft.com/sql-server"><img src="https://img.shields.io/badge/EF%20Core-10.0.10-CC2927?logo=microsoftsqlserver&logoColor=white" alt="EF Core 10 / SQL Server"></a>
   <a href="https://playwright.dev/"><img src="https://img.shields.io/badge/Playwright-1.62-2EAD33?logo=playwright&logoColor=white" alt="Playwright 1.62"></a>
-  <img src="https://img.shields.io/badge/CI-none%20%2F%20not%20claimed-9E9E9E" alt="No CI">
+  <img src="https://img.shields.io/badge/CI-PR%20validation%20verified-0E7C66" alt="GitHub Actions PR validation verified">
   <img src="https://img.shields.io/badge/status-active%20Release%201%20development-0E7C66" alt="Active development">
 </p>
 
@@ -44,16 +44,16 @@ GitHub Project, and live GitHub outrank this file for mutable facts.
 
 | Item | Value |
 |---|---|
-| Accepted `main` | `644e7b364006a3a62dc8e9756b9a9a64afbd33e1` |
-| Active capability | **MESP-138** — customer returns, credit notes, receipts (Epic MESP-9) |
-| Active branch | `feat/MESP-138-customer-return-credit-receipts` |
-| Published as | Draft PR **#86** — Open / Draft / Unmerged |
-| Acceptance state | **Not accepted.** Held under GPT-5.6 Sol **HOLD 3** (blockers HOLD-138-J … HOLD-138-N) |
-| Next capability | MESP-139 — **To Do, not activated** |
-| Accepted fast-track completion | **21 / 26 = 80.8%** (MESP-138 not counted) |
+| Accepted `main` | `d720a714cab5e8dafa39db278808b8150e5fb935` |
+| Active capability | **NONE** — CI/governance only; no product implementation is active |
+| Active branch | No product implementation branch |
+| Published as | GitHub-native technical enabler PR **#236** — merged |
+| Acceptance state | **CI ACTIVE / VERIFIED.** Main push run `34589791447` passed all required checks |
+| Next capability | MESP-141 / MESP-142 — **Open, not activated** |
+| Accepted fast-track completion | **24 / 26 = 92.3%** |
 | Production readiness | ~**47%** overall · ~**41%** Procurement/P2P |
 | Open production gates | **MESP-48** (supported volume) · **MESP-50** (retention, privacy, legal hold, purge, residency, backup/restore) |
-| Continuous integration | **None. Not claimed.** No pipeline exists in this repository; local runs are not CI |
+| Continuous integration | **GitHub Actions — ACTIVE / VERIFIED.** Main push run `34589791447` on `d720a714` passed `Repository Validation`, `Backend`, and `Frontend` |
 
 Delivery is strictly sequential: one active capability, one executor, one
 focused branch and Pull Request, and an exact one-session
@@ -293,8 +293,13 @@ SQL Server safety suite reports as **gated** rather than passing when
 `MESP_SQLSERVER_SAFETY_CONNECTION_STRING` is absent. Gated evidence is never
 reported as passed.
 
-There is **no continuous integration pipeline** in this repository. A passing
-local Development suite does not by itself establish production readiness.
+The first repository-owned GitHub Actions workflow is established in
+`.github/workflows/ci.yml`. The first post-merge `push` run `34589791447` on
+`main` commit `d720a714` passed `Repository Validation`, `Backend`, and
+`Frontend`. CI is **GitHub Actions — ACTIVE / VERIFIED**; branch protection is
+managed separately through GitHub repository governance. A passing local
+Development suite or hosted CI run does not by itself establish production
+readiness.
 
 ## Documentation
 
@@ -305,6 +310,7 @@ local Development suite does not by itself establish production readiness.
 - [AI executor authorization policy](.ai/AI_EXECUTION_POLICY.md)
 - [Repository working agreement and model routing](AGENTS.md)
 - [Project statistics and production-readiness tracker](docs/staticts.md)
+- [CI/CD governance and validation contract](docs/CI_CD_Governance.md)
 - [Backend project/module boundaries](docs/ADR-002_Backend_Project_Structure_and_Module_Enforcement.md)
 - [SQL schemas, migrations and provider boundaries](docs/ADR-006_Module_Schemas_EF_Core_Migrations_Transactions.md)
 - [Testing environments and production gates](docs/ADR-018_Testing_Environments_SQL_Server_Containers_and_Gates.md)

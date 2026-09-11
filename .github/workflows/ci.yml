@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  repository-validation:
+    name: Repository Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check tracked-file whitespace
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          EVENT_BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            git diff --check "origin/${BASE_REF}...HEAD"
+          elif [[ "$EVENT_NAME" == "push" && "$EVENT_BEFORE" != "0000000000000000000000000000000000000000" ]]; then
+            git diff --check "$EVENT_BEFORE" "$SHA"
+          else
+            git diff --check HEAD^ HEAD
+          fi
+
+  backend:
+    name: Backend
+    # ModuleBoundaryTests compare Windows-style project paths; preserve the
+    # repository's existing authoritative test contract on a Windows runner.
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "true"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK 10.0.400
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.400
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('backend/global.json', 'backend/Directory.Packages.props', 'backend/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore backend solution
+        run: dotnet restore backend/MiniErp.sln
+
+      - name: Build backend solution (Release)
+        run: dotnet build backend/MiniErp.sln --configuration Release --no-restore
+
+      - name: Run backend tests (SQL LocalDB excluded)
+        run: >-
+          dotnet test backend/MiniErp.sln
+          --configuration Release
+          --no-restore
+          --no-build
+          --filter "FullyQualifiedName!~SqlServerSafetyTests"
+          --logger "trx;LogFileName=backend-tests.trx"
+          --results-directory ./artifacts/backend-test-results
+          --verbosity minimal
+
+      - name: Upload backend test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: artifacts/backend-test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: "true"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24.18.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Use repository npm version 12.0.1
+        run: npm install --global npm@12.0.1 --no-audit --fund=false
+
+      - name: Install frontend dependencies from lockfile
+        working-directory: frontend
+        run: npm ci --no-audit --fund=false
+
+      - name: Run Angular unit tests
+        working-directory: frontend
+        run: npm test -- --watch=false --no-progress
+
+      - name: Build Angular application (production)
+        working-directory: frontend
+        run: npm run build
+
+      - name: Install Chromium for Playwright
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Chromium Playwright tests
+        working-directory: frontend
+        run: npm run test:e2e -- --project=chromium
+
+      - name: Audit production dependencies
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit all frontend dependencies
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+      - name: Upload frontend browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-browser-diagnostics
+          path: |
+            frontend/test-results
+            frontend/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
