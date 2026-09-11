@@ -2963,3 +2963,25 @@ head containing this handoff, with the exact SHA reported by
 `git rev-parse HEAD` after the documentation commit. Stop for independent
 GPT-5.6 Sol HOLD 6 acceptance; do not mark PR #79 Ready, merge, or start
 MESP-139 or another capability.
+## MESP-141 Slice 1 - ACTIVATED / IMPLEMENTATION IN PROGRESS
+
+This bounded executor session is authorized by the current task prompt after
+live GitHub/repository reconciliation. MESP-40 is **ACCEPTED / MERGED / DONE**;
+MESP-141 is GitHub Issue #229, **OPEN / ACTIVE**, Project **In Progress**, on
+`feat/mesp-141-migration-foundation` from live `origin/main`
+`b1ceb21fc71d0838325efd58071d5d3f6895ab18`. Activation is recorded in Issue
+#229 comment `5638746775`.
+
+Current executor task: **MESP-141 Slice 1 only** - migration contracts,
+lifecycle/state model, server-owned Tenant context, audit/evidence seam, and
+durable idempotency skeleton. MESP-142 remains **OPEN / NOT ACTIVATED**.
+
+The session does not authorize Slice 2, MESP-142, production migration or
+cutover, CD/deployment, Ready-for-review, merge, Jira mutation, or changes under
+`frontend/assets`. The required handoff is one Draft PR with CI checks green,
+then independent Claude Opus 5 review. MESP-48 and MESP-50 remain open
+production gates; accepted capability completion remains **24 / 26 = 92.3%**
+and production readiness remains approximately **47% overall / 41%
+Procurement/P2P**.
+
+---

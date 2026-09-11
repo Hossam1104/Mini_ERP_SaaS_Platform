@@ -2,6 +2,32 @@
 
 **Last Updated:** 11 September 2026 (MESP-40 accepted; GitHub Actions CI verified)
 
+## Current execution snapshot - 11 September 2026 (MESP-141 Slice 1 activated)
+
+MESP-40 / GitHub Issue #129 remains **ACCEPTED / MERGED / DONE** and satisfies
+the MESP-141 requirements prerequisite. Under the current bounded executor
+authority, MESP-141 / GitHub Issue #229 is **OPEN / ACTIVE** with Project status
+**In Progress**, label `active`, and branch
+`feat/mesp-141-migration-foundation` from live `origin/main`
+`b1ceb21fc71d0838325efd58071d5d3f6895ab18`. Activation is recorded in Issue
+#229 comment `5638746775`.
+
+Slice 1 is limited to migration contracts, lifecycle/state model, server-owned
+Tenant context, audit/evidence seam, and durable idempotency skeleton. No
+Slice 2, MESP-142, production migration/cutover, CD/deployment, Ready/merge,
+Jira mutation, API/UI, or `frontend/assets` change is authorized. MESP-142
+remains **OPEN / NOT ACTIVATED**; MESP-48 and MESP-50 remain open production
+gates. Accepted fast-track capability completion remains **24 / 26 = 92.3%**;
+production readiness remains approximately **47% overall / 41% Procurement/P2P**.
+
+### Progress history - 11 September 2026 (MESP-141 Slice 1 activation)
+
+Live GitHub reconciliation confirmed MESP-40 Done/Accepted, MESP-141 Open and
+ready for the bounded activation, MESP-142 Todo/Not Activated, and no existing
+MESP-141 branch or PR. The authorized activation moved Issue #229 to Active and
+Project In Progress. Implementation and validation evidence will be recorded
+with the Draft PR handoff; this session does not alter the capability headline.
+
 ## Current governance snapshot - 11 September 2026 (GitHub is work-management and CI authority)
 
 **Tracker cutover is APPROVED AND COMPLETED.** Independent Claude Opus 5 review

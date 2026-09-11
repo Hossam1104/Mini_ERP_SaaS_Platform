@@ -10,7 +10,43 @@
 
 ---
 
-## CURRENT AUTHORITY - 11 September 2026 (MESP-40 ACCEPTED / CI VERIFIED)
+## CURRENT AUTHORITY - 11 September 2026 (MESP-141 SLICE 1 IN PROGRESS)
+
+### Bounded implementation session
+
+| Item | Value |
+|---|---|
+| MESP-40 | **ACCEPTED / MERGED / DONE** in GitHub Issue #129; requirements prerequisite satisfied |
+| MESP-141 | **OPEN / ACTIVE / SLICE 1 IN PROGRESS** in GitHub Issue #229; Project **In Progress**; label `active` |
+| Bounded branch | `feat/mesp-141-migration-foundation`, created from live `origin/main` `b1ceb21fc71d0838325efd58071d5d3f6895ab18` |
+| Slice 1 | Migration contracts, lifecycle/state model, server-owned Tenant context, audit/evidence seam, and durable idempotency skeleton |
+| MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
+| MESP-48 / MESP-50 | **OPEN PRODUCTION GATES**; no values or policy invented |
+| Jira mutations | **0** — Jira remains historical provenance only |
+| Owner-managed frontend/assets | **Untouched** |
+| CI | **GitHub Actions — ACTIVE / VERIFIED**; required checks remain `Repository Validation`, `Backend`, and `Frontend` |
+
+The current prompt positively authorized governance activation and only the
+first bounded MESP-141 implementation slice. Activation is recorded on GitHub
+Issue #229 comment `5638746775`; MESP-40 remains accepted and M40-DEC-001,
+M40-DEC-003, and M40-DEC-006 remain unresolved constraints. The implementation
+does not authorize Slice 2, MESP-142, CD/deployment, production migration or
+cutover, Ready-for-review, merge, or Jira mutation. Accepted fast-track
+completion remains **24 / 26 = 92.3%**; production readiness remains
+approximately **47% overall / 41% Procurement/P2P**.
+
+### Current execution boundary
+
+MESP-141 is limited to the migration-owned foundation. No source import,
+Tenant/company/branch opening-data creation, production migration execution,
+API endpoint, Angular UI, external provider, or `frontend/assets` change is
+included. The handoff condition is one Draft PR with required CI green,
+followed by independent Claude Opus 5 review. No Ready transition or merge may
+occur in this bounded session.
+
+---
+
+## HISTORICAL MESP-40 AUTHORITY - 11 September 2026 (superseded by MESP-141 activation)
 
 ### Bounded requirements session
 
