@@ -29,9 +29,9 @@ context has no pending model changes; and `git diff --check` is clean. The PR
 remains Draft and unmerged; the exact next action is independent Claude Opus 5
 review.
 
-## MESP-140 Cross-cutting controls — ACCEPTED / MERGED / DONE
+## Historical MESP-140 Cross-cutting controls — ACCEPTED / MERGED / DONE
 
-This current section supersedes the historical record below. MESP-140 is
+This historical section preserves the prior MESP-140 handoff. MESP-140 is
 **ACCEPTED / MERGED / DONE**: GPT-5.6 Sol technical acceptance is comment
 `12392`, lifecycle authorization is comment `12394`, and lifecycle closure is
 comment `12396`. MESP-13 reconciliation is comment `12397`. HOLD-140-A through
