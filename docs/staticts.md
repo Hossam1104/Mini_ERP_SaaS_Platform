@@ -1,6 +1,6 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 11 September 2026 (GitHub Actions CI active / verified)
+**Last Updated:** 11 September 2026 (MESP-40 accepted; GitHub Actions CI verified)
 
 ## Current governance snapshot - 11 September 2026 (GitHub is work-management and CI authority)
 
@@ -20,6 +20,13 @@ references; dependencies `330` with perfect reciprocity and `0` malformed
 references; material comments `553/553` with `0` duplicate markers and full
 provenance; comment arithmetic reconciling exactly (`656 - 552 = 104 = 100 + 4`).
 
+MESP-40 is **ACCEPTED / MERGED / DONE** as a requirements-only baseline. Its
+requirements prerequisite for MESP-141 is satisfied, but the six Open Decisions
+remain governed and no implementation authority is granted. PR #234 was
+squash-merged at `64aaf68fa085dd90369854afc58cf57e1e409783`; post-merge main CI
+run `34602282857` passed `Repository Validation`, `Backend`, and `Frontend` with
+no skipped required jobs.
+
 This cutover transfers **work-management authority only**. It grants no
 implementation authority, changes no production-readiness percentage, and
 activates no capability. Active implementation capability remains **NONE**;
@@ -34,6 +41,21 @@ which is capability
 completion only — not production, deployment, launch, UAT, or compliance
 readiness. Product mutations: `0`. `frontend/assets`: untouched. CD and
 production deployment remain **NOT IMPLEMENTED**.
+
+### Progress history - 11 September 2026 (MESP-40 final acceptance and lifecycle completion)
+
+MESP-40 / GitHub Issue #129 is now **Closed / Completed**, and its Project item
+is **Done / Accepted**. The accepted BRD is
+`docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md`, published in PR #234
+from accepted head `1fd615542f083b8008e03e907bcb39431ce46223` and squash-merged
+to `main` at `64aaf68fa085dd90369854afc58cf57e1e409783`. Post-merge CI run
+`34602282857` passed all three required checks with zero skips. Final coverage
+is 43 requirements, 31 business rules, 6 workflows, 37 acceptance criteria and
+6 governed Open Decisions, with zero orphan requirements/ACs, broken references
+or duplicate IDs. The MESP-40 → MESP-141 requirements prerequisite is
+satisfied; MESP-141 and MESP-142 remain **OPEN / NOT ACTIVATED**, MESP-48 and
+MESP-50 remain open production gates, and no product capability or production
+readiness percentage was added.
 
 ### Progress history - 11 September 2026 (GitHub Actions CI foundation and activation)
 
@@ -76,23 +98,19 @@ MESP-142, MESP-40/PR #234, and `frontend/assets` remain untouched. Production
 readiness remains approximately **47% overall** and **41% Procurement/P2P**;
 accepted fast-track capability completion remains **24 / 26 = 92.3%**.
 
-## Current bounded MESP-40 BRD remediation session - 11 September 2026
+## Current MESP-40 accepted requirements baseline - 11 September 2026
 
-MESP-40 / GitHub Issue #129 remains **OPEN** and is now a remediated
-requirements-review candidate awaiting fresh independent acceptance. The
-canonical BRD is
-docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md on bounded branch
-docs/mesp-40-data-migration-onboarding-brd. The Project item is **In
-Progress** because the Project has no Ready for Review option; the truthful
-handoff note is **Remediated candidate — awaiting fresh independent
-acceptance**.
-Draft PR #234 is Open / Draft / Unmerged; it is the sole bounded review handoff.
+MESP-40 / GitHub Issue #129 is **ACCEPTED / MERGED / DONE**. The canonical BRD is
+docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md, and the Project item is
+**Done / Accepted**. PR #234 is Closed / Merged / Non-Draft at squash merge
+`64aaf68fa085dd90369854afc58cf57e1e409783`; final Sol acceptance is recorded in
+PR comment `5634837101` at accepted head
+`1fd615542f083b8008e03e907bcb39431ce46223`.
 The artifact contains 43 stable requirements, 31 business rules, 6 workflows,
-37 acceptance criteria, 6 open decisions and complete requirement
-traceability. M40-REV-001 through M40-REV-004 are remediated in the candidate,
-and the branch is synchronized with current main. This is governance documentation only: product implementation
-remains 0, MESP-141 and MESP-142 remain OPEN / NOT ACTIVATED, and Jira
-mutations remain 0.
+37 acceptance criteria, 6 governed Open Decisions and complete requirement
+traceability. Orphans, broken references and duplicate IDs are all 0. This is
+governance documentation only: product implementation remains 0, MESP-141 and
+MESP-142 remain OPEN / NOT ACTIVATED, and Jira mutations remain 0.
 
 The BRD records the approved contract-bound B1/PD-041 migration scope and
 explicitly preserves unresolved historical/open-document treatment, actual
@@ -102,15 +120,14 @@ gates. CI is GitHub Actions — ACTIVE / VERIFIED with Repository Validation,
 Backend and Frontend as required checks. No production-readiness percentage
 changes.
 
-### Progress history - 11 September 2026 (MESP-40 remediation and main sync)
+### Progress history - 11 September 2026 (MESP-40 acceptance evidence)
 
-The bounded candidate closes the four independent-review findings without
-product implementation. It adds the Tenant-scoped subsidiary-to-GL opening
+The accepted candidate closes the four independent-review findings without
+product implementation. It contains the Tenant-scoped subsidiary-to-GL opening
 contract, one-economic-effect/no-double-count rule, blocking mismatch behavior,
-the explicit MESP-141 generic/per-Tenant/production gate partition, AC-005
-traceability, and the accurate pending-acceptance documentation classification.
-The branch was merged from current `origin/main` with CI governance preserved;
-the PR remains Draft and requires fresh independent review.
+the explicit MESP-141 generic/per-Tenant/production gate partition, and complete
+traceability. The six Open Decisions remain governed under their accepted
+classifications; none is resolved by MESP-40 acceptance.
 
 ### Progress history - 10 September 2026 (MESP-40 BRD completion)
 

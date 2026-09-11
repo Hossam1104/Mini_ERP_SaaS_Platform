@@ -8,9 +8,9 @@
 | Work item | MESP-40 |
 | GitHub Issue | #129 |
 | Parent / Epic | MESP-15 / GitHub #104 |
-| Version | 0.1 — requirements review candidate |
-| Date | 10 September 2026 |
-| Status | Ready for independent requirements review; not yet accepted |
+| Version | v0.1 — Approved Business Baseline |
+| Date | 11 September 2026 |
+| Status | **Approved Business Baseline.** This document is a business baseline only and does not authorize source implementation by itself. |
 | Business owner | Product Owner / Owner, with Finance, Inventory, Platform, Security/Audit, and Tenant-owner input |
 | Release | Release 1 B2B ERP |
 | Classification | Prerequisite / governance and requirements |
@@ -1206,13 +1206,17 @@ MESP-40 is ready for independent review when:
 
 | Role | Decision | Name/date |
 |---|---|---|
-| Product Owner / Owner | Approve, return for correction, or record open decisions | Pending independent review |
-| Finance owner | Confirm financial/currency/opening contract | Pending named review |
-| Inventory owner | Confirm quantity/value/ledger opening contract | Pending named review |
-| Security/Audit owner | Confirm access, evidence and sensitive-data contract | Pending named review |
-| Tenant business owner | Confirm onboarding/source/cutover applicability | Pending named review |
+| Product Owner / Owner | Final requirements acceptance recorded; Open Decisions preserved | GPT-5.6 Sol, PR #234 comment `5634837101`, 11 September 2026 |
+| Finance owner | Financial/currency/opening contract represented; specialist and production validation remain governed | Not separately claimed by this requirements acceptance |
+| Inventory owner | Quantity/value/ledger opening contract represented; specialist and production validation remain governed | Not separately claimed by this requirements acceptance |
+| Security/Audit owner | Access, evidence and sensitive-data contract represented; policy validation remains governed | Not separately claimed by this requirements acceptance |
+| Tenant business owner | Onboarding/source/cutover applicability remains explicitly governed per Tenant | Not separately claimed by this requirements acceptance |
 
-This document remains a review candidate until the approval record is completed.
+This document is an **Approved Business Baseline** following GPT-5.6 Sol's
+final requirements acceptance recorded on PR #234 in comment `5634837101` at
+the accepted head `1fd615542f083b8008e03e907bcb39431ce46223`. The six Open
+Decisions remain governed as classified; this acceptance does not resolve
+them, activate MESP-141 or MESP-142, or authorize product implementation.
 
 ## 32. Session boundary and non-mutation record
 
