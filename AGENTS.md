@@ -54,7 +54,7 @@ velocity, or forecast:
 * **Active implementation capability is `NONE`; next capability is `NOT ACTIVATED`.** MESP-138 (PR #86), MESP-139 (PR #88, `8718afab41754667cda38642a2b4f3e3437250e3`), and MESP-140 (PR #89, `0316a2623dfc1b9d8df6952c535757c03dd740b0`) are **Done / merged / accepted**.
 * **MESP-141 and MESP-142 remain Open / `NOT ACTIVATED`.** Neither may be started, branched, or transitioned without positive Sol activation authority issued in a new prompt. The tracker cutover granted no implementation authority.
 * Accepted fast-track capability completion is **24/26 = 92.3%** — **capability completion only**, never production, deployment, launch, UAT, or compliance readiness. Production readiness remains separately approximately **47% overall** and **41% Procurement/P2P**. **MESP-48** and **MESP-50** remain open production gates.
-* There is **no GitHub Actions CI** in this repository; report CI as `NONE / NOT CLAIMED`. Local test runs are not CI. The GitHub Copilot Code Review bot is an external bot review — evidence only, never authority and never CI.
+* **GitHub Actions CI is ACTIVE / VERIFIED** through `.github/workflows/ci.yml`. The exact required checks are `Repository Validation`, `Backend`, and `Frontend`; local test runs remain distinct from hosted CI. The GitHub Copilot Code Review bot is an external bot review — evidence only, never authority and never CI.
 * `frontend/assets` remains Owner-managed and untouched. Ponytail FULL remains the default executor mode when installed and available, and is never authority.
 
 ## AI model governance and routing baseline

@@ -7,19 +7,22 @@ CI run is not a production-readiness, deployment, UAT, or compliance claim.
 ## Current state
 
 The first repository-owned workflow is `/.github/workflows/ci.yml`.
-The complete PR validation run `34543262572` succeeded on commit
-`fbdda32e11e0c66124ca61d039b0d69c3b739a69`, so the current governance state is:
+The first post-merge `push` run `34589791447` succeeded on `main` commit
+`d720a714cab5e8dafa39db278808b8150e5fb935`, so the current governance state is:
 
-`CI = GitHub Actions — PR VALIDATION VERIFIED`
+`CI = GitHub Actions — ACTIVE / VERIFIED`
 
 The bounded GitHub-native technical enabler is [Issue #235](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/235).
-The CI branch is `ci/github-actions-foundation`, based on the live
-`origin/main` recorded when the worktree was created.
+The CI implementation was delivered through PR #236 from
+`ci/github-actions-foundation` and is now present on `main`.
 
-No branch protection or required checks are enabled by this work. The verified
-PR state does not establish `ACTIVE / VERIFIED`; that state requires successful
-validation after the workflow is merged to `main` and a later governance
-action. PR #236 remains Draft/Open/Unmerged for independent review.
+The main push run is the activation evidence. The required check identities
+are exactly `Repository Validation`, `Backend`, and `Frontend`; all three
+succeeded with zero skipped jobs. Branch protection is managed separately
+through GitHub repository governance and is not encoded by the workflow file.
+
+`CD = NOT IMPLEMENTED`
+`Production deployment = NOT IMPLEMENTED`
 
 ## Workflow contract
 
@@ -34,7 +37,7 @@ for superseded pull-request runs and does not cancel unrelated branch runs.
 It requires no repository or environment secrets and has no production
 credentials or deployment steps.
 
-Stable future required-check names are:
+Required check names are:
 
 - `Repository Validation` — tracked-file whitespace check using `git diff --check`;
 - `Backend` — restore, Release build, and hosted-CI-compatible backend tests;
@@ -97,9 +100,10 @@ uploaded.
 
 ## CI/CD progression
 
-1. **CI Foundation** — this workflow validates repository changes.
-2. **Required PR Quality Gates** — after hosted CI is accepted and stable,
-   designate the stable checks as required for pull requests.
+1. **CI Foundation** — this workflow validates repository changes and is
+   **ACTIVE / VERIFIED** on `main`.
+2. **Required PR Quality Gates** — enforce the stable check identities through
+   GitHub main-branch governance after their successful activation evidence.
 3. **Reproducible Release Build** — produce immutable, versioned artifacts
    under a separately authorized release workflow.
 4. **Non-Production CD** — automate Development/Test deployment only after
