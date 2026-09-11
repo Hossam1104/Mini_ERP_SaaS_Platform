@@ -17,7 +17,7 @@
 | Item | Value |
 |---|---|
 | MESP-40 | **OPEN / REMEDIATED CANDIDATE — FRESH INDEPENDENT REQUIREMENTS REVIEW REQUIRED** in GitHub Issue #129 |
-| Project item | **In Progress** — Requirements authored — awaiting independent acceptance |
+| Project item | **In Progress** — Remediated candidate — awaiting fresh independent acceptance |
 | Canonical BRD | docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md |
 | Bounded branch | docs/mesp-40-data-migration-onboarding-brd |
 | Draft PR | #234 — Open / Draft / Unmerged |
