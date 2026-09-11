@@ -21,7 +21,7 @@ are exactly `Repository Validation`, `Backend`, and `Frontend`; all three
 succeeded with zero skipped jobs. Branch protection is managed separately
 through GitHub repository governance and is not encoded by the workflow file.
 
-`CD = NOT IMPLEMENTED`  
+`CD = NOT IMPLEMENTED`
 `Production deployment = NOT IMPLEMENTED`
 
 ## Workflow contract
