@@ -58,7 +58,7 @@ No architecture record exists yet for MESP-136, MESP-137 or MESP-138.
 
 ## 5. Candidate requirements (awaiting independent acceptance)
 
-Migration and onboarding: [40 Data Migration and Tenant Onboarding](40_Data_Migration_and_Tenant_Onboarding_BRD.md) — **candidate / authored / awaiting independent acceptance** (Draft PR #234; MESP-40 remains Open / In Progress).
+No requirements documents are currently awaiting independent acceptance.
 
 ## 6. Business requirement documents (approved baselines)
 
@@ -74,7 +74,8 @@ Business domains: [16 Master Data and Product Catalog](16_Master_Data_and_Produc
 [23 Finance and Accounting](23_Finance_and_Accounting_BRD.md) ·
 [24 Sales and Order-to-Cash](24_Sales_and_Order_to_Cash_BRD.md) ·
 [25 Reporting and Analytics](25_Reporting_and_Analytics_BRD.md) ·
-[28 Saudi Localization](28_Release_1_Saudi_Localization_BRD.md)
+[28 Saudi Localization](28_Release_1_Saudi_Localization_BRD.md) ·
+[40 Data Migration and Tenant Onboarding](40_Data_Migration_and_Tenant_Onboarding_BRD.md) — **Approved Business Baseline**
 
 ## 7. Domain and design references
 
