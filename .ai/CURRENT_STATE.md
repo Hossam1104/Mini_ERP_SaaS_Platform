@@ -18,7 +18,7 @@
 |---|---|
 | MESP-40 | **ACCEPTED / MERGED / DONE** in GitHub Issue #129; requirements prerequisite satisfied |
 | MESP-141 | **OPEN / ACTIVE / SLICE 1 READY FOR INDEPENDENT REVIEW** in GitHub Issue #229; Project **In Progress**; label `active` |
-| Bounded branch | `feat/mesp-141-migration-foundation`, head `51b6993c0b6ac9131afe6205986771d349658491`, from live `origin/main` `b1ceb21fc71d0838325efd58071d5d3f6895ab18` |
+| Bounded branch | `feat/mesp-141-migration-foundation`; implementation commit `51b6993c0b6ac9131afe6205986771d349658491`; based on live `origin/main` `b1ceb21fc71d0838325efd58071d5d3f6895ab18` |
 | Draft PR | **#242 OPEN / DRAFT / UNMERGED** |
 | Slice 1 | Migration contracts, lifecycle/state model, server-owned Tenant context, audit/evidence seam, and durable idempotency skeleton |
 | MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |

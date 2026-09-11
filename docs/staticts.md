@@ -10,8 +10,8 @@ authority, MESP-141 / GitHub Issue #229 is **OPEN / ACTIVE** with Project status
 **In Progress**, label `active`, and branch
 `feat/mesp-141-migration-foundation` from live `origin/main`
 `b1ceb21fc71d0838325efd58071d5d3f6895ab18`. Activation is recorded in Issue
-#229 comment `5638746775`. Draft PR #242 is **OPEN / DRAFT / UNMERGED** at
-head `51b6993c0b6ac9131afe6205986771d349658491`.
+#229 comment `5638746775`. Draft PR #242 is **OPEN / DRAFT / UNMERGED**; the
+implementation commit is `51b6993c0b6ac9131afe6205986771d349658491`.
 
 Slice 1 is limited to migration contracts, lifecycle/state model, server-owned
 Tenant context, audit/evidence seam, and durable idempotency skeleton. No
