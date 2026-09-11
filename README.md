@@ -44,16 +44,16 @@ GitHub Project, and live GitHub outrank this file for mutable facts.
 
 | Item | Value |
 |---|---|
-| Accepted `main` | `644e7b364006a3a62dc8e9756b9a9a64afbd33e1` |
-| Active capability | **MESP-138** — customer returns, credit notes, receipts (Epic MESP-9) |
-| Active branch | `feat/MESP-138-customer-return-credit-receipts` |
-| Published as | Draft PR **#86** — Open / Draft / Unmerged |
-| Acceptance state | **Not accepted.** Held under GPT-5.6 Sol **HOLD 3** (blockers HOLD-138-J … HOLD-138-N) |
-| Next capability | MESP-139 — **To Do, not activated** |
-| Accepted fast-track completion | **21 / 26 = 80.8%** (MESP-138 not counted) |
+| Accepted `main` | `d720a714cab5e8dafa39db278808b8150e5fb935` |
+| Active capability | **NONE** — CI/governance only; no product implementation is active |
+| Active branch | No product implementation branch |
+| Published as | GitHub-native technical enabler PR **#236** — merged |
+| Acceptance state | **CI ACTIVE / VERIFIED.** Main push run `34589791447` passed all required checks |
+| Next capability | MESP-141 / MESP-142 — **Open, not activated** |
+| Accepted fast-track completion | **24 / 26 = 92.3%** |
 | Production readiness | ~**47%** overall · ~**41%** Procurement/P2P |
 | Open production gates | **MESP-48** (supported volume) · **MESP-50** (retention, privacy, legal hold, purge, residency, backup/restore) |
-| Continuous integration | **GitHub Actions — PR validation verified.** Run `34543262572` passed all stable PR checks; `main` validation is still separate |
+| Continuous integration | **GitHub Actions — ACTIVE / VERIFIED.** Main push run `34589791447` on `d720a714` passed `Repository Validation`, `Backend`, and `Frontend` |
 
 Delivery is strictly sequential: one active capability, one executor, one
 focused branch and Pull Request, and an exact one-session
@@ -294,10 +294,12 @@ SQL Server safety suite reports as **gated** rather than passing when
 reported as passed.
 
 The first repository-owned GitHub Actions workflow is established in
-`.github/workflows/ci.yml`, and PR run `34543262572` passed its stable checks.
-CI is **GitHub Actions — PR validation verified**; `main` validation and branch
-protection remain separate governance actions. A passing local Development
-suite or hosted CI run does not by itself establish production readiness.
+`.github/workflows/ci.yml`. The first post-merge `push` run `34589791447` on
+`main` commit `d720a714` passed `Repository Validation`, `Backend`, and
+`Frontend`. CI is **GitHub Actions — ACTIVE / VERIFIED**; branch protection is
+managed separately through GitHub repository governance. A passing local
+Development suite or hosted CI run does not by itself establish production
+readiness.
 
 ## Documentation
 

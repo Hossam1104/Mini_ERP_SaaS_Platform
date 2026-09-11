@@ -41,9 +41,11 @@ Live Jira and live GitHub outrank every Markdown file for mutable facts.
   UAT, or compliance readiness. Production readiness remains separately
   approximately ~**47%** overall / ~**41%** Procurement/P2P. **MESP-48** and
   **MESP-50** remain open production gates.
-* There is **no CI** in this repository. Report CI as `NONE / NOT CLAIMED`;
-  local runs are not CI, and the GitHub Copilot Code Review bot is an external
-  bot review — evidence only, never authority and never CI.
+* **GitHub Actions CI is ACTIVE / VERIFIED** through
+  `.github/workflows/ci.yml`, with exact required checks `Repository Validation`,
+  `Backend`, and `Frontend`. Local runs remain distinct from hosted CI, and the
+  GitHub Copilot Code Review bot is an external bot review — evidence only, never
+  authority and never CI.
 
 ## Permanent boundaries
 

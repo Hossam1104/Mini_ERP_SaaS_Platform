@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY - 11 September 2026 (CI PR VALIDATION VERIFIED)
+## CURRENT AUTHORITY - 11 September 2026 (CI ACTIVE / VERIFIED)
 
 ### Identity and activation
 
@@ -25,7 +25,9 @@
 | Repository head authority | Resolve live `origin/main` from Git; mutable repository head must not be hard-coded as current authority |
 | Active implementation capability | **NONE** |
 | Next capability | **NOT ACTIVATED** |
-| CI | **GitHub Actions — PR VALIDATION VERIFIED** | PR #236 run `34543262572` passed all stable checks; `main` validation and branch protection remain separate |
+| CI | **GitHub Actions — ACTIVE / VERIFIED** | `.github/workflows/ci.yml`; first post-merge `push` run `34589791447` on `main` SHA `d720a714cab5e8dafa39db278808b8150e5fb935` passed `Repository Validation`, `Backend`, and `Frontend` |
+| CD | **NOT IMPLEMENTED** | No deployment workflow, environment, artifact publication, or production credentials are present |
+| Production deployment | **NOT IMPLEMENTED** | CI activation does not establish deployment or production readiness |
 | CI technical enabler | **GitHub Issue #235** | `ci/github-actions-foundation`; product capabilities remain frozen |
 | Epic / capability state | MESP-13 **In Progress**; MESP-140 **ACCEPTED / MERGED / DONE** |
 | Sol technical acceptance | GPT-5.6 Sol comment `12392` |
@@ -37,7 +39,7 @@
 | PR | **#89** — Closed / Merged / Non-Draft |
 | Next capabilities | MESP-141 / MESP-142 **not activated** |
 
-Sol completed lifecycle closure (comment `12396`) and MESP-13 reconciliation (comment `12397`). MESP-140 Jira is Done. The CI foundation is an independent GitHub-native technical enabler; PR #236 remains Draft/Open/Unmerged for independent review after verified PR run `34543262572`. It does not activate MESP-141 or MESP-142, change product behavior, or alter the MESP-40 branch/PR.
+Sol completed lifecycle closure (comment `12396`) and MESP-13 reconciliation (comment `12397`). MESP-140 Jira is Done. The CI foundation is an independent GitHub-native technical enabler: PR #236 was squash-merged to `main` at `d720a714cab5e8dafa39db278808b8150e5fb935`, and the first post-merge `push` run `34589791447` passed all three required jobs. It does not activate MESP-141 or MESP-142, change product behavior, or alter the MESP-40 branch/PR.
 
 ### Audit-first classification and bounded delivery
 

@@ -1,6 +1,6 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 11 September 2026 (GitHub Actions PR validation verified)
+**Last Updated:** 11 September 2026 (GitHub Actions CI active / verified)
 
 ## Current governance snapshot - 11 September 2026 (GitHub is work-management and CI authority)
 
@@ -25,14 +25,17 @@ implementation authority, changes no production-readiness percentage, and
 activates no capability. Active implementation capability remains **NONE**;
 next capability remains **NOT ACTIVATED**; MESP-141 and MESP-142 remain
 **Open / NOT ACTIVATED** with no branch started; MESP-48 and MESP-50 remain
-**open production gates**; CI is **GitHub Actions — PR VALIDATION VERIFIED**
-under GitHub-native technical-enabler Issue #235 after successful PR run
-`34543262572`; `main` validation remains a later governance step. Accepted
-fast-track completion remains **24 / 26 = 92.3%**, which is capability
+**open production gates**; CI is **GitHub Actions — ACTIVE / VERIFIED** through
+`.github/workflows/ci.yml` under GitHub-native technical-enabler Issue #235.
+PR #236 was squash-merged at `d720a714cab5e8dafa39db278808b8150e5fb935`, and
+the first post-merge `push` run `34589791447` on `main` passed all three
+required jobs. Accepted fast-track completion remains **24 / 26 = 92.3%**,
+which is capability
 completion only — not production, deployment, launch, UAT, or compliance
-readiness. Product mutations: `0`. `frontend/assets`: untouched.
+readiness. Product mutations: `0`. `frontend/assets`: untouched. CD and
+production deployment remain **NOT IMPLEMENTED**.
 
-### Progress history - 11 September 2026 (GitHub Actions CI foundation)
+### Progress history - 11 September 2026 (GitHub Actions CI foundation and activation)
 
 The bounded GitHub-native technical enabler [Issue #235](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/235)
 was created and added to the `MESP - Mini ERP SaaS Platform` Project with
@@ -48,10 +51,16 @@ complete sanctioned disposable-LocalDB backend suite `1,223/1,223`, Angular
 unit tests `316/316`, production build success with the existing `514.26 kB`
 warning, and Chromium Playwright `51/51`. The initial hosted attempt failed
 only in Backend because of a Windows-style path expectation on Ubuntu. The
-repaired PR run `34543262572` passed `Repository Validation`,
-`Backend`, and `Frontend` with no skipped required jobs, so CI is now
-**GitHub Actions — PR VALIDATION VERIFIED** for PR #236. `main` has not yet
-been validated and no required-check branch protection was enabled.
+repaired PR run `34543809278` passed `Repository Validation`,
+`Backend`, and `Frontend` with no skipped required jobs. PR #236 was then
+squash-merged to `main` at `d720a714cab5e8dafa39db278808b8150e5fb935`; the
+first post-merge `push` run `34589791447` passed all three required jobs with
+no skips. CI is now **GitHub Actions — ACTIVE / VERIFIED**. The hosted backend
+run executed `1,136/1,136` tests and excluded exactly `87` LocalDB-dependent
+tests; the complete local suite remains `1,223/1,223`, Angular unit tests
+`316/316`, and Chromium Playwright `51/51`. Branch protection is managed
+separately through GitHub repository governance and is not a workflow-file
+claim.
 
 The first PR workflow run (`34542920427`, commit
 `174393635e31bd9f64c8fef1da5359eebf663811`) passed Repository Validation and
