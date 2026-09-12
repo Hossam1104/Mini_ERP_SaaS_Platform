@@ -1180,6 +1180,11 @@ public sealed record MigrationPersistenceResult<T>(
 /// </summary>
 public interface IMigrationFoundationPersistence
 {
+    Task<MigrationPersistenceResult<MigrationIntakeRecord>> CreateIntakeAsync(
+        TenantContext tenantContext,
+        CreateMigrationIntakeCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<MigrationPersistenceResult<MigrationRunRecord>> CreateRunAsync(
         TenantContext tenantContext,
         CreateMigrationRunCommand command,

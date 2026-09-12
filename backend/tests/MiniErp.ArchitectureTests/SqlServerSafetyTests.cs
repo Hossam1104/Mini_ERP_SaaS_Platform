@@ -425,12 +425,13 @@ public sealed class SqlServerSafetyTests
         {
             // The attempt-lineage constraints are additive migrations rather
             // than edits of the already-pushed foundation migrations.
-            // Asserting all three names keeps that ordering committed.
+            // Asserting all four names keeps that ordering committed.
             Assert.Equal(
                 [
                     "20260911183345_MESP141MigrationFoundation",
                     "20260912105244_MESP141MigrationAttemptLineage",
-                    "20260912191429_MESP141MigrationRunQualifiedAttemptLineage"
+                    "20260912191429_MESP141MigrationRunQualifiedAttemptLineage",
+                    "20260912224151_MESP141MigrationIntakeStaging"
                 ],
                 (await migration.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await migration.Database.GetPendingMigrationsAsync());

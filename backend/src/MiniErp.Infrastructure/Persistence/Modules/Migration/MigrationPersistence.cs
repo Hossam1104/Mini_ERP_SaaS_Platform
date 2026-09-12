@@ -23,6 +23,94 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    public async Task<MigrationPersistenceResult<MigrationIntakeRecord>> CreateIntakeAsync(
+        TenantContext tenantContext,
+        CreateMigrationIntakeCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(command);
+
+        if (command.Run.TenantId != tenantContext.TenantId
+            || command.Source.TenantId != tenantContext.TenantId
+            || command.Source.ObjectId == Guid.Empty
+            || command.Source.Length < 0
+            || command.Source.ConcurrencyVersion < 1)
+        {
+            return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
+                MigrationPersistenceOutcome.InvalidReference,
+                "migration_tenant_context_mismatch");
+        }
+
+        await using var db = CreateContext(tenantContext);
+        var existingIntake = await db.Intakes.SingleOrDefaultAsync(
+            item => item.IdempotencyKey == command.IdempotencyKey.Value,
+            cancellationToken);
+        if (existingIntake is not null)
+        {
+            return await ResolveIntakeReplayAsync(
+                tenantContext,
+                existingIntake,
+                command.RequestFingerprint.Value,
+                cancellationToken);
+        }
+
+        var existingKey = await FindIdempotencyEntityAsync(
+            db,
+            command.Operation,
+            command.IdempotencyKey.Value,
+            cancellationToken);
+        if (existingKey is not null)
+        {
+            return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
+                MigrationPersistenceOutcome.Conflict,
+                "migration_idempotency_key_reuse");
+        }
+
+        var run = new MigrationRunEntity(command.Run);
+        var intake = new MigrationIntakeEntity(
+            command.Run,
+            command.Operation,
+            command.IdempotencyKey,
+            command.RequestFingerprint,
+            command.FingerprintVersion,
+            command.Source);
+        var identity = new MigrationIdempotencyEntity(
+            tenantContext.TenantId,
+            command.Run.RunId,
+            command.Operation,
+            command.IdempotencyKey,
+            command.RequestFingerprint,
+            attemptId: null,
+            MigrationResultKind.Succeeded,
+            "intake_created",
+            command.Run.CreatedAt);
+        db.Runs.Add(run);
+        db.Intakes.Add(intake);
+        db.Idempotency.Add(identity);
+
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            return MigrationPersistenceResult<MigrationIntakeRecord>.Success(ToRecord(intake, run));
+        }
+        catch (DbUpdateException exception) when (IsUniqueViolation(exception))
+        {
+            return await ResolveConcurrentIntakeAsync(
+                tenantContext,
+                command.Operation,
+                command.IdempotencyKey.Value,
+                command.RequestFingerprint.Value,
+                cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
+                MigrationPersistenceOutcome.UnknownOutcome,
+                "migration_intake_outcome_unknown");
+        }
+    }
+
     public async Task<MigrationPersistenceResult<MigrationRunRecord>> CreateRunAsync(
         TenantContext tenantContext,
         CreateMigrationRunCommand command,
@@ -420,6 +508,54 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
         return await ResolveRunReplayAsync(tenantContext, concurrent, requestFingerprint, cancellationToken);
     }
 
+    private async Task<MigrationPersistenceResult<MigrationIntakeRecord>> ResolveIntakeReplayAsync(
+        TenantContext tenantContext,
+        MigrationIntakeEntity existingIntake,
+        string requestFingerprint,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(existingIntake.RequestFingerprint, requestFingerprint, StringComparison.Ordinal))
+        {
+            return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
+                MigrationPersistenceOutcome.Conflict,
+                "migration_idempotency_conflict");
+        }
+
+        await using var db = CreateContext(tenantContext);
+        var run = await db.Runs.SingleOrDefaultAsync(item => item.RunId == existingIntake.RunId, cancellationToken);
+        return run is null
+            ? MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
+                MigrationPersistenceOutcome.Conflict,
+                "migration_idempotency_orphaned")
+            : MigrationPersistenceResult<MigrationIntakeRecord>.Replay(ToRecord(existingIntake, run));
+    }
+
+    private async Task<MigrationPersistenceResult<MigrationIntakeRecord>> ResolveConcurrentIntakeAsync(
+        TenantContext tenantContext,
+        MigrationOperationKind operation,
+        string idempotencyKey,
+        string requestFingerprint,
+        CancellationToken cancellationToken)
+    {
+        await using var fresh = CreateContext(tenantContext);
+        var concurrentIntake = await fresh.Intakes.SingleOrDefaultAsync(
+            item => item.IdempotencyKey == idempotencyKey,
+            cancellationToken);
+        if (concurrentIntake is not null)
+        {
+            return await ResolveIntakeReplayAsync(tenantContext, concurrentIntake, requestFingerprint, cancellationToken);
+        }
+
+        var concurrentKey = await FindIdempotencyEntityAsync(fresh, operation, idempotencyKey, cancellationToken);
+        return concurrentKey is null
+            ? MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
+                MigrationPersistenceOutcome.UnknownOutcome,
+                "migration_intake_outcome_unknown")
+            : MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
+                MigrationPersistenceOutcome.Conflict,
+                "migration_idempotency_key_reuse");
+    }
+
     /// <summary>
     /// Resolves an attempt replay from a committed idempotency row.
     /// </summary>
@@ -601,6 +737,25 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
         entity.ResultCode,
         entity.CreatedAt,
         entity.Version);
+
+    private static MigrationIntakeRecord ToRecord(
+        MigrationIntakeEntity intake,
+        MigrationRunEntity run) => new(
+        ToRecord(run),
+        intake.Operation,
+        intake.FingerprintVersion,
+        intake.RequestFingerprint,
+        new MigrationSourceArtifactSnapshot(
+            intake.SourceObjectId,
+            intake.SourceTenantId,
+            intake.SourceCompanyId,
+            intake.SourceBranchId,
+            intake.SourceWarehouseId,
+            intake.SourceSha256,
+            intake.SourceLength,
+            intake.SourceConcurrencyVersion),
+        intake.CapturedAt,
+        intake.Version);
 }
 
 #pragma warning restore CS1591
