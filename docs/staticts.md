@@ -1,8 +1,8 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 12 September 2026 (MESP-141 Slice 1 accepted by GPT-5.6 Sol)
+**Last Updated:** 12 September 2026 (MESP-141 Slice 1 merged into main)
 
-## Current execution snapshot - 12 September 2026 (MESP-141 Slice 1 review remediated)
+## Current execution snapshot - 12 September 2026 (MESP-141 Slice 1 merged)
 
 The independent Claude Opus 5 review of Draft PR #242 (Major F1–F4, Minor
 m1–m8) is remediated on the same branch and PR: lifecycle graph aligned with
@@ -20,11 +20,23 @@ Release build `0 warnings / 0 errors`. Details are in
 **No headline changes.** Accepted fast-track capability completion stays
 **24 / 26 = 92.3%** and production readiness approximately **47% overall /
 41% Procurement/P2P** after GPT-5.6 Sol accepted Slice 1 in PR #242 comment
-`5648291141` at head `93be20cee2e5e341f43064e76a214deda296f1fb`. PR #242 remains
-Open / Draft / Unmerged; MESP-142 remains not activated; MESP-48 and MESP-50
-remain open production gates. New finding: 7 moderate npm advisories (Angular
+`5648291141` at head `93be20cee2e5e341f43064e76a214deda296f1fb`. PR #242 is now
+merged into `main` with normal merge commit
+`ee66f7beb3013e8eea5bded82f46aef4ecdfa97c`; Issue #229 remains Open/Active
+with reconciliation comment `5648469182`; MESP-142 remains not activated;
+MESP-48 and MESP-50 remain open production gates. New finding: 7 moderate npm advisories (Angular
 `≤22.1.0`, Vitest `≤4.1.10`, transitive `hono`) with patches available, below
 the CI `high` audit gate and deferred to a focused dependency PR.
+
+### Progress history - 12 September 2026 (MESP-141 Slice 1 merge)
+
+GPT-5.6 Sol acceptance remained bound to PR #242 comment `5648291141` and
+accepted head `93be20cee2e5e341f43064e76a214deda296f1fb`. After the authorized
+Ready gate, PR #242 was merged into `main` with normal merge commit
+`ee66f7beb3013e8eea5bded82f46aef4ecdfa97c`; Issue #229 remains Open/Active
+with reconciliation comment `5648469182`. Slice 2 remains NOT AUTHORIZED,
+MESP-142 remains NOT ACTIVATED, M40-DEC-001 through M40-DEC-006 and
+MESP-48/MESP-50 remain open, and no capability or readiness percentage changed.
 
 ### Progress history - 12 September 2026 (Sol acceptance and governance reconciliation)
 
