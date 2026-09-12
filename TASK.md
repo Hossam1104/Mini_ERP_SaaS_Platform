@@ -1,18 +1,20 @@
-## MESP-141 Slice 1 - REVIEW REMEDIATED / AWAITING GPT-5.6 SOL ACCEPTANCE (12 September 2026)
+## MESP-141 Slice 1 - ACCEPTED BY GPT-5.6 SOL (12 September 2026)
 
 The independent Claude Opus 5 review on Draft PR #242 (`CHANGES REQUIRED`,
-Major F1–F4, Minor m1–m8) is remediated on `feat/mesp-141-migration-foundation`.
-The finding-by-finding record, the m1 Slice 2 entry condition, and the local
-validation (`72/72` MigrationFoundation, `1,299/1,299` CI-equivalent backend,
-four MESP-141 SQL Server provider tests `4/4` across five repeated disposable
-databases, Angular `316/316`) are in the CURRENT
-AUTHORITY block of `.ai/CURRENT_STATE.md`.
+Major F1–F4, Minor m1–m8) is remediated on
+`feat/mesp-141-migration-foundation`. GPT-5.6 Sol accepted MESP-141 Slice 1 in
+PR #242 comment `5648291141` at accepted head
+`93be20cee2e5e341f43064e76a214deda296f1fb`. The finding-by-finding record, the
+m1 Slice 2 entry condition, and the local validation (`72/72`
+MigrationFoundation, `1,299/1,299` CI-equivalent backend, four MESP-141 SQL
+Server provider tests `4/4` across five repeated disposable databases, Angular
+`316/316`) are in the CURRENT AUTHORITY block of `.ai/CURRENT_STATE.md`.
 
-Exact next action: **GPT-5.6 Sol acceptance review of the remediation.** PR #242
-stays Open / Draft / Unmerged. MESP-141 is not accepted or closed, later
-MESP-141 slices and MESP-142 are not activated, and M40-DEC-001 through
-M40-DEC-006 remain open. The section below is the 11 September handoff,
-preserved as written except that its CI run is now tied to its commit.
+Slice 1 is accepted; MESP-141 overall remains Open / Active and is not closed.
+PR #242 stays Open / Draft / Unmerged. Later MESP-141 slices and MESP-142 are
+not activated, and M40-DEC-001 through M40-DEC-006 remain open. The section
+below is the 11 September handoff, preserved as written except that its CI run
+is now tied to its commit.
 
 ## MESP-141 Slice 1 - ACTIVATED / READY FOR INDEPENDENT REVIEW (11 September 2026 handoff)
 

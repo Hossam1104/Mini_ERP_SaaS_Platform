@@ -10,17 +10,18 @@
 
 ---
 
-## CURRENT AUTHORITY - 12 September 2026 (MESP-141 SLICE 1 REVIEW REMEDIATED; AWAITING SOL ACCEPTANCE)
+## CURRENT AUTHORITY - 12 September 2026 (MESP-141 SLICE 1 ACCEPTED BY GPT-5.6 SOL)
 
 ### Bounded implementation session
 
 | Item | Value |
 |---|---|
 | MESP-40 | **ACCEPTED / MERGED / DONE** in GitHub Issue #129; requirements prerequisite satisfied |
-| MESP-141 | **OPEN / ACTIVE / SLICE 1 REVIEW REMEDIATED, NOT ACCEPTED** in GitHub Issue #229; Project **In Progress**; label `active` |
-| Bounded branch | `feat/mesp-141-migration-foundation`; implementation commit `99b029958dbccbeebb51134db96e3d6a93dfcf64`; based on live `origin/main` `b1ceb21fc71d0838325efd58071d5d3f6895ab18` |
-| Draft PR | **#242 OPEN / DRAFT / UNMERGED** |
-| Slice 1 | Migration contracts, lifecycle/state model, server-owned Tenant context, audit/evidence seam, and durable idempotency skeleton |
+| MESP-141 | **OPEN / ACTIVE** in GitHub Issue #229; Project **In Progress**; label `active`; later slices remain separately unauthorized |
+| Bounded branch | `feat/mesp-141-migration-foundation`; accepted head `93be20cee2e5e341f43064e76a214deda296f1fb`; based on live `origin/main` `b1ceb21fc71d0838325efd58071d5d3f6895ab18` |
+| Draft PR | **#242 OPEN / DRAFT / UNMERGED** at accepted head `93be20cee2e5e341f43064e76a214deda296f1fb` |
+| Slice 1 | **ACCEPTED by GPT-5.6 Sol** — migration contracts, lifecycle/state model, server-owned Tenant context, audit/evidence seam, and durable idempotency skeleton |
+| Sol acceptance | PR #242 top-level comment `5648291141`; hosted CI run `34714920073` passed all required jobs on the accepted head |
 | MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
 | MESP-48 / MESP-50 | **OPEN PRODUCTION GATES**; no values or policy invented |
 | Jira mutations | **0** — Jira remains historical provenance only |
@@ -29,21 +30,22 @@
 
 The current prompt positively authorized governance activation and only the
 first bounded MESP-141 implementation slice. Activation is recorded on GitHub
-Issue #229 comment `5638746775`; MESP-40 remains accepted and M40-DEC-001,
-M40-DEC-003, and M40-DEC-006 remain unresolved constraints. The remediation
-is pushed as Draft PR #242 at `99b029958dbccbeebb51134db96e3d6a93dfcf64`.
-Hosted CI run `34714480765` passed all required checks on that exact head. It
-does not authorize Slice 2, MESP-142, CD/deployment, production
-migration or cutover, Ready transition, merge, or Jira mutation. Accepted fast-track
-completion remains **24 / 26 = 92.3%**; production readiness remains
-approximately **47% overall / 41% Procurement/P2P**.
+Issue #229 comment `5638746775`; Sol acceptance is recorded on PR #242 comment
+`5648291141`. MESP-40 remains accepted and M40-DEC-001 through M40-DEC-006
+remain open. The accepted head is `93be20cee2e5e341f43064e76a214deda296f1fb`.
+Hosted CI run `34714920073` passed all required checks on that exact head. This
+acceptance does not authorize Slice 2, MESP-142, CD/deployment, production
+migration or cutover, Ready transition, merge, or Jira mutation. Accepted
+fast-track completion remains **24 / 26 = 92.3%**; production readiness
+remains approximately **47% overall / 41% Procurement/P2P**.
 
-### Slice 1 review remediation - 12 September 2026 (awaiting GPT-5.6 Sol acceptance)
+### Slice 1 review remediation - 12 September 2026 (accepted by GPT-5.6 Sol)
 
 The independent Claude Opus 5 review (PR #242 comment, disposition
 `CHANGES REQUIRED`: Critical 0 / Major 4 / Minor 8) is remediated on the same
-branch and Draft PR. Nothing here is accepted; GPT-5.6 Sol remains the
-acceptance authority.
+branch and Draft PR. GPT-5.6 Sol accepted MESP-141 Slice 1 in PR #242 comment
+`5648291141` at head `93be20cee2e5e341f43064e76a214deda296f1fb`. MESP-141
+overall remains open for later separately authorized slices.
 
 | Finding | Remediation |
 |---|---|
@@ -83,9 +85,9 @@ completion and production-readiness figures are unchanged.
 MESP-141 is limited to the migration-owned foundation. No source import,
 Tenant/company/branch opening-data creation, production migration execution,
 API endpoint, Angular UI, external provider, or `frontend/assets` change is
-included. The remediation handoff condition is satisfied by Draft PR #242 with required
-CI green. The next action is independent GPT-5.6 Sol re-acceptance; no Ready transition
-or merge may occur in this bounded session.
+included. The Sol acceptance condition is satisfied by Draft PR #242 with required CI
+green. The next lifecycle step requires separate current-task authority for
+Ready/merge; no Ready transition or merge may occur in this bounded session.
 
 ---
 
