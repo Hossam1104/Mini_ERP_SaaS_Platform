@@ -3,8 +3,9 @@
 The independent Claude Opus 5 review on Draft PR #242 (`CHANGES REQUIRED`,
 Major F1–F4, Minor m1–m8) is remediated on `feat/mesp-141-migration-foundation`.
 The finding-by-finding record, the m1 Slice 2 entry condition, and the local
-validation (`62/62` MigrationFoundation, `1,198/1,198` CI-equivalent backend,
-`91/91` LocalDB SQL Server safety, Angular `316/316`) are in the CURRENT
+validation (`72/72` MigrationFoundation, `1,299/1,299` CI-equivalent backend,
+four MESP-141 SQL Server provider tests `4/4` across five repeated disposable
+databases, Angular `316/316`) are in the CURRENT
 AUTHORITY block of `.ai/CURRENT_STATE.md`.
 
 Exact next action: **GPT-5.6 Sol acceptance review of the remediation.** PR #242
@@ -34,16 +35,15 @@ production gates; accepted capability completion remains **24 / 26 = 92.3%**
 and production readiness remains approximately **47% overall / 41%
 Procurement/P2P**.
 
-Slice 1 is pushed as Draft PR #242; implementation commit
-`51b6993c0b6ac9131afe6205986771d349658491`. Hosted CI run `34635358309` on
-that implementation commit passed `Repository Validation`, `Backend`, and
-`Frontend`; handoff head `a8acc2b` passed separately in run `34636791728`. Local validation is
-Release build `0 warnings / 0 errors`; migration foundation `7/7`; related
-Tenant/audit/authorization/host/module controls `250/250`; CI-equivalent
-backend `1,143/1,143`; disposable SQL Server safety `87/87`; EF Migration
-context has no pending model changes; and `git diff --check` is clean. The PR
-remains Draft and unmerged; the exact next action is independent Claude Opus 5
-review.
+Slice 1 remediation is pushed as Draft PR #242; implementation commit
+`99b029958dbccbeebb51134db96e3d6a93dfcf64`. Hosted CI run `34714480765` on
+that exact head passed `Repository Validation`, `Backend`, and `Frontend`.
+Local validation is Release build `0 warnings / 0 errors`; MigrationFoundation
+`72/72`; CI-equivalent backend `1,299/1,299`; disposable SQL Server safety
+included in the full suite with the four MESP-141 provider tests `4/4` across
+five repeated fresh databases; Angular `316/316`; Chromium `51/51`; NuGet
+clear; and `git diff --check` clean. The PR remains Draft and unmerged; the
+exact next action is independent GPT-5.6 Sol re-acceptance.
 
 ## Historical MESP-140 Cross-cutting controls — ACCEPTED / MERGED / DONE
 

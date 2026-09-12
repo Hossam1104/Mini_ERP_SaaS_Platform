@@ -7,12 +7,14 @@
 The independent Claude Opus 5 review of Draft PR #242 (Major F1–F4, Minor
 m1–m8) is remediated on the same branch and PR: lifecycle graph aligned with
 BRD §7.2/§13.7, server-derived attempt lineage with a database-enforced
-Tenant-qualified predecessor FK (additive migration
-`20260912105244_MESP141MigrationAttemptLineage`), race-safe idempotent replay,
+Run-qualified predecessor FK (third additive migration
+`20260912191429_MESP141MigrationRunQualifiedAttemptLineage`), race-safe idempotent replay,
 and durable audit evidence for every state change. Migration now has
 provider-realistic SQL Server coverage. Local validation: MigrationFoundation
-`62/62`, CI-equivalent backend `1,198/1,198`, LocalDB SQL Server safety `91/91`,
-Angular unit `316/316`, Release build `0 warnings / 0 errors`. Details are in
+`72/72`, CI-equivalent backend `1,299/1,299`, disposable LocalDB SQL Server
+safety included in the full suite with the four MESP-141 provider tests `4/4`
+across five repeated fresh databases, Angular unit `316/316`, Chromium `51/51`,
+Release build `0 warnings / 0 errors`. Details are in
 `.ai/CURRENT_STATE.md`.
 
 **No headline changes.** Accepted fast-track capability completion stays
@@ -22,6 +24,23 @@ Open / Draft / Unmerged; MESP-142 remains not activated; MESP-48 and MESP-50
 remain open production gates. New finding: 7 moderate npm advisories (Angular
 `≤22.1.0`, Vitest `≤4.1.10`, transitive `hono`) with patches available, below
 the CI `high` audit gate and deferred to a focused dependency PR.
+
+### Progress history - 12 September 2026 (bounded Sol remediation)
+
+MESP-141 Slice 1 residual acceptance blockers R1-R3 were remediated on the
+existing branch and pushed in implementation commit
+`99b029958dbccbeebb51134db96e3d6a93dfcf64`: post-effect lifecycle states now
+cannot reach pre-effect states; the predecessor FK is Run-qualified through
+the third additive migration
+`20260912191429_MESP141MigrationRunQualifiedAttemptLineage`; and SQLite
+idempotency-race classification accepts only primary-key/unique extended
+codes, rejecting FK/CHECK constraint failures. Fresh validation passed Release
+build `0 warnings / 0 errors`, MigrationFoundation `72/72`, full backend
+`1,299/1,299`, Angular `316/316`, Chromium `51/51`, NuGet scan clear, and
+five repeated MESP-141 SQL provider runs `4/4` each. Hosted CI run
+`34714480765` passed `Repository Validation`, `Backend`, and `Frontend` on the
+same head. PR #242 remains Open/Draft/Unmerged and MESP-141 remains awaiting
+GPT-5.6 Sol re-acceptance; no capability percentage changed.
 
 ## Execution snapshot - 11 September 2026 (MESP-141 Slice 1 activated; superseded by the remediation snapshot above)
 

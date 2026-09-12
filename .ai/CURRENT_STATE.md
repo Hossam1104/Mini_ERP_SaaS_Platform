@@ -18,7 +18,7 @@
 |---|---|
 | MESP-40 | **ACCEPTED / MERGED / DONE** in GitHub Issue #129; requirements prerequisite satisfied |
 | MESP-141 | **OPEN / ACTIVE / SLICE 1 REVIEW REMEDIATED, NOT ACCEPTED** in GitHub Issue #229; Project **In Progress**; label `active` |
-| Bounded branch | `feat/mesp-141-migration-foundation`; implementation commit `51b6993c0b6ac9131afe6205986771d349658491`; based on live `origin/main` `b1ceb21fc71d0838325efd58071d5d3f6895ab18` |
+| Bounded branch | `feat/mesp-141-migration-foundation`; implementation commit `99b029958dbccbeebb51134db96e3d6a93dfcf64`; based on live `origin/main` `b1ceb21fc71d0838325efd58071d5d3f6895ab18` |
 | Draft PR | **#242 OPEN / DRAFT / UNMERGED** |
 | Slice 1 | Migration contracts, lifecycle/state model, server-owned Tenant context, audit/evidence seam, and durable idempotency skeleton |
 | MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
@@ -30,10 +30,10 @@
 The current prompt positively authorized governance activation and only the
 first bounded MESP-141 implementation slice. Activation is recorded on GitHub
 Issue #229 comment `5638746775`; MESP-40 remains accepted and M40-DEC-001,
-M40-DEC-003, and M40-DEC-006 remain unresolved constraints. The implementation
-is pushed as Draft PR #242. Hosted CI run `34635358309` passed all required
-checks on the implementation commit `51b6993`; the handoff head `a8acc2b`
-passed separately in run `34636791728`. It does not authorize Slice 2, MESP-142, CD/deployment, production
+M40-DEC-003, and M40-DEC-006 remain unresolved constraints. The remediation
+is pushed as Draft PR #242 at `99b029958dbccbeebb51134db96e3d6a93dfcf64`.
+Hosted CI run `34714480765` passed all required checks on that exact head. It
+does not authorize Slice 2, MESP-142, CD/deployment, production
 migration or cutover, Ready transition, merge, or Jira mutation. Accepted fast-track
 completion remains **24 / 26 = 92.3%**; production readiness remains
 approximately **47% overall / 41% Procurement/P2P**.
@@ -47,25 +47,27 @@ acceptance authority.
 
 | Finding | Remediation |
 |---|---|
-| F1 lifecycle | Graph aligned with BRD §7.2/§13.7; Outcome Unknown only after the effect boundary. Derived consequence: `Validating → OutcomeUnknown` removed (validation has no authoritative effect, M40-RULE-017); redo remains `ValidationFailed → Corrected → Prepared → Validating` |
-| F2 lineage / authoritative state | Server-derived sequence and predecessor; rowversion transitions; additive migration `20260912105244_MESP141MigrationAttemptLineage` adds the Tenant-qualified predecessor FK (no column or row dropped; the pushed foundation migration is not rewritten) |
+| F1 lifecycle | Post-effect outcomes now fail closed into reconciliation: `Failed → ReconciliationPending` and `ReconciliationPending → Reconciled`; `Failed → Corrected/Prepared/OutcomeUnknown` and `ReconciliationPending → Corrected` are removed. A graph-reachability regression proves no `EffectBoundaryStates` path reaches any pre-effect state. |
+| F2 lineage / authoritative state | Server-derived sequence and predecessor; rowversion transitions; additive migration `20260912191429_MESP141MigrationRunQualifiedAttemptLineage` strengthens the FK to `(TenantId, RunId, PreviousAttemptId) → (TenantId, RunId, AttemptId)`. The first two pushed migrations are untouched. |
 | F3 idempotency races | Fresh-context replay recovery for run and attempt races, plus a lineage-denial re-check: a caller that misses the idempotency row but then reads its own concurrently committed attempt now replays instead of being refused `migration_attempt_previous_still_open` (found by the new SQL Server race test, pinned by a forced-interleaving SQLite test) |
 | F4 audit | One evidence record per run creation, attempt start, transition and outcome; append failure is reported, never swallowed |
 | m2 | Boundary test is separator-agnostic, scans App/Contracts/Infrastructure, and derives forbidden modules from the module folders (only `Audit` permitted) |
-| m3 | Migration added to the LocalDB SQL Server safety suite: key race, attempt race, rowversion conflict, database-enforced cross-Tenant predecessor refusal (SQL 547) |
+| m3 | Migration added to the LocalDB SQL Server safety suite: key race, attempt race, rowversion conflict, database-enforced same-Tenant/cross-Run, cross-Tenant, and missing-predecessor refusal (SQL 547) |
 | m4 / m6 / m8 | Unused contracts removed or wired; injectable `TimeProvider`; structured audit metadata |
 | m5 | No change: reporting a foreign row as *missing* is fail-closed and avoids a cross-Tenant existence signal |
 | m7 | Run citations now name the commit each run belongs to |
 | m1 | **Slice 2 entry condition:** the request fingerprint must be computed server-side over the canonical request (Definition and SourceProfile included) before any endpoint exposes replay |
 
-Local validation of the remediation: Release build `0 warnings / 0 errors`;
-MigrationFoundation `62/62`; CI-equivalent backend `1,198/1,198`; disposable
-LocalDB SQL Server safety `91/91` (the four MESP-141 SQL Server tests repeated
-5/5 clean); every EF context reports no pending model changes; Angular unit
-`316/316`; Angular production build succeeds at initial `514.26 kB` (the
-existing 14.27 kB budget warning, unchanged and not raised); NuGet
-vulnerable-package scan clear for all five projects; `git diff --check` clean.
-Hosted CI for the remediation head is recorded on PR #242.
+Local validation of this remediation: Release build `0 warnings / 0 errors`;
+MigrationFoundation `72/72`; CI-equivalent backend `1,299/1,299`; disposable
+LocalDB SQL Server safety is included in that full suite, with the four
+MESP-141 provider tests passing `4/4` on each of five fresh databases; every
+EF context reports no pending model changes; Angular unit `316/316`;
+Angular production build succeeds at initial `514.26 kB` (the existing
+14.27 kB budget warning, unchanged and not raised); Chromium `51/51`; NuGet
+vulnerable-package scan is clear for all five projects; `git diff --check`
+is clean. Hosted CI run `34714480765` passed all three required jobs on
+`99b029958dbccbeebb51134db96e3d6a93dfcf64`.
 
 **Dependency finding (not fixed in this PR):** `npm audit` now reports 7
 moderate advisories (4 in production dependencies) against the unchanged
@@ -81,8 +83,8 @@ completion and production-readiness figures are unchanged.
 MESP-141 is limited to the migration-owned foundation. No source import,
 Tenant/company/branch opening-data creation, production migration execution,
 API endpoint, Angular UI, external provider, or `frontend/assets` change is
-included. The handoff condition is satisfied by Draft PR #242 with required CI
-green. The next action is independent Claude Opus 5 review; no Ready transition
+included. The remediation handoff condition is satisfied by Draft PR #242 with required
+CI green. The next action is independent GPT-5.6 Sol re-acceptance; no Ready transition
 or merge may occur in this bounded session.
 
 ---
