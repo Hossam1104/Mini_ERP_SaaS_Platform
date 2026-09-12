@@ -61,13 +61,10 @@ public sealed class MigrationFoundationTests
         [MigrationRunStatus.PartiallyCompleted] = [MigrationRunStatus.ReconciliationPending],
         [MigrationRunStatus.Failed] =
         [
-            MigrationRunStatus.Corrected,
-            MigrationRunStatus.Prepared,
-            MigrationRunStatus.OutcomeUnknown,
             MigrationRunStatus.ReconciliationPending
         ],
         [MigrationRunStatus.OutcomeUnknown] = [MigrationRunStatus.ReconciliationPending],
-        [MigrationRunStatus.ReconciliationPending] = [MigrationRunStatus.Reconciled, MigrationRunStatus.Corrected],
+        [MigrationRunStatus.ReconciliationPending] = [MigrationRunStatus.Reconciled],
         [MigrationRunStatus.Reconciled] = [MigrationRunStatus.ReadyForHandover],
         [MigrationRunStatus.ReadyForHandover] = [MigrationRunStatus.Closed],
         [MigrationRunStatus.Corrected] = [MigrationRunStatus.Prepared],
@@ -124,6 +121,60 @@ public sealed class MigrationFoundationTests
     [InlineData(MigrationRunStatus.Closed, MigrationRunStatus.ReconciliationPending)]
     public void Unsafe_lifecycle_transitions_are_refused(MigrationRunStatus from, MigrationRunStatus to) =>
         Assert.False(MigrationRun.IsTransitionAllowed(from, to));
+
+    [Theory]
+    [InlineData(MigrationRunStatus.Failed, MigrationRunStatus.Prepared, false)]
+    [InlineData(MigrationRunStatus.Failed, MigrationRunStatus.Corrected, false)]
+    [InlineData(MigrationRunStatus.Failed, MigrationRunStatus.Cancelled, false)]
+    [InlineData(MigrationRunStatus.Failed, MigrationRunStatus.ReconciliationPending, true)]
+    [InlineData(MigrationRunStatus.ReconciliationPending, MigrationRunStatus.Corrected, false)]
+    [InlineData(MigrationRunStatus.OutcomeUnknown, MigrationRunStatus.ReconciliationPending, true)]
+    [InlineData(MigrationRunStatus.Completed, MigrationRunStatus.ReconciliationPending, true)]
+    [InlineData(MigrationRunStatus.PartiallyCompleted, MigrationRunStatus.ReconciliationPending, true)]
+    public void Post_effect_outcomes_follow_only_the_reconciliation_edges(
+        MigrationRunStatus from,
+        MigrationRunStatus to,
+        bool expected) =>
+        Assert.Equal(expected, MigrationRun.IsTransitionAllowed(from, to));
+
+    [Fact]
+    public void No_effect_boundary_state_can_reach_a_pre_effect_state()
+    {
+        var preEffectStates = new HashSet<MigrationRunStatus>
+        {
+            MigrationRunStatus.Draft,
+            MigrationRunStatus.Prepared,
+            MigrationRunStatus.Validating,
+            MigrationRunStatus.ValidationFailed,
+            MigrationRunStatus.Validated,
+            MigrationRunStatus.AwaitingApproval,
+            MigrationRunStatus.Approved,
+            MigrationRunStatus.Corrected,
+            MigrationRunStatus.Cancelled
+        };
+
+        foreach (var start in MigrationRun.EffectBoundaryStates)
+        {
+            var visited = new HashSet<MigrationRunStatus> { start };
+            var pending = new Queue<MigrationRunStatus>([start]);
+
+            while (pending.TryDequeue(out var current))
+            {
+                foreach (var next in Enum.GetValues<MigrationRunStatus>().Where(
+                    candidate => MigrationRun.IsTransitionAllowed(current, candidate)))
+                {
+                    if (visited.Add(next))
+                    {
+                        pending.Enqueue(next);
+                    }
+                }
+            }
+
+            Assert.True(
+                visited.Intersect(preEffectStates).Count() == 0,
+                $"{start} can reach pre-effect state(s): {string.Join(", ", visited.Intersect(preEffectStates))}");
+        }
+    }
 
     [Fact]
     public void Unknown_outcome_reaches_closure_only_through_reconciliation()
@@ -536,6 +587,67 @@ public sealed class MigrationFoundationTests
 
         var unrelated = new DbUpdateException("write failed", new TimeoutException());
         Assert.False((bool)classifier!.Invoke(null, [unrelated])!);
+    }
+
+    [Fact]
+    public async Task Sqlite_constraint_classifier_accepts_only_primary_key_and_unique_codes()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using (var setup = connection.CreateCommand())
+        {
+            setup.CommandText = """
+                PRAGMA foreign_keys = ON;
+                CREATE TABLE Parents (Id INTEGER PRIMARY KEY);
+                CREATE TABLE Children (
+                    Id INTEGER PRIMARY KEY,
+                    ParentId INTEGER NOT NULL,
+                    Value TEXT NOT NULL UNIQUE,
+                    CHECK (length(Value) > 0),
+                    FOREIGN KEY (ParentId) REFERENCES Parents(Id));
+                INSERT INTO Parents (Id) VALUES (1);
+                INSERT INTO Children (Id, ParentId, Value) VALUES (1, 1, 'one');
+                """;
+            await setup.ExecuteNonQueryAsync();
+        }
+
+        var primaryKey = await ExecuteConstraintFailureAsync(
+            connection, "INSERT INTO Parents (Id) VALUES (1);");
+        var unique = await ExecuteConstraintFailureAsync(
+            connection, "INSERT INTO Children (Id, ParentId, Value) VALUES (2, 1, 'one');");
+        var foreignKey = await ExecuteConstraintFailureAsync(
+            connection, "INSERT INTO Children (Id, ParentId, Value) VALUES (3, 99, 'foreign');");
+        var check = await ExecuteConstraintFailureAsync(
+            connection, "INSERT INTO Children (Id, ParentId, Value) VALUES (4, 1, '');");
+
+        Assert.Equal(1555, primaryKey.SqliteExtendedErrorCode);
+        Assert.Equal(2067, unique.SqliteExtendedErrorCode);
+        Assert.Equal(787, foreignKey.SqliteExtendedErrorCode);
+        Assert.Equal(275, check.SqliteExtendedErrorCode);
+        Assert.True(ClassifySqlite(primaryKey));
+        Assert.True(ClassifySqlite(unique));
+        Assert.False(ClassifySqlite(foreignKey));
+        Assert.False(ClassifySqlite(check));
+
+        static bool ClassifySqlite(SqliteException exception)
+        {
+            var classifier = typeof(MigrationPersistence).GetMethod(
+                "IsUniqueViolation",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            Assert.NotNull(classifier);
+            return (bool)classifier!.Invoke(
+                null,
+                [new DbUpdateException("constraint failed", exception)])!;
+        }
+
+        static async Task<SqliteException> ExecuteConstraintFailureAsync(
+            SqliteConnection connection,
+            string sql)
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            return await Assert.ThrowsAsync<SqliteException>(() => command.ExecuteNonQueryAsync());
+        }
     }
 
     // ---------------------------------------------------------------- F4 ----

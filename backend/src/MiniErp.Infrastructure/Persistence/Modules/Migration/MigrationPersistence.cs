@@ -549,11 +549,11 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
                     when sql.Number is 2627 or 2601:
                     return true;
 
-                // SQLite: 19 SQLITE_CONSTRAINT, with 1555/2067 for the
-                // primary-key and unique-index subcodes.
+                // SQLite: only the primary-key and unique-index subcodes are
+                // replay-safe. Code 19 is generic and also covers FK, CHECK,
+                // NOT NULL and other non-unique constraint failures.
                 case Microsoft.Data.Sqlite.SqliteException sqlite
-                    when sqlite.SqliteErrorCode == 19
-                        || sqlite.SqliteExtendedErrorCode is 1555 or 2067:
+                    when sqlite.SqliteExtendedErrorCode is 1555 or 2067:
                     return true;
             }
         }

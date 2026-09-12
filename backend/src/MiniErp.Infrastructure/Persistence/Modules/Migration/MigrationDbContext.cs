@@ -66,19 +66,15 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         attempt.Property(item => item.FinishedAt).IsRequired(false);
         attempt.Property(item => item.SafeOutcomeCode).HasMaxLength(128).IsRequired(false);
         ConfigureVersion(attempt.Property(item => item.Version));
-        attempt.HasAlternateKey(item => new { item.TenantId, item.AttemptId });
+        attempt.HasAlternateKey(item => new { item.TenantId, item.RunId, item.AttemptId });
         attempt.HasIndex(item => new { item.TenantId, item.RunId, item.Sequence }).IsUnique();
 
-        // Tenant-qualified self reference for the retry lineage. Without it the
-        // predecessor was an unenforced loose Guid, so a row could name a
-        // predecessor that did not exist or belonged to another Tenant, and the
-        // lineage BRD section 13.8 relies on was not actually guaranteed by the
-        // database. PreviousAttemptId stays optional, so the first attempt in a
-        // run references nothing.
+        // Run-qualified self reference for the retry lineage. PreviousAttemptId
+        // stays optional, so the first attempt in a run references nothing.
         attempt.HasOne<MigrationAttemptEntity>()
             .WithMany()
-            .HasForeignKey(item => new { item.TenantId, item.PreviousAttemptId })
-            .HasPrincipalKey(item => new { item.TenantId, item.AttemptId })
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.PreviousAttemptId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.AttemptId })
             .OnDelete(DeleteBehavior.Restrict);
         attempt.HasOne<MigrationRunEntity>()
             .WithMany()

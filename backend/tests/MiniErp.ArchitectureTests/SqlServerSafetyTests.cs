@@ -423,13 +423,14 @@ public sealed class SqlServerSafetyTests
 
         await using (var migration = new MigrationDbContext(migrationOptions, _fixture.TenantA))
         {
-            // The attempt-lineage constraint is a second additive migration
-            // rather than an edit of the foundation one, which was already
-            // pushed. Asserting both names keeps that ordering committed.
+            // The attempt-lineage constraints are additive migrations rather
+            // than edits of the already-pushed foundation migrations.
+            // Asserting all three names keeps that ordering committed.
             Assert.Equal(
                 [
                     "20260911183345_MESP141MigrationFoundation",
-                    "20260912105244_MESP141MigrationAttemptLineage"
+                    "20260912105244_MESP141MigrationAttemptLineage",
+                    "20260912191429_MESP141MigrationRunQualifiedAttemptLineage"
                 ],
                 (await migration.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await migration.Database.GetPendingMigrationsAsync());
@@ -3508,7 +3509,7 @@ public sealed class SqlServerSafetyTests
     }
 
     [Fact]
-    public async Task MESP141_sql_server_database_refuses_an_attempt_predecessor_outside_its_own_tenant()
+    public async Task MESP141_sql_server_database_refuses_an_attempt_predecessor_outside_its_own_run_or_tenant()
     {
         var (service, _, _) = await CreateMigrationServiceAsync();
         var foreignTenant = MigrationTenant("sql-lineage-foreign");
@@ -3520,6 +3521,25 @@ public sealed class SqlServerSafetyTests
             foreignRequest, foreignRun.RunId, MigrationOperationKind.Validation, foreignKey, $"{foreignKey}-fp");
         Assert.True(foreignAttempt.Succeeded, foreignAttempt.Code);
 
+        var sameTenant = TenantContext.ForOrdinaryMembership(
+            _fixture.TenantA.TenantId,
+            new MembershipReference(Guid.NewGuid()),
+            correlationId: new CorrelationId("sql-lineage-same"),
+            actorId: Guid.NewGuid());
+        var sameTenantRequest = MigrationRequest(sameTenant, "tenant.migration.attempt.start");
+        var firstRun = await PreparedMigrationRunAsync(
+            service, sameTenantRequest, $"sql-lineage-run-one-{Guid.NewGuid():N}");
+        var firstAttempt = await service.StartAttemptAsync(
+            sameTenantRequest,
+            firstRun.RunId,
+            MigrationOperationKind.Validation,
+            $"sql-lineage-attempt-one-{Guid.NewGuid():N}",
+            $"sql-lineage-attempt-one-fp-{Guid.NewGuid():N}");
+        Assert.True(firstAttempt.Succeeded, firstAttempt.Code);
+
+        var secondRun = await PreparedMigrationRunAsync(
+            service, sameTenantRequest, $"sql-lineage-run-two-{Guid.NewGuid():N}");
+
         var localTenant = MigrationTenant("sql-lineage-local");
         var localRequest = MigrationRequest(localTenant, "tenant.migration.attempt.start");
         var localRun = await PreparedMigrationRunAsync(
@@ -3530,11 +3550,15 @@ public sealed class SqlServerSafetyTests
         // database itself, not only by the EF model, so this bypasses the
         // application entirely. Before the lineage migration the column was a
         // loose Guid and both of these inserts would have been accepted.
+        var sameTenantCrossRunPredecessor = await TryInsertMigrationAttemptAsync(
+            sameTenant.TenantId.Value, secondRun.RunId, firstAttempt.Value!.AttemptId);
         var foreignPredecessor = await TryInsertMigrationAttemptAsync(
             localTenant.TenantId.Value, localRun.RunId, foreignAttempt.Value!.AttemptId);
         var absentPredecessor = await TryInsertMigrationAttemptAsync(
             localTenant.TenantId.Value, localRun.RunId, Guid.NewGuid());
 
+        Assert.NotNull(sameTenantCrossRunPredecessor);
+        Assert.Equal(547, sameTenantCrossRunPredecessor!.Number);
         Assert.NotNull(foreignPredecessor);
         Assert.Equal(547, foreignPredecessor!.Number);
         Assert.NotNull(absentPredecessor);

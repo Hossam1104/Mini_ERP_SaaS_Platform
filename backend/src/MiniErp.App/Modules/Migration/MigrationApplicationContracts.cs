@@ -251,9 +251,6 @@ public sealed class MigrationRun : ITenantOwned
             },
             [MigrationRunStatus.Failed] = new HashSet<MigrationRunStatus>
             {
-                MigrationRunStatus.Corrected,
-                MigrationRunStatus.Prepared,
-                MigrationRunStatus.OutcomeUnknown,
                 MigrationRunStatus.ReconciliationPending
             },
             [MigrationRunStatus.OutcomeUnknown] = new HashSet<MigrationRunStatus>
@@ -262,8 +259,7 @@ public sealed class MigrationRun : ITenantOwned
             },
             [MigrationRunStatus.ReconciliationPending] = new HashSet<MigrationRunStatus>
             {
-                MigrationRunStatus.Reconciled,
-                MigrationRunStatus.Corrected
+                MigrationRunStatus.Reconciled
             },
             [MigrationRunStatus.Reconciled] = new HashSet<MigrationRunStatus>
             {
