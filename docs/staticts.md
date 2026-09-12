@@ -1,8 +1,29 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 11 September 2026 (MESP-141 Slice 1 Draft PR; required CI green)
+**Last Updated:** 12 September 2026 (MESP-141 Slice 1 review remediation; awaiting Sol acceptance)
 
-## Current execution snapshot - 11 September 2026 (MESP-141 Slice 1 activated)
+## Current execution snapshot - 12 September 2026 (MESP-141 Slice 1 review remediated)
+
+The independent Claude Opus 5 review of Draft PR #242 (Major F1–F4, Minor
+m1–m8) is remediated on the same branch and PR: lifecycle graph aligned with
+BRD §7.2/§13.7, server-derived attempt lineage with a database-enforced
+Tenant-qualified predecessor FK (additive migration
+`20260912105244_MESP141MigrationAttemptLineage`), race-safe idempotent replay,
+and durable audit evidence for every state change. Migration now has
+provider-realistic SQL Server coverage. Local validation: MigrationFoundation
+`62/62`, CI-equivalent backend `1,198/1,198`, LocalDB SQL Server safety `91/91`,
+Angular unit `316/316`, Release build `0 warnings / 0 errors`. Details are in
+`.ai/CURRENT_STATE.md`.
+
+**No headline changes.** Accepted fast-track capability completion stays
+**24 / 26 = 92.3%** and production readiness approximately **47% overall /
+41% Procurement/P2P** until GPT-5.6 Sol accepts the slice. PR #242 remains
+Open / Draft / Unmerged; MESP-142 remains not activated; MESP-48 and MESP-50
+remain open production gates. New finding: 7 moderate npm advisories (Angular
+`≤22.1.0`, Vitest `≤4.1.10`, transitive `hono`) with patches available, below
+the CI `high` audit gate and deferred to a focused dependency PR.
+
+## Execution snapshot - 11 September 2026 (MESP-141 Slice 1 activated; superseded by the remediation snapshot above)
 
 MESP-40 / GitHub Issue #129 remains **ACCEPTED / MERGED / DONE** and satisfies
 the MESP-141 requirements prerequisite. Under the current bounded executor
@@ -21,8 +42,9 @@ remains **OPEN / NOT ACTIVATED**; MESP-48 and MESP-50 remain open production
 gates. Accepted fast-track capability completion remains **24 / 26 = 92.3%**;
 production readiness remains approximately **47% overall / 41% Procurement/P2P**.
 
-Hosted CI run `34635358309` passed all three required checks: `Repository
-Validation`, `Backend`, and `Frontend`. Local validation passed Release build
+Hosted CI run `34635358309` on implementation commit `51b6993` passed all
+three required checks: `Repository Validation`, `Backend`, and `Frontend`;
+handoff head `a8acc2b` passed separately in run `34636791728`. Local validation passed Release build
 `0 warnings / 0 errors`, MigrationFoundation `7/7`, related controls `250/250`,
 CI-equivalent backend `1,143/1,143`, disposable SQL Server safety `87/87`, and
 EF MigrationDbContext pending-model check. The PR remains Draft and no capability

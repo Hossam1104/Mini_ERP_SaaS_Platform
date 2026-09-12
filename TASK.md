@@ -1,4 +1,19 @@
-## MESP-141 Slice 1 - ACTIVATED / READY FOR INDEPENDENT REVIEW
+## MESP-141 Slice 1 - REVIEW REMEDIATED / AWAITING GPT-5.6 SOL ACCEPTANCE (12 September 2026)
+
+The independent Claude Opus 5 review on Draft PR #242 (`CHANGES REQUIRED`,
+Major F1–F4, Minor m1–m8) is remediated on `feat/mesp-141-migration-foundation`.
+The finding-by-finding record, the m1 Slice 2 entry condition, and the local
+validation (`62/62` MigrationFoundation, `1,198/1,198` CI-equivalent backend,
+`91/91` LocalDB SQL Server safety, Angular `316/316`) are in the CURRENT
+AUTHORITY block of `.ai/CURRENT_STATE.md`.
+
+Exact next action: **GPT-5.6 Sol acceptance review of the remediation.** PR #242
+stays Open / Draft / Unmerged. MESP-141 is not accepted or closed, later
+MESP-141 slices and MESP-142 are not activated, and M40-DEC-001 through
+M40-DEC-006 remain open. The section below is the 11 September handoff,
+preserved as written except that its CI run is now tied to its commit.
+
+## MESP-141 Slice 1 - ACTIVATED / READY FOR INDEPENDENT REVIEW (11 September 2026 handoff)
 
 This bounded executor session is authorized by the current task prompt after
 live GitHub/repository reconciliation. MESP-40 is **ACCEPTED / MERGED / DONE**;
@@ -20,8 +35,9 @@ and production readiness remains approximately **47% overall / 41%
 Procurement/P2P**.
 
 Slice 1 is pushed as Draft PR #242; implementation commit
-`51b6993c0b6ac9131afe6205986771d349658491`. Hosted CI run `34635358309`
-passed `Repository Validation`, `Backend`, and `Frontend`. Local validation is
+`51b6993c0b6ac9131afe6205986771d349658491`. Hosted CI run `34635358309` on
+that implementation commit passed `Repository Validation`, `Backend`, and
+`Frontend`; handoff head `a8acc2b` passed separately in run `34636791728`. Local validation is
 Release build `0 warnings / 0 errors`; migration foundation `7/7`; related
 Tenant/audit/authorization/host/module controls `250/250`; CI-equivalent
 backend `1,143/1,143`; disposable SQL Server safety `87/87`; EF Migration

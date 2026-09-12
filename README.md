@@ -44,16 +44,15 @@ GitHub Project, and live GitHub outrank this file for mutable facts.
 
 | Item | Value |
 |---|---|
-| Accepted `main` | `d720a714cab5e8dafa39db278808b8150e5fb935` |
-| Active capability | **NONE** — CI/governance only; no product implementation is active |
-| Active branch | No product implementation branch |
-| Published as | GitHub-native technical enabler PR **#236** — merged |
-| Acceptance state | **CI ACTIVE / VERIFIED.** Main push run `34589791447` passed all required checks |
-| Next capability | MESP-141 / MESP-142 — **Open, not activated** |
+| Accepted `main` (12 September 2026) | `b1ceb21fc71d0838325efd58071d5d3f6895ab18` — resolve live `origin/main` from Git |
+| Active capability | **MESP-141** Data Migration and Tenant Onboarding — **Slice 1 (migration foundation) in review**, [Issue #229](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/229) |
+| Active branch | `feat/mesp-141-migration-foundation` |
+| Published as | Draft PR [**#242**](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/242) — Open / Draft / Unmerged; **not accepted** |
+| Next capability | MESP-142 — **Open, not activated** |
 | Accepted fast-track completion | **24 / 26 = 92.3%** |
 | Production readiness | ~**47%** overall · ~**41%** Procurement/P2P |
 | Open production gates | **MESP-48** (supported volume) · **MESP-50** (retention, privacy, legal hold, purge, residency, backup/restore) |
-| Continuous integration | **GitHub Actions — ACTIVE / VERIFIED.** Main push run `34589791447` on `d720a714` passed `Repository Validation`, `Backend`, and `Frontend` |
+| Continuous integration | **GitHub Actions — ACTIVE / VERIFIED.** Main push run `34623801987` on `b1ceb21` passed `Repository Validation`, `Backend`, and `Frontend`. Continuous deployment is **not implemented** |
 
 Delivery is strictly sequential: one active capability, one executor, one
 focused branch and Pull Request, and an exact one-session
@@ -90,9 +89,12 @@ implemented but not accepted · **Planned**: required Release 1 work not started
 | Finance period close, corrections and reports | Merged | MESP-135 controlled reversal and successor corrections |
 | B2B Sales: quotations, Sales Orders, credit control | Merged | MESP-136 server-authoritative pricing, approval/SoD, credit outcomes |
 | Sales reservation, fulfillment, Delivery, invoice eligibility | Merged | MESP-137 durable coordinated Delivery handoff and AR seams |
-| Customer returns, credit notes, customer receipts | **In review** | MESP-138 — Draft PR #86 under Sol HOLD 3; **not accepted** |
-| Generic Reporting and Analytics | Planned | MESP-139; not activated |
-| Migration, onboarding and external integrations | Planned / Gated | Production and cutover gates remain open |
+| Customer returns, credit notes, customer receipts | Merged | MESP-138 customer return and credit foundation (PR #86) |
+| Release 1 Reporting and Analytics | Merged | MESP-139 approved reporting catalogue, lineage, export and distribution (PR #88) |
+| Cross-cutting Security, Audit, Files, Notifications, Localization, Support | Merged | MESP-140 cross-cutting controls (PR #89) |
+| Data Migration and Tenant Onboarding | **In review** | MESP-40 BRD accepted; MESP-141 Slice 1 migration foundation in Draft PR #242, **not accepted**. File ingestion, staging, validation engine, load execution, UI and cutover are later slices, not activated |
+| Release 1 stabilization, regression, UAT and RC readiness | Planned | MESP-142; not activated |
+| External integrations and production cutover | Gated | Production, provider and cutover gates remain open |
 | ZATCA / FATOORA / statutory certification | Gated | Qualified external validation required; **no readiness is claimed** |
 
 ## Product direction
@@ -133,6 +135,8 @@ flowchart TD
     PERSIST --> INV["Inventory<br/>Ledger · Movements · Valuation"]
     PERSIST --> SAL["Sales<br/>Quotes · Orders · Deliveries · Returns"]
     PERSIST --> FIN["Finance<br/>GL · AP · AR · Credit Notes"]
+    PERSIST --> REP["Reporting<br/>Catalogue · Lineage · Export"]
+    PERSIST --> MIG["Migration<br/>Runs · Attempts · Idempotency"]
 ```
 
 The backend is a modular monolith with the enforced project direction
@@ -141,7 +145,8 @@ Contracts hold stable public shapes, App owns application and domain seams,
 Infrastructure owns provider-specific persistence and migrations, and Api is
 the host and composition root. Application modules are `Audit`,
 `BusinessParties`, `Finance`, `Identity`, `Inventory`, `MasterData`,
-`Platform`, `Procurement` and `Sales`.
+`Migration`, `Notifications`, `Platform`, `Procurement`, `Reporting` and
+`Sales`.
 
 SQL Server is the configured local Development provider when explicitly
 enabled; SQLite remains an explicit test and fallback provider where supported.
@@ -293,13 +298,14 @@ SQL Server safety suite reports as **gated** rather than passing when
 `MESP_SQLSERVER_SAFETY_CONNECTION_STRING` is absent. Gated evidence is never
 reported as passed.
 
-The first repository-owned GitHub Actions workflow is established in
-`.github/workflows/ci.yml`. The first post-merge `push` run `34589791447` on
-`main` commit `d720a714` passed `Repository Validation`, `Backend`, and
-`Frontend`. CI is **GitHub Actions — ACTIVE / VERIFIED**; branch protection is
-managed separately through GitHub repository governance. A passing local
-Development suite or hosted CI run does not by itself establish production
-readiness.
+The repository-owned GitHub Actions workflow is
+`.github/workflows/ci.yml`. The latest verified `push` run on `main`,
+`34623801987` on commit `b1ceb21`, passed `Repository Validation`, `Backend`,
+and `Frontend`. CI is **GitHub Actions — ACTIVE / VERIFIED**; the `main`
+ruleset requires those three checks. Hosted CI excludes the LocalDB SQL Server
+safety suite, which runs locally through `.\scripts\Test-MiniErpBackend.ps1`.
+Continuous deployment is not implemented. A passing local Development suite or
+hosted CI run does not by itself establish production readiness.
 
 ## Documentation
 
@@ -316,6 +322,7 @@ readiness.
 - [Testing environments and production gates](docs/ADR-018_Testing_Environments_SQL_Server_Containers_and_Gates.md)
 - [Tenant host resolution, workspace context and branding](docs/ADR-019_Tenant_Host_Resolution_Workspace_Context_and_Branding.md)
 - [Release 1 approved decision and dependency map](docs/33_Release_1_MESP_116_Approved_Decision_and_Dependency_Map.md)
+- [Data Migration and Tenant Onboarding BRD](docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md)
 - [Next exact session prompt](TASK.md)
 
 ## Production-readiness disclaimer
@@ -333,10 +340,12 @@ convenience or the local database process as a production deployment model.
 
 ## Scope discipline
 
-- MESP-138 is **in review and not accepted**. Draft PR #86 must not be marked
-  Ready, merged, rebased, force-pushed, or counted as delivered capability
-  while Sol HOLD 3 stands.
-- MESP-139 must not be started until GPT-5.6 Sol explicitly activates it.
+- MESP-141 Slice 1 is **in review and not accepted**. Draft PR #242 must not
+  be marked Ready, merged, or counted as delivered capability without GPT-5.6
+  Sol acceptance. Later MESP-141 slices are not activated.
+- MESP-142 must not be started until GPT-5.6 Sol explicitly activates it.
+- MESP-40 open decisions M40-DEC-001 through M40-DEC-006 remain open; no
+  implementation may decide them implicitly.
 - Owner-managed source assets under `frontend/assets` must never be deleted,
   renamed, replaced, regenerated, optimized, recolored, moved, or restored from
   Git without explicit Owner instruction. Untracked files there are not

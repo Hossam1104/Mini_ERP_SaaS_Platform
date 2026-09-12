@@ -10,14 +10,14 @@
 
 ---
 
-## CURRENT AUTHORITY - 11 September 2026 (MESP-141 SLICE 1 READY FOR INDEPENDENT REVIEW)
+## CURRENT AUTHORITY - 12 September 2026 (MESP-141 SLICE 1 REVIEW REMEDIATED; AWAITING SOL ACCEPTANCE)
 
 ### Bounded implementation session
 
 | Item | Value |
 |---|---|
 | MESP-40 | **ACCEPTED / MERGED / DONE** in GitHub Issue #129; requirements prerequisite satisfied |
-| MESP-141 | **OPEN / ACTIVE / SLICE 1 READY FOR INDEPENDENT REVIEW** in GitHub Issue #229; Project **In Progress**; label `active` |
+| MESP-141 | **OPEN / ACTIVE / SLICE 1 REVIEW REMEDIATED, NOT ACCEPTED** in GitHub Issue #229; Project **In Progress**; label `active` |
 | Bounded branch | `feat/mesp-141-migration-foundation`; implementation commit `51b6993c0b6ac9131afe6205986771d349658491`; based on live `origin/main` `b1ceb21fc71d0838325efd58071d5d3f6895ab18` |
 | Draft PR | **#242 OPEN / DRAFT / UNMERGED** |
 | Slice 1 | Migration contracts, lifecycle/state model, server-owned Tenant context, audit/evidence seam, and durable idempotency skeleton |
@@ -31,11 +31,50 @@ The current prompt positively authorized governance activation and only the
 first bounded MESP-141 implementation slice. Activation is recorded on GitHub
 Issue #229 comment `5638746775`; MESP-40 remains accepted and M40-DEC-001,
 M40-DEC-003, and M40-DEC-006 remain unresolved constraints. The implementation
-is pushed as Draft PR #242 and hosted CI run `34635358309` passed all required
-checks. It does not authorize Slice 2, MESP-142, CD/deployment, production
+is pushed as Draft PR #242. Hosted CI run `34635358309` passed all required
+checks on the implementation commit `51b6993`; the handoff head `a8acc2b`
+passed separately in run `34636791728`. It does not authorize Slice 2, MESP-142, CD/deployment, production
 migration or cutover, Ready transition, merge, or Jira mutation. Accepted fast-track
 completion remains **24 / 26 = 92.3%**; production readiness remains
 approximately **47% overall / 41% Procurement/P2P**.
+
+### Slice 1 review remediation - 12 September 2026 (awaiting GPT-5.6 Sol acceptance)
+
+The independent Claude Opus 5 review (PR #242 comment, disposition
+`CHANGES REQUIRED`: Critical 0 / Major 4 / Minor 8) is remediated on the same
+branch and Draft PR. Nothing here is accepted; GPT-5.6 Sol remains the
+acceptance authority.
+
+| Finding | Remediation |
+|---|---|
+| F1 lifecycle | Graph aligned with BRD §7.2/§13.7; Outcome Unknown only after the effect boundary. Derived consequence: `Validating → OutcomeUnknown` removed (validation has no authoritative effect, M40-RULE-017); redo remains `ValidationFailed → Corrected → Prepared → Validating` |
+| F2 lineage / authoritative state | Server-derived sequence and predecessor; rowversion transitions; additive migration `20260912105244_MESP141MigrationAttemptLineage` adds the Tenant-qualified predecessor FK (no column or row dropped; the pushed foundation migration is not rewritten) |
+| F3 idempotency races | Fresh-context replay recovery for run and attempt races, plus a lineage-denial re-check: a caller that misses the idempotency row but then reads its own concurrently committed attempt now replays instead of being refused `migration_attempt_previous_still_open` (found by the new SQL Server race test, pinned by a forced-interleaving SQLite test) |
+| F4 audit | One evidence record per run creation, attempt start, transition and outcome; append failure is reported, never swallowed |
+| m2 | Boundary test is separator-agnostic, scans App/Contracts/Infrastructure, and derives forbidden modules from the module folders (only `Audit` permitted) |
+| m3 | Migration added to the LocalDB SQL Server safety suite: key race, attempt race, rowversion conflict, database-enforced cross-Tenant predecessor refusal (SQL 547) |
+| m4 / m6 / m8 | Unused contracts removed or wired; injectable `TimeProvider`; structured audit metadata |
+| m5 | No change: reporting a foreign row as *missing* is fail-closed and avoids a cross-Tenant existence signal |
+| m7 | Run citations now name the commit each run belongs to |
+| m1 | **Slice 2 entry condition:** the request fingerprint must be computed server-side over the canonical request (Definition and SourceProfile included) before any endpoint exposes replay |
+
+Local validation of the remediation: Release build `0 warnings / 0 errors`;
+MigrationFoundation `62/62`; CI-equivalent backend `1,198/1,198`; disposable
+LocalDB SQL Server safety `91/91` (the four MESP-141 SQL Server tests repeated
+5/5 clean); every EF context reports no pending model changes; Angular unit
+`316/316`; Angular production build succeeds at initial `514.26 kB` (the
+existing 14.27 kB budget warning, unchanged and not raised); NuGet
+vulnerable-package scan clear for all five projects; `git diff --check` clean.
+Hosted CI for the remediation head is recorded on PR #242.
+
+**Dependency finding (not fixed in this PR):** `npm audit` now reports 7
+moderate advisories (4 in production dependencies) against the unchanged
+lockfile — Angular `22.0.0–22.1.0` (GHSA-p297-fm68-3q8c), Vitest `≤4.1.10`
+(GHSA-82fw-gwwq-j7x9), and `hono` via `@angular/cli`. Patched versions exist
+(Angular `22.1.6`, Vitest `4.1.11`). CI audits at `--audit-level=high`, so
+required checks are unaffected. A framework upgrade is outside the MESP-141
+migration slice and needs its own focused PR with full Chromium validation. M40-DEC-001 through M40-DEC-006 remain open. Capability
+completion and production-readiness figures are unchanged.
 
 ### Current execution boundary
 
