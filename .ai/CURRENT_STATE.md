@@ -10,36 +10,47 @@
 
 ---
 
-## CURRENT AUTHORITY - 12 September 2026 (MESP-141 SLICE 1 MERGED INTO MAIN)
+## CURRENT AUTHORITY - 13 September 2026 (MESP-141 SLICE 2 IMPLEMENTED; AWAITING SOL ACCEPTANCE)
 
 ### Bounded implementation session
 
 | Item | Value |
 |---|---|
 | MESP-40 | **ACCEPTED / MERGED / DONE** in GitHub Issue #129; requirements prerequisite satisfied |
-| MESP-141 | **OPEN / ACTIVE** in GitHub Issue #229; Project **In Progress**; label `active`; later slices remain separately unauthorized |
-| Bounded branch | `feat/mesp-141-migration-foundation`; accepted head `93be20cee2e5e341f43064e76a214deda296f1fb`; merged into `main` at `ee66f7beb3013e8eea5bded82f46aef4ecdfa97c` |
-| PR | **#242 MERGED / CLOSED / NON-DRAFT**; normal merge commit `ee66f7beb3013e8eea5bded82f46aef4ecdfa97c` |
+| MESP-141 | **OPEN / ACTIVE** in GitHub Issue #229; Project **In Progress**; label `active`; Slice 2 is implemented and awaiting independent acceptance |
+| Bounded branch | `feat/mesp-141-migration-intake-staging`; head `de7128adea383b25a62eb13e611fea9a5da6990a`; based on verified `origin/main` `bfb45f2bc02ad68865bacf733a3da781c8e432f2` |
+| PR | **#244 OPEN / DRAFT / UNMERGED**; `https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/244` |
+| Slice 1 acceptance | PR #242 comment `5648291141`; merged into `main` at `ee66f7beb3013e8eea5bded82f46aef4ecdfa97c` |
 | Slice 1 | **ACCEPTED by GPT-5.6 Sol** — migration contracts, lifecycle/state model, server-owned Tenant context, audit/evidence seam, and durable idempotency skeleton |
-| Sol acceptance | PR #242 top-level comment `5648291141`; hosted CI run `34714920073` passed all required jobs on the accepted head |
-| Merge reconciliation | Issue #229 remains Open/Active; reconciliation comment `5648469182`; Slice 2 remains separately unauthorized |
+| Slice 2 activation | Issue #229 comment `5648967341`; canonical intake, server fingerprint, private source snapshot, durable staging metadata, replay/conflict boundary, and minimal REST only |
+| Slice 2 acceptance state | **NOT YET ACCEPTED**; implementation handoff is Draft PR #244; no Ready or merge authority exercised |
+| Hosted CI | Run `34725109921` passed `Repository Validation`, `Backend`, and `Frontend` on head `de7128adea383b25a62eb13e611fea9a5da6990a` |
+| Merge reconciliation | Issue #229 remains Open/Active; Slice 2 handoff awaits GPT-5.6 Sol acceptance |
 | MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
 | MESP-48 / MESP-50 | **OPEN PRODUCTION GATES**; no values or policy invented |
 | Jira mutations | **0** — Jira remains historical provenance only |
 | Owner-managed frontend/assets | **Untouched** |
 | CI | **GitHub Actions — ACTIVE / VERIFIED**; required checks remain `Repository Validation`, `Backend`, and `Frontend` |
 
-The bounded lifecycle task authorized Ready and a normal merge after live gates
-were satisfied. Activation is recorded on GitHub Issue #229 comment
-`5638746775`; Sol acceptance is recorded on PR #242 comment `5648291141`;
-PR #242 was marked Ready and merged into `main` at
-`ee66f7beb3013e8eea5bded82f46aef4ecdfa97c` from accepted head
-`93be20cee2e5e341f43064e76a214deda296f1fb`. Issue #229 remains Open/Active,
-with reconciliation comment `5648469182`. MESP-40 remains accepted and
-M40-DEC-001 through M40-DEC-006 remain open. Slice 2, MESP-142,
-CD/deployment, production migration or cutover, and Jira mutation remain
-unauthorized. Accepted fast-track completion remains **24 / 26 = 92.3%**;
-production readiness remains approximately **47% overall / 41% Procurement/P2P**.
+Slice 2 is implemented only at the canonical intake boundary: the server
+accepts a minimal definition/profile/operation/private-object request, resolves
+the trusted Tenant and existing private-file authority, computes one versioned
+length-prefixed SHA-256 fingerprint, and atomically persists one Draft run,
+immutable source snapshot, and Tenant-scoped idempotency record. No source bytes,
+row parsing, validation/dry-run engine, opening balances, business-domain
+loading, reconciliation, cutover, onboarding UI, production work, MESP-142, or
+`frontend/assets` change is included. MESP-40 remains accepted and
+M40-DEC-001 through M40-DEC-006 remain open. Accepted fast-track completion
+remains **24 / 26 = 92.3%**; production readiness remains approximately **47%
+overall / 41% Procurement/P2P**.
+
+Local evidence for this handoff is Release build `0 warnings / 0 errors`; full
+backend `1,305/1,305` with `0` failures and `0` skips; Migration plus SQL safety
+`80/80`; private-file/security `80/80`; REST/Foundation `37/37`; Angular
+`316/316`; Chromium `51/51`; eight EF contexts with no pending model changes;
+and a clear five-project NuGet vulnerable-package scan. npm audit reports the
+unchanged baseline of `4` moderate production and `7` moderate full-tree
+advisories, below the hosted high-severity gate.
 
 ### Slice 1 review remediation - 12 September 2026 (accepted by GPT-5.6 Sol)
 
@@ -85,11 +96,11 @@ completion and production-readiness figures are unchanged.
 ### Current execution boundary
 
 MESP-141 remains limited to the migration-owned foundation. Slice 1 is accepted
-and merged into `main`; the integration added no product/source changes. No
-source import, Tenant/company/branch opening-data creation, production
-migration execution, API endpoint, Angular UI, external provider, or
-`frontend/assets` change is included. Slice 2 remains NOT AUTHORIZED and
-requires a separate governed activation.
+and merged into `main`; Slice 2 is implemented on Draft PR #244 and awaits
+GPT-5.6 Sol acceptance. No source import, row parsing, Tenant/company/branch
+opening-data creation, production migration execution, Angular UI, external
+provider, or `frontend/assets` change is included. MESP-142 remains not
+activated; no production or cutover authority is granted.
 
 ---
 

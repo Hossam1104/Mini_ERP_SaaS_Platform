@@ -1,8 +1,46 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 12 September 2026 (MESP-141 Slice 1 merged into main)
+**Last Updated:** 13 September 2026 (MESP-141 Slice 2 Draft handoff)
 
-## Current execution snapshot - 12 September 2026 (MESP-141 Slice 1 merged)
+## Current execution snapshot - 13 September 2026 (MESP-141 Slice 2 Draft handoff)
+
+MESP-141 Slice 2 is implemented on `feat/mesp-141-migration-intake-staging` at
+head `de7128adea383b25a62eb13e611fea9a5da6990a`, based on verified
+`origin/main` `bfb45f2bc02ad68865bacf733a3da781c8e432f2`. Issue #229 activation is
+recorded in comment `5648967341`; Draft PR #244 is open, unmerged, and awaiting
+GPT-5.6 Sol acceptance.
+
+The bounded capability is the canonical migration intake boundary: server-owned
+Tenant resolution, deterministic versioned SHA-256 fingerprinting, reuse of the
+existing private-file authority, immutable source-artifact snapshot metadata,
+one Migration-owned durable intake/staging structure, Tenant-scoped replay and
+changed-input conflict behavior, minimal authorized REST, and Foundation audit
+evidence. Parsing, row validation/dry-run, opening balances, business-domain
+loading, reconciliation, cutover, production work, onboarding UI, MESP-142, and
+`frontend/assets` remain excluded.
+
+Local validation passed: Release build `0 warnings / 0 errors`; full backend
+`1,305/1,305` with `0` failures and `0` skips; Migration plus SQL safety `80/80`;
+private-file/security `80/80`; REST/Foundation `37/37`; Angular `316/316`;
+Chromium `51/51`; eight EF contexts with no pending model changes; and clear
+NuGet scanning. npm audit remains the unchanged baseline of `4` moderate
+production and `7` moderate full-tree advisories, below the high-severity gate.
+Hosted CI run `34725109921` passed `Repository Validation`, `Backend`, and
+`Frontend` on the exact head.
+
+**No headline changes.** Accepted fast-track capability completion stays
+**24 / 26 = 92.3%** and production readiness remains approximately **47% overall
+/ 41% Procurement/P2P**. MESP-142 remains **OPEN / NOT ACTIVATED**; MESP-48 and
+MESP-50 remain open production gates.
+
+### Progress history - 13 September 2026 (MESP-141 Slice 2 implementation)
+
+The bounded Slice 2 implementation added only the intake/staging boundary and
+its tests/migration. The single Draft PR #244 remains the handoff artifact;
+hosted CI run `34725109921` passed all three required checks. No capability or
+production-readiness percentage changed.
+
+## Historical execution snapshot - 12 September 2026 (MESP-141 Slice 1 merged)
 
 The independent Claude Opus 5 review of Draft PR #242 (Major F1–F4, Minor
 m1–m8) is remediated on the same branch and PR: lifecycle graph aligned with
