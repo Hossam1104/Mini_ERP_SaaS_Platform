@@ -21,6 +21,7 @@ using MiniErp.App.Modules.Inventory;
 using MiniErp.App.Modules.Finance;
 using MiniErp.App.Modules.Sales;
 using MiniErp.App.Modules.Reporting;
+using MiniErp.App.Modules.Migration;
 using MiniErp.Contracts.Modules.Audit;
 using MiniErp.Contracts.Modules.BusinessParties;
 using MiniErp.Contracts.Modules.Foundation;
@@ -35,6 +36,7 @@ using MiniErp.Infrastructure.Persistence.Modules.Procurement;
 using MiniErp.Infrastructure.Persistence.Modules.Inventory;
 using MiniErp.Infrastructure.Persistence.Modules.Finance;
 using MiniErp.Infrastructure.Persistence.Modules.Sales;
+using MiniErp.Infrastructure.Persistence.Modules.Migration;
 using MiniErp.Api;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -102,6 +104,7 @@ builder.Services.AddInventoryApplication();
 builder.Services.AddFinanceApplication();
 builder.Services.AddSalesApplication(builder.Configuration);
 builder.Services.AddReportingApplication();
+builder.Services.AddMigrationFoundation();
 builder.Services.AddSingleton<IInventoryProductProvider, MasterDataInventoryProductProvider>();
 string? developmentMasterDataSqliteConnectionString = null;
 string? developmentBusinessPartiesSqliteConnectionString = null;
@@ -109,6 +112,7 @@ string? developmentProcurementSqliteConnectionString = null;
 string? developmentInventorySqliteConnectionString = null;
 string? developmentFinanceSqliteConnectionString = null;
 string? developmentSalesSqliteConnectionString = null;
+string? developmentMigrationSqliteConnectionString = null;
 var sqlServerConnectionString = builder.Configuration["MESP_SQLSERVER_CONNECTION_STRING"];
 if (!string.IsNullOrWhiteSpace(sqlServerConnectionString))
 {
@@ -118,6 +122,7 @@ if (!string.IsNullOrWhiteSpace(sqlServerConnectionString))
     builder.Services.AddInventorySqlServerPersistence(sqlServerConnectionString);
     builder.Services.AddFinanceSqlServerPersistence(sqlServerConnectionString);
     builder.Services.AddSalesSqlServerPersistence(sqlServerConnectionString);
+    builder.Services.AddMigrationSqlServerPersistence(sqlServerConnectionString);
 }
 else if (builder.Environment.IsDevelopment())
 {
@@ -162,6 +167,10 @@ else if (builder.Environment.IsDevelopment())
     developmentSalesSqliteConnectionString = string.IsNullOrWhiteSpace(configuredSalesConnectionString)
         ? $"Data Source={Path.Combine(defaultSqliteDirectory, "sales.db")}"
         : configuredSalesConnectionString;
+    var configuredMigrationConnectionString = builder.Configuration["MESP_DEV_MIGRATION_SQLITE_CONNECTION_STRING"];
+    developmentMigrationSqliteConnectionString = string.IsNullOrWhiteSpace(configuredMigrationConnectionString)
+        ? $"Data Source={Path.Combine(defaultSqliteDirectory, "migration.db")}"
+        : configuredMigrationConnectionString;
 
     builder.Services.AddMasterDataSqlitePersistence(developmentMasterDataSqliteConnectionString);
     builder.Services.AddBusinessPartiesSqlitePersistence(developmentBusinessPartiesSqliteConnectionString);
@@ -169,6 +178,7 @@ else if (builder.Environment.IsDevelopment())
     builder.Services.AddInventorySqlitePersistence(developmentInventorySqliteConnectionString);
     builder.Services.AddFinanceSqlitePersistence(developmentFinanceSqliteConnectionString);
     builder.Services.AddSalesSqlitePersistence(developmentSalesSqliteConnectionString);
+    builder.Services.AddMigrationSqlitePersistence(developmentMigrationSqliteConnectionString);
 }
 
 // Inventory consumes Procurement source contracts through application seams. The registrations
@@ -376,6 +386,8 @@ if (developmentMasterDataSqliteConnectionString is not null
         developmentFinanceSqliteConnectionString!);
     SalesPersistenceServiceCollectionExtensions.EnsureDevelopmentSqliteDatabase(
         developmentSalesSqliteConnectionString!);
+    MigrationPersistenceServiceCollectionExtensions.EnsureDevelopmentSqliteDatabase(
+        developmentMigrationSqliteConnectionString!);
 }
 
 app.SeedDevelopmentBootstrap();

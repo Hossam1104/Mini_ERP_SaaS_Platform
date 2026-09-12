@@ -32,10 +32,12 @@ Live Jira and live GitHub outrank every Markdown file for mutable facts.
   Tracker / Migration Provenance** — preserved read-only, never deleted, and no
   longer the live work-management authority. Tracker cutover was approved and
   completed on **10 September 2026** after independent Claude Opus 5 review.
-* **Active implementation capability is NONE. Next capability is NOT
-  ACTIVATED.** MESP-138, MESP-139, and MESP-140 are **Done / merged /
-  accepted**. **MESP-141 and MESP-142 remain Open / NOT ACTIVATED** — do not
-  start either without a positive Sol activation authority in a new prompt.
+* MESP-138, MESP-139, and MESP-140 are **Done / merged / accepted**; the
+  MESP-40 BRD is accepted. **The active capability is MESP-141 Slice 1 only**
+  (migration foundation; Issue #229, Draft PR #242 — Open / Draft / Unmerged /
+  not accepted). Later MESP-141 slices are not activated. **MESP-142 remains
+  Open / NOT ACTIVATED** — do not start it without a positive Sol activation
+  authority in a new prompt.
 * Accepted fast-track completion is **24/26 = 92.3%**. That figure is
   **capability completion only** — it is not production, deployment, launch,
   UAT, or compliance readiness. Production readiness remains separately

@@ -1,6 +1,93 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 11 September 2026 (MESP-40 accepted; GitHub Actions CI verified)
+**Last Updated:** 12 September 2026 (MESP-141 Slice 1 accepted by GPT-5.6 Sol)
+
+## Current execution snapshot - 12 September 2026 (MESP-141 Slice 1 review remediated)
+
+The independent Claude Opus 5 review of Draft PR #242 (Major F1–F4, Minor
+m1–m8) is remediated on the same branch and PR: lifecycle graph aligned with
+BRD §7.2/§13.7, server-derived attempt lineage with a database-enforced
+Run-qualified predecessor FK (third additive migration
+`20260912191429_MESP141MigrationRunQualifiedAttemptLineage`), race-safe idempotent replay,
+and durable audit evidence for every state change. Migration now has
+provider-realistic SQL Server coverage. Local validation: MigrationFoundation
+`72/72`, CI-equivalent backend `1,299/1,299`, disposable LocalDB SQL Server
+safety included in the full suite with the four MESP-141 provider tests `4/4`
+across five repeated fresh databases, Angular unit `316/316`, Chromium `51/51`,
+Release build `0 warnings / 0 errors`. Details are in
+`.ai/CURRENT_STATE.md`.
+
+**No headline changes.** Accepted fast-track capability completion stays
+**24 / 26 = 92.3%** and production readiness approximately **47% overall /
+41% Procurement/P2P** after GPT-5.6 Sol accepted Slice 1 in PR #242 comment
+`5648291141` at head `93be20cee2e5e341f43064e76a214deda296f1fb`. PR #242 remains
+Open / Draft / Unmerged; MESP-142 remains not activated; MESP-48 and MESP-50
+remain open production gates. New finding: 7 moderate npm advisories (Angular
+`≤22.1.0`, Vitest `≤4.1.10`, transitive `hono`) with patches available, below
+the CI `high` audit gate and deferred to a focused dependency PR.
+
+### Progress history - 12 September 2026 (Sol acceptance and governance reconciliation)
+
+GPT-5.6 Sol accepted MESP-141 Slice 1 in PR #242 comment `5648291141` at final
+head `93be20cee2e5e341f43064e76a214deda296f1fb`; hosted CI run `34714920073`
+passed `Repository Validation`, `Backend`, and `Frontend`. PR #242 remains
+Open / Draft / Unmerged, MESP-141 remains Open / Active for later separately
+authorized slices, MESP-142 remains not activated, and no capability or
+readiness percentage changed.
+
+### Progress history - 12 September 2026 (bounded Sol remediation)
+
+MESP-141 Slice 1 residual acceptance blockers R1-R3 were remediated on the
+existing branch and pushed in implementation commit
+`99b029958dbccbeebb51134db96e3d6a93dfcf64`: post-effect lifecycle states now
+cannot reach pre-effect states; the predecessor FK is Run-qualified through
+the third additive migration
+`20260912191429_MESP141MigrationRunQualifiedAttemptLineage`; and SQLite
+idempotency-race classification accepts only primary-key/unique extended
+codes, rejecting FK/CHECK constraint failures. Fresh validation passed Release
+build `0 warnings / 0 errors`, MigrationFoundation `72/72`, full backend
+`1,299/1,299`, Angular `316/316`, Chromium `51/51`, NuGet scan clear, and
+five repeated MESP-141 SQL provider runs `4/4` each. Hosted CI run
+`34714480765` passed `Repository Validation`, `Backend`, and `Frontend` on the
+same head. At this pre-acceptance checkpoint, PR #242 remained
+Open/Draft/Unmerged and MESP-141 was awaiting GPT-5.6 Sol re-acceptance; no
+capability percentage changed.
+
+## Execution snapshot - 11 September 2026 (MESP-141 Slice 1 activated; superseded by the remediation snapshot above)
+
+MESP-40 / GitHub Issue #129 remains **ACCEPTED / MERGED / DONE** and satisfies
+the MESP-141 requirements prerequisite. Under the current bounded executor
+authority, MESP-141 / GitHub Issue #229 is **OPEN / ACTIVE** with Project status
+**In Progress**, label `active`, and branch
+`feat/mesp-141-migration-foundation` from live `origin/main`
+`b1ceb21fc71d0838325efd58071d5d3f6895ab18`. Activation is recorded in Issue
+#229 comment `5638746775`. Draft PR #242 is **OPEN / DRAFT / UNMERGED**; the
+implementation commit is `51b6993c0b6ac9131afe6205986771d349658491`.
+
+Slice 1 is limited to migration contracts, lifecycle/state model, server-owned
+Tenant context, audit/evidence seam, and durable idempotency skeleton. No
+Slice 2, MESP-142, production migration/cutover, CD/deployment, Ready/merge,
+Jira mutation, API/UI, or `frontend/assets` change is authorized. MESP-142
+remains **OPEN / NOT ACTIVATED**; MESP-48 and MESP-50 remain open production
+gates. Accepted fast-track capability completion remains **24 / 26 = 92.3%**;
+production readiness remains approximately **47% overall / 41% Procurement/P2P**.
+
+Hosted CI run `34635358309` on implementation commit `51b6993` passed all
+three required checks: `Repository Validation`, `Backend`, and `Frontend`;
+handoff head `a8acc2b` passed separately in run `34636791728`. Local validation passed Release build
+`0 warnings / 0 errors`, MigrationFoundation `7/7`, related controls `250/250`,
+CI-equivalent backend `1,143/1,143`, disposable SQL Server safety `87/87`, and
+EF MigrationDbContext pending-model check. The PR remains Draft and no capability
+completion percentage changed pending independent acceptance.
+
+### Progress history - 11 September 2026 (MESP-141 Slice 1 handoff)
+
+Live GitHub reconciliation confirmed MESP-40 Done/Accepted, MESP-141 Open and
+ready for the bounded activation, MESP-142 Todo/Not Activated, and no existing
+MESP-141 branch or PR. The authorized activation moved Issue #229 to Active and
+Project In Progress. The authorized implementation was pushed in Draft PR #242
+with all required CI checks green. The exact next action is independent Claude
+Opus 5 review; this session does not alter the capability headline.
 
 ## Current governance snapshot - 11 September 2026 (GitHub is work-management and CI authority)
 

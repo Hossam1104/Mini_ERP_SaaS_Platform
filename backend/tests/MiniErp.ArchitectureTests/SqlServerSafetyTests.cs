@@ -11,11 +11,14 @@ using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.Modules.BusinessParties;
 using MiniErp.App.Modules.Inventory;
 using MiniErp.App.Modules.MasterData;
+using MiniErp.App.Modules.Migration;
 using MiniErp.App.Modules.Sales;
+using MiniErp.Contracts.Modules.Audit;
 using MiniErp.Contracts.Modules.Finance;
 using MiniErp.Contracts.Modules.Foundation;
 using MiniErp.Contracts.Modules.Inventory;
 using MiniErp.Contracts.Modules.MasterData;
+using MiniErp.Contracts.Modules.Migration;
 using MiniErp.Contracts.Modules.Sales;
 using MiniErp.Infrastructure.Persistence;
 using MiniErp.Infrastructure.Persistence.Migrations.Inventory;
@@ -23,6 +26,7 @@ using MiniErp.Infrastructure.Persistence.Modules.BusinessParties;
 using MiniErp.Infrastructure.Persistence.Modules.Inventory;
 using MiniErp.Infrastructure.Persistence.Modules.Finance;
 using MiniErp.Infrastructure.Persistence.Modules.MasterData;
+using MiniErp.Infrastructure.Persistence.Modules.Migration;
 using MiniErp.Infrastructure.Persistence.Modules.Procurement;
 using MiniErp.Infrastructure.Persistence.Modules.Sales;
 using Xunit;
@@ -177,6 +181,13 @@ public sealed class SqlServerSafetyFixture : IAsyncLifetime
             await sales.Database.MigrateAsync();
         }
 
+        await using (var migration = new MigrationDbContext(
+                         SqlServerMigrationConfiguration.Configure(_connectionString, SqlServerMigrationConfiguration.MigrationHistoryTable),
+                         TenantA))
+        {
+            await migration.Database.MigrateAsync();
+        }
+
         await CreateProbeTablesAsync();
         Factory = new TenantPersistenceSessionFactory(_options);
     }
@@ -309,6 +320,7 @@ public sealed class SqlServerSafetyTests
         var inventoryOptions = SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.InventoryHistoryTable);
         var financeOptions = SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.FinanceHistoryTable);
         var salesOptions = SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.SalesHistoryTable);
+        var migrationOptions = SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.MigrationHistoryTable);
 
         await using (var tenancy = new TenantPersistenceDbContext(tenancyOptions, _fixture.TenantA))
         {
@@ -407,6 +419,21 @@ public sealed class SqlServerSafetyTests
                 ],
                 (await sales.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await sales.Database.GetPendingMigrationsAsync());
+        }
+
+        await using (var migration = new MigrationDbContext(migrationOptions, _fixture.TenantA))
+        {
+            // The attempt-lineage constraints are additive migrations rather
+            // than edits of the already-pushed foundation migrations.
+            // Asserting all three names keeps that ordering committed.
+            Assert.Equal(
+                [
+                    "20260911183345_MESP141MigrationFoundation",
+                    "20260912105244_MESP141MigrationAttemptLineage",
+                    "20260912191429_MESP141MigrationRunQualifiedAttemptLineage"
+                ],
+                (await migration.Database.GetAppliedMigrationsAsync()).ToArray());
+            Assert.Empty(await migration.Database.GetPendingMigrationsAsync());
         }
 
         await using var connection = await _fixture.OpenConnectionAsync();
@@ -3397,6 +3424,248 @@ public sealed class SqlServerSafetyTests
         Assert.True(approved.Succeeded, approved.Code);
 
         return new SqlFinanceScenario(options, companyId, first, second, firstContext, secondContext, accounts.Debit, accounts.Credit, opened.Value!, approved.Value!);
+    }
+
+    [Fact]
+    public async Task MESP141_sql_server_concurrent_run_creation_on_one_key_yields_one_run_and_replays_for_the_rest()
+    {
+        var (service, _, options) = await CreateMigrationServiceAsync();
+        var tenant = MigrationTenant("sql-run-race");
+        var request = MigrationRequest(tenant, "tenant.migration.run.create");
+        var key = $"sql-run-race-{Guid.NewGuid():N}";
+        var creation = MigrationCreationRequest(key);
+
+        // Eight real connections against real SQL Server. The SQLite suite
+        // cannot prove this path: only the provider raises 2627/2601 on the
+        // idempotency primary key, which is what the replay recovery
+        // classifies before re-reading the committed row.
+        var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(
+            _ => service.CreateRunAsync(request, creation)));
+
+        Assert.All(results, item => Assert.True(item.Succeeded, item.Code));
+        Assert.Equal(1, results.Count(item => item.Kind == MigrationResultKind.Succeeded));
+        Assert.Equal(7, results.Count(item => item.Kind == MigrationResultKind.Replayed));
+        Assert.Single(results.Select(item => item.Value!.RunId).Distinct());
+
+        await using var db = new MigrationDbContext(options, tenant);
+        Assert.Equal(1, await db.Idempotency.CountAsync(item => item.IdempotencyKey == key));
+        Assert.Equal(1, await db.Runs.CountAsync(item => item.RunId == results[0].Value!.RunId));
+    }
+
+    [Fact]
+    public async Task MESP141_sql_server_concurrent_attempt_start_on_one_run_yields_one_attempt_and_replays()
+    {
+        var (service, _, options) = await CreateMigrationServiceAsync();
+        var tenant = MigrationTenant("sql-attempt-race");
+        var request = MigrationRequest(tenant, "tenant.migration.attempt.start");
+        var run = await PreparedMigrationRunAsync(service, request, $"sql-attempt-run-{Guid.NewGuid():N}");
+        var key = $"sql-attempt-race-{Guid.NewGuid():N}";
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(
+            _ => service.StartAttemptAsync(
+                request, run.RunId, MigrationOperationKind.Validation, key, $"{key}-fingerprint")));
+
+        Assert.All(results, item => Assert.True(item.Succeeded, item.Code));
+        Assert.Equal(1, results.Count(item => item.Kind == MigrationResultKind.Succeeded));
+        Assert.Single(results.Select(item => item.Value!.AttemptId).Distinct());
+        Assert.All(results, item => Assert.Equal(1, item.Value!.Sequence));
+
+        await using var db = new MigrationDbContext(options, tenant);
+        Assert.Equal(1, await db.Attempts.CountAsync(item => item.RunId == run.RunId));
+    }
+
+    [Fact]
+    public async Task MESP141_sql_server_rowversion_makes_a_stale_run_transition_a_safe_conflict()
+    {
+        var (service, _, _) = await CreateMigrationServiceAsync();
+        var tenant = MigrationTenant("sql-version-race");
+        var request = MigrationRequest(tenant, "tenant.migration.run.transition");
+        var key = $"sql-version-run-{Guid.NewGuid():N}";
+        var created = await service.CreateRunAsync(request, MigrationCreationRequest(key));
+        Assert.True(created.Succeeded, created.Code);
+        var draftVersion = created.Value!.Version;
+
+        var prepared = await service.TransitionRunAsync(
+            request, created.Value.RunId, MigrationRunStatus.Prepared, draftVersion);
+        Assert.True(prepared.Succeeded, prepared.Code);
+        Assert.NotEqual(draftVersion, prepared.Value!.Version);
+
+        // On SQL Server Version is a real rowversion the database generates,
+        // not the Guid the non-SQL-Server providers rotate in application
+        // code. Presenting the now-superseded Draft version must therefore be
+        // refused by the provider's own concurrency check rather than
+        // silently overwriting the committed Prepared row.
+        var stale = await service.TransitionRunAsync(
+            request, created.Value.RunId, MigrationRunStatus.Validating, draftVersion);
+
+        Assert.False(stale.Succeeded);
+        Assert.Equal(MigrationResultKind.Rejected, stale.Kind);
+        Assert.Equal("migration_run_version_conflict", stale.Code);
+
+        // The refusal must leave the persisted lifecycle position untouched.
+        var reread = await service.FindRunAsync(tenant, created.Value.RunId);
+        Assert.True(reread.Succeeded, reread.Code);
+        Assert.Equal(MigrationRunStatus.Prepared, reread.Value!.Status);
+    }
+
+    [Fact]
+    public async Task MESP141_sql_server_database_refuses_an_attempt_predecessor_outside_its_own_run_or_tenant()
+    {
+        var (service, _, _) = await CreateMigrationServiceAsync();
+        var foreignTenant = MigrationTenant("sql-lineage-foreign");
+        var foreignRequest = MigrationRequest(foreignTenant, "tenant.migration.attempt.start");
+        var foreignRun = await PreparedMigrationRunAsync(
+            service, foreignRequest, $"sql-foreign-run-{Guid.NewGuid():N}");
+        var foreignKey = $"sql-foreign-attempt-{Guid.NewGuid():N}";
+        var foreignAttempt = await service.StartAttemptAsync(
+            foreignRequest, foreignRun.RunId, MigrationOperationKind.Validation, foreignKey, $"{foreignKey}-fp");
+        Assert.True(foreignAttempt.Succeeded, foreignAttempt.Code);
+
+        var sameTenant = TenantContext.ForOrdinaryMembership(
+            _fixture.TenantA.TenantId,
+            new MembershipReference(Guid.NewGuid()),
+            correlationId: new CorrelationId("sql-lineage-same"),
+            actorId: Guid.NewGuid());
+        var sameTenantRequest = MigrationRequest(sameTenant, "tenant.migration.attempt.start");
+        var firstRun = await PreparedMigrationRunAsync(
+            service, sameTenantRequest, $"sql-lineage-run-one-{Guid.NewGuid():N}");
+        var firstAttempt = await service.StartAttemptAsync(
+            sameTenantRequest,
+            firstRun.RunId,
+            MigrationOperationKind.Validation,
+            $"sql-lineage-attempt-one-{Guid.NewGuid():N}",
+            $"sql-lineage-attempt-one-fp-{Guid.NewGuid():N}");
+        Assert.True(firstAttempt.Succeeded, firstAttempt.Code);
+
+        var secondRun = await PreparedMigrationRunAsync(
+            service, sameTenantRequest, $"sql-lineage-run-two-{Guid.NewGuid():N}");
+
+        var localTenant = MigrationTenant("sql-lineage-local");
+        var localRequest = MigrationRequest(localTenant, "tenant.migration.attempt.start");
+        var localRun = await PreparedMigrationRunAsync(
+            service, localRequest, $"sql-local-run-{Guid.NewGuid():N}");
+        Assert.NotEqual(foreignTenant.TenantId.Value, localTenant.TenantId.Value);
+
+        // The Tenant-qualified self foreign key must be enforced by the
+        // database itself, not only by the EF model, so this bypasses the
+        // application entirely. Before the lineage migration the column was a
+        // loose Guid and both of these inserts would have been accepted.
+        var sameTenantCrossRunPredecessor = await TryInsertMigrationAttemptAsync(
+            sameTenant.TenantId.Value, secondRun.RunId, firstAttempt.Value!.AttemptId);
+        var foreignPredecessor = await TryInsertMigrationAttemptAsync(
+            localTenant.TenantId.Value, localRun.RunId, foreignAttempt.Value!.AttemptId);
+        var absentPredecessor = await TryInsertMigrationAttemptAsync(
+            localTenant.TenantId.Value, localRun.RunId, Guid.NewGuid());
+
+        Assert.NotNull(sameTenantCrossRunPredecessor);
+        Assert.Equal(547, sameTenantCrossRunPredecessor!.Number);
+        Assert.NotNull(foreignPredecessor);
+        Assert.Equal(547, foreignPredecessor!.Number);
+        Assert.NotNull(absentPredecessor);
+        Assert.Equal(547, absentPredecessor!.Number);
+    }
+
+    /// <summary>
+    /// Inserts one attempt row through raw ADO.NET and returns the SQL error
+    /// when the database refuses it, or null when the insert was accepted.
+    /// </summary>
+    private async Task<SqlError?> TryInsertMigrationAttemptAsync(
+        Guid tenantId,
+        Guid runId,
+        Guid previousAttemptId)
+    {
+        await using var connection = await _fixture.OpenConnectionAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO [migration].[MigrationAttempts]
+                ([AttemptId], [TenantId], [RunId], [Sequence], [PreviousAttemptId], [Operation],
+                 [Outcome], [IdempotencyKey], [RequestFingerprint], [StartedAt], [FinishedAt], [SafeOutcomeCode])
+            VALUES
+                (@AttemptId, @TenantId, @RunId, @Sequence, @PreviousAttemptId, 2,
+                 1, @IdempotencyKey, @RequestFingerprint, SYSDATETIMEOFFSET(), NULL, NULL);
+            """;
+        command.Parameters.AddWithValue("@AttemptId", Guid.NewGuid());
+        command.Parameters.AddWithValue("@TenantId", tenantId);
+        command.Parameters.AddWithValue("@RunId", runId);
+        command.Parameters.AddWithValue("@Sequence", Random.Shared.Next(1000, 100000));
+        command.Parameters.AddWithValue("@PreviousAttemptId", previousAttemptId);
+        command.Parameters.AddWithValue("@IdempotencyKey", $"raw-{Guid.NewGuid():N}");
+        command.Parameters.AddWithValue("@RequestFingerprint", $"raw-{Guid.NewGuid():N}");
+
+        try
+        {
+            await command.ExecuteNonQueryAsync();
+            return null;
+        }
+        catch (SqlException exception)
+        {
+            return exception.Errors.Cast<SqlError>().First();
+        }
+    }
+
+    private async Task<(MigrationFoundationService Service, List<FoundationAuditEvidence> Evidence, DbContextOptions Options)>
+        CreateMigrationServiceAsync()
+    {
+        var options = SqlServerMigrationConfiguration.Configure(
+            await GetConnectionStringAsync(), SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var evidence = new List<FoundationAuditEvidence>();
+        var service = new MigrationFoundationService(
+            new MigrationPersistence(options), new SqlMigrationAuditSink(evidence));
+        return (service, evidence, options);
+    }
+
+    /// <summary>
+    /// A fresh Tenant context carrying a server-derived actor. The shared
+    /// harness contexts deliberately carry no actor, and a migration run
+    /// refuses to be created without one.
+    /// </summary>
+    private static TenantContext MigrationTenant(string correlation) =>
+        TenantContext.ForOrdinaryMembership(
+            new TenantId(Guid.NewGuid()),
+            new MembershipReference(Guid.NewGuid()),
+            correlationId: new CorrelationId(correlation),
+            actorId: Guid.NewGuid());
+
+    private static FoundationRequestContext MigrationRequest(TenantContext tenantContext, string permission) =>
+        FoundationRequestContext.ForTenant(
+            tenantContext.ActorId!.Value, Guid.NewGuid(), tenantContext, permission);
+
+    private static async Task<MigrationRunRecord> PreparedMigrationRunAsync(
+        MigrationFoundationService service,
+        FoundationRequestContext request,
+        string key)
+    {
+        var created = await service.CreateRunAsync(request, MigrationCreationRequest(key));
+        Assert.True(created.Succeeded, created.Code);
+        var prepared = await service.TransitionRunAsync(
+            request, created.Value!.RunId, MigrationRunStatus.Prepared, created.Value.Version);
+        Assert.True(prepared.Succeeded, prepared.Code);
+        return prepared.Value!;
+    }
+
+    private static MigrationRunCreationRequest MigrationCreationRequest(string key) => new(
+        null,
+        new MigrationDefinitionReference("tenant-onboarding.foundation", "1"),
+        new MigrationSourceProfileReference("neutral-source-profile", "1"),
+        MigrationOperationKind.Validation,
+        key,
+        $"{key}-fingerprint");
+
+    /// <summary>Collects appended evidence so a durable audit failure is never silent.</summary>
+    private sealed class SqlMigrationAuditSink(List<FoundationAuditEvidence> appended)
+        : MiniErp.App.Modules.Audit.IFoundationAuditEvidenceSink
+    {
+        public ValueTask AppendAsync(
+            FoundationAuditEvidence evidence,
+            CancellationToken cancellationToken = default)
+        {
+            lock (appended)
+            {
+                appended.Add(evidence);
+            }
+
+            return ValueTask.CompletedTask;
+        }
     }
 
     private async Task<(FinanceAccountRecord Debit, FinanceAccountRecord Credit)> CreateFinanceAccountsAsync(IFinancePersistence persistence, FinanceRequestContext context, Guid companyId, string prefix)

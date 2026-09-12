@@ -37,7 +37,7 @@ velocity, or forecast:
 - Full logos/icons use `frontend/assets` as source of truth.
 - `frontend/assets/brand` is reserved only for necessary generated browser derivatives (e.g., favicons, touch icons).
 
-## Current execution overlay - 10 September 2026 (GitHub tracker cutover completed; no active capability)
+## Current execution overlay - 12 September 2026 (MESP-141 Slice 1 active and in review)
 
 > **Single source of current state.** `.ai/CURRENT_STATE.md` carries the
 > **CURRENT AUTHORITY** block and is the one place to read live project
@@ -51,8 +51,10 @@ velocity, or forecast:
 * **Work-management authority is GitHub Issues + the GitHub Project** `MESP — Mini ERP SaaS Platform` (<https://github.com/users/Hossam1104/projects/1>). The issue key remains **`MESP`**, carried in every Issue title and in the Project `Jira Key` field.
 * **Jira is `Historical Tracker / Migration Provenance`** — preserved read-only evidence. It is **not** deleted and **not** the live work-management authority. Tracker cutover was independently reviewed and **approved and completed on 10 September 2026** (canonical Issues `144/144`, missing `0`, duplicates `0`, Project membership `144/144`, material comments `553/553`).
 * Repository head authority: resolve live `origin/main` from Git; a mutable head must not be hard-coded as current authority.
-* **Active implementation capability is `NONE`; next capability is `NOT ACTIVATED`.** MESP-138 (PR #86), MESP-139 (PR #88, `8718afab41754667cda38642a2b4f3e3437250e3`), and MESP-140 (PR #89, `0316a2623dfc1b9d8df6952c535757c03dd740b0`) are **Done / merged / accepted**.
-* **MESP-141 and MESP-142 remain Open / `NOT ACTIVATED`.** Neither may be started, branched, or transitioned without positive Sol activation authority issued in a new prompt. The tracker cutover granted no implementation authority.
+* MESP-138 (PR #86), MESP-139 (PR #88, `8718afab41754667cda38642a2b4f3e3437250e3`), and MESP-140 (PR #89, `0316a2623dfc1b9d8df6952c535757c03dd740b0`) are **Done / merged / accepted**. MESP-40 (BRD, PR #234) is **Done / accepted**.
+* **The active implementation capability is MESP-141, Slice 1 only** (migration foundation), activated on GitHub Issue #229 comment `5638746775`, on `feat/mesp-141-migration-foundation` as Draft PR #242 — **Open / Draft / Unmerged / not accepted**. Later MESP-141 slices are **not activated**, and M40-DEC-001 through M40-DEC-006 remain open.
+* **MESP-142 remains Open / `NOT ACTIVATED`.** It may not be started, branched, or transitioned without positive Sol activation authority issued in a new prompt.
+* *Superseded 10 September 2026 pointer:* the tracker cutover left active capability `NONE`; that was true until the MESP-141 activation above and is retained here only as history.
 * Accepted fast-track capability completion is **24/26 = 92.3%** — **capability completion only**, never production, deployment, launch, UAT, or compliance readiness. Production readiness remains separately approximately **47% overall** and **41% Procurement/P2P**. **MESP-48** and **MESP-50** remain open production gates.
 * **GitHub Actions CI is ACTIVE / VERIFIED** through `.github/workflows/ci.yml`. The exact required checks are `Repository Validation`, `Backend`, and `Frontend`; local test runs remain distinct from hosted CI. The GitHub Copilot Code Review bot is an external bot review — evidence only, never authority and never CI.
 * `frontend/assets` remains Owner-managed and untouched. Ponytail FULL remains the default executor mode when installed and available, and is never authority.

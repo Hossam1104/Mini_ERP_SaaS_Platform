@@ -8,6 +8,7 @@ using MiniErp.Infrastructure.Persistence.Modules.Procurement;
 using MiniErp.Infrastructure.Persistence.Modules.Inventory;
 using MiniErp.Infrastructure.Persistence.Modules.Finance;
 using MiniErp.Infrastructure.Persistence.Modules.Sales;
+using MiniErp.Infrastructure.Persistence.Modules.Migration;
 
 namespace MiniErp.Infrastructure.Persistence;
 
@@ -277,6 +278,16 @@ internal sealed class TenantOwnershipVerifierRegistry
             SalesTenantOwnershipVerifier.For<SalesCustomerReturnInvoiceAllocationEntity>(),
             SalesTenantOwnershipVerifier.For<SalesCustomerReturnFinanceEffectEntity>(),
             SalesTenantOwnershipVerifier.For<SalesCustomerReturnFinanceEffectAllocationEntity>()
+        ]);
+    }
+
+    internal static TenantOwnershipVerifierRegistry CreateMigration()
+    {
+        return new TenantOwnershipVerifierRegistry(
+        [
+            MigrationTenantOwnershipVerifier.For<MigrationRunEntity>(),
+            MigrationTenantOwnershipVerifier.For<MigrationAttemptEntity>(),
+            MigrationTenantOwnershipVerifier.For<MigrationIdempotencyEntity>()
         ]);
     }
 

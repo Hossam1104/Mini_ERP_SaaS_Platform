@@ -1,6 +1,55 @@
-## MESP-140 Cross-cutting controls — ACCEPTED / MERGED / DONE
+## MESP-141 Slice 1 - ACCEPTED BY GPT-5.6 SOL (12 September 2026)
 
-This current section supersedes the historical record below. MESP-140 is
+The independent Claude Opus 5 review on Draft PR #242 (`CHANGES REQUIRED`,
+Major F1–F4, Minor m1–m8) is remediated on
+`feat/mesp-141-migration-foundation`. GPT-5.6 Sol accepted MESP-141 Slice 1 in
+PR #242 comment `5648291141` at accepted head
+`93be20cee2e5e341f43064e76a214deda296f1fb`. The finding-by-finding record, the
+m1 Slice 2 entry condition, and the local validation (`72/72`
+MigrationFoundation, `1,299/1,299` CI-equivalent backend, four MESP-141 SQL
+Server provider tests `4/4` across five repeated disposable databases, Angular
+`316/316`) are in the CURRENT AUTHORITY block of `.ai/CURRENT_STATE.md`.
+
+Slice 1 is accepted; MESP-141 overall remains Open / Active and is not closed.
+PR #242 stays Open / Draft / Unmerged. Later MESP-141 slices and MESP-142 are
+not activated, and M40-DEC-001 through M40-DEC-006 remain open. The section
+below is the 11 September handoff, preserved as written except that its CI run
+is now tied to its commit.
+
+## MESP-141 Slice 1 - ACTIVATED / READY FOR INDEPENDENT REVIEW (11 September 2026 handoff)
+
+This bounded executor session is authorized by the current task prompt after
+live GitHub/repository reconciliation. MESP-40 is **ACCEPTED / MERGED / DONE**;
+MESP-141 is GitHub Issue #229, **OPEN / ACTIVE**, Project **In Progress**, on
+`feat/mesp-141-migration-foundation` from live `origin/main`
+`b1ceb21fc71d0838325efd58071d5d3f6895ab18`. Activation is recorded in Issue
+#229 comment `5638746775`.
+
+Current executor task: **MESP-141 Slice 1 only** - migration contracts,
+lifecycle/state model, server-owned Tenant context, audit/evidence seam, and
+durable idempotency skeleton. MESP-142 remains **OPEN / NOT ACTIVATED**.
+
+The session does not authorize Slice 2, MESP-142, production migration or
+cutover, CD/deployment, Ready-for-review, merge, Jira mutation, or changes under
+`frontend/assets`. The required handoff is one Draft PR with CI checks green,
+then independent Claude Opus 5 review. MESP-48 and MESP-50 remain open
+production gates; accepted capability completion remains **24 / 26 = 92.3%**
+and production readiness remains approximately **47% overall / 41%
+Procurement/P2P**.
+
+Slice 1 remediation is pushed as Draft PR #242; implementation commit
+`99b029958dbccbeebb51134db96e3d6a93dfcf64`. Hosted CI run `34714480765` on
+that exact head passed `Repository Validation`, `Backend`, and `Frontend`.
+Local validation is Release build `0 warnings / 0 errors`; MigrationFoundation
+`72/72`; CI-equivalent backend `1,299/1,299`; disposable SQL Server safety
+included in the full suite with the four MESP-141 provider tests `4/4` across
+five repeated fresh databases; Angular `316/316`; Chromium `51/51`; NuGet
+clear; and `git diff --check` clean. The PR remains Draft and unmerged; the
+exact next action is independent GPT-5.6 Sol re-acceptance.
+
+## Historical MESP-140 Cross-cutting controls — ACCEPTED / MERGED / DONE
+
+This historical section preserves the prior MESP-140 handoff. MESP-140 is
 **ACCEPTED / MERGED / DONE**: GPT-5.6 Sol technical acceptance is comment
 `12392`, lifecycle authorization is comment `12394`, and lifecycle closure is
 comment `12396`. MESP-13 reconciliation is comment `12397`. HOLD-140-A through
@@ -2963,3 +3012,4 @@ head containing this handoff, with the exact SHA reported by
 `git rev-parse HEAD` after the documentation commit. Stop for independent
 GPT-5.6 Sol HOLD 6 acceptance; do not mark PR #79 Ready, merge, or start
 MESP-139 or another capability.
+---
