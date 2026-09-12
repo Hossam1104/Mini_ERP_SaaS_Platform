@@ -4,7 +4,23 @@ using System.Text.Json.Serialization;
 
 namespace MiniErp.Contracts.Modules.Migration;
 
-/// <summary>Bounded lifecycle vocabulary for one migration run.</summary>
+/// <summary>
+/// Bounded lifecycle vocabulary for one migration run, aligned to the
+/// authoritative MESP-40 BRD section 7.2 lifecycle.
+/// </summary>
+/// <remarks>
+/// Numeric values are durable: they are persisted by the Migration module and
+/// must never be renumbered. New states are appended only.
+/// <para>
+/// Slice 1 deliberately truncates two BRD wording positions because their
+/// owning capability is out of scope: BRD "Uploaded" is represented by
+/// <see cref="Prepared"/> (Slice 1 excludes file ingestion and upload, so an
+/// "Uploaded" name would overstate the implemented behavior), and BRD
+/// "Preview/Dry Run Complete" has no distinct state because the validation and
+/// dry-run engine is excluded from Slice 1. The transition map fails closed
+/// beyond the implemented vocabulary rather than inferring the missing states.
+/// </para>
+/// </remarks>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum MigrationRunStatus
 {
@@ -20,7 +36,12 @@ public enum MigrationRunStatus
     OutcomeUnknown = 10,
     Completed = 11,
     Cancelled = 12,
-    Corrected = 13
+    Corrected = 13,
+    PartiallyCompleted = 14,
+    ReconciliationPending = 15,
+    Reconciled = 16,
+    ReadyForHandover = 17,
+    Closed = 18
 }
 
 /// <summary>Outcome of one explicit execution or validation attempt.</summary>
@@ -54,31 +75,20 @@ public enum MigrationResultKind
     UnknownOutcome = 5
 }
 
-/// <summary>Decision when a scoped idempotency identity is reserved.</summary>
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum MigrationIdempotencyDecision
-{
-    NewReservation = 1,
-    Replay = 2,
-    Conflict = 3
-}
-
 /// <summary>
-/// Transport-neutral source/profile identity. It carries no parser, file,
-/// storage, encoding, delimiter, batch-size, or provider decision.
+/// Safe evidence projection for a migration run-level or attempt-level event.
 /// </summary>
-public sealed record MigrationSourceProfileContract(
-    string ProfileId,
-    string ProfileVersion);
-
-/// <summary>
-/// Safe evidence classification for a migration state or attempt outcome.
-/// </summary>
+/// <remarks>
+/// <see cref="AttemptId"/> is nullable because a run-level event — run
+/// creation, or a run state transition that belongs to the run rather than to
+/// one attempt — has no owning attempt. Requiring an attempt identity here
+/// would make those mandatory BRD section 16.1 events inexpressible.
+/// </remarks>
 public sealed record MigrationEvidenceContract(
     Guid EvidenceId,
     Guid TenantId,
     Guid RunId,
-    Guid AttemptId,
+    Guid? AttemptId,
     Guid ActorId,
     string CorrelationId,
     string Operation,

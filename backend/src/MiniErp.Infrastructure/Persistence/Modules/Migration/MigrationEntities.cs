@@ -57,16 +57,30 @@ internal sealed class MigrationRunEntity : ITenantOwned
 
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
 
-    internal void Apply(MigrationRunRecord record)
+    /// <summary>
+    /// Moves the durable run to <paramref name="target"/> only when the domain
+    /// transition map permits it from the row's own persisted status.
+    /// </summary>
+    /// <remarks>
+    /// This replaces an earlier method that assigned a caller-supplied status
+    /// directly. That let any caller write a lifecycle position the domain
+    /// would have refused — for example a post-execution run back to a
+    /// pre-commit state — so the durable row could contradict the state
+    /// machine. The check is delegated to <see cref="MigrationRun"/> so the map
+    /// stays the single authority, and it is evaluated against the persisted
+    /// <see cref="Status"/> rather than any value the caller passes in.
+    /// </remarks>
+    internal void ApplyDomainTransition(MigrationRunStatus target, DateTimeOffset updatedAt)
     {
-        if (record.RunId != RunId || record.TenantId != TenantId)
+        if (!MigrationRun.IsTransitionAllowed(Status, target))
         {
-            throw new InvalidOperationException("A migration run cannot change its identity or Tenant owner.");
+            throw new InvalidOperationException(
+                "A migration run cannot be moved outside the domain transition map.");
         }
 
-        Status = record.Status;
-        UpdatedAt = record.UpdatedAt;
-        Version = record.Version;
+        Status = target;
+        UpdatedAt = updatedAt;
+        Version = Guid.NewGuid().ToByteArray();
     }
 }
 
@@ -120,6 +134,28 @@ internal sealed class MigrationAttemptEntity : ITenantOwned
     internal string? SafeOutcomeCode { get; private set; }
 
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
+
+    /// <summary>
+    /// Records the single terminal outcome of a Pending attempt. An attempt
+    /// that already carries an outcome is never rewritten, so attempt history
+    /// stays append-only evidence (BRD section 16.1, M40-RULE-028).
+    /// </summary>
+    internal bool TryRecordOutcome(
+        MigrationAttemptOutcome outcome,
+        string safeOutcomeCode,
+        DateTimeOffset finishedAt)
+    {
+        if (Outcome != MigrationAttemptOutcome.Pending || outcome == MigrationAttemptOutcome.Pending)
+        {
+            return false;
+        }
+
+        Outcome = outcome;
+        SafeOutcomeCode = safeOutcomeCode;
+        FinishedAt = finishedAt;
+        Version = Guid.NewGuid().ToByteArray();
+        return true;
+    }
 }
 
 /// <summary>Module-owned idempotency identity; no request payload is stored.</summary>
