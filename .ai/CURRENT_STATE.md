@@ -18,13 +18,13 @@
 |---|---|
 | MESP-40 | **ACCEPTED / MERGED / DONE** in GitHub Issue #129; requirements prerequisite satisfied |
 | MESP-141 | **OPEN / ACTIVE** in GitHub Issue #229; Project **In Progress**; label `active`; Slice 2 is implemented and awaiting independent acceptance |
-| Bounded branch | `feat/mesp-141-migration-intake-staging`; head `de7128adea383b25a62eb13e611fea9a5da6990a`; based on verified `origin/main` `bfb45f2bc02ad68865bacf733a3da781c8e432f2` |
+| Bounded branch | `feat/mesp-141-migration-intake-staging`; head `0ad708793b6292f4b8a449a24727850e8bf8e38c`; based on verified `origin/main` `bfb45f2bc02ad68865bacf733a3da781c8e432f2` |
 | PR | **#244 OPEN / DRAFT / UNMERGED**; `https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/244` |
 | Slice 1 acceptance | PR #242 comment `5648291141`; merged into `main` at `ee66f7beb3013e8eea5bded82f46aef4ecdfa97c` |
 | Slice 1 | **ACCEPTED by GPT-5.6 Sol** — migration contracts, lifecycle/state model, server-owned Tenant context, audit/evidence seam, and durable idempotency skeleton |
 | Slice 2 activation | Issue #229 comment `5648967341`; canonical intake, server fingerprint, private source snapshot, durable staging metadata, replay/conflict boundary, and minimal REST only |
 | Slice 2 acceptance state | **NOT YET ACCEPTED**; implementation handoff is Draft PR #244; no Ready or merge authority exercised |
-| Hosted CI | Run `34725109921` passed `Repository Validation`, `Backend`, and `Frontend` on head `de7128adea383b25a62eb13e611fea9a5da6990a` |
+| Hosted CI | Final-head run `34725389579` passed `Repository Validation`, `Backend`, and `Frontend` on head `0ad708793b6292f4b8a449a24727850e8bf8e38c` |
 | Merge reconciliation | Issue #229 remains Open/Active; Slice 2 handoff awaits GPT-5.6 Sol acceptance |
 | MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
 | MESP-48 / MESP-50 | **OPEN PRODUCTION GATES**; no values or policy invented |

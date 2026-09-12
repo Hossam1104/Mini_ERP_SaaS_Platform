@@ -5,7 +5,7 @@
 ## Current execution snapshot - 13 September 2026 (MESP-141 Slice 2 Draft handoff)
 
 MESP-141 Slice 2 is implemented on `feat/mesp-141-migration-intake-staging` at
-head `de7128adea383b25a62eb13e611fea9a5da6990a`, based on verified
+final handoff head `0ad708793b6292f4b8a449a24727850e8bf8e38c`, based on verified
 `origin/main` `bfb45f2bc02ad68865bacf733a3da781c8e432f2`. Issue #229 activation is
 recorded in comment `5648967341`; Draft PR #244 is open, unmerged, and awaiting
 GPT-5.6 Sol acceptance.
@@ -25,8 +25,8 @@ private-file/security `80/80`; REST/Foundation `37/37`; Angular `316/316`;
 Chromium `51/51`; eight EF contexts with no pending model changes; and clear
 NuGet scanning. npm audit remains the unchanged baseline of `4` moderate
 production and `7` moderate full-tree advisories, below the high-severity gate.
-Hosted CI run `34725109921` passed `Repository Validation`, `Backend`, and
-`Frontend` on the exact head.
+Hosted CI final-head run `34725389579` passed `Repository Validation`, `Backend`,
+and `Frontend` on the exact head.
 
 **No headline changes.** Accepted fast-track capability completion stays
 **24 / 26 = 92.3%** and production readiness remains approximately **47% overall
