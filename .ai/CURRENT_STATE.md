@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY - 13 September 2026 (MESP-141 SLICE 2 IMPLEMENTED; AWAITING SOL ACCEPTANCE)
+## CURRENT AUTHORITY - 13 September 2026 (MESP-141 SLICE 2 REMEDIATED; AWAITING SOL RE-ACCEPTANCE)
 
 ### Bounded implementation session
 
@@ -18,13 +18,13 @@
 |---|---|
 | MESP-40 | **ACCEPTED / MERGED / DONE** in GitHub Issue #129; requirements prerequisite satisfied |
 | MESP-141 | **OPEN / ACTIVE** in GitHub Issue #229; Project **In Progress**; label `active`; Slice 2 is implemented and awaiting independent acceptance |
-| Bounded branch | `feat/mesp-141-migration-intake-staging`; head `0ad708793b6292f4b8a449a24727850e8bf8e38c`; based on verified `origin/main` `bfb45f2bc02ad68865bacf733a3da781c8e432f2` |
+| Bounded branch | `feat/mesp-141-migration-intake-staging`; **live PR #244 head is authoritative - resolve the mutable head from GitHub/Git**; reviewed baseline `8ec4f1ae2472d065be66e38dd68322afc8220610`, remediation commits `b2ced56e00cdff4616e7233517ccf27500c39bce` and `97128af006aca6e9960c4492a31a1d31730edda0`; based on verified `origin/main` `bfb45f2bc02ad68865bacf733a3da781c8e432f2` |
 | PR | **#244 OPEN / DRAFT / UNMERGED**; `https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/244` |
 | Slice 1 acceptance | PR #242 comment `5648291141`; merged into `main` at `ee66f7beb3013e8eea5bded82f46aef4ecdfa97c` |
 | Slice 1 | **ACCEPTED by GPT-5.6 Sol** — migration contracts, lifecycle/state model, server-owned Tenant context, audit/evidence seam, and durable idempotency skeleton |
 | Slice 2 activation | Issue #229 comment `5648967341`; canonical intake, server fingerprint, private source snapshot, durable staging metadata, replay/conflict boundary, and minimal REST only |
 | Slice 2 acceptance state | **NOT YET ACCEPTED**; implementation handoff is Draft PR #244; no Ready or merge authority exercised |
-| Hosted CI | Final-head run `34725389579` passed `Repository Validation`, `Backend`, and `Frontend` on head `0ad708793b6292f4b8a449a24727850e8bf8e38c` |
+| Hosted CI | Hosted evidence is commit-bound; resolve current PR #244 checks live. Historical run `34725710244` passed `Repository Validation`, `Backend`, and `Frontend` on reviewed head `8ec4f1ae2472d065be66e38dd68322afc8220610`; remediation runs must name the exact commit they actually execute |
 | Merge reconciliation | Issue #229 remains Open/Active; Slice 2 handoff awaits GPT-5.6 Sol acceptance |
 | MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
 | MESP-48 / MESP-50 | **OPEN PRODUCTION GATES**; no values or policy invented |
@@ -32,25 +32,29 @@
 | Owner-managed frontend/assets | **Untouched** |
 | CI | **GitHub Actions — ACTIVE / VERIFIED**; required checks remain `Repository Validation`, `Backend`, and `Frontend` |
 
-Slice 2 is implemented only at the canonical intake boundary: the server
-accepts a minimal definition/profile/operation/private-object request, resolves
-the trusted Tenant and existing private-file authority, computes one versioned
-length-prefixed SHA-256 fingerprint, and atomically persists one Draft run,
-immutable source snapshot, and Tenant-scoped idempotency record. No source bytes,
-row parsing, validation/dry-run engine, opening balances, business-domain
+Slice 2 remains limited to the canonical intake boundary: the server accepts a
+minimal definition/profile/operation/private-object request, resolves the
+trusted Tenant, existing private-file authority, and current organization scope,
+computes one versioned length-prefixed SHA-256 fingerprint, and atomically
+persists one Draft run, immutable source snapshot, and Tenant-scoped idempotency
+record. The remediation adds fail-closed organization descendant authorization,
+a SQL Server-proven concurrent identical-intake replay/conflict boundary, and an
+additive database invariant requiring `SourceTenantId = TenantId`. No source
+bytes, row parsing, validation/dry-run engine, opening balances, business-domain
 loading, reconciliation, cutover, onboarding UI, production work, MESP-142, or
 `frontend/assets` change is included. MESP-40 remains accepted and
 M40-DEC-001 through M40-DEC-006 remain open. Accepted fast-track completion
 remains **24 / 26 = 92.3%**; production readiness remains approximately **47%
 overall / 41% Procurement/P2P**.
 
-Local evidence for this handoff is Release build `0 warnings / 0 errors`; full
-backend `1,305/1,305` with `0` failures and `0` skips; Migration plus SQL safety
-`80/80`; private-file/security `80/80`; REST/Foundation `37/37`; Angular
-`316/316`; Chromium `51/51`; eight EF contexts with no pending model changes;
-and a clear five-project NuGet vulnerable-package scan. npm audit reports the
-unchanged baseline of `4` moderate production and `7` moderate full-tree
-advisories, below the hosted high-severity gate.
+Local evidence for this remediation is Release build `0 warnings / 0 errors`;
+full backend `1,309/1,309` with `0` failures and `0` skips; focused organization
+scope `7/7`; focused SQL Server race/invariant sequence `4/4`; private-file/
+security `80/80`; REST/Foundation `37/37`; Angular `316/316`; Chromium `51/51`;
+eight EF contexts with no pending model changes; and a clear five-project NuGet
+vulnerable-package scan. npm audit reports the unchanged baseline of `4`
+moderate production and `7` moderate full-tree advisories, below the hosted
+high-severity gate.
 
 ### Slice 1 review remediation - 12 September 2026 (accepted by GPT-5.6 Sol)
 
