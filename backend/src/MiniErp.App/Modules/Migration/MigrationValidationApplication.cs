@@ -3,12 +3,9 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.BuildingBlocks.Work;
-using MiniErp.App.Modules.Audit;
-using MiniErp.Contracts.Modules.Audit;
 using MiniErp.Contracts.Modules.Migration;
 
 namespace MiniErp.App.Modules.Migration;
@@ -17,23 +14,20 @@ public sealed class MigrationValidationService
 {
     public const string ValidationOperationId = "migration.validation.start";
     public const string DryRunOperationId = "migration.dry-run.start";
-    private static readonly JsonSerializerOptions CanonicalJsonOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly IMigrationFoundationPersistence foundation;
+    private readonly MigrationFoundationService foundation;
     private readonly IMigrationValidationPersistence persistence;
     private readonly IPrivateObjectStorage privateStorage;
     private readonly ICurrentOrganizationScopeResolver scopeResolver;
     private readonly IMigrationReferenceAuthority references;
-    private readonly IFoundationAuditEvidenceSink auditSink;
     private readonly TimeProvider timeProvider;
 
     public MigrationValidationService(
-        IMigrationFoundationPersistence foundation,
+        MigrationFoundationService foundation,
         IMigrationValidationPersistence persistence,
         IPrivateObjectStorage privateStorage,
         ICurrentOrganizationScopeResolver scopeResolver,
         IMigrationReferenceAuthority references,
-        IFoundationAuditEvidenceSink auditSink,
         TimeProvider? timeProvider = null)
     {
         this.foundation = foundation ?? throw new ArgumentNullException(nameof(foundation));
@@ -41,7 +35,6 @@ public sealed class MigrationValidationService
         this.privateStorage = privateStorage ?? throw new ArgumentNullException(nameof(privateStorage));
         this.scopeResolver = scopeResolver ?? throw new ArgumentNullException(nameof(scopeResolver));
         this.references = references ?? throw new ArgumentNullException(nameof(references));
-        this.auditSink = auditSink ?? throw new ArgumentNullException(nameof(auditSink));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -54,41 +47,33 @@ public sealed class MigrationValidationService
         if (!TryTenant<MigrationValidationSummary>(requestContext, runId, out var tenant, out var rejected))
             return rejected!;
 
-        var runRecord = await foundation.FindRunAsync(tenant!, runId, cancellationToken);
+        var runLookup = await foundation.FindRunAsync(tenant!, runId, cancellationToken);
+        var runRecord = runLookup.Value;
         var intake = await persistence.FindIntakeAsync(tenant!, runId, cancellationToken);
         if (runRecord is null || intake is null)
             return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_run_not_found");
 
-        var fingerprint = Fingerprint("validation", runRecord, intake);
-        var existing = await foundation.FindIdempotencyAsync(tenant!, MigrationOperationKind.Validation, idempotencyKey, cancellationToken);
-        if (existing is not null)
-        {
-            if (!string.Equals(existing.RequestFingerprint, fingerprint.Value, StringComparison.Ordinal))
-                return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_idempotency_conflict");
+        if (!IsCurrentScopeAuthorized(tenant!, intake.Source))
+            return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_source_scope_denied");
 
-            if (existing.AttemptId is not { } existingAttemptId)
-                return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_validation_replay_unavailable");
+        var fingerprint = MigrationValidationFingerprint.ForValidation(runRecord, intake);
 
-            var replay = await persistence.FindValidationAsync(tenant!, runId, existingAttemptId, cancellationToken);
-            return replay is not null
-                ? MigrationOperationResult<MigrationValidationSummary>.Replay(replay)
-                : MigrationOperationResult<MigrationValidationSummary>.Failure("migration_validation_in_progress", safeToRetry: true);
-        }
-
-        var validatingRunRecord = await PrepareForValidationAsync(requestContext!, tenant!, runRecord, cancellationToken);
-        if (validatingRunRecord is null)
-            return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_validation_not_permitted");
-        var run = MigrationRun.Rehydrate(validatingRunRecord);
+        var prepared = await PrepareForValidationAsync(requestContext!, tenant!, runRecord, cancellationToken);
+        if (!prepared.Succeeded || prepared.Value is not { } validatingRunRecord)
+            return prepared.Kind == MigrationResultKind.UnknownOutcome
+                ? MigrationOperationResult<MigrationValidationSummary>.Unknown(prepared.Code)
+                : prepared.Kind == MigrationResultKind.KnownFailure
+                    ? MigrationOperationResult<MigrationValidationSummary>.Failure(prepared.Code, prepared.IsSafeToRetry)
+                    : MigrationOperationResult<MigrationValidationSummary>.Rejected(prepared.Code);
 
         var started = await foundation.StartAttemptAsync(
-            tenant!,
-            new StartMigrationAttemptCommand(
-                runId,
-                MigrationOperationKind.Validation,
-                new MigrationIdempotencyKey(idempotencyKey),
-                fingerprint),
+            requestContext!,
+            runId,
+            MigrationOperationKind.Validation,
+            idempotencyKey,
+            fingerprint.Value,
             cancellationToken);
-        if (started.Outcome == MigrationPersistenceOutcome.Replayed && started.Value is { } replayAttempt)
+        if (started.Kind == MigrationResultKind.Replayed && started.Value is { } replayAttempt)
         {
             var replay = await persistence.FindValidationAsync(tenant!, runId, replayAttempt.AttemptId, cancellationToken);
             return replay is not null
@@ -96,11 +81,14 @@ public sealed class MigrationValidationService
                 : MigrationOperationResult<MigrationValidationSummary>.Failure("migration_validation_in_progress", safeToRetry: true);
         }
 
-        if (started.Value is not { } attempt)
-            return MigrationOperationResult<MigrationValidationSummary>.Failure(started.Code, safeToRetry: true);
+        if (!started.Succeeded || started.Value is not { } attempt)
+            return started.Kind == MigrationResultKind.UnknownOutcome
+                ? MigrationOperationResult<MigrationValidationSummary>.Unknown(started.Code)
+                : started.Kind == MigrationResultKind.Rejected
+                    ? MigrationOperationResult<MigrationValidationSummary>.Rejected(started.Code)
+                    : MigrationOperationResult<MigrationValidationSummary>.Failure(started.Code, started.IsSafeToRetry);
 
-        if (!await AppendAttemptEvidenceAsync(requestContext!, run!, attempt, ValidationOperationId, started.Code, cancellationToken))
-            return MigrationOperationResult<MigrationValidationSummary>.Failure("migration_audit_evidence_unavailable", safeToRetry: true);
+        var run = MigrationRun.Rehydrate(validatingRunRecord);
 
         var sourceRead = await privateStorage.ReadAsync(tenant!, intake.Source.ObjectId, cancellationToken);
         if (!sourceRead.Allowed || sourceRead.Metadata is not { } metadata)
@@ -116,10 +104,14 @@ public sealed class MigrationValidationService
                 cancellationToken);
         }
 
-        var currentScope = scopeResolver.ResolveCurrent(tenant!);
-        if (!currentScope.Allowed
-            || currentScope.Scope is not { } authorizedScope
-            || !authorizedScope.ContainsAuthorizedDescendant(metadata.Scope))
+        if (!IsCurrentScopeAuthorized(
+                tenant!,
+                intake.Source with
+                {
+                    CompanyId = metadata.Scope.CompanyId,
+                    BranchId = metadata.Scope.BranchId,
+                    WarehouseId = metadata.Scope.WarehouseId
+                }))
         {
             return await FinishFailedValidationAsync(
                 requestContext!,
@@ -215,6 +207,17 @@ public sealed class MigrationValidationService
 
         var findings = new List<MigrationValidationFinding>();
         var resultBySequence = new Dictionary<int, (MigrationRecordDisposition Disposition, List<string> Codes)>();
+        var resolvedScope = scopeResolver.ResolveCurrent(tenant!);
+        if (!resolvedScope.Allowed || resolvedScope.Scope is not { } authorizedScope)
+            return await FinishFailedValidationAsync(
+                requestContext!,
+                validatingRunRecord,
+                tenant!,
+                attempt,
+                "migration_source_scope_denied",
+                "The current organization scope is not available for validation.",
+                MigrationFindingCategory.Scope,
+                cancellationToken);
         var duplicateSourceIds = parsed.Rows
             .Where(row => !string.IsNullOrWhiteSpace(row.SourceRecordId))
             .GroupBy(row => row.SourceRecordId!, StringComparer.Ordinal)
@@ -235,10 +238,10 @@ public sealed class MigrationValidationService
             var rowFindings = new List<MigrationValidationFinding>();
             var codes = new List<string>();
             foreach (var rule in MigrationValidationRules.Validate(row))
-                AddFinding(rowFindings, codes, stagedPackage.Records.Single(item => item.SourceSequence == row.SourceSequence), attempt, rule.Category, MigrationFindingSeverity.Error, rule.Code, rule.Message);
+                MigrationValidationResultPolicy.AddFinding(rowFindings, codes, stagedPackage.Records.Single(item => item.SourceSequence == row.SourceSequence), attempt, rule.Category, MigrationFindingSeverity.Error, rule.Code, rule.Message);
 
             if (ScopeFinding(authorizedScope, row) is { } scopeFinding)
-                AddFinding(
+                MigrationValidationResultPolicy.AddFinding(
                     rowFindings,
                     codes,
                     stagedPackage.Records.Single(item => item.SourceSequence == row.SourceSequence),
@@ -249,7 +252,7 @@ public sealed class MigrationValidationService
                     scopeFinding.Message);
 
             if (duplicateSourceIds.Contains(row.SourceSequence) || duplicateBusinessKeys.Contains(row.SourceSequence))
-                AddFinding(rowFindings, codes, stagedPackage.Records.Single(item => item.SourceSequence == row.SourceSequence), attempt, MigrationFindingCategory.Duplicate, MigrationFindingSeverity.Error, "migration_duplicate_source_identity", "The canonical business identity occurs more than once in this package.");
+                MigrationValidationResultPolicy.AddFinding(rowFindings, codes, stagedPackage.Records.Single(item => item.SourceSequence == row.SourceSequence), attempt, MigrationFindingCategory.Duplicate, MigrationFindingSeverity.Error, "migration_duplicate_source_identity", "The canonical business identity occurs more than once in this package.");
 
             try
             {
@@ -261,7 +264,7 @@ public sealed class MigrationValidationService
                     var severity = check.State is MigrationReferenceState.Ambiguous or MigrationReferenceState.Unavailable
                         ? MigrationFindingSeverity.Warning
                         : MigrationFindingSeverity.Error;
-                    AddFinding(
+                    MigrationValidationResultPolicy.AddFinding(
                         rowFindings,
                         codes,
                         stagedPackage.Records.Single(item => item.SourceSequence == row.SourceSequence),
@@ -275,7 +278,7 @@ public sealed class MigrationValidationService
             }
             catch
             {
-                AddFinding(
+                MigrationValidationResultPolicy.AddFinding(
                     rowFindings,
                     codes,
                     stagedPackage.Records.Single(item => item.SourceSequence == row.SourceSequence),
@@ -295,8 +298,8 @@ public sealed class MigrationValidationService
             findings.AddRange(rowFindings);
         }
 
-        AddGlBalanceFinding(parsed.Rows, stagedPackage.Records, attempt, resultBySequence, findings);
-        var summary = BuildValidationSummary(
+        MigrationValidationResultPolicy.AddGlBalanceFindings(parsed.Rows, stagedPackage.Records, attempt, resultBySequence, findings);
+        var summary = MigrationValidationResultPolicy.BuildSummary(
             tenant!,
             runId,
             attempt.AttemptId,
@@ -315,28 +318,29 @@ public sealed class MigrationValidationService
 
         var outcome = completed.IsValid ? MigrationAttemptOutcome.Succeeded : MigrationAttemptOutcome.KnownFailure;
         var outcomeResult = await foundation.RecordAttemptOutcomeAsync(
-            tenant!,
-            new RecordMigrationAttemptOutcomeCommand(attempt.RunId, attempt.AttemptId, outcome, completed.IsValid ? "validated" : "validation_failed", attempt.Version),
+            requestContext!,
+            runId,
+            attempt.AttemptId,
+            outcome,
+            completed.IsValid ? "validated" : "validation_failed",
+            attempt.Version,
             cancellationToken);
         if (!outcomeResult.Succeeded)
-            return MigrationOperationResult<MigrationValidationSummary>.Failure(outcomeResult.Code, safeToRetry: true);
+            return outcomeResult.Kind == MigrationResultKind.UnknownOutcome
+                ? MigrationOperationResult<MigrationValidationSummary>.Unknown(outcomeResult.Code)
+                : MigrationOperationResult<MigrationValidationSummary>.Failure(outcomeResult.Code, outcomeResult.IsSafeToRetry);
 
         var target = completed.IsValid ? MigrationRunStatus.Validated : MigrationRunStatus.ValidationFailed;
-        var transitioned = await foundation.ApplyRunTransitionAsync(
-            tenant!,
-            new ApplyMigrationRunTransitionCommand(runId, target, validatingRunRecord.Version),
+        var transitioned = await foundation.TransitionRunAsync(
+            requestContext!,
+            runId,
+            target,
+            validatingRunRecord.Version,
             cancellationToken);
-        if (!transitioned.Succeeded || transitioned.Value is not { } transitionedRun)
-            return MigrationOperationResult<MigrationValidationSummary>.Failure(transitioned.Code, safeToRetry: true);
-
-        if (!await AppendRunEvidenceAsync(
-                requestContext!,
-                MigrationRun.Rehydrate(transitionedRun),
-                attempt,
-                ValidationOperationId,
-                completed.IsValid ? "validated" : "validation_failed",
-                cancellationToken))
-            return MigrationOperationResult<MigrationValidationSummary>.Failure("migration_audit_evidence_unavailable", safeToRetry: true);
+        if (!transitioned.Succeeded)
+            return transitioned.Kind == MigrationResultKind.UnknownOutcome
+                ? MigrationOperationResult<MigrationValidationSummary>.Unknown(transitioned.Code)
+                : MigrationOperationResult<MigrationValidationSummary>.Failure(transitioned.Code, transitioned.IsSafeToRetry);
 
         return completed.IsValid
             ? MigrationOperationResult<MigrationValidationSummary>.Success(completed, "validated")
@@ -352,38 +356,29 @@ public sealed class MigrationValidationService
         if (!TryTenant<MigrationDryRunPreview>(requestContext, runId, out var tenant, out var rejected))
             return rejected!;
 
-        var runRecord = await foundation.FindRunAsync(tenant!, runId, cancellationToken);
-        var validation = await persistence.FindLatestValidationAsync(tenant!, runId, cancellationToken);
-        if (runRecord is null || validation is null || !validation.IsValid)
+        var runLookup = await foundation.FindRunAsync(tenant!, runId, cancellationToken);
+        var runRecord = runLookup.Value;
+        var intake = await persistence.FindIntakeAsync(tenant!, runId, cancellationToken);
+        if (runRecord is null || intake is null)
             return MigrationOperationResult<MigrationDryRunPreview>.Rejected("migration_validation_required");
 
-        var fingerprint = Fingerprint("dry-run", runRecord, validation);
-        var existing = await foundation.FindIdempotencyAsync(tenant!, MigrationOperationKind.DryRun, idempotencyKey, cancellationToken);
-        if (existing is not null)
-        {
-            if (!string.Equals(existing.RequestFingerprint, fingerprint.Value, StringComparison.Ordinal))
-                return MigrationOperationResult<MigrationDryRunPreview>.Rejected("migration_idempotency_conflict");
-            if (existing.AttemptId is not { } replayAttemptId)
-                return MigrationOperationResult<MigrationDryRunPreview>.Rejected("migration_dry_run_replay_unavailable");
-            var replay = await persistence.FindDryRunAsync(tenant!, runId, replayAttemptId, cancellationToken);
-            return replay is not null
-                ? MigrationOperationResult<MigrationDryRunPreview>.Replay(replay)
-                : MigrationOperationResult<MigrationDryRunPreview>.Failure("migration_dry_run_in_progress", safeToRetry: true);
-        }
+        if (!IsCurrentScopeAuthorized(tenant!, intake.Source))
+            return MigrationOperationResult<MigrationDryRunPreview>.Rejected("migration_source_scope_denied");
 
-        var run = MigrationRun.Rehydrate(runRecord);
-        if (!run.PermitsAttempt(MigrationOperationKind.DryRun))
-            return MigrationOperationResult<MigrationDryRunPreview>.Rejected("migration_dry_run_not_permitted");
+        var validation = await persistence.FindLatestValidationAsync(tenant!, runId, cancellationToken);
+        if (validation is null || !validation.IsValid)
+            return MigrationOperationResult<MigrationDryRunPreview>.Rejected("migration_validation_required");
+
+        var fingerprint = MigrationValidationFingerprint.ForDryRun(runRecord, validation);
 
         var started = await foundation.StartAttemptAsync(
-            tenant!,
-            new StartMigrationAttemptCommand(
-                runId,
-                MigrationOperationKind.DryRun,
-                new MigrationIdempotencyKey(idempotencyKey),
-                fingerprint),
+            requestContext!,
+            runId,
+            MigrationOperationKind.DryRun,
+            idempotencyKey,
+            fingerprint.Value,
             cancellationToken);
-        if (started.Outcome == MigrationPersistenceOutcome.Replayed && started.Value is { } replayAttempt)
+        if (started.Kind == MigrationResultKind.Replayed && started.Value is { } replayAttempt)
         {
             var replay = await persistence.FindDryRunAsync(tenant!, runId, replayAttempt.AttemptId, cancellationToken);
             return replay is not null
@@ -391,10 +386,12 @@ public sealed class MigrationValidationService
                 : MigrationOperationResult<MigrationDryRunPreview>.Failure("migration_dry_run_in_progress", safeToRetry: true);
         }
 
-        if (started.Value is not { } attempt)
-            return MigrationOperationResult<MigrationDryRunPreview>.Failure(started.Code, safeToRetry: true);
-        if (!await AppendAttemptEvidenceAsync(requestContext!, run, attempt, DryRunOperationId, started.Code, cancellationToken))
-            return MigrationOperationResult<MigrationDryRunPreview>.Failure("migration_audit_evidence_unavailable", safeToRetry: true);
+        if (!started.Succeeded || started.Value is not { } attempt)
+            return started.Kind == MigrationResultKind.UnknownOutcome
+                ? MigrationOperationResult<MigrationDryRunPreview>.Unknown(started.Code)
+                : started.Kind == MigrationResultKind.Rejected
+                    ? MigrationOperationResult<MigrationDryRunPreview>.Rejected(started.Code)
+                    : MigrationOperationResult<MigrationDryRunPreview>.Failure(started.Code, started.IsSafeToRetry);
 
         var staged = await persistence.ListStagedRecordsAsync(tenant!, runId, 0, int.MaxValue, cancellationToken);
         if (staged.Count != validation.TotalStagedRecords
@@ -402,110 +399,133 @@ public sealed class MigrationValidationService
             || staged.Any(item => item.PackageHash != validation.PackageHash || item.SourceSnapshotHash != validation.SourceSnapshotHash))
         {
             var mismatch = await foundation.RecordAttemptOutcomeAsync(
-                tenant!,
-                new RecordMigrationAttemptOutcomeCommand(runId, attempt.AttemptId, MigrationAttemptOutcome.KnownFailure, "migration_dry_run_staged_records_mismatch", attempt.Version),
+                requestContext!,
+                runId,
+                attempt.AttemptId,
+                MigrationAttemptOutcome.KnownFailure,
+                "migration_dry_run_staged_records_mismatch",
+                attempt.Version,
                 cancellationToken);
             return mismatch.Succeeded
                 ? MigrationOperationResult<MigrationDryRunPreview>.Rejected("migration_dry_run_staged_records_mismatch")
-                : MigrationOperationResult<MigrationDryRunPreview>.Failure(mismatch.Code, safeToRetry: true);
+                : mismatch.Kind == MigrationResultKind.UnknownOutcome
+                    ? MigrationOperationResult<MigrationDryRunPreview>.Unknown(mismatch.Code)
+                    : MigrationOperationResult<MigrationDryRunPreview>.Failure(mismatch.Code, mismatch.IsSafeToRetry);
         }
-        var previewRows = validation.Records
-            .OrderBy(item => item.SourceSequence)
-            .Select(item => new MigrationPreviewRow(
-                item.StagedRecordId,
-                item.SourceSequence,
-                item.RecordType,
-                item.Disposition,
-                item.Disposition == MigrationRecordDisposition.Accepted
-                    ? PlannedAction(item.RecordType)
-                    : MigrationPlannedAction.Blocked,
-                item.Disposition == MigrationRecordDisposition.Accepted ? "would be evaluated by the owning module" : null))
-            .ToArray();
-        var controlTotals = ComputeControlTotals(staged);
-        var preview = new MigrationDryRunPreview(
-            Guid.NewGuid(),
+        var preview = MigrationDryRunPreviewPolicy.Build(
             tenant!.TenantId,
             runId,
             attempt.AttemptId,
-            validation.AttemptId,
-            validation.PackageHash,
-            validation.SourceSnapshotHash,
-            validation.TotalStagedRecords,
-            validation.AcceptedCount,
-            validation.RejectedCount,
-            validation.QuarantinedCount,
-            validation.FindingCounts,
-            controlTotals,
-            validation.FindingCounts
-                .Where(item => item.Key is nameof(MigrationFindingCategory.Reference) or nameof(MigrationFindingCategory.Currency) or nameof(MigrationFindingCategory.Uom) or nameof(MigrationFindingCategory.Scope))
-                .Sum(item => item.Value),
-            previewRows.Count(item => item.PlannedAction == MigrationPlannedAction.Blocked),
-            previewRows,
+            validation,
+            staged,
             timeProvider.GetUtcNow());
         var saved = await persistence.SaveDryRunAsync(tenant!, new SaveMigrationDryRunCommand(preview), cancellationToken);
         if (!saved.Succeeded || saved.Value is not { } completed)
             return MigrationOperationResult<MigrationDryRunPreview>.Failure(saved.Code, safeToRetry: true);
 
         var outcome = await foundation.RecordAttemptOutcomeAsync(
-            tenant!,
-            new RecordMigrationAttemptOutcomeCommand(runId, attempt.AttemptId, MigrationAttemptOutcome.Succeeded, "dry_run_completed", attempt.Version),
+            requestContext!,
+            runId,
+            attempt.AttemptId,
+            MigrationAttemptOutcome.Succeeded,
+            "dry_run_completed",
+            attempt.Version,
             cancellationToken);
         if (!outcome.Succeeded)
-            return MigrationOperationResult<MigrationDryRunPreview>.Failure(outcome.Code, safeToRetry: true);
-        if (!await AppendRunEvidenceAsync(requestContext!, run, attempt, DryRunOperationId, "dry_run_completed", cancellationToken))
-            return MigrationOperationResult<MigrationDryRunPreview>.Failure("migration_audit_evidence_unavailable", safeToRetry: true);
+            return outcome.Kind == MigrationResultKind.UnknownOutcome
+                ? MigrationOperationResult<MigrationDryRunPreview>.Unknown(outcome.Code)
+                : MigrationOperationResult<MigrationDryRunPreview>.Failure(outcome.Code, outcome.IsSafeToRetry);
 
         return MigrationOperationResult<MigrationDryRunPreview>.Success(completed, "dry_run_completed");
     }
 
-    public Task<MigrationValidationSummary?> ReadValidationAsync(TenantContext tenant, Guid runId, CancellationToken cancellationToken = default) =>
-        persistence.FindLatestValidationAsync(tenant, runId, cancellationToken);
+    public async Task<MigrationValidationSummary?> ReadValidationAsync(TenantContext tenant, Guid runId, CancellationToken cancellationToken = default)
+    {
+        if (!await IsResourceAuthorizedAsync(tenant, runId, cancellationToken))
+            return null;
+        return await persistence.FindLatestValidationAsync(tenant, runId, cancellationToken);
+    }
 
-    public Task<IReadOnlyList<MigrationValidationFinding>> ReadFindingsAsync(TenantContext tenant, Guid runId, int offset, int pageSize, CancellationToken cancellationToken = default) =>
-        persistence.ListFindingsAsync(tenant, runId, null, offset, pageSize, cancellationToken);
+    public async Task<IReadOnlyList<MigrationValidationFinding>> ReadFindingsAsync(TenantContext tenant, Guid runId, int offset, int pageSize, CancellationToken cancellationToken = default)
+    {
+        if (!await IsResourceAuthorizedAsync(tenant, runId, cancellationToken))
+            return [];
+        return await persistence.ListFindingsAsync(tenant, runId, null, offset, pageSize, cancellationToken);
+    }
 
-    public Task<IReadOnlyList<MigrationStagedRecord>> ReadStagedRecordsAsync(TenantContext tenant, Guid runId, int offset, int pageSize, CancellationToken cancellationToken = default) =>
-        persistence.ListStagedRecordsAsync(tenant, runId, offset, pageSize, cancellationToken);
+    public async Task<IReadOnlyList<MigrationStagedRecord>> ReadStagedRecordsAsync(TenantContext tenant, Guid runId, int offset, int pageSize, CancellationToken cancellationToken = default)
+    {
+        if (!await IsResourceAuthorizedAsync(tenant, runId, cancellationToken))
+            return [];
+        return await persistence.ListStagedRecordsAsync(tenant, runId, offset, pageSize, cancellationToken);
+    }
 
-    public Task<MigrationDryRunPreview?> ReadDryRunAsync(TenantContext tenant, Guid runId, CancellationToken cancellationToken = default) =>
-        persistence.FindLatestDryRunAsync(tenant, runId, cancellationToken);
+    public async Task<MigrationDryRunPreview?> ReadDryRunAsync(TenantContext tenant, Guid runId, CancellationToken cancellationToken = default)
+    {
+        if (!await IsResourceAuthorizedAsync(tenant, runId, cancellationToken))
+            return null;
+        return await persistence.FindLatestDryRunAsync(tenant, runId, cancellationToken);
+    }
 
-    private async Task<MigrationRunRecord?> PrepareForValidationAsync(
+    public Task<bool> IsResourceAuthorizedAsync(
+        FoundationRequestContext requestContext,
+        Guid runId,
+        CancellationToken cancellationToken = default) =>
+        requestContext.TenantContext is { } tenant
+            ? IsResourceAuthorizedAsync(tenant, runId, cancellationToken)
+            : Task.FromResult(false);
+
+    public async Task<bool> IsResourceAuthorizedAsync(
+        TenantContext tenant,
+        Guid runId,
+        CancellationToken cancellationToken = default)
+    {
+        var intake = await persistence.FindIntakeAsync(tenant, runId, cancellationToken);
+        return intake is not null && IsCurrentScopeAuthorized(tenant, intake.Source);
+    }
+
+    private async Task<MigrationOperationResult<MigrationRunRecord>> PrepareForValidationAsync(
         FoundationRequestContext requestContext,
         TenantContext tenant,
         MigrationRunRecord runRecord,
         CancellationToken cancellationToken)
     {
         var run = MigrationRun.Rehydrate(runRecord);
-        if (run.Status == MigrationRunStatus.Draft)
+        for (var attempt = 0; attempt < 3 && run.Status is MigrationRunStatus.Draft or MigrationRunStatus.Prepared; attempt++)
         {
-            var prepared = await foundation.ApplyRunTransitionAsync(
-                tenant,
-                new ApplyMigrationRunTransitionCommand(run.RunId, MigrationRunStatus.Prepared, runRecord.Version),
+            var target = run.Status == MigrationRunStatus.Draft ? MigrationRunStatus.Prepared : MigrationRunStatus.Validating;
+            var transitioned = await foundation.TransitionRunAsync(
+                requestContext,
+                run.RunId,
+                target,
+                runRecord.Version,
                 cancellationToken);
-            if (!prepared.Succeeded || prepared.Value is null)
-                return null;
-            runRecord = prepared.Value;
+            if (transitioned.Succeeded && transitioned.Value is { } value)
+            {
+                runRecord = value;
+                run = MigrationRun.Rehydrate(runRecord);
+                continue;
+            }
+
+            if (transitioned.Code != "migration_run_version_conflict")
+                return transitioned.Kind == MigrationResultKind.UnknownOutcome
+                    ? MigrationOperationResult<MigrationRunRecord>.Unknown(transitioned.Code)
+                    : transitioned.Kind == MigrationResultKind.KnownFailure
+                        ? MigrationOperationResult<MigrationRunRecord>.Failure(transitioned.Code, transitioned.IsSafeToRetry)
+                        : MigrationOperationResult<MigrationRunRecord>.Rejected(transitioned.Code);
+
+            var current = await foundation.FindRunAsync(tenant, run.RunId, cancellationToken);
+            if (!current.Succeeded || current.Value is not { } currentRun)
+                return MigrationOperationResult<MigrationRunRecord>.Rejected(current.Code);
+            runRecord = currentRun;
             run = MigrationRun.Rehydrate(runRecord);
-            if (!await AppendTransitionEvidenceAsync(requestContext, run, MigrationRunStatus.Draft, MigrationRunStatus.Prepared, cancellationToken))
-                return null;
         }
 
-        if (run.Status == MigrationRunStatus.Prepared)
-        {
-            var validating = await foundation.ApplyRunTransitionAsync(
-                tenant,
-                new ApplyMigrationRunTransitionCommand(run.RunId, MigrationRunStatus.Validating, runRecord.Version),
-                cancellationToken);
-            if (!validating.Succeeded || validating.Value is null)
-                return null;
-            runRecord = validating.Value;
-            run = MigrationRun.Rehydrate(runRecord);
-            if (!await AppendTransitionEvidenceAsync(requestContext, run, MigrationRunStatus.Prepared, MigrationRunStatus.Validating, cancellationToken))
-                return null;
-        }
-
-        return run.Status == MigrationRunStatus.Validating ? runRecord : null;
+        return run.Status is MigrationRunStatus.Validating
+            or MigrationRunStatus.Validated
+            or MigrationRunStatus.ValidationFailed
+            ? MigrationOperationResult<MigrationRunRecord>.Success(runRecord)
+            : MigrationOperationResult<MigrationRunRecord>.Rejected("migration_validation_not_permitted");
     }
 
     private async Task<MigrationOperationResult<MigrationValidationSummary>> FinishFailedValidationAsync(
@@ -553,249 +573,55 @@ public sealed class MigrationValidationService
         if (!saved.Succeeded)
             return MigrationOperationResult<MigrationValidationSummary>.Failure(saved.Code, safeToRetry: true);
         var outcome = await foundation.RecordAttemptOutcomeAsync(
-            tenant,
-            new RecordMigrationAttemptOutcomeCommand(run.RunId, attempt.AttemptId, MigrationAttemptOutcome.KnownFailure, code, attempt.Version),
+            requestContext,
+            run.RunId,
+            attempt.AttemptId,
+            MigrationAttemptOutcome.KnownFailure,
+            code,
+            attempt.Version,
             cancellationToken);
         if (!outcome.Succeeded)
-            return MigrationOperationResult<MigrationValidationSummary>.Failure(outcome.Code, safeToRetry: true);
-        var transition = await foundation.ApplyRunTransitionAsync(
-            tenant,
-            new ApplyMigrationRunTransitionCommand(run.RunId, MigrationRunStatus.ValidationFailed, runRecord.Version),
+            return outcome.Kind == MigrationResultKind.UnknownOutcome
+                ? MigrationOperationResult<MigrationValidationSummary>.Unknown(outcome.Code)
+                : MigrationOperationResult<MigrationValidationSummary>.Failure(outcome.Code, outcome.IsSafeToRetry);
+        var transition = await foundation.TransitionRunAsync(
+            requestContext,
+            run.RunId,
+            MigrationRunStatus.ValidationFailed,
+            runRecord.Version,
             cancellationToken);
-        if (!transition.Succeeded || transition.Value is null)
-            return MigrationOperationResult<MigrationValidationSummary>.Failure(transition.Code, safeToRetry: true);
-        await AppendRunEvidenceAsync(requestContext, MigrationRun.Rehydrate(transition.Value), attempt, ValidationOperationId, code, cancellationToken);
+        if (!transition.Succeeded)
+            return transition.Kind == MigrationResultKind.UnknownOutcome
+                ? MigrationOperationResult<MigrationValidationSummary>.Unknown(transition.Code)
+                : MigrationOperationResult<MigrationValidationSummary>.Failure(transition.Code, transition.IsSafeToRetry);
         return MigrationOperationResult<MigrationValidationSummary>.Rejected(code);
     }
 
-    private async Task<bool> AppendAttemptEvidenceAsync(
-        FoundationRequestContext requestContext,
-        MigrationRun run,
-        MigrationAttemptRecord attempt,
-        string operation,
-        string outcome,
-        CancellationToken cancellationToken) =>
-        await AppendEvidenceAsync(requestContext, run, attempt, operation, outcome, FoundationAuditDecision.Allowed, FoundationAuditReason.Allowed, cancellationToken);
-
-    private async Task<bool> AppendRunEvidenceAsync(
-        FoundationRequestContext requestContext,
-        MigrationRun run,
-        MigrationAttemptRecord attempt,
-        string operation,
-        string outcome,
-        CancellationToken cancellationToken) =>
-        await AppendEvidenceAsync(requestContext, run, attempt, operation, outcome, FoundationAuditDecision.Allowed, FoundationAuditReason.Allowed, cancellationToken);
-
-    private async Task<bool> AppendTransitionEvidenceAsync(
-        FoundationRequestContext requestContext,
-        MigrationRun run,
-        MigrationRunStatus from,
-        MigrationRunStatus to,
-        CancellationToken cancellationToken)
+    private bool IsCurrentScopeAuthorized(TenantContext tenant, MigrationSourceArtifactSnapshot source)
     {
-        var metadata = MigrationAuditMetadata.Create().With("from", from.ToString()).With("to", to.ToString());
-        try
-        {
-            var evidence = MigrationAuditEvidenceFactory.Create(
-                requestContext,
-                run,
-                "migration.run.transition",
-                FoundationAuditDecision.Allowed,
-                FoundationAuditReason.Allowed,
-                "transition_allowed",
-                safeMetadata: metadata,
-                occurredAt: timeProvider.GetUtcNow());
-            await auditSink.AppendAsync(evidence, cancellationToken);
-            return true;
-        }
-        catch (Exception exception) when (exception is FoundationAuditAppendException or ArgumentException)
-        {
+        if (source.TenantId != tenant.TenantId)
             return false;
-        }
+
+        var resolved = scopeResolver.ResolveCurrent(tenant);
+        return resolved.Allowed
+            && resolved.Scope is { } authorized
+            && IsScopeWithin(authorized, source.CompanyId, source.BranchId, source.WarehouseId);
     }
 
-    private async Task<bool> AppendEvidenceAsync(
-        FoundationRequestContext requestContext,
-        MigrationRun run,
-        MigrationAttemptRecord attempt,
-        string operation,
-        string outcome,
-        FoundationAuditDecision decision,
-        FoundationAuditReason reason,
-        CancellationToken cancellationToken)
+    private static bool IsScopeWithin(
+        TenantWorkScope authorized,
+        Guid? companyId,
+        Guid? branchId,
+        Guid? warehouseId)
     {
-        try
-        {
-            var evidence = MigrationAuditEvidenceFactory.Create(
-                requestContext,
-                run,
-                operation,
-                decision,
-                reason,
-                outcome,
-                MigrationAttempt.Rehydrate(attempt),
-                occurredAt: timeProvider.GetUtcNow());
-            await auditSink.AppendAsync(evidence, cancellationToken);
-            return true;
-        }
-        catch (Exception exception) when (exception is FoundationAuditAppendException or ArgumentException)
-        {
-            return false;
-        }
+        if (authorized.WarehouseId is { } warehouse)
+            return warehouseId == warehouse;
+        if (authorized.BranchId is { } branch)
+            return companyId == authorized.CompanyId && branchId == branch;
+        if (authorized.CompanyId is { } company)
+            return companyId == company;
+        return true;
     }
-
-    private static MigrationValidationSummary BuildValidationSummary(
-        TenantContext tenant,
-        Guid runId,
-        Guid attemptId,
-        string packageHash,
-        string sourceSnapshotHash,
-        IReadOnlyList<MigrationStagedRecord> staged,
-        IReadOnlyDictionary<int, (MigrationRecordDisposition Disposition, List<string> Codes)> results,
-        IReadOnlyList<MigrationValidationFinding> findings,
-        DateTimeOffset completedAt)
-    {
-        var records = staged
-            .OrderBy(item => item.SourceSequence)
-            .Select(item => new MigrationValidationRecordResult(
-                item.StagedRecordId,
-                item.SourceSequence,
-                item.RecordType,
-                results[item.SourceSequence].Disposition,
-                results[item.SourceSequence].Codes.ToArray()))
-            .ToArray();
-        return new(
-            Guid.NewGuid(),
-            tenant.TenantId,
-            runId,
-            attemptId,
-            packageHash,
-            sourceSnapshotHash,
-            records.Length,
-            records.Count(item => item.Disposition == MigrationRecordDisposition.Accepted),
-            records.Count(item => item.Disposition == MigrationRecordDisposition.Rejected),
-            records.Count(item => item.Disposition == MigrationRecordDisposition.Quarantined),
-            findings
-                .GroupBy(item => item.Category.ToString(), StringComparer.Ordinal)
-                .OrderBy(group => group.Key, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal),
-            records,
-            completedAt);
-    }
-
-    private static void AddFinding(
-        ICollection<MigrationValidationFinding> findings,
-        ICollection<string> codes,
-        MigrationStagedRecord row,
-        MigrationAttemptRecord attempt,
-        MigrationFindingCategory category,
-        MigrationFindingSeverity severity,
-        string code,
-        string message,
-        string? referenceId = null)
-    {
-        codes.Add(code);
-        findings.Add(new(
-            Guid.NewGuid(),
-            row.TenantId,
-            row.RunId,
-            attempt.AttemptId,
-            row.StagedRecordId,
-            category,
-            severity,
-            true,
-            code,
-            message,
-            referenceId,
-            DateTimeOffset.UtcNow));
-    }
-
-    private static void AddGlBalanceFinding(
-        IReadOnlyList<MigrationParsedCanonicalRow> rows,
-        IReadOnlyList<MigrationStagedRecord> staged,
-        MigrationAttemptRecord attempt,
-        IDictionary<int, (MigrationRecordDisposition Disposition, List<string> Codes)> results,
-        ICollection<MigrationValidationFinding> findings)
-    {
-        var gl = rows
-            .Where(item => item.Payload is MigrationGlOpeningPayload)
-            .Select(item => (Row: item, Payload: (MigrationGlOpeningPayload)item.Payload))
-            .ToArray();
-        if (gl.Length == 0)
-            return;
-
-        var debit = gl.Sum(item => item.Payload.Debit ?? 0m);
-        var credit = gl.Sum(item => item.Payload.Credit ?? 0m);
-        if (Math.Abs(debit - credit) <= 0.00000001m)
-            return;
-
-        foreach (var item in gl)
-        {
-            results[item.Row.SourceSequence] =
-                (MigrationRecordDisposition.Rejected, [.. results[item.Row.SourceSequence].Codes, "migration_gl_opening_imbalanced"]);
-        }
-
-        var first = staged.OrderBy(item => item.SourceSequence).First();
-        findings.Add(new(
-            Guid.NewGuid(),
-            first.TenantId,
-            first.RunId,
-            attempt.AttemptId,
-            null,
-            MigrationFindingCategory.FinancialBalance,
-            MigrationFindingSeverity.Error,
-            true,
-            "migration_gl_opening_imbalanced",
-            "GL opening debit and credit control totals must balance.",
-            null,
-            DateTimeOffset.UtcNow));
-    }
-
-    private static IReadOnlyDictionary<string, decimal> ComputeControlTotals(IReadOnlyList<MigrationStagedRecord> staged)
-    {
-        var totals = new Dictionary<string, decimal>(StringComparer.Ordinal);
-        foreach (var item in staged)
-        {
-            try
-            {
-                switch (item.RecordType)
-                {
-                    case MigrationCanonicalRecordType.InventoryOpening:
-                        var inventory = JsonSerializer.Deserialize<MigrationInventoryOpeningPayload>(item.CanonicalPayload, CanonicalJsonOptions);
-                        totals["inventoryQuantity"] = totals.GetValueOrDefault("inventoryQuantity") + (inventory?.Quantity ?? 0m);
-                        totals["inventoryValue"] = totals.GetValueOrDefault("inventoryValue") + (inventory?.Quantity ?? 0m) * (inventory?.UnitCost ?? 0m);
-                        break;
-                    case MigrationCanonicalRecordType.GlOpening:
-                        var gl = JsonSerializer.Deserialize<MigrationGlOpeningPayload>(item.CanonicalPayload, CanonicalJsonOptions);
-                        totals["glDebit"] = totals.GetValueOrDefault("glDebit") + (gl?.Debit ?? 0m);
-                        totals["glCredit"] = totals.GetValueOrDefault("glCredit") + (gl?.Credit ?? 0m);
-                        break;
-                    case MigrationCanonicalRecordType.ApOpening:
-                        totals["apAmount"] = totals.GetValueOrDefault("apAmount") + (JsonSerializer.Deserialize<MigrationApOpeningPayload>(item.CanonicalPayload, CanonicalJsonOptions)?.Amount ?? 0m);
-                        break;
-                    case MigrationCanonicalRecordType.ArOpening:
-                        totals["arAmount"] = totals.GetValueOrDefault("arAmount") + (JsonSerializer.Deserialize<MigrationArOpeningPayload>(item.CanonicalPayload, CanonicalJsonOptions)?.Amount ?? 0m);
-                        break;
-                    case MigrationCanonicalRecordType.CashBankOpening:
-                        totals["cashBankAmount"] = totals.GetValueOrDefault("cashBankAmount") + (JsonSerializer.Deserialize<MigrationCashBankOpeningPayload>(item.CanonicalPayload, CanonicalJsonOptions)?.Amount ?? 0m);
-                        break;
-                }
-            }
-            catch (System.Text.Json.JsonException)
-            {
-                // The canonical payload was already typed before staging; a
-                // defensive skip here cannot create an authoritative effect.
-            }
-        }
-        return totals;
-    }
-
-    private static MigrationPlannedAction PlannedAction(MigrationCanonicalRecordType type) =>
-        type is MigrationCanonicalRecordType.Product
-            or MigrationCanonicalRecordType.Supplier
-            or MigrationCanonicalRecordType.Customer
-            ? MigrationPlannedAction.Create
-            : MigrationPlannedAction.MatchReference;
 
     private static MigrationReferenceCheck? ScopeFinding(
         TenantWorkScope authorizedScope,
@@ -853,32 +679,6 @@ public sealed class MigrationValidationService
         && string.Equals(metadata.Sha256, snapshot.Sha256, StringComparison.OrdinalIgnoreCase)
         && metadata.Length == snapshot.Length
         && metadata.ConcurrencyVersion == snapshot.ConcurrencyVersion;
-
-    private static MigrationRequestFingerprint Fingerprint(string operation, MigrationRunRecord run, MigrationIntakeRecord intake) =>
-        new(Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join(
-            "|",
-            "migration-validation-v1",
-            operation,
-            run.RunId.ToString("D", CultureInfo.InvariantCulture),
-            run.TenantId.Value.ToString("D", CultureInfo.InvariantCulture),
-            run.Definition.DefinitionId,
-            run.Definition.Version,
-            run.SourceProfile.ProfileId,
-            run.SourceProfile.ProfileVersion,
-            intake.Source.ObjectId.ToString("D", CultureInfo.InvariantCulture),
-            intake.Source.Sha256,
-            intake.Source.Length.ToString(CultureInfo.InvariantCulture),
-            intake.Source.ConcurrencyVersion.ToString(CultureInfo.InvariantCulture))))));
-
-    private static MigrationRequestFingerprint Fingerprint(string operation, MigrationRunRecord run, MigrationValidationSummary validation) =>
-        new(Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join(
-            "|",
-            "migration-validation-v1",
-            operation,
-            run.RunId.ToString("D", CultureInfo.InvariantCulture),
-            validation.AttemptId.ToString("D", CultureInfo.InvariantCulture),
-            validation.PackageHash,
-            validation.SourceSnapshotHash)))));
 
     private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 

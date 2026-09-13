@@ -102,7 +102,9 @@ internal sealed partial class MigrationPersistence
             || summary.RunId == Guid.Empty
             || summary.AttemptId == Guid.Empty
             || summary.Records.Count != summary.TotalStagedRecords
+            || summary.TotalStagedRecords != summary.AcceptedCount + summary.RejectedCount + summary.QuarantinedCount
             || summary.Records.Select(item => item.StagedRecordId).Distinct().Count() != summary.Records.Count
+            || summary.Records.Select(item => item.SourceSequence).Distinct().Count() != summary.Records.Count
             || command.Findings.Any(item => item.TenantId != tenantContext.TenantId || item.RunId != summary.RunId || item.AttemptId != summary.AttemptId))
         {
             return MigrationPersistenceResult<MigrationValidationSummary>.Denied(
@@ -229,7 +231,14 @@ internal sealed partial class MigrationPersistence
         ArgumentNullException.ThrowIfNull(tenantContext);
         ArgumentNullException.ThrowIfNull(command);
         var preview = command.Preview;
-        if (preview.TenantId != tenantContext.TenantId || preview.RunId == Guid.Empty || preview.AttemptId == Guid.Empty || preview.ValidationAttemptId == Guid.Empty)
+        if (preview.TenantId != tenantContext.TenantId
+            || preview.RunId == Guid.Empty
+            || preview.AttemptId == Guid.Empty
+            || preview.ValidationAttemptId == Guid.Empty
+            || preview.Rows.Count != preview.TotalStagedRecords
+            || preview.TotalStagedRecords != preview.AcceptedCount + preview.RejectedCount + preview.QuarantinedCount
+            || preview.Rows.Select(item => item.StagedRecordId).Distinct().Count() != preview.Rows.Count
+            || preview.Rows.Select(item => item.SourceSequence).Distinct().Count() != preview.Rows.Count)
         {
             return MigrationPersistenceResult<MigrationDryRunPreview>.Denied(MigrationPersistenceOutcome.InvalidReference, "migration_dry_run_contract_invalid");
         }
@@ -245,7 +254,7 @@ internal sealed partial class MigrationPersistence
         }
 
         var stagedIds = await db.StagedRecords.Where(item => item.RunId == preview.RunId).Select(item => item.StagedRecordId).ToArrayAsync(cancellationToken);
-        if (preview.Rows.Any(item => !stagedIds.Contains(item.StagedRecordId)) || preview.Rows.Count != preview.TotalStagedRecords)
+        if (preview.Rows.Any(item => !stagedIds.Contains(item.StagedRecordId)))
         {
             return MigrationPersistenceResult<MigrationDryRunPreview>.Denied(MigrationPersistenceOutcome.InvalidReference, "migration_dry_run_staged_records_mismatch");
         }
@@ -350,12 +359,46 @@ internal sealed partial class MigrationPersistence
             && stored.SourceSnapshotHash == requested.SourceSnapshotHash).All(item => item);
 
     private static bool SameValidation(MigrationValidationSummary stored, MigrationValidationSummary requested) =>
-        stored.ValidationResultId == requested.ValidationResultId
-        || (stored.RunId == requested.RunId && stored.AttemptId == requested.AttemptId && stored.PackageHash == requested.PackageHash && stored.SourceSnapshotHash == requested.SourceSnapshotHash && stored.AcceptedCount == requested.AcceptedCount && stored.RejectedCount == requested.RejectedCount && stored.QuarantinedCount == requested.QuarantinedCount);
+        stored.TenantId == requested.TenantId
+        && stored.RunId == requested.RunId
+        && stored.AttemptId == requested.AttemptId
+        && stored.PackageHash == requested.PackageHash
+        && stored.SourceSnapshotHash == requested.SourceSnapshotHash
+        && stored.TotalStagedRecords == requested.TotalStagedRecords
+        && stored.AcceptedCount == requested.AcceptedCount
+        && stored.RejectedCount == requested.RejectedCount
+        && stored.QuarantinedCount == requested.QuarantinedCount
+        && SameDictionary(stored.FindingCounts, requested.FindingCounts)
+        && stored.Records.Count == requested.Records.Count
+        && stored.Records.Zip(requested.Records).All(item => SameValidationRecord(item.First, item.Second));
+
+    private static bool SameValidationRecord(MigrationValidationRecordResult left, MigrationValidationRecordResult right) =>
+        left.StagedRecordId == right.StagedRecordId
+        && left.SourceSequence == right.SourceSequence
+        && left.RecordType == right.RecordType
+        && left.Disposition == right.Disposition
+        && left.FindingCodes.SequenceEqual(right.FindingCodes, StringComparer.Ordinal);
 
     private static bool SameDryRun(MigrationDryRunPreview stored, MigrationDryRunPreview requested) =>
-        stored.PreviewId == requested.PreviewId
-        || (stored.RunId == requested.RunId && stored.AttemptId == requested.AttemptId && stored.ValidationAttemptId == requested.ValidationAttemptId && stored.PackageHash == requested.PackageHash && stored.SourceSnapshotHash == requested.SourceSnapshotHash);
+        stored.TenantId == requested.TenantId
+        && stored.RunId == requested.RunId
+        && stored.AttemptId == requested.AttemptId
+        && stored.ValidationAttemptId == requested.ValidationAttemptId
+        && stored.PackageHash == requested.PackageHash
+        && stored.SourceSnapshotHash == requested.SourceSnapshotHash
+        && stored.TotalStagedRecords == requested.TotalStagedRecords
+        && stored.AcceptedCount == requested.AcceptedCount
+        && stored.RejectedCount == requested.RejectedCount
+        && stored.QuarantinedCount == requested.QuarantinedCount
+        && SameDictionary(stored.FindingCounts, requested.FindingCounts)
+        && SameDictionary(stored.ControlTotals, requested.ControlTotals)
+        && stored.UnresolvedDependencyCount == requested.UnresolvedDependencyCount
+        && stored.ExceptionCount == requested.ExceptionCount
+        && stored.Rows.SequenceEqual(requested.Rows);
+
+    private static bool SameDictionary<T>(IReadOnlyDictionary<string, T> left, IReadOnlyDictionary<string, T> right) =>
+        left.Count == right.Count
+        && left.All(item => right.TryGetValue(item.Key, out var value) && EqualityComparer<T>.Default.Equals(item.Value, value));
 
     private static MigrationStagedRecord ToRecord(MigrationStagedRecordEntity entity) => new(
         entity.StagedRecordId,

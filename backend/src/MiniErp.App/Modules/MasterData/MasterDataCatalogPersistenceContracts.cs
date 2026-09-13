@@ -155,6 +155,12 @@ public interface IMasterDataCatalogPersistence
         Guid unitOfMeasureId,
         CancellationToken cancellationToken = default);
 
+    Task<MasterDataConversionRecord?> FindConversionAsync(
+        TenantContext tenantContext,
+        Guid fromUnitOfMeasureId,
+        Guid toUnitOfMeasureId,
+        CancellationToken cancellationToken = default);
+
     Task<MasterDataPersistenceResult<MasterDataUnitOfMeasureRecord>> CreateUnitOfMeasureAsync(
         TenantContext tenantContext,
         Guid unitOfMeasureId,
@@ -261,6 +267,13 @@ public sealed class UnavailableMasterDataCatalogPersistence : IMasterDataCatalog
         Guid unitOfMeasureId,
         CancellationToken cancellationToken = default) =>
         Unavailable<MasterDataUnitOfMeasureRecord?>();
+
+    public Task<MasterDataConversionRecord?> FindConversionAsync(
+        TenantContext tenantContext,
+        Guid fromUnitOfMeasureId,
+        Guid toUnitOfMeasureId,
+        CancellationToken cancellationToken = default) =>
+        Unavailable<MasterDataConversionRecord?>();
 
     public Task<MasterDataPersistenceResult<MasterDataUnitOfMeasureRecord>> CreateUnitOfMeasureAsync(
         TenantContext tenantContext,

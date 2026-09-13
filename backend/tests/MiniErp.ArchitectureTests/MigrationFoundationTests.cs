@@ -747,6 +747,59 @@ public sealed class MigrationFoundationTests
     }
 
     [Fact]
+    public async Task Attempt_start_audit_failure_is_reported_as_an_unprovable_outcome()
+    {
+        await using var fixture = await MigrationFixture.CreateAsync();
+        var prepared = await fixture.PreparedRunAsync("attempt-start-audit", MigrationOperationKind.Validation);
+        fixture.Audit.Fail = true;
+
+        var started = await fixture.Service.StartAttemptAsync(
+            fixture.Request, prepared.RunId, MigrationOperationKind.Validation, "attempt-start", "attempt-start-fp");
+
+        Assert.Equal(MigrationResultKind.UnknownOutcome, started.Kind);
+        Assert.Equal("migration_audit_evidence_unavailable", started.Code);
+        Assert.False(started.IsSafeToRetry);
+    }
+
+    [Fact]
+    public async Task Attempt_outcome_audit_failure_is_reported_as_an_unprovable_outcome()
+    {
+        await using var fixture = await MigrationFixture.CreateAsync();
+        var prepared = await fixture.PreparedRunAsync("attempt-outcome-audit", MigrationOperationKind.Validation);
+        var started = await fixture.Service.StartAttemptAsync(
+            fixture.Request, prepared.RunId, MigrationOperationKind.Validation, "attempt-outcome", "attempt-outcome-fp");
+        Assert.True(started.Succeeded, started.Code);
+        fixture.Audit.Fail = true;
+
+        var recorded = await fixture.Service.RecordAttemptOutcomeAsync(
+            fixture.Request,
+            prepared.RunId,
+            started.Value!.AttemptId,
+            MigrationAttemptOutcome.Succeeded,
+            "completed",
+            started.Value.Version);
+
+        Assert.Equal(MigrationResultKind.UnknownOutcome, recorded.Kind);
+        Assert.Equal("migration_audit_evidence_unavailable", recorded.Code);
+        Assert.False(recorded.IsSafeToRetry);
+    }
+
+    [Fact]
+    public async Task Run_transition_audit_failure_is_reported_as_an_unprovable_outcome()
+    {
+        await using var fixture = await MigrationFixture.CreateAsync();
+        var created = await fixture.CreateRunAsync("run-transition-audit", MigrationOperationKind.Validation);
+        fixture.Audit.Fail = true;
+
+        var transitioned = await fixture.Service.TransitionRunAsync(
+            fixture.Request, created.RunId, MigrationRunStatus.Prepared, created.Version);
+
+        Assert.Equal(MigrationResultKind.UnknownOutcome, transitioned.Kind);
+        Assert.Equal("migration_audit_evidence_unavailable", transitioned.Code);
+        Assert.False(transitioned.IsSafeToRetry);
+    }
+
+    [Fact]
     public void Evidence_metadata_is_allowlisted_and_bounded()
     {
         var metadata = MigrationAuditMetadata.Create()
@@ -948,11 +1001,13 @@ public sealed class MigrationFoundationTests
     {
         public List<FoundationAuditEvidence> Appended { get; } = [];
 
+        public bool Fail { get; set; } = fail;
+
         public ValueTask AppendAsync(
             FoundationAuditEvidence evidence,
             CancellationToken cancellationToken = default)
         {
-            if (fail)
+            if (Fail)
             {
                 throw new FoundationAuditAppendException("evidence_store_unavailable");
             }

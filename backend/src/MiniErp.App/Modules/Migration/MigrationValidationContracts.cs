@@ -1,5 +1,6 @@
 #pragma warning disable CS1591
 
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -193,6 +194,60 @@ public sealed record MigrationParsedCanonicalRow(
     MigrationCanonicalRecordType RecordType,
     MigrationCanonicalPayload Payload,
     string PayloadJson);
+
+/// <summary>Length-prefixed SHA-256 encoding shared by Migration operations.</summary>
+internal static class MigrationFingerprintEncoder
+{
+    public static string Compute(string version, params string?[] values)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(hash, version);
+        foreach (var value in values)
+            Append(hash, value);
+        return Convert.ToHexString(hash.GetHashAndReset());
+    }
+
+    private static void Append(IncrementalHash hash, string? value)
+    {
+        var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
+        Span<byte> length = stackalloc byte[4];
+        BitConverter.TryWriteBytes(length, bytes.Length);
+        if (BitConverter.IsLittleEndian)
+            length.Reverse();
+        hash.AppendData(length);
+        hash.AppendData(bytes);
+    }
+}
+
+/// <summary>Canonical operation identities for validation and dry-run replay.</summary>
+public static class MigrationValidationFingerprint
+{
+    public const string Version = "migration-validation-v1";
+
+    public static MigrationRequestFingerprint ForValidation(MigrationRunRecord run, MigrationIntakeRecord intake) =>
+        new(MigrationFingerprintEncoder.Compute(
+            Version,
+            "validation",
+            run.RunId.ToString("D", CultureInfo.InvariantCulture),
+            run.TenantId.Value.ToString("D", CultureInfo.InvariantCulture),
+            run.Definition.DefinitionId,
+            run.Definition.Version,
+            run.SourceProfile.ProfileId,
+            run.SourceProfile.ProfileVersion,
+            intake.Source.ObjectId.ToString("D", CultureInfo.InvariantCulture),
+            intake.Source.Sha256,
+            intake.Source.Length.ToString(CultureInfo.InvariantCulture),
+            intake.Source.ConcurrencyVersion.ToString(CultureInfo.InvariantCulture)));
+
+    public static MigrationRequestFingerprint ForDryRun(MigrationRunRecord run, MigrationValidationSummary validation) =>
+        new(MigrationFingerprintEncoder.Compute(
+            Version,
+            "dry-run",
+            run.RunId.ToString("D", CultureInfo.InvariantCulture),
+            validation.AttemptId.ToString("D", CultureInfo.InvariantCulture),
+            validation.PackageHash,
+            validation.SourceSnapshotHash));
+}
 
 public sealed record MigrationCanonicalPackageParseResult(
     MigrationCanonicalPackage? Package,

@@ -117,6 +117,8 @@ public static class MigrationEndpoints
     {
         var context = await ResolveReadContextAsync(httpContext, resolver, "migration.validation.read");
         if (context.Error is not null) return context.Error;
+        if (!await service.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", "migration.validation.read");
         var value = await service.ReadValidationAsync(context.Value!.TenantContext!, runId, httpContext.RequestAborted);
         return value is null ? Problem(httpContext, 404, "migration_validation_not_found", "Not found", "The migration validation result was not found.", "migration.validation.read") : Results.Json(ToValidationResponse(value));
     }
@@ -125,6 +127,8 @@ public static class MigrationEndpoints
     {
         var context = await ResolveReadContextAsync(httpContext, resolver, "migration.validation.findings.read");
         if (context.Error is not null) return context.Error;
+        if (!await service.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", "migration.validation.findings.read");
         var values = await service.ReadFindingsAsync(context.Value!.TenantContext!, runId, offset, pageSize, httpContext.RequestAborted);
         return Results.Json(values.Select(item => new { item.FindingId, item.RunId, item.AttemptId, item.StagedRecordId, item.Category, item.Severity, item.IsBlocking, item.Code, item.Message, item.ReferenceId, item.CreatedAt }));
     }
@@ -133,6 +137,8 @@ public static class MigrationEndpoints
     {
         var context = await ResolveReadContextAsync(httpContext, resolver, "migration.staged-records.read");
         if (context.Error is not null) return context.Error;
+        if (!await service.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", "migration.staged-records.read");
         var values = await service.ReadStagedRecordsAsync(context.Value!.TenantContext!, runId, offset, pageSize, httpContext.RequestAborted);
         return Results.Json(values.Select(item => new { item.StagedRecordId, item.RunId, item.SourceSequence, item.SourceRecordId, item.RecordType, item.PayloadHash, item.PackageHash, item.PackageVersion, item.SourceObjectId, item.SourceSnapshotHash, item.CapturedAt }));
     }
@@ -141,6 +147,8 @@ public static class MigrationEndpoints
     {
         var context = await ResolveReadContextAsync(httpContext, resolver, "migration.dry-run.read");
         if (context.Error is not null) return context.Error;
+        if (!await service.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", "migration.dry-run.read");
         var value = await service.ReadDryRunAsync(context.Value!.TenantContext!, runId, httpContext.RequestAborted);
         return value is null ? Problem(httpContext, 404, "migration_dry_run_not_found", "Not found", "The migration dry-run preview was not found.", "migration.dry-run.read") : Results.Json(ToDryRunResponse(value));
     }

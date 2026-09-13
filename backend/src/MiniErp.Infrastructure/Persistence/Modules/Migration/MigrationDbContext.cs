@@ -182,6 +182,10 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         validation.Property(item => item.AttemptId).IsRequired();
         validation.Property(item => item.PackageHash).HasMaxLength(64).IsRequired();
         validation.Property(item => item.SourceSnapshotHash).HasMaxLength(64).IsRequired();
+        validation.Property(item => item.TotalStagedRecords).IsRequired();
+        validation.Property(item => item.AcceptedCount).IsRequired();
+        validation.Property(item => item.RejectedCount).IsRequired();
+        validation.Property(item => item.QuarantinedCount).IsRequired();
         validation.Property(item => item.FindingCountsJson).HasMaxLength(32_000).IsRequired();
         validation.Property(item => item.CompletedAt).IsRequired();
         validation.HasAlternateKey(item => new { item.TenantId, item.RunId, item.AttemptId });
@@ -199,6 +203,7 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         validationRecord.ToTable("MigrationValidationRecords", "migration");
         validationRecord.HasKey(item => new { item.TenantId, item.RunId, item.AttemptId, item.StagedRecordId });
         ConfigureTenant(validationRecord.Property(item => item.TenantId));
+        validationRecord.Property(item => item.SourceSequence).IsRequired();
         validationRecord.Property(item => item.RecordType).IsRequired();
         validationRecord.Property(item => item.Disposition).IsRequired();
         validationRecord.Property(item => item.FindingCodesJson).HasMaxLength(32_000).IsRequired();
@@ -247,6 +252,10 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         preview.Property(item => item.ValidationAttemptId).IsRequired();
         preview.Property(item => item.PackageHash).HasMaxLength(64).IsRequired();
         preview.Property(item => item.SourceSnapshotHash).HasMaxLength(64).IsRequired();
+        preview.Property(item => item.TotalStagedRecords).IsRequired();
+        preview.Property(item => item.AcceptedCount).IsRequired();
+        preview.Property(item => item.RejectedCount).IsRequired();
+        preview.Property(item => item.QuarantinedCount).IsRequired();
         preview.Property(item => item.FindingCountsJson).HasMaxLength(32_000).IsRequired();
         preview.Property(item => item.ControlTotalsJson).HasMaxLength(32_000).IsRequired();
         preview.Property(item => item.UnresolvedDependencyCount).IsRequired();
@@ -275,6 +284,7 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         previewRow.Property(item => item.PreviewId).IsRequired();
         previewRow.Property(item => item.RunId).IsRequired();
         previewRow.Property(item => item.StagedRecordId).IsRequired();
+        previewRow.Property(item => item.SourceSequence).IsRequired();
         previewRow.Property(item => item.RecordType).IsRequired();
         previewRow.Property(item => item.Disposition).IsRequired();
         previewRow.Property(item => item.PlannedAction).IsRequired();

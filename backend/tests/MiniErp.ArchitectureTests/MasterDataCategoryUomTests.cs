@@ -409,6 +409,13 @@ public sealed class MasterDataCategoryUomTests
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<MasterDataConversionRecord?> FindConversionAsync(
+            TenantContext tenantContext,
+            Guid fromUnitOfMeasureId,
+            Guid toUnitOfMeasureId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<MasterDataPersistenceResult<MasterDataUnitOfMeasureRecord>> CreateUnitOfMeasureAsync(
             TenantContext tenantContext,
             Guid unitOfMeasureId,
