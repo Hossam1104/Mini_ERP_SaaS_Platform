@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Migrations;
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Work;
 using MiniErp.App.Modules.Finance;
 using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.Modules.BusinessParties;
@@ -431,7 +432,8 @@ public sealed class SqlServerSafetyTests
                     "20260911183345_MESP141MigrationFoundation",
                     "20260912105244_MESP141MigrationAttemptLineage",
                     "20260912191429_MESP141MigrationRunQualifiedAttemptLineage",
-                    "20260912224151_MESP141MigrationIntakeStaging"
+                    "20260912224151_MESP141MigrationIntakeStaging",
+                    "20260913060835_MESP141MigrationIntakeTenantInvariant"
                 ],
                 (await migration.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await migration.Database.GetPendingMigrationsAsync());
@@ -3476,6 +3478,141 @@ public sealed class SqlServerSafetyTests
     }
 
     [Fact]
+    public async Task MESP141_sql_server_concurrent_identical_intake_converges_to_one_run_and_replay()
+    {
+        var options = SqlServerMigrationConfiguration.Configure(
+            await GetConnectionStringAsync(),
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = MigrationIntakeTenant("sql-intake-race");
+        var storage = new InMemoryPrivateObjectStorage();
+        var source = await storage.StoreAsync(
+            tenant,
+            TenantWorkScope.IssueFromVerifiedAuthority(tenant, TenantWorkScopeRequest.TenantWide()),
+            "source.csv",
+            "text/csv",
+            new MemoryStream(new byte[] { 1, 2, 3 }),
+            safetyRequirement: PrivateFileSafetyRequirement.TrustedGenerated);
+        var service = new MigrationIntakeService(
+            new MigrationPersistence(options),
+            storage,
+            new SqlMigrationIntakeScopeResolver(),
+            new SqlMigrationAuditSink([]));
+        var requestContext = MigrationRequest(tenant, "tenant.migration.intake");
+        var request = new MigrationIntakeRegistrationRequest(
+            new MigrationDefinitionReference("tenant-onboarding.foundation", "1"),
+            new MigrationSourceProfileReference("neutral-source-profile", "1"),
+            MigrationOperationKind.Validation,
+            source.ObjectId);
+        var key = $"sql-intake-race-{Guid.NewGuid():N}";
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(
+            _ => service.RegisterAsync(requestContext, request, key)));
+
+        Assert.Equal(1, results.Count(item => item.Kind == MigrationResultKind.Succeeded));
+        Assert.True(
+            results.Count(item => item.Kind == MigrationResultKind.Replayed) == 7,
+            string.Join(", ", results.Select(item => $"{item.Kind}:{item.Code}")));
+        Assert.All(results, item => Assert.True(item.Succeeded, item.Code));
+        Assert.Single(results.Select(item => item.Value!.Run.RunId).Distinct());
+
+        await using var db = new MigrationDbContext(options, tenant);
+        Assert.Equal(1, await db.Runs.CountAsync(item => item.RunId == results[0].Value!.Run.RunId));
+        Assert.Equal(1, await db.Intakes.CountAsync(item => item.IdempotencyKey == key));
+        Assert.Equal(1, await db.Idempotency.CountAsync(item => item.IdempotencyKey == key));
+    }
+
+    [Fact]
+    public async Task MESP141_sql_server_concurrent_changed_intake_input_is_one_success_and_one_conflict()
+    {
+        var options = SqlServerMigrationConfiguration.Configure(
+            await GetConnectionStringAsync(),
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = MigrationIntakeTenant("sql-intake-conflict-race");
+        var storage = new InMemoryPrivateObjectStorage();
+        var source = await storage.StoreAsync(
+            tenant,
+            TenantWorkScope.IssueFromVerifiedAuthority(tenant, TenantWorkScopeRequest.TenantWide()),
+            "source.csv",
+            "text/csv",
+            new MemoryStream(new byte[] { 4, 5, 6 }),
+            safetyRequirement: PrivateFileSafetyRequirement.TrustedGenerated);
+        var service = new MigrationIntakeService(
+            new MigrationPersistence(options),
+            storage,
+            new SqlMigrationIntakeScopeResolver(),
+            new SqlMigrationAuditSink([]));
+        var requestContext = MigrationRequest(tenant, "tenant.migration.intake");
+        var baseRequest = new MigrationIntakeRegistrationRequest(
+            new MigrationDefinitionReference("tenant-onboarding.foundation", "1"),
+            new MigrationSourceProfileReference("neutral-source-profile", "1"),
+            MigrationOperationKind.Validation,
+            source.ObjectId);
+        var changedRequest = baseRequest with
+        {
+            Definition = new MigrationDefinitionReference("tenant-onboarding.changed", "1")
+        };
+        var key = $"sql-intake-conflict-{Guid.NewGuid():N}";
+
+        var results = await Task.WhenAll(
+            service.RegisterAsync(requestContext, baseRequest, key),
+            service.RegisterAsync(requestContext, changedRequest, key));
+
+        Assert.Single(results, item => item.Kind == MigrationResultKind.Succeeded);
+        var conflict = Assert.Single(results, item => item.Kind == MigrationResultKind.Rejected);
+        Assert.Equal("migration_idempotency_conflict", conflict.Code);
+        await using var db = new MigrationDbContext(options, tenant);
+        Assert.Equal(1, await db.Runs.CountAsync());
+        Assert.Equal(1, await db.Intakes.CountAsync());
+        Assert.Equal(1, await db.Idempotency.CountAsync());
+    }
+
+    [Fact]
+    public async Task MESP141_sql_server_database_rejects_mismatched_intake_source_tenant()
+    {
+        var options = SqlServerMigrationConfiguration.Configure(
+            await GetConnectionStringAsync(),
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = MigrationIntakeTenant("sql-intake-tenant-invariant");
+        var storage = new InMemoryPrivateObjectStorage();
+        var source = await storage.StoreAsync(
+            tenant,
+            TenantWorkScope.IssueFromVerifiedAuthority(tenant, TenantWorkScopeRequest.TenantWide()),
+            "source.csv",
+            "text/csv",
+            new MemoryStream(new byte[] { 7, 8, 9 }),
+            safetyRequirement: PrivateFileSafetyRequirement.TrustedGenerated);
+        var service = new MigrationIntakeService(
+            new MigrationPersistence(options),
+            storage,
+            new SqlMigrationIntakeScopeResolver(),
+            new SqlMigrationAuditSink([]));
+        var request = new MigrationIntakeRegistrationRequest(
+            new MigrationDefinitionReference("tenant-onboarding.foundation", "1"),
+            new MigrationSourceProfileReference("neutral-source-profile", "1"),
+            MigrationOperationKind.Validation,
+            source.ObjectId);
+        var created = await service.RegisterAsync(
+            MigrationRequest(tenant, "tenant.migration.intake"),
+            request,
+            $"sql-intake-tenant-invariant-{Guid.NewGuid():N}");
+        Assert.True(created.Succeeded, created.Code);
+
+        await using var connection = await _fixture.OpenConnectionAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE [migration].[MigrationIntakes]
+            SET [SourceTenantId] = @SourceTenantId
+            WHERE [TenantId] = @TenantId AND [RunId] = @RunId;
+            """;
+        command.Parameters.AddWithValue("@SourceTenantId", Guid.NewGuid());
+        command.Parameters.AddWithValue("@TenantId", tenant.TenantId.Value);
+        command.Parameters.AddWithValue("@RunId", created.Value!.Run.RunId);
+
+        var exception = await Assert.ThrowsAsync<SqlException>(() => command.ExecuteNonQueryAsync());
+        Assert.Equal(547, exception.Number);
+    }
+
+    [Fact]
     public async Task MESP141_sql_server_rowversion_makes_a_stale_run_transition_a_safe_conflict()
     {
         var (service, _, _) = await CreateMigrationServiceAsync();
@@ -3627,6 +3764,17 @@ public sealed class SqlServerSafetyTests
             correlationId: new CorrelationId(correlation),
             actorId: Guid.NewGuid());
 
+    private static TenantContext MigrationIntakeTenant(string correlation)
+    {
+        var tenantId = new TenantId(Guid.NewGuid());
+        return TenantContext.ForOrdinaryMembership(
+            tenantId,
+            new MembershipReference(Guid.NewGuid()),
+            new ScopeReference($"Tenant:{tenantId.Value:D}"),
+            new CorrelationId(correlation),
+            Guid.NewGuid());
+    }
+
     private static FoundationRequestContext MigrationRequest(TenantContext tenantContext, string permission) =>
         FoundationRequestContext.ForTenant(
             tenantContext.ActorId!.Value, Guid.NewGuid(), tenantContext, permission);
@@ -3667,6 +3815,15 @@ public sealed class SqlServerSafetyTests
 
             return ValueTask.CompletedTask;
         }
+    }
+
+    private sealed class SqlMigrationIntakeScopeResolver : ICurrentOrganizationScopeResolver
+    {
+        public TenantWorkScopeResolution ResolveCurrent(TenantContext trustedTenantContext) =>
+            TenantWorkScopeResolution.Resolved(
+                TenantWorkScope.IssueFromVerifiedAuthority(
+                    trustedTenantContext,
+                    TenantWorkScopeRequest.TenantWide()));
     }
 
     private async Task<(FinanceAccountRecord Debit, FinanceAccountRecord Credit)> CreateFinanceAccountsAsync(IFinancePersistence persistence, FinanceRequestContext context, Guid companyId, string prefix)

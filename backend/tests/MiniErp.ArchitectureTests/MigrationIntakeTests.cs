@@ -174,6 +174,58 @@ public sealed class MigrationIntakeTests
         Assert.Equal(1, await fixture.CountRunsAsync(fixture.ForeignTenant));
     }
 
+    [Fact]
+    public async Task Source_scope_must_be_an_authorized_current_scope_descendant()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var companyA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
+        var companyB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1");
+        var branchA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2");
+        var branchB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2");
+        var warehouseA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3");
+        var warehouseB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb3");
+
+        var cases = new[]
+        {
+            (TenantWorkScopeRequest.ForWarehouse(companyA, branchA, warehouseA), TenantWorkScopeRequest.ForWarehouse(companyA, branchA, warehouseA), true, true),
+            (TenantWorkScopeRequest.TenantWide(), TenantWorkScopeRequest.ForCompany(companyA), true, true),
+            (TenantWorkScopeRequest.ForCompany(companyA), TenantWorkScopeRequest.ForBranch(companyA, branchA), true, true),
+            (TenantWorkScopeRequest.ForCompany(companyA), TenantWorkScopeRequest.ForCompany(companyB), false, true),
+            (TenantWorkScopeRequest.ForBranch(companyA, branchA), TenantWorkScopeRequest.ForBranch(companyA, branchB), false, true),
+            (TenantWorkScopeRequest.ForWarehouse(companyA, branchA, warehouseA), TenantWorkScopeRequest.ForWarehouse(companyA, branchA, warehouseB), false, true),
+            (TenantWorkScopeRequest.TenantWide(), TenantWorkScopeRequest.ForCompany(companyA), false, false)
+        };
+
+        var caseNumber = 0;
+        foreach (var (currentRequest, sourceRequest, allowed, resolverAllowed) in cases)
+        {
+            fixture.ScopeResolver.CurrentScopeRequest = currentRequest;
+            fixture.ScopeResolver.Allowed = resolverAllowed;
+            var source = await fixture.StoreAtScopeAsync($"scope-{caseNumber}", sourceRequest);
+            var runsBefore = await fixture.CountRunsAsync();
+            var intakesBefore = await fixture.CountIntakesAsync();
+            var idempotencyBefore = await fixture.CountIdempotencyAsync();
+
+            var result = await fixture.Service.RegisterAsync(
+                fixture.Foundation,
+                fixture.Request(source.ObjectId),
+                $"scope-key-{caseNumber++}");
+
+            if (allowed)
+            {
+                Assert.True(result.Succeeded, result.Code);
+            }
+            else
+            {
+                Assert.Equal(MigrationResultKind.Rejected, result.Kind);
+                Assert.Equal("migration_source_scope_denied", result.Code);
+                Assert.Equal(runsBefore, await fixture.CountRunsAsync());
+                Assert.Equal(intakesBefore, await fixture.CountIntakesAsync());
+                Assert.Equal(idempotencyBefore, await fixture.CountIdempotencyAsync());
+            }
+        }
+    }
+
     private static MigrationDefinitionReference Definition() => new("tenant-onboarding.foundation", "1");
 
     private static MigrationSourceProfileReference Profile() => new("neutral-source-profile", "1");
@@ -207,7 +259,8 @@ public sealed class MigrationIntakeTests
             Storage = new InMemoryPrivateObjectStorage();
             Audit = new RecordingAuditSink();
             Persistence = new MigrationPersistence(options);
-            Service = new MigrationIntakeService(Persistence, Storage, Audit);
+            ScopeResolver = new CurrentScopeResolver();
+            Service = new MigrationIntakeService(Persistence, Storage, ScopeResolver, Audit);
         }
 
         internal TenantContext Tenant { get; }
@@ -216,6 +269,7 @@ public sealed class MigrationIntakeTests
         internal FoundationRequestContext ForeignFoundation { get; }
         internal InMemoryPrivateObjectStorage Storage { get; }
         internal RecordingAuditSink Audit { get; }
+        internal CurrentScopeResolver ScopeResolver { get; }
         internal MigrationPersistence Persistence { get; }
         internal MigrationIntakeService Service { get; }
 
@@ -237,14 +291,23 @@ public sealed class MigrationIntakeTests
             sourceObjectId);
 
         internal async Task<PrivateFileMetadata> StoreAsync(string name, DateTimeOffset? expiresAt = null) =>
-            await Storage.StoreAsync(
+            await StoreAtScopeAsync(name, TenantWorkScopeRequest.TenantWide(), expiresAt);
+
+        internal async Task<PrivateFileMetadata> StoreAtScopeAsync(
+            string name,
+            TenantWorkScopeRequest scopeRequest,
+            DateTimeOffset? expiresAt = null)
+        {
+            var scope = TenantWorkScope.IssueFromVerifiedAuthority(Tenant, scopeRequest);
+            return await Storage.StoreAsync(
                 Tenant,
-                TenantWorkScope.IssueFromVerifiedAuthority(Tenant, TenantWorkScopeRequest.TenantWide()),
+                scope,
                 $"{name}.txt",
                 "text/plain",
                 Content(name),
                 expiresAt,
                 PrivateFileSafetyRequirement.TrustedGenerated);
+        }
 
         internal async Task<int> CountRunsAsync(TenantContext? tenant = null)
         {
@@ -256,6 +319,12 @@ public sealed class MigrationIntakeTests
         {
             await using var db = new MigrationDbContext(options, Tenant);
             return await db.Intakes.CountAsync();
+        }
+
+        internal async Task<int> CountIdempotencyAsync()
+        {
+            await using var db = new MigrationDbContext(options, Tenant);
+            return await db.Idempotency.CountAsync();
         }
 
         public async ValueTask DisposeAsync()
@@ -273,6 +342,19 @@ public sealed class MigrationIntakeTests
             Appended.Add(evidence);
             return ValueTask.CompletedTask;
         }
+    }
+
+    private sealed class CurrentScopeResolver : ICurrentOrganizationScopeResolver
+    {
+        internal bool Allowed { get; set; } = true;
+
+        internal TenantWorkScopeRequest CurrentScopeRequest { get; set; } = TenantWorkScopeRequest.TenantWide();
+
+        public TenantWorkScopeResolution ResolveCurrent(TenantContext trustedTenantContext) =>
+            Allowed
+                ? TenantWorkScopeResolution.Resolved(
+                    TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, CurrentScopeRequest))
+                : TenantWorkScopeResolution.Denied("scope_not_authorized");
     }
 
 }

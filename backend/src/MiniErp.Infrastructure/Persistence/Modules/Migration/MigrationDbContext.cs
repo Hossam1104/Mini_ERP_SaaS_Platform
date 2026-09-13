@@ -107,7 +107,9 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         idempotency.HasQueryFilter(item => item.TenantId == TrustedTenantId);
 
         var intake = modelBuilder.Entity<MigrationIntakeEntity>();
-        intake.ToTable("MigrationIntakes", "migration");
+        intake.ToTable("MigrationIntakes", "migration", table => table.HasCheckConstraint(
+            "CK_MigrationIntakes_SourceTenant_Matches_Tenant",
+            "[SourceTenantId] = [TenantId]"));
         intake.HasKey(item => item.RunId);
         intake.Property(item => item.RunId).ValueGeneratedNever();
         ConfigureTenant(intake.Property(item => item.TenantId));

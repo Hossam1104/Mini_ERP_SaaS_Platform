@@ -130,6 +130,7 @@ public static class MigrationEndpoints
         "migration_source_safety_blocked" or
         "migration_source_concurrency_conflict" or
         "migration_idempotency_conflict" => 409,
+        "migration_source_scope_denied" => 403,
         "migration_audit_evidence_unavailable" or
         "migration_intake_outcome_unknown" => 503,
         _ when result.Kind == MigrationResultKind.KnownFailure => 503,

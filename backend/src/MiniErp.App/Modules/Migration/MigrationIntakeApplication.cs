@@ -137,20 +137,24 @@ public sealed class MigrationIntakeService
 {
     internal const string OperationId = "migration.intake.create";
     internal const string EvidenceUnavailableCode = "migration_audit_evidence_unavailable";
+    internal const string SourceScopeDeniedCode = "migration_source_scope_denied";
 
     private readonly IMigrationFoundationPersistence persistence;
     private readonly IPrivateObjectStorage privateStorage;
+    private readonly ICurrentOrganizationScopeResolver currentScopeResolver;
     private readonly IFoundationAuditEvidenceSink auditSink;
     private readonly TimeProvider timeProvider;
 
     public MigrationIntakeService(
         IMigrationFoundationPersistence persistence,
         IPrivateObjectStorage privateStorage,
+        ICurrentOrganizationScopeResolver currentScopeResolver,
         IFoundationAuditEvidenceSink auditSink,
         TimeProvider? timeProvider = null)
     {
         this.persistence = persistence ?? throw new ArgumentNullException(nameof(persistence));
         this.privateStorage = privateStorage ?? throw new ArgumentNullException(nameof(privateStorage));
+        this.currentScopeResolver = currentScopeResolver ?? throw new ArgumentNullException(nameof(currentScopeResolver));
         this.auditSink = auditSink ?? throw new ArgumentNullException(nameof(auditSink));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
@@ -188,6 +192,19 @@ public sealed class MigrationIntakeService
         {
             var refusal = SourceRefusal(sourceRead.Outcome);
             return await RecordSourceRefusalAsync(requestContext, key, refusal.Code, refusal.Reason, cancellationToken);
+        }
+
+        var currentScope = currentScopeResolver.ResolveCurrent(tenantContext);
+        if (!currentScope.Allowed
+            || currentScope.Scope is not { } authorizedScope
+            || !authorizedScope.ContainsAuthorizedDescendant(metadata.Scope))
+        {
+            return await RecordSourceRefusalAsync(
+                requestContext,
+                key,
+                SourceScopeDeniedCode,
+                FoundationAuditReason.AuthorizationDenied,
+                cancellationToken);
         }
 
         MigrationSourceArtifactSnapshot source;
