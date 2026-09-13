@@ -288,7 +288,13 @@ internal sealed class TenantOwnershipVerifierRegistry
             MigrationTenantOwnershipVerifier.For<MigrationRunEntity>(),
             MigrationTenantOwnershipVerifier.For<MigrationAttemptEntity>(),
             MigrationTenantOwnershipVerifier.For<MigrationIdempotencyEntity>(),
-            MigrationTenantOwnershipVerifier.For<MigrationIntakeEntity>()
+            MigrationTenantOwnershipVerifier.For<MigrationIntakeEntity>(),
+            MigrationTenantOwnershipVerifier.For<MigrationStagedRecordEntity>(),
+            MigrationTenantOwnershipVerifier.For<MigrationValidationResultEntity>(),
+            MigrationTenantOwnershipVerifier.For<MigrationValidationRecordEntity>(),
+            MigrationTenantOwnershipVerifier.For<MigrationValidationFindingEntity>(),
+            MigrationTenantOwnershipVerifier.For<MigrationDryRunPreviewEntity>(),
+            MigrationTenantOwnershipVerifier.For<MigrationDryRunPreviewRowEntity>()
         ]);
     }
 

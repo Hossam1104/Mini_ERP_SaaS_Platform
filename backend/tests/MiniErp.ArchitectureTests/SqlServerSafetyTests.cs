@@ -433,7 +433,8 @@ public sealed class SqlServerSafetyTests
                     "20260912105244_MESP141MigrationAttemptLineage",
                     "20260912191429_MESP141MigrationRunQualifiedAttemptLineage",
                     "20260912224151_MESP141MigrationIntakeStaging",
-                    "20260913060835_MESP141MigrationIntakeTenantInvariant"
+                    "20260913060835_MESP141MigrationIntakeTenantInvariant",
+                    "20260913094150_MESP141ValidationDryRun"
                 ],
                 (await migration.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await migration.Database.GetPendingMigrationsAsync());

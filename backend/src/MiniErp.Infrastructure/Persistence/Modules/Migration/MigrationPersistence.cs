@@ -12,7 +12,7 @@ namespace MiniErp.Infrastructure.Persistence.Modules.Migration;
 /// trusted Tenant context and every idempotency record stores identifiers and
 /// fingerprints only; no imported payload is persisted by this slice.
 /// </summary>
-internal sealed class MigrationPersistence : IMigrationFoundationPersistence
+internal sealed partial class MigrationPersistence : IMigrationFoundationPersistence, IMigrationValidationPersistence
 {
     private readonly DbContextOptions options;
     private readonly TimeProvider timeProvider;
