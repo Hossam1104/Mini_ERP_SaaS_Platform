@@ -62,9 +62,11 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
             cancellationToken);
         if (existingKey is not null)
         {
-            return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
-                MigrationPersistenceOutcome.Conflict,
-                "migration_idempotency_key_reuse");
+            return await ResolveExistingIntakeKeyAsync(
+                tenantContext,
+                existingKey,
+                command.RequestFingerprint.Value,
+                cancellationToken);
         }
 
         var run = new MigrationRunEntity(command.Run);
@@ -551,9 +553,54 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
             ? MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
                 MigrationPersistenceOutcome.UnknownOutcome,
                 "migration_intake_outcome_unknown")
-            : MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
+            : await ResolveExistingIntakeKeyAsync(
+                tenantContext,
+                concurrentKey,
+                requestFingerprint,
+                cancellationToken);
+    }
+
+    private async Task<MigrationPersistenceResult<MigrationIntakeRecord>> ResolveExistingIntakeKeyAsync(
+        TenantContext tenantContext,
+        MigrationIdempotencyEntity existingKey,
+        string requestFingerprint,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(existingKey.RequestFingerprint, requestFingerprint, StringComparison.Ordinal))
+        {
+            return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
                 MigrationPersistenceOutcome.Conflict,
                 "migration_idempotency_key_reuse");
+        }
+
+        // A provider can expose the idempotency key at the end of a unique-key
+        // race before a concurrent intake read observes its sibling row. Three
+        // short fresh reads keep identical callers replayable without treating
+        // an unrelated run-only key as an intake.
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            await using var fresh = CreateContext(tenantContext);
+            var concurrentIntake = await fresh.Intakes.SingleOrDefaultAsync(
+                item => item.RunId == existingKey.RunId,
+                cancellationToken);
+            if (concurrentIntake is not null)
+            {
+                return await ResolveIntakeReplayAsync(
+                    tenantContext,
+                    concurrentIntake,
+                    requestFingerprint,
+                    cancellationToken);
+            }
+
+            if (attempt < 2)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(10), cancellationToken);
+            }
+        }
+
+        return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
+            MigrationPersistenceOutcome.Conflict,
+            "migration_idempotency_key_reuse");
     }
 
     /// <summary>
