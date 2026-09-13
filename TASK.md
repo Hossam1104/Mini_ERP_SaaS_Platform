@@ -3,7 +3,7 @@
 MESP-141 Slice 3 was activated by GitHub Issue #229 comment `5652383036` from
 verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39`.
 The bounded branch is `feat/mesp-141-validation-dry-run`; the bounded Sol
-remediation source/test commit is `69c1209`; Draft PR #246 is open against
+remediation source/test commit is `0adafa3`; Draft PR #246 is open against
 `main` and remains unmerged. Exact-head hosted CI verification is required on
 the final pushed remediation head before the handoff comment.
 
@@ -17,7 +17,7 @@ Finance/Procurement loading, approval/sign-off, production, cutover, onboarding
 UI, Wafra-specific behavior, MESP-142, and `frontend/assets`.
 
 Local evidence: Release build `0 warnings / 0 errors`; full backend
-`1,321/1,321` with `0` failures and `0` skips including disposable LocalDB
+`1,324/1,324` with `0` failures and `0` skips including disposable LocalDB
 SQL safety; Angular `316/316`; Chromium `51/51`; production npm audit has the
 unchanged `4` moderate baseline and full audit the unchanged `7` moderate
 baseline; EF reports no pending model changes; the production bundle succeeds

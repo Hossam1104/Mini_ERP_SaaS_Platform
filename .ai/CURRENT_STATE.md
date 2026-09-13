@@ -19,7 +19,7 @@
 | MESP-40 | **ACCEPTED / MERGED / DONE** in GitHub Issue #129; requirements prerequisite satisfied |
 | MESP-141 | **OPEN / ACTIVE / IN PROGRESS** in GitHub Issue #229; Project **In Progress**; Slice 1 and Slice 2 accepted/merged; Slice 3 implemented and awaiting GPT-5.6 Sol acceptance |
 | Slice 3 activation | Issue #229 comment `5652383036`; activated from verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39` |
-| Bounded branch | `feat/mesp-141-validation-dry-run`; Sol remediation source/test commit `69c1209`; resolve final live branch head from Git |
+| Bounded branch | `feat/mesp-141-validation-dry-run`; Sol remediation source/test commit `0adafa3`; resolve final live branch head from Git |
 | PR | **#246 OPEN / DRAFT / UNMERGED**; `https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/246` |
 | Hosted CI | Exact-head GitHub Actions verification is required on the final pushed remediation head; required checks remain `Repository Validation`, `Backend`, and `Frontend` |
 | Slice 3 scope | Canonical `migration-package-v1` parsing, immutable row staging, owner-backed validation findings/quarantine, durable zero-effect dry-run preview, and the bounded Sol R1-R5 remediation |
@@ -40,7 +40,7 @@ PR for independent GPT-5.6 Sol acceptance; no Ready transition, merge, Jira
 write, production, or cutover authority is granted.
 
 Local evidence is Release build `0 warnings / 0 errors`; full backend
-`1,321/1,321` with `0` failures and `0` skips including disposable LocalDB
+`1,324/1,324` with `0` failures and `0` skips including disposable LocalDB
 SQL safety; Angular `316/316`; Chromium `51/51`; production npm audit reports
 the unchanged `4` moderate baseline and full audit the unchanged `7` moderate
 baseline; EF reports no pending model changes; the production bundle succeeds
