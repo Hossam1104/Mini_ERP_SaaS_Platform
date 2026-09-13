@@ -1,17 +1,19 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 13 September 2026 (MESP-141 Slice 2 remediation handoff)
+**Last Updated:** 13 September 2026 (MESP-141 Slice 2 accepted and merged)
 
-## Current execution snapshot - 13 September 2026 (MESP-141 Slice 2 remediation handoff)
+## Current execution snapshot - 13 September 2026 (MESP-141 Slice 2 accepted and merged)
 
-MESP-141 Slice 2 is remediated on `feat/mesp-141-migration-intake-staging`;
-**live Draft PR #244 head is authoritative - resolve the mutable head from
-GitHub/Git**. The reviewed baseline was `8ec4f1ae2472d065be66e38dd68322afc8220610`
-and the remediation commits are `b2ced56e00cdff4616e7233517ccf27500c39bce` and
-`97128af006aca6e9960c4492a31a1d31730edda0`. The branch is based on verified
-`origin/main` `bfb45f2bc02ad68865bacf733a3da781c8e432f2`. Issue #229 activation is
-recorded in comment `5648967341`; Draft PR #244 is open, unmerged, and awaiting
-GPT-5.6 Sol re-acceptance.
+MESP-141 Slice 2 was accepted by GPT-5.6 Sol in PR #244 comment `5652228240` at
+accepted head `248c4855ea8d0dbcd2cd6eccfe98f7e09074fe48` and merged with normal
+merge commit `03bc1a4ab4e8e961a9014c3ef6a899e94be92a03`. The implementation
+branch was `feat/mesp-141-migration-intake-staging`; live `origin/main` remains
+authoritative for mutable repository head. The reviewed baseline was
+`8ec4f1ae2472d065be66e38dd68322afc8220610` and the remediation commits are
+`b2ced56e00cdff4616e7233517ccf27500c39bce` and
+`97128af006aca6e9960c4492a31a1d31730edda0`. Issue #229 remains **OPEN / ACTIVE /
+IN PROGRESS**; Slice 3 is not authorized and MESP-142 remains **OPEN / NOT
+ACTIVATED**.
 
 The bounded capability is the canonical migration intake boundary: server-owned
 Tenant and current organization descendant authorization, deterministic versioned
@@ -29,9 +31,10 @@ focused SQL Server race/invariant sequence `4/4`; private-file/security `80/80`;
 REST/Foundation `37/37`; Angular `316/316`; Chromium `51/51`; eight EF contexts
 with no pending model changes; and clear NuGet scanning. npm audit remains the
 unchanged baseline of `4` moderate production and `7` moderate full-tree
-advisories, below the high-severity gate. Hosted CI evidence is commit-bound;
-resolve the current PR #244 checks live and record each run against the commit
-it actually executed.
+advisories, below the high-severity gate; these advisories remain separate. The
+existing Angular bundle-budget warning also remains separate. Hosted CI run
+`34746890174` passed `Repository Validation`, `Backend`, and `Frontend` on the
+exact accepted head.
 
 **No headline changes.** Accepted fast-track capability completion stays
 **24 / 26 = 92.3%** and production readiness remains approximately **47% overall
@@ -41,10 +44,10 @@ MESP-50 remain open production gates.
 ### Progress history - 13 September 2026 (MESP-141 Slice 2 remediation)
 
 The bounded Slice 2 remediation added only organization-scope enforcement,
-provider-realistic SQL Server race/invariant proof, the additive source-Tenant
-database constraint, and governance reconciliation. The single Draft PR #244
-remains the handoff artifact; current hosted checks are resolved live against
-the exact PR head. No capability or production-readiness percentage changed.
+provider-realistic SQL Server race/invariant proof, and the additive source-
+Tenant database constraint. PR #244 is merged; governance reconciliation
+preserves the accepted implementation and adds no product change. No capability
+or production-readiness percentage changed.
 
 ## Historical execution snapshot - 12 September 2026 (MESP-141 Slice 1 merged)
 
