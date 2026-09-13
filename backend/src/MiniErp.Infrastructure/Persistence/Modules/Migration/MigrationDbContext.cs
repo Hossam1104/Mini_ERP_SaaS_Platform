@@ -23,6 +23,8 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
 
     internal DbSet<MigrationIdempotencyEntity> Idempotency => Set<MigrationIdempotencyEntity>();
 
+    internal DbSet<MigrationIntakeEntity> Intakes => Set<MigrationIntakeEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -103,6 +105,36 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
             .HasPrincipalKey(item => new { item.TenantId, item.RunId })
             .OnDelete(DeleteBehavior.Restrict);
         idempotency.HasQueryFilter(item => item.TenantId == TrustedTenantId);
+
+        var intake = modelBuilder.Entity<MigrationIntakeEntity>();
+        intake.ToTable("MigrationIntakes", "migration", table => table.HasCheckConstraint(
+            "CK_MigrationIntakes_SourceTenant_Matches_Tenant",
+            "[SourceTenantId] = [TenantId]"));
+        intake.HasKey(item => item.RunId);
+        intake.Property(item => item.RunId).ValueGeneratedNever();
+        ConfigureTenant(intake.Property(item => item.TenantId));
+        intake.Property(item => item.Operation).IsRequired();
+        intake.Property(item => item.IdempotencyKey).HasMaxLength(128).IsRequired();
+        intake.Property(item => item.FingerprintVersion).HasMaxLength(64).IsRequired();
+        intake.Property(item => item.RequestFingerprint).HasMaxLength(128).IsRequired();
+        intake.Property(item => item.SourceObjectId).IsRequired();
+        ConfigureTenant(intake.Property(item => item.SourceTenantId));
+        intake.Property(item => item.SourceCompanyId).IsRequired(false);
+        intake.Property(item => item.SourceBranchId).IsRequired(false);
+        intake.Property(item => item.SourceWarehouseId).IsRequired(false);
+        intake.Property(item => item.SourceSha256).HasMaxLength(64).IsRequired();
+        intake.Property(item => item.SourceLength).IsRequired();
+        intake.Property(item => item.SourceConcurrencyVersion).IsRequired();
+        intake.Property(item => item.CapturedAt).IsRequired();
+        ConfigureVersion(intake.Property(item => item.Version));
+        intake.HasIndex(item => new { item.TenantId, item.SourceObjectId });
+        intake.HasIndex(item => new { item.TenantId, item.IdempotencyKey }).IsUnique();
+        intake.HasOne<MigrationRunEntity>()
+            .WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId })
+            .OnDelete(DeleteBehavior.Restrict);
+        intake.HasQueryFilter(item => item.TenantId == TrustedTenantId);
     }
 
     private void ConfigureTenant(Microsoft.EntityFrameworkCore.Metadata.Builders.PropertyBuilder<TenantId> property) =>

@@ -38,6 +38,10 @@ internal static class MigrationTenantOwnershipVerifier
                     && item.IdempotencyKey == idempotency.IdempotencyKey)
                 .Select(item => item.TenantId)
                 .SingleOrDefault(),
+            MigrationIntakeEntity intake => migrationContext.Intakes
+                .Where(item => item.RunId == intake.RunId)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
             _ => null
         };
     }
@@ -67,6 +71,10 @@ internal static class MigrationTenantOwnershipVerifier
                 .Where(item => item.TenantId == idempotency.TenantId
                     && item.Operation == idempotency.Operation
                     && item.IdempotencyKey == idempotency.IdempotencyKey)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationIntakeEntity intake => await migrationContext.Intakes
+                .Where(item => item.RunId == intake.RunId)
                 .Select(item => (TenantId?)item.TenantId)
                 .SingleOrDefaultAsync(cancellationToken),
             _ => null

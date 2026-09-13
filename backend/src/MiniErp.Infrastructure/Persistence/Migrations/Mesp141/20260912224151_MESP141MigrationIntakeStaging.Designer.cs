@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MiniErp.Infrastructure.Persistence.Modules.Migration;
 
@@ -11,9 +12,11 @@ using MiniErp.Infrastructure.Persistence.Modules.Migration;
 namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
 {
     [DbContext(typeof(MigrationDbContext))]
-    partial class MigrationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260912224151_MESP141MigrationIntakeStaging")]
+    partial class MESP141MigrationIntakeStaging
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -141,13 +144,13 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<int>("Operation")
+                        .HasColumnType("int");
+
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
-
-                    b.Property<int>("Operation")
-                        .HasColumnType("int");
 
                     b.Property<string>("RequestFingerprint")
                         .IsRequired()
@@ -191,17 +194,14 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
 
                     b.HasKey("RunId");
 
+                    b.HasIndex("TenantId", "RunId");
+
                     b.HasIndex("TenantId", "IdempotencyKey")
                         .IsUnique();
 
-                    b.HasIndex("TenantId", "RunId");
-
                     b.HasIndex("TenantId", "SourceObjectId");
 
-                    b.ToTable("MigrationIntakes", "migration", t =>
-                        {
-                            t.HasCheckConstraint("CK_MigrationIntakes_SourceTenant_Matches_Tenant", "[SourceTenantId] = [TenantId]");
-                        });
+                    b.ToTable("MigrationIntakes", "migration");
                 });
 
             modelBuilder.Entity("MiniErp.Infrastructure.Persistence.Modules.Migration.MigrationRunEntity", b =>
