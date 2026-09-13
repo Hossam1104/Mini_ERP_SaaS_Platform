@@ -1,11 +1,11 @@
-## MESP-141 Slice 3 - IMPLEMENTED / DRAFT / AWAITING SOL ACCEPTANCE (13 September 2026)
+## MESP-141 Slice 3 - REMEDIATION IMPLEMENTED / DRAFT / AWAITING SOL RE-ACCEPTANCE (13 September 2026)
 
 MESP-141 Slice 3 was activated by GitHub Issue #229 comment `5652383036` from
 verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39`.
-The bounded branch is `feat/mesp-141-validation-dry-run`; implementation commit
-`c2360728cb32a89a80e6abf854c664eee9ec0bae`; Draft PR #246 is open against
-`main` and remains unmerged. Hosted CI run `34752787261` passed
-`Repository Validation`, `Backend`, and `Frontend` on that implementation head.
+The bounded branch is `feat/mesp-141-validation-dry-run`; the bounded Sol
+remediation source/test commit is `69c1209`; Draft PR #246 is open against
+`main` and remains unmerged. Exact-head hosted CI verification is required on
+the final pushed remediation head before the handoff comment.
 
 The bounded capability is the internal `migration-package-v1` canonical row
 parser, immutable Tenant/run-qualified staging, owner-backed validation
@@ -17,9 +17,12 @@ Finance/Procurement loading, approval/sign-off, production, cutover, onboarding
 UI, Wafra-specific behavior, MESP-142, and `frontend/assets`.
 
 Local evidence: Release build `0 warnings / 0 errors`; full backend
-`1,314/1,314` with `0` failures and `0` skips; Angular `316/316`; Chromium
-`51/51`; unchanged `4` moderate production npm audit baseline; OpenAPI exposes
-the new validation/staged-record/dry-run paths; and `git diff --check` clean.
+`1,321/1,321` with `0` failures and `0` skips including disposable LocalDB
+SQL safety; Angular `316/316`; Chromium `51/51`; production npm audit has the
+unchanged `4` moderate baseline and full audit the unchanged `7` moderate
+baseline; EF reports no pending model changes; the production bundle succeeds
+with the existing `514.26 kB` initial-budget warning; OpenAPI exposes the
+validation/staged-record/dry-run paths; and `git diff --check` is clean.
 Accepted capability completion remains **24 / 26 = 92.3%** and production
 readiness remains approximately **47% overall / 41% Procurement/P2P**. MESP-142
 remains **OPEN / NOT ACTIVATED**. The final runtime is left running for the

@@ -1,15 +1,15 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 13 September 2026 (MESP-141 Slice 3 implemented in Draft PR #246)
+**Last Updated:** 13 September 2026 (MESP-141 Slice 3 Sol remediation implemented in Draft PR #246)
 
-## Current execution snapshot - 13 September 2026 (MESP-141 Slice 3 implemented / Draft)
+## Current execution snapshot - 13 September 2026 (MESP-141 Slice 3 remediation implemented / Draft)
 
 MESP-141 Slice 3 was activated by GitHub Issue #229 comment `5652383036` from
 verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39`.
-The bounded branch is `feat/mesp-141-validation-dry-run`, implementation commit
-`c2360728cb32a89a80e6abf854c664eee9ec0bae`, and Draft PR #246 is open against
-`main` and remains unmerged. Hosted CI run `34752787261` passed
-`Repository Validation`, `Backend`, and `Frontend` on that implementation head.
+The bounded branch is `feat/mesp-141-validation-dry-run`, Sol remediation
+source/test commit `69c1209`, and Draft PR #246 is open against `main` and
+remains unmerged. Exact-head hosted CI verification is required on the final
+pushed remediation head before the handoff comment.
 
 The bounded capability is internal `migration-package-v1` canonical parsing,
 immutable Tenant/run-qualified row staging, owner-backed validation findings
@@ -20,9 +20,12 @@ approval/sign-off, production, cutover, onboarding UI, Wafra-specific behavior,
 MESP-142, or `frontend/assets` work is included.
 
 Local validation passed: Release build `0 warnings / 0 errors`; full backend
-`1,314/1,314` with `0` failures and `0` skips; Angular `316/316`; Chromium
-`51/51`; unchanged `4` moderate production npm audit baseline; OpenAPI exposes
-the new validation/staged-record/dry-run paths; and `git diff --check` clean.
+`1,321/1,321` with `0` failures and `0` skips including disposable LocalDB
+SQL safety; Angular `316/316`; Chromium `51/51`; production npm audit has the
+unchanged `4` moderate baseline and full audit the unchanged `7` moderate
+baseline; EF reports no pending model changes; the production bundle succeeds
+with the existing `514.26 kB` initial-budget warning; OpenAPI exposes the
+validation/staged-record/dry-run paths; and `git diff --check` is clean.
 
 **No headline changes.** Accepted fast-track capability completion stays
 **24 / 26 = 92.3%** and production readiness remains approximately **47% overall
@@ -31,11 +34,12 @@ MESP-50 remain open production gates.
 
 ### Progress history - 13 September 2026 (MESP-141 Slice 3 implementation)
 
-The bounded Slice 3 implementation adds canonical row staging, owner-backed
-validation/quarantine, safe findings and dispositions, durable dry-run preview,
-and provider-realistic race/atomicity coverage. No capability or production-
+The bounded Slice 3 remediation adds durable validation/dry-run read-replay
+state, organization-scope gates, Foundation lifecycle/idempotency/audit
+authority, owner-backed UOM/FX/account/period checks, per-company/currency/date
+GL grouping, and length-prefixed fingerprints. No capability or production-
 readiness percentage changed. Draft PR #246 remains open for independent
-GPT-5.6 Sol acceptance; no Ready, merge, Jira, production, or cutover action
+GPT-5.6 Sol re-acceptance; no Ready, merge, Jira, production, or cutover action
 was performed.
 
 ## Current execution snapshot - 13 September 2026 (MESP-141 Slice 2 accepted and merged)

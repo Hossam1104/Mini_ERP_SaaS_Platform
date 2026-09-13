@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY - 13 September 2026 (MESP-141 SLICE 3 IMPLEMENTED / DRAFT / AWAITING SOL ACCEPTANCE)
+## CURRENT AUTHORITY - 13 September 2026 (MESP-141 SLICE 3 REMEDIATION IMPLEMENTED / DRAFT / AWAITING SOL RE-ACCEPTANCE)
 
 ### Bounded implementation session
 
@@ -19,10 +19,10 @@
 | MESP-40 | **ACCEPTED / MERGED / DONE** in GitHub Issue #129; requirements prerequisite satisfied |
 | MESP-141 | **OPEN / ACTIVE / IN PROGRESS** in GitHub Issue #229; Project **In Progress**; Slice 1 and Slice 2 accepted/merged; Slice 3 implemented and awaiting GPT-5.6 Sol acceptance |
 | Slice 3 activation | Issue #229 comment `5652383036`; activated from verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39` |
-| Bounded branch | `feat/mesp-141-validation-dry-run`; implementation commit `c2360728cb32a89a80e6abf854c664eee9ec0bae`; resolve live branch head from Git |
+| Bounded branch | `feat/mesp-141-validation-dry-run`; Sol remediation source/test commit `69c1209`; resolve final live branch head from Git |
 | PR | **#246 OPEN / DRAFT / UNMERGED**; `https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/246` |
-| Hosted CI | Run `34752787261` passed `Repository Validation`, `Backend`, and `Frontend` on the exact implementation head; hosted checks remain commit-bound |
-| Slice 3 scope | Canonical `migration-package-v1` parsing, immutable row staging, owner-backed validation findings/quarantine, and durable zero-effect dry-run preview |
+| Hosted CI | Exact-head GitHub Actions verification is required on the final pushed remediation head; required checks remain `Repository Validation`, `Backend`, and `Frontend` |
+| Slice 3 scope | Canonical `migration-package-v1` parsing, immutable row staging, owner-backed validation findings/quarantine, durable zero-effect dry-run preview, and the bounded Sol R1-R5 remediation |
 | Slice 3 exclusions | No authoritative Product/Supplier/Customer/Inventory/Finance/Procurement load, approval/sign-off, production, cutover, onboarding UI, Wafra-specific behavior, MESP-142, or `frontend/assets` work |
 | MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
 | Metrics | Accepted fast-track capability completion remains **24 / 26 = 92.3%**; production readiness remains approximately **47% overall / 41% Procurement/P2P** |
@@ -40,11 +40,15 @@ PR for independent GPT-5.6 Sol acceptance; no Ready transition, merge, Jira
 write, production, or cutover authority is granted.
 
 Local evidence is Release build `0 warnings / 0 errors`; full backend
-`1,314/1,314` with `0` failures and `0` skips; Angular `316/316`; Chromium
-`51/51`; production npm audit reports the unchanged `4` moderate baseline;
-OpenAPI exposes the four new validation/staged-record/dry-run path families;
-and `git diff --check` is clean. The repository-owned Development runtime was
-restarted from this branch with backend/frontend HTTP 200 health readback.
+`1,321/1,321` with `0` failures and `0` skips including disposable LocalDB
+SQL safety; Angular `316/316`; Chromium `51/51`; production npm audit reports
+the unchanged `4` moderate baseline and full audit the unchanged `7` moderate
+baseline; EF reports no pending model changes; the production bundle succeeds
+with the existing `514.26 kB` initial-budget warning; OpenAPI exposes the four
+validation/staged-record/dry-run path families; and `git diff --check` is clean.
+The repository-owned Development runtime was restarted from this branch with
+backend/frontend HTTP 200 health readback. Final exact-head CI and runtime
+readback remain part of the pushed handoff.
 
 ## HISTORICAL RECORD - 13 September 2026 (MESP-141 SLICE 2 ACCEPTED / MERGED)
 
