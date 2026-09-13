@@ -211,4 +211,73 @@ internal sealed class MigrationIdempotencyEntity : ITenantOwned
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
 }
 
+/// <summary>Module-owned immutable source snapshot captured at intake.</summary>
+internal sealed class MigrationIntakeEntity : ITenantOwned
+{
+    private MigrationIntakeEntity()
+    {
+        IdempotencyKey = string.Empty;
+        FingerprintVersion = string.Empty;
+        RequestFingerprint = string.Empty;
+        SourceSha256 = string.Empty;
+    }
+
+    internal MigrationIntakeEntity(
+        MigrationRun run,
+        MigrationOperationKind operation,
+        MigrationIdempotencyKey idempotencyKey,
+        MigrationRequestFingerprint requestFingerprint,
+        string fingerprintVersion,
+        MigrationSourceArtifactSnapshot source)
+    {
+        RunId = run.RunId;
+        TenantId = run.TenantId;
+        Operation = operation;
+        IdempotencyKey = idempotencyKey.Value;
+        FingerprintVersion = fingerprintVersion;
+        RequestFingerprint = requestFingerprint.Value;
+        SourceObjectId = source.ObjectId;
+        SourceTenantId = source.TenantId;
+        SourceCompanyId = source.CompanyId;
+        SourceBranchId = source.BranchId;
+        SourceWarehouseId = source.WarehouseId;
+        SourceSha256 = source.Sha256;
+        SourceLength = source.Length;
+        SourceConcurrencyVersion = source.ConcurrencyVersion;
+        CapturedAt = run.CreatedAt;
+    }
+
+    internal Guid RunId { get; private set; }
+
+    public TenantId TenantId { get; private set; }
+
+    internal MigrationOperationKind Operation { get; private set; }
+
+    internal string IdempotencyKey { get; private set; }
+
+    internal string FingerprintVersion { get; private set; }
+
+    internal string RequestFingerprint { get; private set; }
+
+    internal Guid SourceObjectId { get; private set; }
+
+    internal TenantId SourceTenantId { get; private set; }
+
+    internal Guid? SourceCompanyId { get; private set; }
+
+    internal Guid? SourceBranchId { get; private set; }
+
+    internal Guid? SourceWarehouseId { get; private set; }
+
+    internal string SourceSha256 { get; private set; }
+
+    internal long SourceLength { get; private set; }
+
+    internal long SourceConcurrencyVersion { get; private set; }
+
+    internal DateTimeOffset CapturedAt { get; private set; }
+
+    internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
+}
+
 #pragma warning restore CS1591

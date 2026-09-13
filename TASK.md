@@ -1,4 +1,38 @@
-## MESP-141 Slice 1 - ACCEPTED AND MERGED INTO MAIN BY GPT-5.6 SOL (12 September 2026)
+## MESP-141 Slice 2 - REMEDIATED / DRAFT HANDOFF (13 September 2026)
+
+MESP-141 Slice 2 is activated by GitHub Issue #229 comment `5648967341` from
+verified baseline `bfb45f2bc02ad68865bacf733a3da781c8e432f2`. The bounded branch
+is `feat/mesp-141-migration-intake-staging`; **live PR #244 head is authoritative
+- resolve the mutable head from GitHub/Git**. The reviewed baseline was
+`8ec4f1ae2472d065be66e38dd68322afc8220610`; remediation commits are
+`b2ced56e00cdff4616e7233517ccf27500c39bce` and
+`97128af006aca6e9960c4492a31a1d31730edda0`. Draft PR #244 is
+`https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/244`.
+
+The implementation covers canonical Migration intake, server-computed
+versioned SHA-256 fingerprinting, trusted Tenant resolution, reuse of the
+existing private-file authority, current organization descendant authorization,
+immutable source-artifact provenance, one Migration-owned durable intake/staging
+record, Tenant-scoped replay/conflict idempotency, SQL Server race proof, the
+additive source-Tenant database invariant, minimal authorized REST, and bounded
+Foundation audit evidence.
+Parsing, row validation/dry-run, opening balances, business-domain loading,
+reconciliation, cutover, production work, onboarding UI, MESP-142, and
+`frontend/assets` are excluded. MESP-142 remains **OPEN / NOT ACTIVATED**.
+
+Local evidence: Release build `0 warnings / 0 errors`; full backend `1,309/1,309`
+with `0` failures and `0` skips; focused organization scope `7/7`; focused SQL
+Server race/invariant sequence `4/4`; private-file/security `80/80`;
+REST/Foundation `37/37`; Angular `316/316`; Chromium `51/51`; eight EF contexts
+clear of pending model changes; and clear NuGet scanning. The existing npm
+baseline remains `4` moderate production and `7` moderate full-tree advisories,
+below the high-severity gate.
+
+Hosted CI evidence is commit-bound; resolve current PR #244 checks live. The PR
+remains **OPEN / DRAFT / UNMERGED** for GPT-5.6 Sol re-acceptance. No production
+or cutover authority is granted.
+
+## Historical MESP-141 Slice 1 - ACCEPTED AND MERGED INTO MAIN BY GPT-5.6 SOL (12 September 2026)
 
 The independent Claude Opus 5 review on Draft PR #242 (`CHANGES REQUIRED`,
 Major F1–F4, Minor m1–m8) is remediated on

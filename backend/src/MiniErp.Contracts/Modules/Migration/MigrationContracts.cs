@@ -76,6 +76,19 @@ public enum MigrationResultKind
 }
 
 /// <summary>
+/// Public Slice 2 intake request. Tenant, run, timestamps and fingerprint are
+/// server-owned; callers provide only the bounded definition/profile operation
+/// and an opaque private object identity.
+/// </summary>
+public sealed record MigrationIntakeCreateRequest(
+    string? DefinitionId,
+    string? DefinitionVersion,
+    string? SourceProfileId,
+    string? SourceProfileVersion,
+    MigrationOperationKind Operation,
+    Guid SourceObjectId);
+
+/// <summary>
 /// Safe evidence projection for a migration run-level or attempt-level event.
 /// </summary>
 /// <remarks>
