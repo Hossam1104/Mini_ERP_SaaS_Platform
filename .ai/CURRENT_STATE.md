@@ -21,7 +21,7 @@
 | Slice 3 activation | Issue #229 comment `5652383036`; activated from verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39` |
 | Bounded branch | `feat/mesp-141-validation-dry-run`; final R6 remediation source/test work is complete; resolve final live branch head from Git |
 | PR | **#246 OPEN / DRAFT / UNMERGED**; `https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/246` |
-| Hosted CI | Exact final head `ba968f8fb28abb11adaf135a6613c410c25992f6` passed GitHub Actions run `34836556633`; required checks `Repository Validation`, `Backend`, and `Frontend` all passed |
+| Hosted CI | Required exact-head checks are `Repository Validation`, `Backend`, and `Frontend`; resolve the current exact-head run from the live GitHub PR/Issue handoff after the final push |
 | Slice 3 scope | Canonical `migration-package-v1` parsing, immutable row staging, owner-backed validation findings/quarantine, durable zero-effect dry-run preview, and final R6 audit-certainty remediation |
 | Slice 3 exclusions | No authoritative Product/Supplier/Customer/Inventory/Finance/Procurement load, approval/sign-off, production, cutover, onboarding UI, Wafra-specific behavior, MESP-142, or `frontend/assets` work |
 | MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
@@ -36,9 +36,10 @@ internal normalized canonical package, atomically stages immutable Tenant/run-
 qualified records, evaluates owner-backed references and control rules into
 safe findings, and persists a deterministic dry-run preview. The final R6
 remediation makes run transitions and attempt outcomes persist with
-`EvidenceConfirmed=false` before their audit evidence is confirmed, and keeps
-no-effect conflict/replay audit failures from poisoning earlier confirmed
-state. It does not cross an authoritative business-effect boundary. The final
+`EvidenceConfirmed=false` across the full run/attempt/idempotency evidence
+lineage before their audit evidence is confirmed, and keeps no-effect
+conflict/replay audit failures from poisoning earlier confirmed state. It does
+not cross an authoritative business-effect boundary. The final
 handoff remains one Draft PR for independent GPT-5.6 Sol acceptance; no Ready
 transition, merge, Jira write, production, or cutover authority is granted.
 

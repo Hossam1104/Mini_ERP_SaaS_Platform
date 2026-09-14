@@ -4,16 +4,18 @@ MESP-141 Slice 3 was activated by GitHub Issue #229 comment `5652383036` from
 verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39`.
 The bounded branch is `feat/mesp-141-validation-dry-run`; the final bounded
 R6 remediation source/test work is complete; Draft PR #246 is open against
-`main` and remains unmerged. Exact-head hosted CI passed on final head
-`ba968f8fb28abb11adaf135a6613c410c25992f6` in run `34836556633` before the handoff comment.
+`main` and remains unmerged. The live GitHub PR head is authoritative for the
+mutable branch-head state. Required exact-head checks are `Repository
+Validation`, `Backend`, and `Frontend`; resolve the current exact-head CI run
+from the live GitHub PR/Issue handoff after the final push.
 
 The bounded capability is the internal `migration-package-v1` canonical row
 parser, immutable Tenant/run-qualified staging, owner-backed validation
 findings and Accepted/Rejected/Quarantined classification, and durable
 zero-business-effect dry-run preview. It includes lifecycle, idempotency,
 antiforgery, audit, authorization, safe read surfaces, and SQL Server race
-coverage. The final remediation closes residual R6-A atomic certainty and R6-B
-no-effect certainty poisoning; accepted R7/R8 behavior remains unchanged. It
+coverage. The final remediation closes residual R6-A/R6-C atomic certainty and
+R6-B no-effect certainty poisoning; accepted R7/R8 behavior remains unchanged. It
 excludes authoritative Product/Supplier/Customer/
 Inventory/Finance/Procurement loading, approval/sign-off, production, cutover,
 onboarding UI, Wafra-specific behavior, MESP-142, and `frontend/assets`.

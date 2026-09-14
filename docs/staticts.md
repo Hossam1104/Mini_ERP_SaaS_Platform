@@ -6,15 +6,19 @@
 
 The final bounded R6 remediation is implemented on
 `feat/mesp-141-validation-dry-run` and is awaiting independent GPT-5.6 Sol
-re-acceptance. R6-A now clears `EvidenceConfirmed` atomically with run
-transitions and attempt outcomes. R6-B centralizes persistence-outcome
-classification so conflict, invalid-reference, not-found, and replay audit
-failures cannot poison prior confirmed state. S3-R7 and S3-R8 remain accepted
-unchanged. Validation and dry-run remain zero authoritative business effect.
+re-acceptance. R6-A/R6-C now clear `EvidenceConfirmed` atomically across the
+run/attempt/idempotency evidence lineage for run transitions and attempt
+outcomes. R6-B centralizes persistence-outcome classification so conflict,
+invalid-reference, not-found, and replay audit failures cannot poison prior
+confirmed state. S3-R7 and S3-R8 remain accepted unchanged. Validation and
+dry-run remain zero authoritative business effect.
 
 PR #246 remains **OPEN / DRAFT / UNMERGED**. No Ready transition, merge, Jira
 or GitHub tracker mutation, MESP-142 activation, production/cutover work, or
-next-slice work was performed. Local validation passed: Release build `0
+next-slice work was performed. Required exact-head hosted checks remain
+`Repository Validation`, `Backend`, and `Frontend`; resolve the current exact-
+head run from the live GitHub PR/Issue handoff after the final push. Local
+validation passed: Release build `0
 warnings / 0 errors`; full backend `1,330/1,330` with `0` failures and `0`
 skips including disposable LocalDB SQL safety; Angular `316/316`; Chromium
 `51/51`; known npm audit baselines `4` moderate production / `7` moderate full
@@ -35,11 +39,11 @@ blanket `true` backfill is authorized.
 ### Progress history - 14 September 2026 (MESP-141 Slice 3 final R6 remediation)
 
 Added entity-boundary atomic certainty clearing for run transitions and attempt
-outcomes, one Foundation persistence-outcome policy shared by Foundation and
-Intake, deterministic no-effect/replay audit-failure tests, and SQL Server
-LocalDB fresh-context barrier proof. No capability or readiness percentage
-changed; PR #246 remains open/draft/unmerged for independent GPT-5.6 Sol
-re-acceptance.
+outcomes across the full replay-relevant lineage, defense-in-depth replay
+certainty validation, deterministic blocked-audit/concurrent-replay and
+outcome-audit-failure tests, and SQL Server LocalDB fresh-context barrier proof.
+No capability or readiness percentage changed; PR #246 remains
+open/draft/unmerged for independent GPT-5.6 Sol re-acceptance.
 
 ## Current execution snapshot - 13 September 2026 (MESP-141 Slice 3 remediation implemented / Draft)
 
