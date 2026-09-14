@@ -1,22 +1,21 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 14 September 2026 (MESP-141 Slice 3 second Sol remediation implemented in Draft PR #246)
+**Last Updated:** 14 September 2026 (MESP-141 Slice 3 final R6 remediation implemented in Draft PR #246)
 
-## Current execution snapshot - 14 September 2026 (MESP-141 Slice 3 second Sol remediation / Draft)
+## Current execution snapshot - 14 September 2026 (MESP-141 Slice 3 final R6 remediation / Draft)
 
-The second bounded Sol remediation is implemented on
+The final bounded R6 remediation is implemented on
 `feat/mesp-141-validation-dry-run` and is awaiting independent GPT-5.6 Sol
-re-acceptance. S3-R6 durably distinguishes confirmed from unproved audit
-evidence on Migration run/attempt/idempotency lineage and blocks automatic
-replay of unproved effects. S3-R7 reuses canonical organization containment and
-owner Product/Supplier/Customer identity policies. S3-R8 blocks inactive
-Finance companies before account, period, or FX validation. Validation and
-dry-run remain zero authoritative business effect.
+re-acceptance. R6-A now clears `EvidenceConfirmed` atomically with run
+transitions and attempt outcomes. R6-B centralizes persistence-outcome
+classification so conflict, invalid-reference, not-found, and replay audit
+failures cannot poison prior confirmed state. S3-R7 and S3-R8 remain accepted
+unchanged. Validation and dry-run remain zero authoritative business effect.
 
 PR #246 remains **OPEN / DRAFT / UNMERGED**. No Ready transition, merge, Jira
 or GitHub tracker mutation, MESP-142 activation, production/cutover work, or
 next-slice work was performed. Local validation passed: Release build `0
-warnings / 0 errors`; full backend `1,326/1,326` with `0` failures and `0`
+warnings / 0 errors`; full backend `1,329/1,329` with `0` failures and `0`
 skips including disposable LocalDB SQL safety; Angular `316/316`; Chromium
 `51/51`; known npm audit baselines `4` moderate production / `7` moderate full
 tree; eight EF contexts with no pending migrations; and clear NuGet vulnerability
@@ -27,6 +26,20 @@ initial-bundle warning remains unchanged.
 **24 / 26 = 92.3%** and production readiness remains approximately **47%
 overall / 41% Procurement/P2P**. MESP-142 remains **OPEN / NOT ACTIVATED**;
 MESP-48 and MESP-50 remain open production gates.
+
+Known intentional migration debt: historical pre-Slice-3 Migration rows
+introduced before durable `EvidenceConfirmed` cannot be assumed proven after
+upgrade; production recovery/backfill remains governed future work and no
+blanket `true` backfill is authorized.
+
+### Progress history - 14 September 2026 (MESP-141 Slice 3 final R6 remediation)
+
+Added entity-boundary atomic certainty clearing for run transitions and attempt
+outcomes, one Foundation persistence-outcome policy shared by Foundation and
+Intake, deterministic no-effect/replay audit-failure tests, and SQL Server
+LocalDB fresh-context barrier proof. No capability or readiness percentage
+changed; PR #246 remains open/draft/unmerged for independent GPT-5.6 Sol
+re-acceptance.
 
 ## Current execution snapshot - 13 September 2026 (MESP-141 Slice 3 remediation implemented / Draft)
 

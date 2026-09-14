@@ -650,6 +650,30 @@ public sealed class MigrationFoundationTests
         }
     }
 
+    [Fact]
+    public void Every_persistence_outcome_has_explicit_evidence_failure_semantics()
+    {
+        var expected = new Dictionary<MigrationPersistenceOutcome, (bool Mutated, bool UnknownResult, bool Confirmable)>
+        {
+            [MigrationPersistenceOutcome.Succeeded] = (true, true, true),
+            [MigrationPersistenceOutcome.Replayed] = (false, true, true),
+            [MigrationPersistenceOutcome.NotFound] = (false, false, false),
+            [MigrationPersistenceOutcome.Conflict] = (false, false, false),
+            [MigrationPersistenceOutcome.InvalidReference] = (false, false, false),
+            [MigrationPersistenceOutcome.Failure] = (false, false, false),
+            [MigrationPersistenceOutcome.UnknownOutcome] = (true, true, false)
+        };
+
+        Assert.Equal(Enum.GetValues<MigrationPersistenceOutcome>().Length, expected.Count);
+        foreach (var outcome in Enum.GetValues<MigrationPersistenceOutcome>())
+        {
+            var semantics = expected[outcome];
+            Assert.Equal(semantics.Mutated, MigrationPersistenceOutcomePolicy.DidPersistenceMutateOrPossiblyMutate(outcome));
+            Assert.Equal(semantics.UnknownResult, MigrationPersistenceOutcomePolicy.AuditFailureRequiresUnknownResult(outcome));
+            Assert.Equal(semantics.Confirmable, MigrationPersistenceOutcomePolicy.CanConfirmEvidence(outcome));
+        }
+    }
+
     // ---------------------------------------------------------------- F4 ----
 
     [Fact]
@@ -797,6 +821,63 @@ public sealed class MigrationFoundationTests
         Assert.Equal(MigrationResultKind.UnknownOutcome, transitioned.Kind);
         Assert.Equal("migration_audit_evidence_unavailable", transitioned.Code);
         Assert.False(transitioned.IsSafeToRetry);
+    }
+
+    [Fact]
+    public async Task Audit_failure_on_no_effect_requests_does_not_poison_confirmed_state()
+    {
+        await using var fixture = await MigrationFixture.CreateAsync();
+        var created = await fixture.CreateRunAsync("poison-run", MigrationOperationKind.Validation);
+        var staleVersion = created.Version;
+        var prepared = await fixture.TransitionAsync(created, MigrationRunStatus.Prepared);
+        var started = await fixture.Service.StartAttemptAsync(
+            fixture.Request, prepared.RunId, MigrationOperationKind.Validation, "poison-attempt", "poison-attempt-fp");
+        var finished = await fixture.FinishAttemptAsync(
+            prepared.RunId, started.Value!, MigrationAttemptOutcome.Succeeded);
+        var original = await fixture.Service.CreateRunAsync(
+            fixture.Request, Request(null, MigrationOperationKind.Validation, "poison-idempotency", "fingerprint-one"));
+
+        fixture.Audit.Fail = true;
+
+        var idempotencyConflict = await fixture.Service.CreateRunAsync(
+            fixture.Request, Request(null, MigrationOperationKind.Validation, "poison-idempotency", "fingerprint-two"));
+        var staleTransition = await fixture.Service.TransitionRunAsync(
+            fixture.Request, created.RunId, MigrationRunStatus.Validating, staleVersion);
+        var invalidTransition = await fixture.Service.TransitionRunAsync(
+            fixture.Request, prepared.RunId, MigrationRunStatus.Completed, prepared.Version);
+        var alreadyFinished = await fixture.Service.RecordAttemptOutcomeAsync(
+            fixture.Request,
+            prepared.RunId,
+            finished.AttemptId,
+            MigrationAttemptOutcome.KnownFailure,
+            "rewrite",
+            finished.Version);
+        var missingAttempt = await fixture.Service.RecordAttemptOutcomeAsync(
+            fixture.Request,
+            prepared.RunId,
+            Guid.NewGuid(),
+            MigrationAttemptOutcome.KnownFailure,
+            "missing",
+            finished.Version);
+        var replay = await fixture.Service.CreateRunAsync(
+            fixture.Request, Request(null, MigrationOperationKind.Validation, "poison-idempotency", "fingerprint-one"));
+
+        Assert.Equal(MigrationResultKind.KnownFailure, idempotencyConflict.Kind);
+        Assert.Equal(MigrationResultKind.KnownFailure, staleTransition.Kind);
+        Assert.Equal(MigrationResultKind.KnownFailure, invalidTransition.Kind);
+        Assert.Equal(MigrationResultKind.KnownFailure, alreadyFinished.Kind);
+        Assert.Equal(MigrationResultKind.KnownFailure, missingAttempt.Kind);
+        Assert.Equal(MigrationResultKind.UnknownOutcome, replay.Kind);
+
+        var freshRun = await fixture.Persistence.FindRunAsync(fixture.Tenant, prepared.RunId);
+        var freshAttempt = await fixture.Persistence.FindAttemptAsync(fixture.Tenant, prepared.RunId, finished.AttemptId);
+        var freshIdentity = await fixture.Persistence.FindIdempotencyAsync(
+            fixture.Tenant, MigrationOperationKind.Validation, "poison-idempotency");
+        Assert.Equal(MigrationRunStatus.Prepared, freshRun!.Status);
+        Assert.True(freshRun.EvidenceConfirmed);
+        Assert.True(freshAttempt!.EvidenceConfirmed);
+        Assert.True(freshIdentity!.EvidenceConfirmed);
+        Assert.Equal(original.Value!.RunId, freshIdentity.RunId);
     }
 
     [Fact]

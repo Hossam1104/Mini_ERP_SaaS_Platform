@@ -1,9 +1,9 @@
-## MESP-141 Slice 3 - SECOND SOL REMEDIATION IMPLEMENTED / DRAFT / AWAITING SOL RE-ACCEPTANCE (14 September 2026)
+## MESP-141 Slice 3 - FINAL R6 REMEDIATION IMPLEMENTED / DRAFT / AWAITING SOL RE-ACCEPTANCE (14 September 2026)
 
 MESP-141 Slice 3 was activated by GitHub Issue #229 comment `5652383036` from
 verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39`.
-The bounded branch is `feat/mesp-141-validation-dry-run`; the second bounded
-Sol remediation source/test work is complete; Draft PR #246 is open against
+The bounded branch is `feat/mesp-141-validation-dry-run`; the final bounded
+R6 remediation source/test work is complete; Draft PR #246 is open against
 `main` and remains unmerged. Exact-head hosted CI verification is required on
 the final pushed remediation head before the handoff comment.
 
@@ -12,14 +12,14 @@ parser, immutable Tenant/run-qualified staging, owner-backed validation
 findings and Accepted/Rejected/Quarantined classification, and durable
 zero-business-effect dry-run preview. It includes lifecycle, idempotency,
 antiforgery, audit, authorization, safe read surfaces, and SQL Server race
-coverage. The second remediation closes S3-R6 audit-unproved replay safety,
-S3-R7 canonical organization and owner identity authority, and S3-R8 inactive
-Finance-company blocking. It excludes authoritative Product/Supplier/Customer/
+coverage. The final remediation closes residual R6-A atomic certainty and R6-B
+no-effect certainty poisoning; accepted R7/R8 behavior remains unchanged. It
+excludes authoritative Product/Supplier/Customer/
 Inventory/Finance/Procurement loading, approval/sign-off, production, cutover,
 onboarding UI, Wafra-specific behavior, MESP-142, and `frontend/assets`.
 
 Local evidence: Release build `0 warnings / 0 errors`; full backend
-`1,326/1,326` with `0` failures and `0` skips including disposable LocalDB
+`1,329/1,329` with `0` failures and `0` skips including disposable LocalDB
 SQL safety; Angular `316/316`; Chromium `51/51`; production npm audit has the
 known `4` moderate baseline and full audit the known `7` moderate baseline;
 eight EF contexts report no pending migrations; NuGet vulnerability scans are
@@ -28,8 +28,11 @@ with the existing `514.26 kB` initial-budget warning; OpenAPI exposes the
 validation/staged-record/dry-run paths; and `git diff --check` is clean.
 Accepted capability completion remains **24 / 26 = 92.3%** and production
 readiness remains approximately **47% overall / 41% Procurement/P2P**. MESP-142
-remains **OPEN / NOT ACTIVATED**. The final runtime is left running for the
-handoff. No Ready, merge, Jira, production, or cutover action is authorized.
+remains **OPEN / NOT ACTIVATED**. Historical pre-Slice-3 Migration rows with
+new durable `EvidenceConfirmed` cannot be assumed proven after upgrade;
+production recovery/backfill is governed future work and no blanket `true`
+backfill is authorized. The final runtime is left running for the handoff. No
+Ready, merge, Jira, production, or cutover action is authorized.
 
 ## Historical MESP-141 Slice 2 - ACCEPTED / MERGED (13 September 2026)
 

@@ -239,9 +239,7 @@ public sealed class MigrationIntakeService
 
         if (!await AppendAsync(requestContext, persistedRun, saved, key, auditMetadata, cancellationToken))
         {
-            if (saved.Outcome is MigrationPersistenceOutcome.Succeeded
-                or MigrationPersistenceOutcome.Replayed
-                or MigrationPersistenceOutcome.UnknownOutcome)
+            if (MigrationPersistenceOutcomePolicy.DidPersistenceMutateOrPossiblyMutate(saved.Outcome))
             {
                 await persistence.SetEvidenceStateAsync(
                     tenantContext,
@@ -250,14 +248,12 @@ public sealed class MigrationIntakeService
                     cancellationToken);
             }
 
-            return saved.Outcome is MigrationPersistenceOutcome.Succeeded
-                or MigrationPersistenceOutcome.Replayed
-                or MigrationPersistenceOutcome.UnknownOutcome
+            return MigrationPersistenceOutcomePolicy.AuditFailureRequiresUnknownResult(saved.Outcome)
                 ? MigrationOperationResult<MigrationIntakeRecord>.Unknown(EvidenceUnavailableCode)
                 : MigrationOperationResult<MigrationIntakeRecord>.Failure(EvidenceUnavailableCode, safeToRetry: true);
         }
 
-        if (saved.Outcome is MigrationPersistenceOutcome.Succeeded or MigrationPersistenceOutcome.Replayed)
+        if (MigrationPersistenceOutcomePolicy.CanConfirmEvidence(saved.Outcome))
         {
             var confirmed = await persistence.SetEvidenceStateAsync(
                 tenantContext,

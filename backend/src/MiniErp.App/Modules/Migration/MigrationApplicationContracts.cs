@@ -1185,6 +1185,45 @@ public sealed record MigrationPersistenceResult<T>(
     public static MigrationPersistenceResult<T> Denied(MigrationPersistenceOutcome outcome, string code) => new(outcome, code, default);
 }
 
+internal static class MigrationPersistenceOutcomePolicy
+{
+    internal static bool DidPersistenceMutateOrPossiblyMutate(MigrationPersistenceOutcome outcome) => outcome switch
+    {
+        MigrationPersistenceOutcome.Succeeded => true,
+        MigrationPersistenceOutcome.Replayed => false,
+        MigrationPersistenceOutcome.NotFound => false,
+        MigrationPersistenceOutcome.Conflict => false,
+        MigrationPersistenceOutcome.InvalidReference => false,
+        MigrationPersistenceOutcome.Failure => false,
+        MigrationPersistenceOutcome.UnknownOutcome => true,
+        _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Unknown migration persistence outcome.")
+    };
+
+    internal static bool AuditFailureRequiresUnknownResult(MigrationPersistenceOutcome outcome) => outcome switch
+    {
+        MigrationPersistenceOutcome.Succeeded => true,
+        MigrationPersistenceOutcome.Replayed => true,
+        MigrationPersistenceOutcome.NotFound => false,
+        MigrationPersistenceOutcome.Conflict => false,
+        MigrationPersistenceOutcome.InvalidReference => false,
+        MigrationPersistenceOutcome.Failure => false,
+        MigrationPersistenceOutcome.UnknownOutcome => true,
+        _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Unknown migration persistence outcome.")
+    };
+
+    internal static bool CanConfirmEvidence(MigrationPersistenceOutcome outcome) => outcome switch
+    {
+        MigrationPersistenceOutcome.Succeeded => true,
+        MigrationPersistenceOutcome.Replayed => true,
+        MigrationPersistenceOutcome.NotFound => false,
+        MigrationPersistenceOutcome.Conflict => false,
+        MigrationPersistenceOutcome.InvalidReference => false,
+        MigrationPersistenceOutcome.Failure => false,
+        MigrationPersistenceOutcome.UnknownOutcome => false,
+        _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Unknown migration persistence outcome.")
+    };
+}
+
 /// <summary>
 /// Explicit Tenant-bound persistence port. There is no unscoped read method.
 /// </summary>
@@ -1360,11 +1399,14 @@ public sealed class MigrationFoundationService
             cancellationToken);
         if (!evidence)
         {
-            await SetEvidenceStateAsync(requestContext, new(persistedRun.RunId, request.Operation, key.Value), confirmed: false, cancellationToken);
+            if (MigrationPersistenceOutcomePolicy.DidPersistenceMutateOrPossiblyMutate(saved.Outcome))
+            {
+                await SetEvidenceStateAsync(requestContext, new(persistedRun.RunId, request.Operation, key.Value), confirmed: false, cancellationToken);
+            }
             return EvidenceFailure<MigrationRunRecord>(saved);
         }
 
-        if (saved.Outcome is MigrationPersistenceOutcome.Succeeded or MigrationPersistenceOutcome.Replayed
+        if (MigrationPersistenceOutcomePolicy.CanConfirmEvidence(saved.Outcome)
             && !await SetEvidenceStateAsync(requestContext, new(persistedRun.RunId, request.Operation, key.Value), confirmed: true, cancellationToken))
             return MigrationOperationResult<MigrationRunRecord>.Unknown(EvidenceUnavailableCode);
 
@@ -1449,15 +1491,18 @@ public sealed class MigrationFoundationService
             cancellationToken);
         if (!evidence)
         {
-            await SetEvidenceStateAsync(
-                requestContext,
-                new(runId, operation, key.Value, attempt?.AttemptId),
-                confirmed: false,
-                cancellationToken);
+            if (MigrationPersistenceOutcomePolicy.DidPersistenceMutateOrPossiblyMutate(saved.Outcome))
+            {
+                await SetEvidenceStateAsync(
+                    requestContext,
+                    new(runId, operation, key.Value, attempt?.AttemptId),
+                    confirmed: false,
+                    cancellationToken);
+            }
             return EvidenceFailure<MigrationAttemptRecord>(saved);
         }
 
-        if (saved.Outcome is MigrationPersistenceOutcome.Succeeded or MigrationPersistenceOutcome.Replayed
+        if (MigrationPersistenceOutcomePolicy.CanConfirmEvidence(saved.Outcome)
             && !await SetEvidenceStateAsync(
                 requestContext,
                 new(runId, operation, key.Value, attempt?.AttemptId),
@@ -1520,11 +1565,14 @@ public sealed class MigrationFoundationService
             cancellationToken);
         if (!evidence)
         {
-            await SetEvidenceStateAsync(requestContext, new(runId), confirmed: false, cancellationToken);
+            if (MigrationPersistenceOutcomePolicy.DidPersistenceMutateOrPossiblyMutate(saved.Outcome))
+            {
+                await SetEvidenceStateAsync(requestContext, new(runId), confirmed: false, cancellationToken);
+            }
             return EvidenceFailure<MigrationRunRecord>(saved);
         }
 
-        if (saved.Outcome is MigrationPersistenceOutcome.Succeeded or MigrationPersistenceOutcome.Replayed
+        if (MigrationPersistenceOutcomePolicy.CanConfirmEvidence(saved.Outcome)
             && !await SetEvidenceStateAsync(requestContext, new(runId), confirmed: true, cancellationToken))
             return MigrationOperationResult<MigrationRunRecord>.Unknown(EvidenceUnavailableCode);
 
@@ -1584,15 +1632,18 @@ public sealed class MigrationFoundationService
             cancellationToken);
         if (!evidence)
         {
-            await SetEvidenceStateAsync(
-                requestContext,
-                new(runId, attempt?.Operation, attempt?.IdempotencyKey?.Value, attemptId),
-                confirmed: false,
-                cancellationToken);
+            if (MigrationPersistenceOutcomePolicy.DidPersistenceMutateOrPossiblyMutate(saved.Outcome))
+            {
+                await SetEvidenceStateAsync(
+                    requestContext,
+                    new(runId, attempt?.Operation, attempt?.IdempotencyKey?.Value, attemptId),
+                    confirmed: false,
+                    cancellationToken);
+            }
             return EvidenceFailure<MigrationAttemptRecord>(saved);
         }
 
-        if (saved.Outcome is MigrationPersistenceOutcome.Succeeded or MigrationPersistenceOutcome.Replayed
+        if (MigrationPersistenceOutcomePolicy.CanConfirmEvidence(saved.Outcome)
             && !await SetEvidenceStateAsync(
                 requestContext,
                 new(runId, attempt?.Operation, attempt?.IdempotencyKey?.Value, attemptId),
@@ -1696,9 +1747,7 @@ public sealed class MigrationFoundationService
     /// evidence failure is a retry-safe known failure instead.
     /// </summary>
     private static MigrationOperationResult<T> EvidenceFailure<T>(MigrationPersistenceResult<T> saved) =>
-        saved.Outcome is MigrationPersistenceOutcome.Succeeded
-            or MigrationPersistenceOutcome.Replayed
-            or MigrationPersistenceOutcome.UnknownOutcome
+        MigrationPersistenceOutcomePolicy.AuditFailureRequiresUnknownResult(saved.Outcome)
             ? MigrationOperationResult<T>.Unknown(EvidenceUnavailableCode)
             : MigrationOperationResult<T>.Failure(EvidenceUnavailableCode, safeToRetry: true);
 

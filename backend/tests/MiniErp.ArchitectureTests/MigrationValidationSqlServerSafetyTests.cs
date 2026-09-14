@@ -91,6 +91,91 @@ public sealed class MigrationValidationSqlServerSafetyTests
     }
 
     [Fact]
+    public async Task MESP141_sql_server_mutations_commit_unconfirmed_before_audit_confirmation()
+    {
+        await using var connection = await fixture.OpenConnectionAsync();
+        var options = SqlServerMigrationConfiguration.Configure(
+            connection.ConnectionString,
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenantId = new TenantId(Guid.NewGuid());
+        var tenant = TenantContext.ForOrdinaryMembership(
+            tenantId,
+            new MembershipReference(Guid.NewGuid()),
+            correlationId: new CorrelationId("sql-r6-atomic"),
+            actorId: Guid.NewGuid());
+        var request = FoundationRequestContext.ForTenant(
+            tenant.ActorId!.Value,
+            Guid.NewGuid(),
+            tenant,
+            "tenant.migration.run.create");
+        var persistence = new MigrationPersistence(options);
+        var setup = new MigrationFoundationService(persistence, new NoopAuditSink());
+        var created = await setup.CreateRunAsync(
+            request,
+            new MigrationRunCreationRequest(
+                tenantId.Value,
+                new MigrationDefinitionReference("tenant-onboarding.foundation", "1"),
+                new MigrationSourceProfileReference("neutral-source-profile", "1"),
+                MigrationOperationKind.Validation,
+                $"sql-r6-run-{Guid.NewGuid():N}",
+                $"sql-r6-run-fp-{Guid.NewGuid():N}"));
+        Assert.True(created.Succeeded, created.Code);
+
+        var transitionAudit = new BlockingAuditSink("migration.run.transition");
+        var transitionService = new MigrationFoundationService(persistence, transitionAudit);
+        var transitionTask = transitionService.TransitionRunAsync(
+            request, created.Value!.RunId, MigrationRunStatus.Prepared, created.Value.Version);
+        try
+        {
+            await transitionAudit.WaitAsync();
+            var beforeConfirmation = await new MigrationPersistence(options).FindRunAsync(tenant, created.Value.RunId);
+            Assert.Equal(MigrationRunStatus.Prepared, beforeConfirmation!.Status);
+            Assert.False(beforeConfirmation.EvidenceConfirmed);
+        }
+        finally
+        {
+            transitionAudit.Release();
+        }
+
+        var transitioned = await transitionTask;
+        Assert.True(transitioned.Succeeded, transitioned.Code);
+        var afterTransition = await new MigrationPersistence(options).FindRunAsync(tenant, created.Value.RunId);
+        Assert.True(afterTransition!.EvidenceConfirmed);
+
+        var outcomeAudit = new BlockingAuditSink("migration.attempt.outcome");
+        var outcomeService = new MigrationFoundationService(persistence, outcomeAudit);
+        var started = await outcomeService.StartAttemptAsync(
+            request, created.Value.RunId, MigrationOperationKind.Validation, "sql-r6-attempt", "sql-r6-attempt-fp");
+        Assert.True(started.Succeeded, started.Code);
+
+        var outcomeTask = outcomeService.RecordAttemptOutcomeAsync(
+            request,
+            created.Value.RunId,
+            started.Value!.AttemptId,
+            MigrationAttemptOutcome.Succeeded,
+            "completed",
+            started.Value.Version);
+        try
+        {
+            await outcomeAudit.WaitAsync();
+            var beforeConfirmation = await new MigrationPersistence(options).FindAttemptAsync(
+                tenant, created.Value.RunId, started.Value.AttemptId);
+            Assert.Equal(MigrationAttemptOutcome.Succeeded, beforeConfirmation!.Outcome);
+            Assert.False(beforeConfirmation.EvidenceConfirmed);
+        }
+        finally
+        {
+            outcomeAudit.Release();
+        }
+
+        var recorded = await outcomeTask;
+        Assert.True(recorded.Succeeded, recorded.Code);
+        var afterOutcome = await new MigrationPersistence(options).FindAttemptAsync(
+            tenant, created.Value.RunId, started.Value.AttemptId);
+        Assert.True(afterOutcome!.EvidenceConfirmed);
+    }
+
+    [Fact]
     public async Task MESP141_sql_server_application_validation_and_dry_run_races_are_idempotent()
     {
         await using var connection = await fixture.OpenConnectionAsync();
@@ -140,6 +225,21 @@ public sealed class MigrationValidationSqlServerSafetyTests
                 $"sql-validation-service-intake-{Guid.NewGuid():N}");
         Assert.True(intake.Succeeded, intake.Code);
         var runId = intake.Value!.Run.RunId;
+        var currentRun = await persistence.FindRunAsync(tenant, runId);
+        Assert.NotNull(currentRun);
+
+        var prepared = await foundation.TransitionRunAsync(
+            request,
+            runId,
+            MigrationRunStatus.Prepared,
+            currentRun!.Version);
+        Assert.True(prepared.Succeeded, prepared.Code);
+        var validating = await foundation.TransitionRunAsync(
+            request,
+            runId,
+            MigrationRunStatus.Validating,
+            prepared.Value!.Version);
+        Assert.True(validating.Succeeded, validating.Code);
 
         var service = new MigrationValidationService(
             foundation,
@@ -433,6 +533,29 @@ public sealed class MigrationValidationSqlServerSafetyTests
                 && ++occurrence == failAt)
                 throw new FoundationAuditAppendException("evidence_store_unavailable");
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class BlockingAuditSink(string operationId) : IFoundationAuditEvidenceSink
+    {
+        private readonly TaskCompletionSource<bool> entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int blocked;
+
+        internal Task WaitAsync() => entered.Task.WaitAsync(TimeSpan.FromSeconds(15));
+
+        internal void Release() => release.TrySetResult(true);
+
+        public async ValueTask AppendAsync(
+            FoundationAuditEvidence evidence,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.Equals(evidence.OperationId, operationId, StringComparison.Ordinal)
+                && Interlocked.Exchange(ref blocked, 1) == 0)
+            {
+                entered.TrySetResult(true);
+                await release.Task.WaitAsync(TimeSpan.FromSeconds(15), cancellationToken);
+            }
         }
     }
 }

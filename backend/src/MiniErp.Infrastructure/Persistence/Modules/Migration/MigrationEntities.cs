@@ -84,6 +84,7 @@ internal sealed class MigrationRunEntity : ITenantOwned
         Status = target;
         UpdatedAt = updatedAt;
         Version = Guid.NewGuid().ToByteArray();
+        EvidenceConfirmed = false;
     }
 
     internal void SetEvidenceConfirmed(bool confirmed) => EvidenceConfirmed = confirmed;
@@ -162,6 +163,7 @@ internal sealed class MigrationAttemptEntity : ITenantOwned
         SafeOutcomeCode = safeOutcomeCode;
         FinishedAt = finishedAt;
         Version = Guid.NewGuid().ToByteArray();
+        EvidenceConfirmed = false;
         return true;
     }
 
