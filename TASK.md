@@ -1,13 +1,12 @@
-## MESP-141 Slice 3 - FINAL R6 REMEDIATION IMPLEMENTED / DRAFT / AWAITING SOL RE-ACCEPTANCE (14 September 2026)
+## MESP-141 Slice 3 - ACCEPTED / MERGED (15 September 2026)
 
 MESP-141 Slice 3 was activated by GitHub Issue #229 comment `5652383036` from
 verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39`.
-The bounded branch is `feat/mesp-141-validation-dry-run`; the final bounded
-R6 remediation source/test work is complete; Draft PR #246 is open against
-`main` and remains unmerged. The live GitHub PR head is authoritative for the
-mutable branch-head state. Required exact-head checks are `Repository
-Validation`, `Backend`, and `Frontend`; resolve the current exact-head CI run
-from the live GitHub PR/Issue handoff after the final push.
+The bounded branch was `feat/mesp-141-validation-dry-run`; GPT-5.6 Sol accepted
+exact head `a490a3b86a38f3fa92fe22b622abdbfe434fa204` in PR #246 comment
+`5666123844`. PR #246 merged normally into `main` at
+`b38ee57bf5a6c5c347ca20286f9fc520cb0c6c4f`. The exact-head hosted CI run
+`34858025836` passed `Repository Validation`, `Backend`, and `Frontend`.
 
 The bounded capability is the internal `migration-package-v1` canonical row
 parser, immutable Tenant/run-qualified staging, owner-backed validation
@@ -33,8 +32,9 @@ readiness remains approximately **47% overall / 41% Procurement/P2P**. MESP-142
 remains **OPEN / NOT ACTIVATED**. Historical pre-Slice-3 Migration rows with
 new durable `EvidenceConfirmed` cannot be assumed proven after upgrade;
 production recovery/backfill is governed future work and no blanket `true`
-backfill is authorized. The final runtime is left running for the handoff. No
-Ready, merge, Jira, production, or cutover action is authorized.
+backfill is authorized. No authoritative business loading exists yet, Slice 4
+is not authorized, and Issue #229 remains **OPEN / ACTIVE / IN PROGRESS**;
+reconciliation comment `5671096026` is the current handoff authority.
 
 ## Historical MESP-141 Slice 2 - ACCEPTED / MERGED (13 September 2026)
 

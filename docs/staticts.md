@@ -1,24 +1,25 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 14 September 2026 (MESP-141 Slice 3 final R6 remediation implemented in Draft PR #246)
+**Last Updated:** 15 September 2026 (MESP-141 Slice 3 accepted and merged through PR #246)
 
-## Current execution snapshot - 14 September 2026 (MESP-141 Slice 3 final R6 remediation / Draft)
+## Current execution snapshot - 15 September 2026 (MESP-141 Slice 3 accepted and merged)
 
-The final bounded R6 remediation is implemented on
-`feat/mesp-141-validation-dry-run` and is awaiting independent GPT-5.6 Sol
-re-acceptance. R6-A/R6-C now clear `EvidenceConfirmed` atomically across the
+The final bounded R6 remediation was accepted by GPT-5.6 Sol at exact head
+`a490a3b86a38f3fa92fe22b622abdbfe434fa204` in PR #246 comment `5666123844` and
+merged normally into `main` at `b38ee57bf5a6c5c347ca20286f9fc520cb0c6c4f`.
+R6-A/R6-C clear `EvidenceConfirmed` atomically across the
 run/attempt/idempotency evidence lineage for run transitions and attempt
 outcomes. R6-B centralizes persistence-outcome classification so conflict,
 invalid-reference, not-found, and replay audit failures cannot poison prior
 confirmed state. S3-R7 and S3-R8 remain accepted unchanged. Validation and
 dry-run remain zero authoritative business effect.
 
-PR #246 remains **OPEN / DRAFT / UNMERGED**. No Ready transition, merge, Jira
-or GitHub tracker mutation, MESP-142 activation, production/cutover work, or
-next-slice work was performed. Required exact-head hosted checks remain
-`Repository Validation`, `Backend`, and `Frontend`; resolve the current exact-
-head run from the live GitHub PR/Issue handoff after the final push. Local
-validation passed: Release build `0
+Issue #229 remains **OPEN / ACTIVE / IN PROGRESS**; reconciliation comment
+`5671096026` records that Slice 1, Slice 2, and Slice 3 are accepted and
+merged. No authoritative business loading exists yet, Slice 4 is not
+authorized, and MESP-142 remains **OPEN / NOT ACTIVATED**. Exact-head hosted
+run `34858025836` passed `Repository Validation`, `Backend`, and `Frontend`.
+Local validation passed: Release build `0
 warnings / 0 errors`; full backend `1,330/1,330` with `0` failures and `0`
 skips including disposable LocalDB SQL safety; Angular `316/316`; Chromium
 `51/51`; known npm audit baselines `4` moderate production / `7` moderate full
@@ -36,14 +37,14 @@ introduced before durable `EvidenceConfirmed` cannot be assumed proven after
 upgrade; production recovery/backfill remains governed future work and no
 blanket `true` backfill is authorized.
 
-### Progress history - 14 September 2026 (MESP-141 Slice 3 final R6 remediation)
+### Progress history - 15 September 2026 (MESP-141 Slice 3 accepted and merged)
 
-Added entity-boundary atomic certainty clearing for run transitions and attempt
-outcomes across the full replay-relevant lineage, defense-in-depth replay
-certainty validation, deterministic blocked-audit/concurrent-replay and
-outcome-audit-failure tests, and SQL Server LocalDB fresh-context barrier proof.
-No capability or readiness percentage changed; PR #246 remains
-open/draft/unmerged for independent GPT-5.6 Sol re-acceptance.
+Slice 3 was accepted by GPT-5.6 Sol and merged through PR #246 with a normal
+merge commit. The merged-main smoke returned HTTP 200 for backend health,
+OpenAPI, frontend root, and `main.js`; the expected migration validation,
+staged-record, and dry-run operation IDs remained present. No capability or
+readiness percentage changed; no authoritative business loading, Slice 4, or
+MESP-142 activation was authorized.
 
 ## Current execution snapshot - 13 September 2026 (MESP-141 Slice 3 remediation implemented / Draft)
 
