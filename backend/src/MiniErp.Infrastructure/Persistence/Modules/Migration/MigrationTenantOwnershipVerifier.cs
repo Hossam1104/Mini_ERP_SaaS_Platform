@@ -42,6 +42,30 @@ internal static class MigrationTenantOwnershipVerifier
                 .Where(item => item.RunId == intake.RunId)
                 .Select(item => item.TenantId)
                 .SingleOrDefault(),
+            MigrationStagedRecordEntity staged => migrationContext.StagedRecords
+                .Where(item => item.StagedRecordId == staged.StagedRecordId)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
+            MigrationValidationResultEntity result => migrationContext.ValidationResults
+                .Where(item => item.ValidationResultId == result.ValidationResultId)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
+            MigrationValidationRecordEntity record => migrationContext.ValidationRecords
+                .Where(item => item.TenantId == record.TenantId && item.RunId == record.RunId && item.AttemptId == record.AttemptId && item.StagedRecordId == record.StagedRecordId)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
+            MigrationValidationFindingEntity finding => migrationContext.ValidationFindings
+                .Where(item => item.FindingId == finding.FindingId)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
+            MigrationDryRunPreviewEntity preview => migrationContext.DryRunPreviews
+                .Where(item => item.PreviewId == preview.PreviewId)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
+            MigrationDryRunPreviewRowEntity previewRow => migrationContext.DryRunPreviewRows
+                .Where(item => item.TenantId == previewRow.TenantId && item.PreviewId == previewRow.PreviewId && item.StagedRecordId == previewRow.StagedRecordId)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
             _ => null
         };
     }
@@ -75,6 +99,30 @@ internal static class MigrationTenantOwnershipVerifier
                 .SingleOrDefaultAsync(cancellationToken),
             MigrationIntakeEntity intake => await migrationContext.Intakes
                 .Where(item => item.RunId == intake.RunId)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationStagedRecordEntity staged => await migrationContext.StagedRecords
+                .Where(item => item.StagedRecordId == staged.StagedRecordId)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationValidationResultEntity result => await migrationContext.ValidationResults
+                .Where(item => item.ValidationResultId == result.ValidationResultId)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationValidationRecordEntity record => await migrationContext.ValidationRecords
+                .Where(item => item.TenantId == record.TenantId && item.RunId == record.RunId && item.AttemptId == record.AttemptId && item.StagedRecordId == record.StagedRecordId)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationValidationFindingEntity finding => await migrationContext.ValidationFindings
+                .Where(item => item.FindingId == finding.FindingId)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationDryRunPreviewEntity preview => await migrationContext.DryRunPreviews
+                .Where(item => item.PreviewId == preview.PreviewId)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationDryRunPreviewRowEntity previewRow => await migrationContext.DryRunPreviewRows
+                .Where(item => item.TenantId == previewRow.TenantId && item.PreviewId == previewRow.PreviewId && item.StagedRecordId == previewRow.StagedRecordId)
                 .Select(item => (TenantId?)item.TenantId)
                 .SingleOrDefaultAsync(cancellationToken),
             _ => null

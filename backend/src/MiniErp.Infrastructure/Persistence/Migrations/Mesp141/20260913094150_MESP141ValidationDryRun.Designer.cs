@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MiniErp.Infrastructure.Persistence.Modules.Migration;
 
@@ -11,9 +12,11 @@ using MiniErp.Infrastructure.Persistence.Modules.Migration;
 namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
 {
     [DbContext(typeof(MigrationDbContext))]
-    partial class MigrationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260913094150_MESP141ValidationDryRun")]
+    partial class MESP141ValidationDryRun
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -26,9 +29,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                 {
                     b.Property<Guid>("AttemptId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("EvidenceConfirmed")
-                        .HasColumnType("bit");
 
                     b.Property<DateTimeOffset?>("FinishedAt")
                         .HasColumnType("datetimeoffset");
@@ -89,9 +89,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                     b.Property<Guid>("PreviewId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("AcceptedCount")
-                        .HasColumnType("int");
-
                     b.Property<Guid>("AttemptId")
                         .HasColumnType("uniqueidentifier");
 
@@ -116,12 +113,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
-                    b.Property<int>("QuarantinedCount")
-                        .HasColumnType("int");
-
-                    b.Property<int>("RejectedCount")
-                        .HasColumnType("int");
-
                     b.Property<Guid>("RunId")
                         .HasColumnType("uniqueidentifier");
 
@@ -132,9 +123,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("TotalStagedRecords")
-                        .HasColumnType("int");
 
                     b.Property<int>("UnresolvedDependencyCount")
                         .HasColumnType("int");
@@ -179,9 +167,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                     b.Property<Guid>("RunId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("SourceSequence")
-                        .HasColumnType("int");
-
                     b.HasKey("TenantId", "PreviewId", "StagedRecordId");
 
                     b.HasIndex("TenantId", "RunId", "StagedRecordId");
@@ -206,9 +191,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<bool>("EvidenceConfirmed")
-                        .HasColumnType("bit");
 
                     b.Property<string>("RequestFingerprint")
                         .IsRequired()
@@ -319,9 +301,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                 {
                     b.Property<Guid>("RunId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("EvidenceConfirmed")
-                        .HasColumnType("bit");
 
                     b.Property<Guid>("ActorId")
                         .HasColumnType("uniqueidentifier");
@@ -514,9 +493,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                     b.Property<int>("RecordType")
                         .HasColumnType("int");
 
-                    b.Property<int>("SourceSequence")
-                        .HasColumnType("int");
-
                     b.HasKey("TenantId", "RunId", "AttemptId", "StagedRecordId");
 
                     b.HasIndex("TenantId", "RunId", "StagedRecordId");
@@ -528,9 +504,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                 {
                     b.Property<Guid>("ValidationResultId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("AcceptedCount")
-                        .HasColumnType("int");
 
                     b.Property<Guid>("AttemptId")
                         .HasColumnType("uniqueidentifier");
@@ -548,12 +521,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
-                    b.Property<int>("QuarantinedCount")
-                        .HasColumnType("int");
-
-                    b.Property<int>("RejectedCount")
-                        .HasColumnType("int");
-
                     b.Property<Guid>("RunId")
                         .HasColumnType("uniqueidentifier");
 
@@ -564,9 +531,6 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("TotalStagedRecords")
-                        .HasColumnType("int");
 
                     b.HasKey("ValidationResultId");
 

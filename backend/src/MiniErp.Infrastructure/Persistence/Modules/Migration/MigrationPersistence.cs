@@ -12,7 +12,7 @@ namespace MiniErp.Infrastructure.Persistence.Modules.Migration;
 /// trusted Tenant context and every idempotency record stores identifiers and
 /// fingerprints only; no imported payload is persisted by this slice.
 /// </summary>
-internal sealed class MigrationPersistence : IMigrationFoundationPersistence
+internal sealed partial class MigrationPersistence : IMigrationFoundationPersistence, IMigrationValidationPersistence
 {
     private readonly DbContextOptions options;
     private readonly TimeProvider timeProvider;
@@ -221,6 +221,13 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
                 "migration_run_not_found");
         }
 
+        if (!runEntity.EvidenceConfirmed)
+        {
+            return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
+                MigrationPersistenceOutcome.UnknownOutcome,
+                "migration_audit_recovery_required");
+        }
+
         var existingKey = await FindIdempotencyEntityAsync(
             db,
             command.Operation,
@@ -353,6 +360,13 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
                 "migration_run_not_found");
         }
 
+        if (!entity.EvidenceConfirmed)
+        {
+            return MigrationPersistenceResult<MigrationRunRecord>.Denied(
+                MigrationPersistenceOutcome.UnknownOutcome,
+                "migration_audit_recovery_required");
+        }
+
         if (!entity.Version.AsSpan().SequenceEqual(command.ExpectedVersion))
         {
             return MigrationPersistenceResult<MigrationRunRecord>.Denied(
@@ -411,6 +425,28 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
                 "migration_attempt_not_found");
         }
 
+        var runEntity = await db.Runs.SingleOrDefaultAsync(item => item.RunId == command.RunId, cancellationToken);
+        if (runEntity is null)
+        {
+            return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
+                MigrationPersistenceOutcome.NotFound,
+                "migration_run_not_found");
+        }
+
+        if (!runEntity.EvidenceConfirmed)
+        {
+            return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
+                MigrationPersistenceOutcome.UnknownOutcome,
+                "migration_audit_recovery_required");
+        }
+
+        if (!entity.EvidenceConfirmed)
+        {
+            return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
+                MigrationPersistenceOutcome.UnknownOutcome,
+                "migration_audit_recovery_required");
+        }
+
         if (!entity.Version.AsSpan().SequenceEqual(command.ExpectedVersion))
         {
             return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
@@ -424,6 +460,19 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
                 MigrationPersistenceOutcome.Conflict,
                 "migration_attempt_already_finished");
         }
+
+        // The attempt outcome, its idempotency identity and the owning run form
+        // one evidence lineage. Invalidate all three before the single
+        // SaveChanges transaction so replay cannot observe a terminal outcome
+        // behind stale certainty.
+        runEntity.SetEvidenceConfirmed(false);
+        var identity = await db.Idempotency.SingleOrDefaultAsync(
+            item => item.RunId == command.RunId
+                && item.AttemptId == command.AttemptId
+                && item.Operation == entity.Operation
+                && item.IdempotencyKey == entity.IdempotencyKey,
+            cancellationToken);
+        identity?.SetEvidenceConfirmed(false);
 
         try
         {
@@ -461,6 +510,88 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
         return identity is null ? null : ToRecord(identity);
     }
 
+    public async Task<MigrationPersistenceResult<bool>> SetEvidenceStateAsync(
+        TenantContext tenantContext,
+        MigrationEvidenceReference reference,
+        bool confirmed,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(reference);
+
+        await using var db = CreateContext(tenantContext);
+        var run = await db.Runs.SingleOrDefaultAsync(item => item.RunId == reference.RunId, cancellationToken);
+        if (run is null)
+        {
+            return MigrationPersistenceResult<bool>.Denied(
+                MigrationPersistenceOutcome.NotFound,
+                "migration_run_not_found");
+        }
+
+        if (reference.Operation is { } operation && !string.IsNullOrWhiteSpace(reference.IdempotencyKey))
+        {
+            var identity = await db.Idempotency.SingleOrDefaultAsync(
+                item => item.Operation == operation && item.IdempotencyKey == reference.IdempotencyKey,
+                cancellationToken);
+            if (identity is null || identity.RunId != reference.RunId)
+            {
+                return MigrationPersistenceResult<bool>.Denied(
+                    MigrationPersistenceOutcome.NotFound,
+                    "migration_idempotency_not_found");
+            }
+
+            if (reference.AttemptId is { } expectedAttempt && identity.AttemptId != expectedAttempt)
+            {
+                return MigrationPersistenceResult<bool>.Denied(
+                    MigrationPersistenceOutcome.Conflict,
+                    "migration_attempt_identity_mismatch");
+            }
+
+            identity.SetEvidenceConfirmed(confirmed);
+            if (identity.AttemptId is { } identityAttemptId)
+            {
+                var attempt = await db.Attempts.SingleOrDefaultAsync(
+                    item => item.RunId == reference.RunId && item.AttemptId == identityAttemptId,
+                    cancellationToken);
+                attempt?.SetEvidenceConfirmed(confirmed);
+            }
+        }
+
+        if (reference.AttemptId is { } attemptId)
+        {
+            var attempt = await db.Attempts.SingleOrDefaultAsync(
+                item => item.RunId == reference.RunId && item.AttemptId == attemptId,
+                cancellationToken);
+            if (attempt is null)
+            {
+                return MigrationPersistenceResult<bool>.Denied(
+                    MigrationPersistenceOutcome.NotFound,
+                    "migration_attempt_not_found");
+            }
+
+            attempt.SetEvidenceConfirmed(confirmed);
+        }
+
+        run.SetEvidenceConfirmed(confirmed);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            return MigrationPersistenceResult<bool>.Success(true);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return MigrationPersistenceResult<bool>.Denied(
+                MigrationPersistenceOutcome.Conflict,
+                "migration_evidence_version_conflict");
+        }
+        catch (DbUpdateException)
+        {
+            return MigrationPersistenceResult<bool>.Denied(
+                MigrationPersistenceOutcome.UnknownOutcome,
+                "migration_evidence_outcome_unknown");
+        }
+    }
+
     /// <summary>
     /// Resolves a run replay from a committed idempotency row.
     /// </summary>
@@ -475,6 +606,17 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
             return MigrationPersistenceResult<MigrationRunRecord>.Denied(
                 MigrationPersistenceOutcome.Conflict,
                 "migration_idempotency_conflict");
+        }
+
+        if (!await WaitForEvidenceConfirmationAsync(
+            tenantContext,
+            existingKey,
+            existingKey.RunId,
+            cancellationToken))
+        {
+            return MigrationPersistenceResult<MigrationRunRecord>.Denied(
+                MigrationPersistenceOutcome.UnknownOutcome,
+                "migration_audit_recovery_required");
         }
 
         var replayRun = await FindRunAsync(tenantContext, existingKey.RunId, cancellationToken);
@@ -525,6 +667,19 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
 
         await using var db = CreateContext(tenantContext);
         var run = await db.Runs.SingleOrDefaultAsync(item => item.RunId == existingIntake.RunId, cancellationToken);
+        if (run is not null
+            && !await WaitForEvidenceConfirmationAsync(
+                tenantContext,
+                existingIntake.Operation,
+                existingIntake.IdempotencyKey,
+                existingIntake.RunId,
+                cancellationToken))
+        {
+            return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
+                MigrationPersistenceOutcome.UnknownOutcome,
+                "migration_audit_recovery_required");
+        }
+
         return run is null
             ? MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
                 MigrationPersistenceOutcome.Conflict,
@@ -620,6 +775,17 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
                 "migration_idempotency_conflict");
         }
 
+        if (!await WaitForEvidenceConfirmationAsync(
+            tenantContext,
+            existingKey,
+            existingKey.RunId,
+            cancellationToken))
+        {
+            return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
+                MigrationPersistenceOutcome.UnknownOutcome,
+                "migration_audit_recovery_required");
+        }
+
         if (existingKey.AttemptId is not { } existingAttemptId)
         {
             return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
@@ -636,6 +802,10 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
             ? MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
                 MigrationPersistenceOutcome.Conflict,
                 "migration_idempotency_orphaned")
+            : !replayAttempt.EvidenceConfirmed
+                ? MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
+                    MigrationPersistenceOutcome.UnknownOutcome,
+                    "migration_audit_recovery_required")
             : MigrationPersistenceResult<MigrationAttemptRecord>.Replay(replayAttempt);
     }
 
@@ -700,6 +870,50 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
             item => item.Operation == operation && item.IdempotencyKey == idempotencyKey,
             cancellationToken);
 
+    private async Task<bool> WaitForEvidenceConfirmationAsync(
+        TenantContext tenantContext,
+        MigrationIdempotencyEntity existing,
+        Guid runId,
+        CancellationToken cancellationToken)
+    {
+        if (existing.EvidenceConfirmed)
+            return true;
+
+        return await WaitForEvidenceConfirmationAsync(
+            tenantContext,
+            existing.Operation,
+            existing.IdempotencyKey,
+            runId,
+            cancellationToken);
+    }
+
+    private async Task<bool> WaitForEvidenceConfirmationAsync(
+        TenantContext tenantContext,
+        MigrationOperationKind operation,
+        string idempotencyKey,
+        Guid runId,
+        CancellationToken cancellationToken)
+    {
+        // Give the winning application call a bounded window to append and
+        // confirm its audit evidence before classifying a concurrent replay
+        // as genuinely unproved.
+        for (var retry = 0; retry < 40; retry++)
+        {
+            await using var fresh = CreateContext(tenantContext);
+            var current = await FindIdempotencyEntityAsync(fresh, operation, idempotencyKey, cancellationToken);
+            if (current?.RunId == runId && current.EvidenceConfirmed)
+                return true;
+
+            if (current is not null && current.RunId != runId)
+                return false;
+
+            if (retry < 39)
+                await Task.Delay(TimeSpan.FromMilliseconds(25), cancellationToken);
+        }
+
+        return false;
+    }
+
     private static async Task<IReadOnlyList<MigrationAttemptRecord>> ReadAttemptsAsync(
         MigrationDbContext db,
         Guid runId,
@@ -756,7 +970,8 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
         entity.Status,
         entity.CreatedAt,
         entity.UpdatedAt,
-        entity.Version);
+        entity.Version,
+        entity.EvidenceConfirmed);
 
     private static MigrationAttemptRecord ToRecord(MigrationAttemptEntity entity) => new(
         entity.AttemptId,
@@ -771,7 +986,8 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
         entity.StartedAt,
         entity.FinishedAt,
         entity.SafeOutcomeCode,
-        entity.Version);
+        entity.Version,
+        entity.EvidenceConfirmed);
 
     private static MigrationIdempotencyRecord ToRecord(MigrationIdempotencyEntity entity) => new(
         entity.TenantId.Value,
@@ -783,7 +999,8 @@ internal sealed class MigrationPersistence : IMigrationFoundationPersistence
         entity.ResultKind,
         entity.ResultCode,
         entity.CreatedAt,
-        entity.Version);
+        entity.Version,
+        entity.EvidenceConfirmed);
 
     private static MigrationIntakeRecord ToRecord(
         MigrationIntakeEntity intake,

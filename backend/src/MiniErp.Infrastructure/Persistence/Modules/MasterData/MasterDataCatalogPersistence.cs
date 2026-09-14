@@ -212,6 +212,22 @@ public sealed class MasterDataCatalogPersistence : IMasterDataCatalogPersistence
         return entity is null ? null : ToUnitRecord(entity);
     }
 
+    public async Task<MasterDataConversionRecord?> FindConversionAsync(
+        TenantContext tenantContext,
+        Guid fromUnitOfMeasureId,
+        Guid toUnitOfMeasureId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = CreateContext(tenantContext);
+        var entity = await db.Conversions
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                item => item.FromUnitOfMeasureId == fromUnitOfMeasureId
+                    && item.ToUnitOfMeasureId == toUnitOfMeasureId,
+                cancellationToken);
+        return entity is null ? null : ToConversionRecord(entity);
+    }
+
     public Task<MasterDataPersistenceResult<MasterDataUnitOfMeasureRecord>> CreateUnitOfMeasureAsync(
         TenantContext tenantContext,
         Guid unitOfMeasureId,

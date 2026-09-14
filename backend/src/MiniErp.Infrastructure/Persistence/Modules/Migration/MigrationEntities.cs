@@ -31,6 +31,7 @@ internal sealed class MigrationRunEntity : ITenantOwned
         Status = run.Status;
         CreatedAt = run.CreatedAt;
         UpdatedAt = run.UpdatedAt;
+        EvidenceConfirmed = false;
     }
 
     internal Guid RunId { get; private set; }
@@ -54,6 +55,8 @@ internal sealed class MigrationRunEntity : ITenantOwned
     internal DateTimeOffset CreatedAt { get; private set; }
 
     internal DateTimeOffset UpdatedAt { get; private set; }
+
+    internal bool EvidenceConfirmed { get; private set; }
 
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
 
@@ -81,7 +84,10 @@ internal sealed class MigrationRunEntity : ITenantOwned
         Status = target;
         UpdatedAt = updatedAt;
         Version = Guid.NewGuid().ToByteArray();
+        EvidenceConfirmed = false;
     }
+
+    internal void SetEvidenceConfirmed(bool confirmed) => EvidenceConfirmed = confirmed;
 }
 
 /// <summary>Module-owned retry lineage for one logical migration run.</summary>
@@ -107,6 +113,7 @@ internal sealed class MigrationAttemptEntity : ITenantOwned
         StartedAt = attempt.StartedAt;
         FinishedAt = attempt.FinishedAt;
         SafeOutcomeCode = attempt.SafeOutcomeCode;
+        EvidenceConfirmed = false;
     }
 
     internal Guid AttemptId { get; private set; }
@@ -133,6 +140,8 @@ internal sealed class MigrationAttemptEntity : ITenantOwned
 
     internal string? SafeOutcomeCode { get; private set; }
 
+    internal bool EvidenceConfirmed { get; private set; }
+
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
 
     /// <summary>
@@ -154,8 +163,11 @@ internal sealed class MigrationAttemptEntity : ITenantOwned
         SafeOutcomeCode = safeOutcomeCode;
         FinishedAt = finishedAt;
         Version = Guid.NewGuid().ToByteArray();
+        EvidenceConfirmed = false;
         return true;
     }
+
+    internal void SetEvidenceConfirmed(bool confirmed) => EvidenceConfirmed = confirmed;
 }
 
 /// <summary>Module-owned idempotency identity; no request payload is stored.</summary>
@@ -188,6 +200,7 @@ internal sealed class MigrationIdempotencyEntity : ITenantOwned
         ResultKind = resultKind;
         ResultCode = resultCode;
         CreatedAt = createdAt;
+        EvidenceConfirmed = false;
     }
 
     public TenantId TenantId { get; private set; }
@@ -208,7 +221,10 @@ internal sealed class MigrationIdempotencyEntity : ITenantOwned
 
     internal DateTimeOffset CreatedAt { get; private set; }
 
+    internal bool EvidenceConfirmed { get; private set; }
+
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
+    internal void SetEvidenceConfirmed(bool confirmed) => EvidenceConfirmed = confirmed;
 }
 
 /// <summary>Module-owned immutable source snapshot captured at intake.</summary>
@@ -278,6 +294,206 @@ internal sealed class MigrationIntakeEntity : ITenantOwned
     internal DateTimeOffset CapturedAt { get; private set; }
 
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
+}
+
+internal sealed class MigrationStagedRecordEntity : ITenantOwned
+{
+    private MigrationStagedRecordEntity() { }
+
+    internal MigrationStagedRecordEntity(MigrationStagedRecord record, string packageHash)
+    {
+        StagedRecordId = record.StagedRecordId;
+        TenantId = record.TenantId;
+        RunId = record.RunId;
+        SourceSequence = record.SourceSequence;
+        SourceRecordId = record.SourceRecordId;
+        RecordType = record.RecordType;
+        CanonicalPayload = record.CanonicalPayload;
+        PayloadHash = record.PayloadHash;
+        PackageHash = packageHash;
+        PackageVersion = record.PackageVersion;
+        SourceObjectId = record.SourceObjectId;
+        SourceSnapshotHash = record.SourceSnapshotHash;
+        CapturedAt = record.CapturedAt;
+    }
+
+    internal Guid StagedRecordId { get; private set; }
+    public TenantId TenantId { get; private set; }
+    internal Guid RunId { get; private set; }
+    internal int SourceSequence { get; private set; }
+    internal string? SourceRecordId { get; private set; }
+    internal MigrationCanonicalRecordType RecordType { get; private set; }
+    internal string CanonicalPayload { get; private set; } = string.Empty;
+    internal string PayloadHash { get; private set; } = string.Empty;
+    internal string PackageHash { get; private set; } = string.Empty;
+    internal string PackageVersion { get; private set; } = string.Empty;
+    internal Guid SourceObjectId { get; private set; }
+    internal string SourceSnapshotHash { get; private set; } = string.Empty;
+    internal DateTimeOffset CapturedAt { get; private set; }
+}
+
+internal sealed class MigrationValidationResultEntity : ITenantOwned
+{
+    private MigrationValidationResultEntity() { }
+
+    internal MigrationValidationResultEntity(MigrationValidationSummary summary)
+    {
+        ValidationResultId = summary.ValidationResultId;
+        TenantId = summary.TenantId;
+        RunId = summary.RunId;
+        AttemptId = summary.AttemptId;
+        PackageHash = summary.PackageHash;
+        SourceSnapshotHash = summary.SourceSnapshotHash;
+        TotalStagedRecords = summary.TotalStagedRecords;
+        AcceptedCount = summary.AcceptedCount;
+        RejectedCount = summary.RejectedCount;
+        QuarantinedCount = summary.QuarantinedCount;
+        FindingCountsJson = System.Text.Json.JsonSerializer.Serialize(summary.FindingCounts);
+        CompletedAt = summary.CompletedAt;
+    }
+
+    internal Guid ValidationResultId { get; private set; }
+    public TenantId TenantId { get; private set; }
+    internal Guid RunId { get; private set; }
+    internal Guid AttemptId { get; private set; }
+    internal string PackageHash { get; private set; } = string.Empty;
+    internal string SourceSnapshotHash { get; private set; } = string.Empty;
+    internal int TotalStagedRecords { get; private set; }
+    internal int AcceptedCount { get; private set; }
+    internal int RejectedCount { get; private set; }
+    internal int QuarantinedCount { get; private set; }
+    internal string FindingCountsJson { get; private set; } = "{}";
+    internal DateTimeOffset CompletedAt { get; private set; }
+}
+
+internal sealed class MigrationValidationRecordEntity : ITenantOwned
+{
+    private MigrationValidationRecordEntity() { }
+
+    internal MigrationValidationRecordEntity(MigrationValidationRecordResult result, TenantId tenantId, Guid runId, Guid attemptId)
+    {
+        TenantId = tenantId;
+        RunId = runId;
+        AttemptId = attemptId;
+        StagedRecordId = result.StagedRecordId;
+        SourceSequence = result.SourceSequence;
+        RecordType = result.RecordType;
+        Disposition = result.Disposition;
+        FindingCodesJson = System.Text.Json.JsonSerializer.Serialize(result.FindingCodes);
+    }
+
+    public TenantId TenantId { get; private set; }
+    internal Guid RunId { get; private set; }
+    internal Guid AttemptId { get; private set; }
+    internal Guid StagedRecordId { get; private set; }
+    internal int SourceSequence { get; private set; }
+    internal MigrationCanonicalRecordType RecordType { get; private set; }
+    internal MigrationRecordDisposition Disposition { get; private set; }
+    internal string FindingCodesJson { get; private set; } = "[]";
+}
+
+internal sealed class MigrationValidationFindingEntity : ITenantOwned
+{
+    private MigrationValidationFindingEntity() { }
+
+    internal MigrationValidationFindingEntity(MigrationValidationFinding finding)
+    {
+        FindingId = finding.FindingId;
+        TenantId = finding.TenantId;
+        RunId = finding.RunId;
+        AttemptId = finding.AttemptId;
+        StagedRecordId = finding.StagedRecordId;
+        Category = finding.Category;
+        Severity = finding.Severity;
+        IsBlocking = finding.IsBlocking;
+        Code = finding.Code;
+        Message = finding.Message;
+        ReferenceId = finding.ReferenceId;
+        CreatedAt = finding.CreatedAt;
+    }
+
+    internal Guid FindingId { get; private set; }
+    public TenantId TenantId { get; private set; }
+    internal Guid RunId { get; private set; }
+    internal Guid AttemptId { get; private set; }
+    internal Guid? StagedRecordId { get; private set; }
+    internal MigrationFindingCategory Category { get; private set; }
+    internal MigrationFindingSeverity Severity { get; private set; }
+    internal bool IsBlocking { get; private set; }
+    internal string Code { get; private set; } = string.Empty;
+    internal string Message { get; private set; } = string.Empty;
+    internal string? ReferenceId { get; private set; }
+    internal DateTimeOffset CreatedAt { get; private set; }
+}
+
+internal sealed class MigrationDryRunPreviewEntity : ITenantOwned
+{
+    private MigrationDryRunPreviewEntity() { }
+
+    internal MigrationDryRunPreviewEntity(MigrationDryRunPreview preview)
+    {
+        PreviewId = preview.PreviewId;
+        TenantId = preview.TenantId;
+        RunId = preview.RunId;
+        AttemptId = preview.AttemptId;
+        ValidationAttemptId = preview.ValidationAttemptId;
+        PackageHash = preview.PackageHash;
+        SourceSnapshotHash = preview.SourceSnapshotHash;
+        TotalStagedRecords = preview.TotalStagedRecords;
+        AcceptedCount = preview.AcceptedCount;
+        RejectedCount = preview.RejectedCount;
+        QuarantinedCount = preview.QuarantinedCount;
+        FindingCountsJson = System.Text.Json.JsonSerializer.Serialize(preview.FindingCounts);
+        ControlTotalsJson = System.Text.Json.JsonSerializer.Serialize(preview.ControlTotals);
+        UnresolvedDependencyCount = preview.UnresolvedDependencyCount;
+        ExceptionCount = preview.ExceptionCount;
+        CompletedAt = preview.CompletedAt;
+    }
+
+    internal Guid PreviewId { get; private set; }
+    public TenantId TenantId { get; private set; }
+    internal Guid RunId { get; private set; }
+    internal Guid AttemptId { get; private set; }
+    internal Guid ValidationAttemptId { get; private set; }
+    internal string PackageHash { get; private set; } = string.Empty;
+    internal string SourceSnapshotHash { get; private set; } = string.Empty;
+    internal int TotalStagedRecords { get; private set; }
+    internal int AcceptedCount { get; private set; }
+    internal int RejectedCount { get; private set; }
+    internal int QuarantinedCount { get; private set; }
+    internal string FindingCountsJson { get; private set; } = "{}";
+    internal string ControlTotalsJson { get; private set; } = "{}";
+    internal int UnresolvedDependencyCount { get; private set; }
+    internal int ExceptionCount { get; private set; }
+    internal DateTimeOffset CompletedAt { get; private set; }
+}
+
+internal sealed class MigrationDryRunPreviewRowEntity : ITenantOwned
+{
+    private MigrationDryRunPreviewRowEntity() { }
+
+    internal MigrationDryRunPreviewRowEntity(MigrationDryRunPreview preview, MigrationPreviewRow row)
+    {
+        TenantId = preview.TenantId;
+        RunId = preview.RunId;
+        PreviewId = preview.PreviewId;
+        StagedRecordId = row.StagedRecordId;
+        SourceSequence = row.SourceSequence;
+        RecordType = row.RecordType;
+        Disposition = row.Disposition;
+        PlannedAction = row.PlannedAction;
+        Projection = row.Projection;
+    }
+
+    public TenantId TenantId { get; private set; }
+    internal Guid RunId { get; private set; }
+    internal Guid PreviewId { get; private set; }
+    internal Guid StagedRecordId { get; private set; }
+    internal int SourceSequence { get; private set; }
+    internal MigrationCanonicalRecordType RecordType { get; private set; }
+    internal MigrationRecordDisposition Disposition { get; private set; }
+    internal MigrationPlannedAction PlannedAction { get; private set; }
+    internal string? Projection { get; private set; }
 }
 
 #pragma warning restore CS1591

@@ -1,6 +1,89 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 13 September 2026 (MESP-141 Slice 2 accepted and merged)
+**Last Updated:** 14 September 2026 (MESP-141 Slice 3 final R6 remediation implemented in Draft PR #246)
+
+## Current execution snapshot - 14 September 2026 (MESP-141 Slice 3 final R6 remediation / Draft)
+
+The final bounded R6 remediation is implemented on
+`feat/mesp-141-validation-dry-run` and is awaiting independent GPT-5.6 Sol
+re-acceptance. R6-A/R6-C now clear `EvidenceConfirmed` atomically across the
+run/attempt/idempotency evidence lineage for run transitions and attempt
+outcomes. R6-B centralizes persistence-outcome classification so conflict,
+invalid-reference, not-found, and replay audit failures cannot poison prior
+confirmed state. S3-R7 and S3-R8 remain accepted unchanged. Validation and
+dry-run remain zero authoritative business effect.
+
+PR #246 remains **OPEN / DRAFT / UNMERGED**. No Ready transition, merge, Jira
+or GitHub tracker mutation, MESP-142 activation, production/cutover work, or
+next-slice work was performed. Required exact-head hosted checks remain
+`Repository Validation`, `Backend`, and `Frontend`; resolve the current exact-
+head run from the live GitHub PR/Issue handoff after the final push. Local
+validation passed: Release build `0
+warnings / 0 errors`; full backend `1,330/1,330` with `0` failures and `0`
+skips including disposable LocalDB SQL safety; Angular `316/316`; Chromium
+`51/51`; known npm audit baselines `4` moderate production / `7` moderate full
+tree; eight EF contexts with no pending migrations; and clear NuGet vulnerability
+scans across all discovered backend projects. The existing `514.26 kB`
+initial-bundle warning remains unchanged.
+
+**No headline changes.** Accepted fast-track capability completion remains
+**24 / 26 = 92.3%** and production readiness remains approximately **47%
+overall / 41% Procurement/P2P**. MESP-142 remains **OPEN / NOT ACTIVATED**;
+MESP-48 and MESP-50 remain open production gates.
+
+Known intentional migration debt: historical pre-Slice-3 Migration rows
+introduced before durable `EvidenceConfirmed` cannot be assumed proven after
+upgrade; production recovery/backfill remains governed future work and no
+blanket `true` backfill is authorized.
+
+### Progress history - 14 September 2026 (MESP-141 Slice 3 final R6 remediation)
+
+Added entity-boundary atomic certainty clearing for run transitions and attempt
+outcomes across the full replay-relevant lineage, defense-in-depth replay
+certainty validation, deterministic blocked-audit/concurrent-replay and
+outcome-audit-failure tests, and SQL Server LocalDB fresh-context barrier proof.
+No capability or readiness percentage changed; PR #246 remains
+open/draft/unmerged for independent GPT-5.6 Sol re-acceptance.
+
+## Current execution snapshot - 13 September 2026 (MESP-141 Slice 3 remediation implemented / Draft)
+
+MESP-141 Slice 3 was activated by GitHub Issue #229 comment `5652383036` from
+verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39`.
+The bounded branch is `feat/mesp-141-validation-dry-run`, Sol remediation
+source/test commit `0adafa3`, and Draft PR #246 is open against `main` and
+remains unmerged. Exact-head hosted CI verification is required on the final
+pushed remediation head before the handoff comment.
+
+The bounded capability is internal `migration-package-v1` canonical parsing,
+immutable Tenant/run-qualified row staging, owner-backed validation findings
+with Accepted/Rejected/Quarantined disposition, and durable dry-run preview.
+Validation and dry-run remain outside the authoritative business-effect
+boundary. No Product/Supplier/Customer/Inventory/Finance/Procurement loading,
+approval/sign-off, production, cutover, onboarding UI, Wafra-specific behavior,
+MESP-142, or `frontend/assets` work is included.
+
+Local validation passed: Release build `0 warnings / 0 errors`; full backend
+`1,324/1,324` with `0` failures and `0` skips including disposable LocalDB
+SQL safety; Angular `316/316`; Chromium `51/51`; production npm audit has the
+unchanged `4` moderate baseline and full audit the unchanged `7` moderate
+baseline; EF reports no pending model changes; the production bundle succeeds
+with the existing `514.26 kB` initial-budget warning; OpenAPI exposes the
+validation/staged-record/dry-run paths; and `git diff --check` is clean.
+
+**No headline changes.** Accepted fast-track capability completion stays
+**24 / 26 = 92.3%** and production readiness remains approximately **47% overall
+/ 41% Procurement/P2P**. MESP-142 remains **OPEN / NOT ACTIVATED**; MESP-48 and
+MESP-50 remain open production gates.
+
+### Progress history - 13 September 2026 (MESP-141 Slice 3 implementation)
+
+The bounded Slice 3 remediation adds durable validation/dry-run read-replay
+state, organization-scope gates, Foundation lifecycle/idempotency/audit
+authority, owner-backed UOM/FX/account/period checks, per-company/currency/date
+GL grouping, and length-prefixed fingerprints. No capability or production-
+readiness percentage changed. Draft PR #246 remains open for independent
+GPT-5.6 Sol re-acceptance; no Ready, merge, Jira, production, or cutover action
+was performed.
 
 ## Current execution snapshot - 13 September 2026 (MESP-141 Slice 2 accepted and merged)
 

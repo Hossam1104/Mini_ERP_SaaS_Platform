@@ -1,8 +1,6 @@
 #pragma warning disable CS1591
 
 using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.BuildingBlocks.Work;
@@ -80,39 +78,23 @@ public static class MigrationIntakeFingerprint
             throw new ArgumentException("The source snapshot must belong to the trusted Tenant.", nameof(source));
         }
 
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        Append(hash, Version);
-        Append(hash, tenantContext.TenantId.Value.ToString("D", CultureInfo.InvariantCulture));
-        Append(hash, tenantContext.Scope?.Value);
-        Append(hash, definition.DefinitionId);
-        Append(hash, definition.Version);
-        Append(hash, sourceProfile.ProfileId);
-        Append(hash, sourceProfile.ProfileVersion);
-        Append(hash, ((int)operation).ToString(CultureInfo.InvariantCulture));
-        Append(hash, source.ObjectId.ToString("D", CultureInfo.InvariantCulture));
-        Append(hash, source.TenantId.Value.ToString("D", CultureInfo.InvariantCulture));
-        Append(hash, source.CompanyId?.ToString("D", CultureInfo.InvariantCulture));
-        Append(hash, source.BranchId?.ToString("D", CultureInfo.InvariantCulture));
-        Append(hash, source.WarehouseId?.ToString("D", CultureInfo.InvariantCulture));
-        Append(hash, NormalizeSha256(source.Sha256));
-        Append(hash, source.Length.ToString(CultureInfo.InvariantCulture));
-        Append(hash, source.ConcurrencyVersion.ToString(CultureInfo.InvariantCulture));
-
-        return new MigrationRequestFingerprint(Convert.ToHexString(hash.GetHashAndReset()));
-    }
-
-    private static void Append(IncrementalHash hash, string? value)
-    {
-        var bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
-        Span<byte> length = stackalloc byte[4];
-        BitConverter.TryWriteBytes(length, bytes.Length);
-        if (BitConverter.IsLittleEndian)
-        {
-            length.Reverse();
-        }
-
-        hash.AppendData(length);
-        hash.AppendData(bytes);
+        return new MigrationRequestFingerprint(MigrationFingerprintEncoder.Compute(
+            Version,
+            tenantContext.TenantId.Value.ToString("D", CultureInfo.InvariantCulture),
+            tenantContext.Scope?.Value,
+            definition.DefinitionId,
+            definition.Version,
+            sourceProfile.ProfileId,
+            sourceProfile.ProfileVersion,
+            ((int)operation).ToString(CultureInfo.InvariantCulture),
+            source.ObjectId.ToString("D", CultureInfo.InvariantCulture),
+            source.TenantId.Value.ToString("D", CultureInfo.InvariantCulture),
+            source.CompanyId?.ToString("D", CultureInfo.InvariantCulture),
+            source.BranchId?.ToString("D", CultureInfo.InvariantCulture),
+            source.WarehouseId?.ToString("D", CultureInfo.InvariantCulture),
+            NormalizeSha256(source.Sha256),
+            source.Length.ToString(CultureInfo.InvariantCulture),
+            source.ConcurrencyVersion.ToString(CultureInfo.InvariantCulture)));
     }
 
     internal static string NormalizeSha256(string value)
@@ -257,11 +239,29 @@ public sealed class MigrationIntakeService
 
         if (!await AppendAsync(requestContext, persistedRun, saved, key, auditMetadata, cancellationToken))
         {
-            return saved.Outcome is MigrationPersistenceOutcome.Succeeded
-                or MigrationPersistenceOutcome.Replayed
-                or MigrationPersistenceOutcome.UnknownOutcome
+            if (MigrationPersistenceOutcomePolicy.DidPersistenceMutateOrPossiblyMutate(saved.Outcome))
+            {
+                await persistence.SetEvidenceStateAsync(
+                    tenantContext,
+                    new(persistedRun.RunId, request.Operation, key.Value),
+                    confirmed: false,
+                    cancellationToken);
+            }
+
+            return MigrationPersistenceOutcomePolicy.AuditFailureRequiresUnknownResult(saved.Outcome)
                 ? MigrationOperationResult<MigrationIntakeRecord>.Unknown(EvidenceUnavailableCode)
                 : MigrationOperationResult<MigrationIntakeRecord>.Failure(EvidenceUnavailableCode, safeToRetry: true);
+        }
+
+        if (MigrationPersistenceOutcomePolicy.CanConfirmEvidence(saved.Outcome))
+        {
+            var confirmed = await persistence.SetEvidenceStateAsync(
+                tenantContext,
+                new(persistedRun.RunId, request.Operation, key.Value),
+                confirmed: true,
+                cancellationToken);
+            if (!confirmed.Succeeded)
+                return MigrationOperationResult<MigrationIntakeRecord>.Unknown(EvidenceUnavailableCode);
         }
 
         return saved.Outcome switch

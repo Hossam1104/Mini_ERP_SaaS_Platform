@@ -72,6 +72,43 @@ public sealed class MigrationIntakeTests
     }
 
     [Fact]
+    public async Task Audit_failure_on_intake_conflict_and_replay_does_not_poison_confirmed_state()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var source = await fixture.StoreAsync("source-a");
+        var original = fixture.Request(source.ObjectId);
+        var first = await fixture.Service.RegisterAsync(fixture.Foundation, original, "intake-poison");
+        Assert.True(first.Succeeded, first.Code);
+
+        fixture.Audit.Fail = true;
+
+        var conflict = await fixture.Service.RegisterAsync(
+            fixture.Foundation,
+            original with { Definition = new MigrationDefinitionReference("changed-definition", "1") },
+            "intake-poison");
+        var replay = await fixture.Service.RegisterAsync(fixture.Foundation, original, "intake-poison");
+
+        Assert.Equal(MigrationResultKind.KnownFailure, conflict.Kind);
+        Assert.Equal("migration_audit_evidence_unavailable", conflict.Code);
+        Assert.Equal(MigrationResultKind.UnknownOutcome, replay.Kind);
+        Assert.Equal("migration_audit_evidence_unavailable", replay.Code);
+
+        var persistedRun = await fixture.Persistence.FindRunAsync(fixture.Tenant, first.Value!.Run.RunId);
+        var persistedKey = await fixture.Persistence.FindIdempotencyAsync(
+            fixture.Tenant,
+            MigrationOperationKind.Validation,
+            "intake-poison");
+        Assert.NotNull(persistedRun);
+        Assert.NotNull(persistedKey);
+        Assert.True(persistedRun!.EvidenceConfirmed);
+        Assert.True(persistedKey!.EvidenceConfirmed);
+        Assert.Equal(first.Value.Run.RunId, persistedKey.RunId);
+        Assert.Equal(1, await fixture.CountRunsAsync());
+        Assert.Equal(1, await fixture.CountIntakesAsync());
+        Assert.Equal(1, await fixture.CountIdempotencyAsync());
+    }
+
+    [Fact]
     public async Task Same_key_with_changed_definition_profile_operation_or_source_is_conflict()
     {
         await using var fixture = await Fixture.CreateAsync();
@@ -337,8 +374,13 @@ public sealed class MigrationIntakeTests
     {
         internal List<FoundationAuditEvidence> Appended { get; } = [];
 
+        internal bool Fail { get; set; }
+
         public ValueTask AppendAsync(FoundationAuditEvidence evidence, CancellationToken cancellationToken = default)
         {
+            if (Fail)
+                throw new FoundationAuditAppendException("test audit failure");
+
             Appended.Add(evidence);
             return ValueTask.CompletedTask;
         }

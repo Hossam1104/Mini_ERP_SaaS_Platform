@@ -1,4 +1,42 @@
-## MESP-141 Slice 2 - ACCEPTED / MERGED (13 September 2026)
+## MESP-141 Slice 3 - FINAL R6 REMEDIATION IMPLEMENTED / DRAFT / AWAITING SOL RE-ACCEPTANCE (14 September 2026)
+
+MESP-141 Slice 3 was activated by GitHub Issue #229 comment `5652383036` from
+verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39`.
+The bounded branch is `feat/mesp-141-validation-dry-run`; the final bounded
+R6 remediation source/test work is complete; Draft PR #246 is open against
+`main` and remains unmerged. The live GitHub PR head is authoritative for the
+mutable branch-head state. Required exact-head checks are `Repository
+Validation`, `Backend`, and `Frontend`; resolve the current exact-head CI run
+from the live GitHub PR/Issue handoff after the final push.
+
+The bounded capability is the internal `migration-package-v1` canonical row
+parser, immutable Tenant/run-qualified staging, owner-backed validation
+findings and Accepted/Rejected/Quarantined classification, and durable
+zero-business-effect dry-run preview. It includes lifecycle, idempotency,
+antiforgery, audit, authorization, safe read surfaces, and SQL Server race
+coverage. The final remediation closes residual R6-A/R6-C atomic certainty and
+R6-B no-effect certainty poisoning; accepted R7/R8 behavior remains unchanged. It
+excludes authoritative Product/Supplier/Customer/
+Inventory/Finance/Procurement loading, approval/sign-off, production, cutover,
+onboarding UI, Wafra-specific behavior, MESP-142, and `frontend/assets`.
+
+Local evidence: Release build `0 warnings / 0 errors`; full backend
+`1,330/1,330` with `0` failures and `0` skips including disposable LocalDB
+SQL safety; Angular `316/316`; Chromium `51/51`; production npm audit has the
+known `4` moderate baseline and full audit the known `7` moderate baseline;
+eight EF contexts report no pending migrations; NuGet vulnerability scans are
+clear across all discovered backend projects; the production bundle succeeds
+with the existing `514.26 kB` initial-budget warning; OpenAPI exposes the
+validation/staged-record/dry-run paths; and `git diff --check` is clean.
+Accepted capability completion remains **24 / 26 = 92.3%** and production
+readiness remains approximately **47% overall / 41% Procurement/P2P**. MESP-142
+remains **OPEN / NOT ACTIVATED**. Historical pre-Slice-3 Migration rows with
+new durable `EvidenceConfirmed` cannot be assumed proven after upgrade;
+production recovery/backfill is governed future work and no blanket `true`
+backfill is authorized. The final runtime is left running for the handoff. No
+Ready, merge, Jira, production, or cutover action is authorized.
+
+## Historical MESP-141 Slice 2 - ACCEPTED / MERGED (13 September 2026)
 
 MESP-141 Slice 2 is activated by GitHub Issue #229 comment `5648967341` from
 verified baseline `bfb45f2bc02ad68865bacf733a3da781c8e432f2`. The bounded branch

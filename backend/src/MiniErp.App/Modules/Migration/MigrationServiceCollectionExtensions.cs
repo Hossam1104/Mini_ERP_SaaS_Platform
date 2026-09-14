@@ -12,6 +12,8 @@ public static class MigrationServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.AddSingleton<MigrationFoundationService>();
         services.AddSingleton<MigrationIntakeService>();
+        services.AddSingleton<MigrationValidationService>();
+        services.AddSingleton<IMigrationReferenceAuthority, UnavailableMigrationReferenceAuthority>();
         return services;
     }
 }

@@ -3,6 +3,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MiniErp.App.Modules.Migration;
+using MiniErp.Infrastructure.Persistence.Adapters;
 
 namespace MiniErp.Infrastructure.Persistence.Modules.Migration;
 
@@ -18,8 +19,10 @@ public static class MigrationPersistenceServiceCollectionExtensions
 
         var optionsBuilder = new DbContextOptionsBuilder();
         configureOptions(optionsBuilder);
-        services.AddSingleton<IMigrationFoundationPersistence>(
-            new MigrationPersistence(optionsBuilder.Options));
+        services.AddSingleton(new MigrationPersistence(optionsBuilder.Options));
+        services.AddSingleton<IMigrationFoundationPersistence>(serviceProvider => serviceProvider.GetRequiredService<MigrationPersistence>());
+        services.AddSingleton<IMigrationValidationPersistence>(serviceProvider => serviceProvider.GetRequiredService<MigrationPersistence>());
+        services.AddSingleton<IMigrationReferenceAuthority, MigrationOwnerReferenceAdapter>();
         return services;
     }
 
