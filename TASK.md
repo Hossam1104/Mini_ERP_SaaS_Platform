@@ -4,8 +4,8 @@ MESP-141 Slice 3 was activated by GitHub Issue #229 comment `5652383036` from
 verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39`.
 The bounded branch is `feat/mesp-141-validation-dry-run`; the final bounded
 R6 remediation source/test work is complete; Draft PR #246 is open against
-`main` and remains unmerged. Exact-head hosted CI verification is required on
-the final pushed remediation head before the handoff comment.
+`main` and remains unmerged. Exact-head hosted CI passed on final head
+`ba968f8fb28abb11adaf135a6613c410c25992f6` in run `34836556633` before the handoff comment.
 
 The bounded capability is the internal `migration-package-v1` canonical row
 parser, immutable Tenant/run-qualified staging, owner-backed validation
@@ -19,7 +19,7 @@ Inventory/Finance/Procurement loading, approval/sign-off, production, cutover,
 onboarding UI, Wafra-specific behavior, MESP-142, and `frontend/assets`.
 
 Local evidence: Release build `0 warnings / 0 errors`; full backend
-`1,329/1,329` with `0` failures and `0` skips including disposable LocalDB
+`1,330/1,330` with `0` failures and `0` skips including disposable LocalDB
 SQL safety; Angular `316/316`; Chromium `51/51`; production npm audit has the
 known `4` moderate baseline and full audit the known `7` moderate baseline;
 eight EF contexts report no pending migrations; NuGet vulnerability scans are
