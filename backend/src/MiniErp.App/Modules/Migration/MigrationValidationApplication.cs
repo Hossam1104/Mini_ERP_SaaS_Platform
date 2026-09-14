@@ -355,11 +355,16 @@ public sealed class MigrationValidationService
                 : MigrationOperationResult<MigrationValidationSummary>.Failure(outcomeResult.Code, outcomeResult.IsSafeToRetry);
 
         var target = completed.IsValid ? MigrationRunStatus.Validated : MigrationRunStatus.ValidationFailed;
+        var currentRun = await foundation.FindRunAsync(tenant!, runId, cancellationToken);
+        if (!currentRun.Succeeded || currentRun.Value is not { } confirmedRun)
+            return currentRun.Kind == MigrationResultKind.UnknownOutcome
+                ? MigrationOperationResult<MigrationValidationSummary>.Unknown(currentRun.Code)
+                : MigrationOperationResult<MigrationValidationSummary>.Failure(currentRun.Code, currentRun.IsSafeToRetry);
         var transitioned = await foundation.TransitionRunAsync(
             requestContext!,
             runId,
             target,
-            validatingRunRecord.Version,
+            confirmedRun.Version,
             cancellationToken);
         if (!transitioned.Succeeded)
             return transitioned.Kind == MigrationResultKind.UnknownOutcome
@@ -611,11 +616,16 @@ public sealed class MigrationValidationService
             return outcome.Kind == MigrationResultKind.UnknownOutcome
                 ? MigrationOperationResult<MigrationValidationSummary>.Unknown(outcome.Code)
                 : MigrationOperationResult<MigrationValidationSummary>.Failure(outcome.Code, outcome.IsSafeToRetry);
+        var currentRun = await foundation.FindRunAsync(tenant, run.RunId, cancellationToken);
+        if (!currentRun.Succeeded || currentRun.Value is not { } confirmedRun)
+            return currentRun.Kind == MigrationResultKind.UnknownOutcome
+                ? MigrationOperationResult<MigrationValidationSummary>.Unknown(currentRun.Code)
+                : MigrationOperationResult<MigrationValidationSummary>.Failure(currentRun.Code, currentRun.IsSafeToRetry);
         var transition = await foundation.TransitionRunAsync(
             requestContext,
             run.RunId,
             MigrationRunStatus.ValidationFailed,
-            runRecord.Version,
+            confirmedRun.Version,
             cancellationToken);
         if (!transition.Succeeded)
             return transition.Kind == MigrationResultKind.UnknownOutcome

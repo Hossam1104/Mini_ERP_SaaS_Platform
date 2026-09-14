@@ -162,6 +162,24 @@ public sealed class MigrationValidationSqlServerSafetyTests
                 tenant, created.Value.RunId, started.Value.AttemptId);
             Assert.Equal(MigrationAttemptOutcome.Succeeded, beforeConfirmation!.Outcome);
             Assert.False(beforeConfirmation.EvidenceConfirmed);
+            var idempotencyBeforeConfirmation = await new MigrationPersistence(options).FindIdempotencyAsync(
+                tenant, MigrationOperationKind.Validation, "sql-r6-attempt");
+            Assert.NotNull(idempotencyBeforeConfirmation);
+            Assert.False(idempotencyBeforeConfirmation!.EvidenceConfirmed);
+            var runBeforeConfirmation = await new MigrationPersistence(options).FindRunAsync(
+                tenant, created.Value.RunId);
+            Assert.False(runBeforeConfirmation!.EvidenceConfirmed);
+
+            var concurrentReplay = await outcomeService.StartAttemptAsync(
+                request,
+                created.Value.RunId,
+                MigrationOperationKind.Validation,
+                "sql-r6-attempt",
+                "sql-r6-attempt-fp");
+            Assert.Equal(MigrationResultKind.UnknownOutcome, concurrentReplay.Kind);
+            Assert.Equal("migration_audit_recovery_required", concurrentReplay.Code);
+            Assert.False(concurrentReplay.IsSafeToRetry);
+            Assert.Single(await new MigrationPersistence(options).ListAttemptsAsync(tenant, created.Value.RunId));
         }
         finally
         {
@@ -173,6 +191,67 @@ public sealed class MigrationValidationSqlServerSafetyTests
         var afterOutcome = await new MigrationPersistence(options).FindAttemptAsync(
             tenant, created.Value.RunId, started.Value.AttemptId);
         Assert.True(afterOutcome!.EvidenceConfirmed);
+        var afterOutcomeIdentity = await new MigrationPersistence(options).FindIdempotencyAsync(
+            tenant, MigrationOperationKind.Validation, "sql-r6-attempt");
+        Assert.True(afterOutcomeIdentity!.EvidenceConfirmed);
+        var afterOutcomeRun = await new MigrationPersistence(options).FindRunAsync(tenant, created.Value.RunId);
+        Assert.True(afterOutcomeRun!.EvidenceConfirmed);
+
+        var replay = await outcomeService.StartAttemptAsync(
+            request,
+            created.Value.RunId,
+            MigrationOperationKind.Validation,
+            "sql-r6-attempt",
+            "sql-r6-attempt-fp");
+        Assert.Equal(MigrationResultKind.Replayed, replay.Kind);
+        Assert.Equal(started.Value.AttemptId, replay.Value!.AttemptId);
+        Assert.Single(await new MigrationPersistence(options).ListAttemptsAsync(tenant, created.Value.RunId));
+
+        var failedAudit = new ToggleAuditSink();
+        var failedAuditPersistence = new MigrationPersistence(options);
+        var failedAuditService = new MigrationFoundationService(failedAuditPersistence, failedAudit);
+        var failedRun = await failedAuditService.CreateRunAsync(
+            request,
+            new MigrationRunCreationRequest(
+                tenantId.Value,
+                new MigrationDefinitionReference("tenant-onboarding.foundation", "1"),
+                new MigrationSourceProfileReference("neutral-source-profile", "1"),
+                MigrationOperationKind.Validation,
+                $"sql-r6-failure-run-{Guid.NewGuid():N}",
+                $"sql-r6-failure-run-fp-{Guid.NewGuid():N}"));
+        Assert.True(failedRun.Succeeded, failedRun.Code);
+        var failedPrepared = await failedAuditService.TransitionRunAsync(
+            request, failedRun.Value!.RunId, MigrationRunStatus.Prepared, failedRun.Value.Version);
+        Assert.True(failedPrepared.Succeeded, failedPrepared.Code);
+        var failedAttempt = await failedAuditService.StartAttemptAsync(
+            request, failedRun.Value.RunId, MigrationOperationKind.Validation, "sql-r6-failure", "sql-r6-failure-fp");
+        Assert.True(failedAttempt.Succeeded, failedAttempt.Code);
+        failedAudit.FailOn("migration.attempt.outcome");
+        var failedOutcome = await failedAuditService.RecordAttemptOutcomeAsync(
+            request,
+            failedRun.Value.RunId,
+            failedAttempt.Value!.AttemptId,
+            MigrationAttemptOutcome.Succeeded,
+            "completed",
+            failedAttempt.Value.Version);
+        Assert.Equal(MigrationResultKind.UnknownOutcome, failedOutcome.Kind);
+        Assert.Equal("migration_audit_evidence_unavailable", failedOutcome.Code);
+        Assert.False(failedOutcome.IsSafeToRetry);
+
+        var failedFresh = new MigrationPersistence(options);
+        var failedRunRecord = await failedFresh.FindRunAsync(tenant, failedRun.Value.RunId);
+        var failedAttemptRecord = await failedFresh.FindAttemptAsync(tenant, failedRun.Value.RunId, failedAttempt.Value.AttemptId);
+        var failedIdentity = await failedFresh.FindIdempotencyAsync(tenant, MigrationOperationKind.Validation, "sql-r6-failure");
+        Assert.False(failedRunRecord!.EvidenceConfirmed);
+        Assert.Equal(MigrationAttemptOutcome.Succeeded, failedAttemptRecord!.Outcome);
+        Assert.False(failedAttemptRecord.EvidenceConfirmed);
+        Assert.False(failedIdentity!.EvidenceConfirmed);
+        var failedReplay = await failedAuditService.StartAttemptAsync(
+            request, failedRun.Value.RunId, MigrationOperationKind.Validation, "sql-r6-failure", "sql-r6-failure-fp");
+        Assert.Equal(MigrationResultKind.UnknownOutcome, failedReplay.Kind);
+        Assert.Equal("migration_audit_recovery_required", failedReplay.Code);
+        Assert.False(failedReplay.IsSafeToRetry);
+        Assert.Single(await failedFresh.ListAttemptsAsync(tenant, failedRun.Value.RunId));
     }
 
     [Fact]

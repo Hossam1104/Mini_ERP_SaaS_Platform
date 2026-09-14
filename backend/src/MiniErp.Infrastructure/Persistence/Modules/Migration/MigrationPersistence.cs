@@ -461,6 +461,19 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
                 "migration_attempt_already_finished");
         }
 
+        // The attempt outcome, its idempotency identity and the owning run form
+        // one evidence lineage. Invalidate all three before the single
+        // SaveChanges transaction so replay cannot observe a terminal outcome
+        // behind stale certainty.
+        runEntity.SetEvidenceConfirmed(false);
+        var identity = await db.Idempotency.SingleOrDefaultAsync(
+            item => item.RunId == command.RunId
+                && item.AttemptId == command.AttemptId
+                && item.Operation == entity.Operation
+                && item.IdempotencyKey == entity.IdempotencyKey,
+            cancellationToken);
+        identity?.SetEvidenceConfirmed(false);
+
         try
         {
             await db.SaveChangesAsync(cancellationToken);
@@ -789,6 +802,10 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
             ? MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
                 MigrationPersistenceOutcome.Conflict,
                 "migration_idempotency_orphaned")
+            : !replayAttempt.EvidenceConfirmed
+                ? MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
+                    MigrationPersistenceOutcome.UnknownOutcome,
+                    "migration_audit_recovery_required")
             : MigrationPersistenceResult<MigrationAttemptRecord>.Replay(replayAttempt);
     }
 
