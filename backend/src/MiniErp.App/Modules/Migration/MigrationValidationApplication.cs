@@ -19,6 +19,7 @@ public sealed class MigrationValidationService
     private readonly IMigrationValidationPersistence persistence;
     private readonly IPrivateObjectStorage privateStorage;
     private readonly ICurrentOrganizationScopeResolver scopeResolver;
+    private readonly IOrganizationScopeOwnershipResolver scopeOwnership;
     private readonly IMigrationReferenceAuthority references;
     private readonly TimeProvider timeProvider;
 
@@ -28,6 +29,7 @@ public sealed class MigrationValidationService
         IPrivateObjectStorage privateStorage,
         ICurrentOrganizationScopeResolver scopeResolver,
         IMigrationReferenceAuthority references,
+        IOrganizationScopeOwnershipResolver scopeOwnership,
         TimeProvider? timeProvider = null)
     {
         this.foundation = foundation ?? throw new ArgumentNullException(nameof(foundation));
@@ -35,6 +37,7 @@ public sealed class MigrationValidationService
         this.privateStorage = privateStorage ?? throw new ArgumentNullException(nameof(privateStorage));
         this.scopeResolver = scopeResolver ?? throw new ArgumentNullException(nameof(scopeResolver));
         this.references = references ?? throw new ArgumentNullException(nameof(references));
+        this.scopeOwnership = scopeOwnership ?? throw new ArgumentNullException(nameof(scopeOwnership));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -52,6 +55,9 @@ public sealed class MigrationValidationService
         var intake = await persistence.FindIntakeAsync(tenant!, runId, cancellationToken);
         if (runRecord is null || intake is null)
             return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_run_not_found");
+
+        if (!runRecord.EvidenceConfirmed)
+            return MigrationOperationResult<MigrationValidationSummary>.Unknown("migration_audit_recovery_required");
 
         if (!IsCurrentScopeAuthorized(tenant!, intake.Source))
             return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_source_scope_denied");
@@ -225,12 +231,14 @@ public sealed class MigrationValidationService
             .SelectMany(group => group)
             .Select(row => row.SourceSequence)
             .ToHashSet();
-        var duplicateBusinessKeys = parsed.Rows
-            .Select(row => (Row: row, Key: MigrationValidationRules.BusinessKey(row)))
-            .Where(item => item.Key is not null)
-            .GroupBy(item => item.Key!, StringComparer.Ordinal)
+        var businessIdentities = parsed.Rows.ToDictionary(
+            row => row.SourceSequence,
+            row => references.ResolveBusinessIdentity(row));
+        var duplicateBusinessKeys = businessIdentities
+            .Where(item => item.Value.State == MigrationBusinessIdentityState.Valid && item.Value.Key is not null)
+            .GroupBy(item => item.Value.Key!, StringComparer.Ordinal)
             .Where(group => group.Count() > 1)
-            .SelectMany(group => group.Select(item => item.Row.SourceSequence))
+            .SelectMany(group => group.Select(item => item.Key))
             .ToHashSet();
 
         foreach (var row in parsed.Rows.OrderBy(item => item.SourceSequence))
@@ -240,7 +248,7 @@ public sealed class MigrationValidationService
             foreach (var rule in MigrationValidationRules.Validate(row))
                 MigrationValidationResultPolicy.AddFinding(rowFindings, codes, stagedPackage.Records.Single(item => item.SourceSequence == row.SourceSequence), attempt, rule.Category, MigrationFindingSeverity.Error, rule.Code, rule.Message);
 
-            if (ScopeFinding(authorizedScope, row) is { } scopeFinding)
+            if (ScopeFinding(tenant!, authorizedScope, row) is { } scopeFinding)
                 MigrationValidationResultPolicy.AddFinding(
                     rowFindings,
                     codes,
@@ -253,6 +261,22 @@ public sealed class MigrationValidationService
 
             if (duplicateSourceIds.Contains(row.SourceSequence) || duplicateBusinessKeys.Contains(row.SourceSequence))
                 MigrationValidationResultPolicy.AddFinding(rowFindings, codes, stagedPackage.Records.Single(item => item.SourceSequence == row.SourceSequence), attempt, MigrationFindingCategory.Duplicate, MigrationFindingSeverity.Error, "migration_duplicate_source_identity", "The canonical business identity occurs more than once in this package.");
+
+            var businessIdentity = businessIdentities[row.SourceSequence];
+            if (businessIdentity.State is MigrationBusinessIdentityState.Invalid or MigrationBusinessIdentityState.Unavailable)
+            {
+                MigrationValidationResultPolicy.AddFinding(
+                    rowFindings,
+                    codes,
+                    stagedPackage.Records.Single(item => item.SourceSequence == row.SourceSequence),
+                    attempt,
+                    MigrationFindingCategory.Reference,
+                    businessIdentity.State == MigrationBusinessIdentityState.Invalid
+                        ? MigrationFindingSeverity.Error
+                        : MigrationFindingSeverity.Warning,
+                    businessIdentity.Code ?? "migration_reference_authority_unavailable",
+                    businessIdentity.Message ?? "The owner-module identity authority could not verify this business identity.");
+            }
 
             try
             {
@@ -361,6 +385,9 @@ public sealed class MigrationValidationService
         var intake = await persistence.FindIntakeAsync(tenant!, runId, cancellationToken);
         if (runRecord is null || intake is null)
             return MigrationOperationResult<MigrationDryRunPreview>.Rejected("migration_validation_required");
+
+        if (!runRecord.EvidenceConfirmed)
+            return MigrationOperationResult<MigrationDryRunPreview>.Unknown("migration_audit_recovery_required");
 
         if (!IsCurrentScopeAuthorized(tenant!, intake.Source))
             return MigrationOperationResult<MigrationDryRunPreview>.Rejected("migration_source_scope_denied");
@@ -602,28 +629,17 @@ public sealed class MigrationValidationService
         if (source.TenantId != tenant.TenantId)
             return false;
 
-        var resolved = scopeResolver.ResolveCurrent(tenant);
-        return resolved.Allowed
-            && resolved.Scope is { } authorized
-            && IsScopeWithin(authorized, source.CompanyId, source.BranchId, source.WarehouseId);
+        var authorized = scopeResolver.ResolveCurrent(tenant);
+        var requested = ResolveRequestedScope(tenant, source.CompanyId, source.BranchId, source.WarehouseId);
+        return authorized.Allowed
+            && authorized.Scope is { } authorizedScope
+            && requested.Allowed
+            && requested.Scope is { } requestedScope
+            && authorizedScope.ContainsAuthorizedDescendant(requestedScope);
     }
 
-    private static bool IsScopeWithin(
-        TenantWorkScope authorized,
-        Guid? companyId,
-        Guid? branchId,
-        Guid? warehouseId)
-    {
-        if (authorized.WarehouseId is { } warehouse)
-            return warehouseId == warehouse;
-        if (authorized.BranchId is { } branch)
-            return companyId == authorized.CompanyId && branchId == branch;
-        if (authorized.CompanyId is { } company)
-            return companyId == company;
-        return true;
-    }
-
-    private static MigrationReferenceCheck? ScopeFinding(
+    private MigrationReferenceCheck? ScopeFinding(
+        TenantContext tenant,
         TenantWorkScope authorizedScope,
         MigrationParsedCanonicalRow row)
     {
@@ -644,20 +660,32 @@ public sealed class MigrationValidationService
         try
         {
             var requested = new TenantWorkScopeRequest(companyId, branchId, warehouseId);
-            var allowed = authorizedScope.WarehouseId is { } authorizedWarehouse
-                ? requested.WarehouseId == authorizedWarehouse
-                : authorizedScope.BranchId is { } authorizedBranch
-                    ? requested.BranchId == authorizedBranch && requested.CompanyId == authorizedScope.CompanyId
-                    : authorizedScope.CompanyId is { } authorizedCompany
-                        ? requested.CompanyId == authorizedCompany
-                        : true;
-            return allowed
+            var resolved = scopeOwnership.Resolve(tenant, requested);
+            return resolved.Allowed
+                && resolved.Scope is { } candidate
+                && authorizedScope.ContainsAuthorizedDescendant(candidate)
                 ? null
                 : new(MigrationReferenceState.Missing, MigrationFindingCategory.Scope, "migration_row_scope_denied", "The row organization scope is outside the current authorized scope.");
         }
         catch (ArgumentException)
         {
             return new(MigrationReferenceState.Missing, MigrationFindingCategory.Scope, "migration_row_scope_invalid", "The row organization scope hierarchy is invalid.");
+        }
+    }
+
+    private TenantWorkScopeResolution ResolveRequestedScope(
+        TenantContext tenant,
+        Guid? companyId,
+        Guid? branchId,
+        Guid? warehouseId)
+    {
+        try
+        {
+            return scopeOwnership.Resolve(tenant, new TenantWorkScopeRequest(companyId, branchId, warehouseId));
+        }
+        catch (ArgumentException)
+        {
+            return TenantWorkScopeResolution.Denied("scope_invalid");
         }
     }
 

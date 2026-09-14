@@ -101,6 +101,66 @@ public sealed class MigrationOwnerReferenceAdapterTests
         Assert.Contains(findings, item => item.Code == "migration_fiscal_period_invalid");
     }
 
+    [Fact]
+    public void Business_identity_resolution_uses_each_owner_policy_and_rejects_invalid_values()
+    {
+        var (tenant, _) = Context();
+        var adapter = Create(tenant, new ConfiguredFinanceCompanyProvider([]));
+        var product = adapter.ResolveBusinessIdentity(new MigrationParsedCanonicalRow(
+            1, "product", MigrationCanonicalRecordType.Product,
+            new MigrationProductPayload("  Abc-1  "), "{}"));
+        var productCase = adapter.ResolveBusinessIdentity(new MigrationParsedCanonicalRow(
+            2, "product-case", MigrationCanonicalRecordType.Product,
+            new MigrationProductPayload("ABC-1"), "{}"));
+        var supplier = adapter.ResolveBusinessIdentity(new MigrationParsedCanonicalRow(
+            3, "supplier", MigrationCanonicalRecordType.Supplier,
+            new MigrationSupplierPayload("  sup-1  "), "{}"));
+        var customer = adapter.ResolveBusinessIdentity(new MigrationParsedCanonicalRow(
+            4, "customer", MigrationCanonicalRecordType.Customer,
+            new MigrationCustomerPayload("  cus-1  "), "{}"));
+        var invalid = adapter.ResolveBusinessIdentity(new MigrationParsedCanonicalRow(
+            5, "invalid", MigrationCanonicalRecordType.Product,
+            new MigrationProductPayload("bad\u0001sku"), "{}"));
+
+        Assert.Equal(product.Key, productCase.Key);
+        Assert.StartsWith("supplier:", supplier.Key, StringComparison.Ordinal);
+        Assert.StartsWith("customer:", customer.Key, StringComparison.Ordinal);
+        Assert.Equal(MigrationBusinessIdentityState.Invalid, invalid.State);
+        Assert.Equal("migration_business_identity_invalid", invalid.Code);
+    }
+
+    [Fact]
+    public async Task Inactive_finance_company_blocks_every_financial_opening_before_owner_checks()
+    {
+        var (tenant, request) = Context();
+        var companyId = Guid.NewGuid();
+        var adapter = Create(
+            tenant,
+            new ConfiguredFinanceCompanyProvider([Company(tenant, companyId, "SAR", active: false)]),
+            currencies: Stub<IMasterDataCurrencyPaymentTermPersistence>(method => method.Name == "ListCurrenciesAsync" ? (object)new[] { Currency(tenant, "SAR") } : null));
+        var date = new DateOnly(2026, 1, 1);
+        var rows = new[]
+        {
+            new MigrationParsedCanonicalRow(1, "inventory", MigrationCanonicalRecordType.InventoryOpening,
+                new MigrationInventoryOpeningPayload(companyId, null, null, null, null, 1m, 10m, "SAR", date), "{}"),
+            new MigrationParsedCanonicalRow(2, "gl", MigrationCanonicalRecordType.GlOpening,
+                new MigrationGlOpeningPayload(companyId, Guid.NewGuid(), 10m, 0m, "SAR", date), "{}"),
+            new MigrationParsedCanonicalRow(3, "ap", MigrationCanonicalRecordType.ApOpening,
+                new MigrationApOpeningPayload(companyId, null, Guid.NewGuid(), 10m, "SAR", date), "{}"),
+            new MigrationParsedCanonicalRow(4, "ar", MigrationCanonicalRecordType.ArOpening,
+                new MigrationArOpeningPayload(companyId, null, Guid.NewGuid(), 10m, "SAR", date), "{}"),
+            new MigrationParsedCanonicalRow(5, "cash", MigrationCanonicalRecordType.CashBankOpening,
+                new MigrationCashBankOpeningPayload(companyId, Guid.NewGuid(), Guid.NewGuid(), 10m, "SAR", date), "{}")
+        };
+
+        foreach (var row in rows)
+        {
+            var findings = await adapter.ValidateAsync(request, row);
+            Assert.Contains(findings, item => item.Code == "migration_company_inactive");
+            Assert.DoesNotContain(findings, item => item.Code is "migration_account_missing" or "migration_fiscal_period_invalid" or "migration_exchange_rate_missing");
+        }
+    }
+
     private static MigrationOwnerReferenceAdapter Create(
         TenantContext tenant,
         IFinanceCompanyProvider companies,
@@ -135,8 +195,8 @@ public sealed class MigrationOwnerReferenceAdapterTests
             "migration.validation.start"));
     }
 
-    private static FinanceCompanyOption Company(TenantContext tenant, Guid companyId, string currency) =>
-        new(tenant.TenantId.Value, companyId, "Company", currency);
+    private static FinanceCompanyOption Company(TenantContext tenant, Guid companyId, string currency, bool active = true) =>
+        new(tenant.TenantId.Value, companyId, "Company", currency, IsActive: active);
 
     private static MasterDataCurrencyRecord Currency(TenantContext tenant, string code) =>
         new(Guid.NewGuid(), tenant.TenantId, code, new LocalizedName(code), MasterDataLifecycleState.Active, 1, [1]);

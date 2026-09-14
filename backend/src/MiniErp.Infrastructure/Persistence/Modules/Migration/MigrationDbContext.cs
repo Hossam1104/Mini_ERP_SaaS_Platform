@@ -60,6 +60,7 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         run.Property(item => item.Status).IsRequired();
         run.Property(item => item.CreatedAt).IsRequired();
         run.Property(item => item.UpdatedAt).IsRequired();
+        run.Property(item => item.EvidenceConfirmed).IsRequired();
         ConfigureVersion(run.Property(item => item.Version));
         run.HasIndex(item => new { item.TenantId, item.RunId }).IsUnique();
         run.HasQueryFilter(item => item.TenantId == TrustedTenantId);
@@ -79,6 +80,7 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         attempt.Property(item => item.StartedAt).IsRequired();
         attempt.Property(item => item.FinishedAt).IsRequired(false);
         attempt.Property(item => item.SafeOutcomeCode).HasMaxLength(128).IsRequired(false);
+        attempt.Property(item => item.EvidenceConfirmed).IsRequired();
         ConfigureVersion(attempt.Property(item => item.Version));
         attempt.HasAlternateKey(item => new { item.TenantId, item.RunId, item.AttemptId });
         attempt.HasIndex(item => new { item.TenantId, item.RunId, item.Sequence }).IsUnique();
@@ -109,6 +111,7 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         idempotency.Property(item => item.ResultKind).IsRequired();
         idempotency.Property(item => item.ResultCode).HasMaxLength(128).IsRequired();
         idempotency.Property(item => item.CreatedAt).IsRequired();
+        idempotency.Property(item => item.EvidenceConfirmed).IsRequired();
         ConfigureVersion(idempotency.Property(item => item.Version));
         idempotency.HasIndex(item => new { item.TenantId, item.RunId, item.Operation, item.IdempotencyKey });
         idempotency.HasOne<MigrationRunEntity>()

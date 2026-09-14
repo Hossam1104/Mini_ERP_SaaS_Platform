@@ -10,6 +10,30 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<bool>(
+                name: "EvidenceConfirmed",
+                schema: "migration",
+                table: "MigrationRuns",
+                type: "bit",
+                nullable: false,
+                defaultValue: false);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "EvidenceConfirmed",
+                schema: "migration",
+                table: "MigrationAttempts",
+                type: "bit",
+                nullable: false,
+                defaultValue: false);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "EvidenceConfirmed",
+                schema: "migration",
+                table: "MigrationIdempotency",
+                type: "bit",
+                nullable: false,
+                defaultValue: false);
+
             migrationBuilder.AddColumn<int>(
                 name: "AcceptedCount",
                 schema: "migration",
@@ -94,6 +118,21 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropColumn(
+                name: "EvidenceConfirmed",
+                schema: "migration",
+                table: "MigrationRuns");
+
+            migrationBuilder.DropColumn(
+                name: "EvidenceConfirmed",
+                schema: "migration",
+                table: "MigrationAttempts");
+
+            migrationBuilder.DropColumn(
+                name: "EvidenceConfirmed",
+                schema: "migration",
+                table: "MigrationIdempotency");
+
             migrationBuilder.DropColumn(
                 name: "AcceptedCount",
                 schema: "migration",

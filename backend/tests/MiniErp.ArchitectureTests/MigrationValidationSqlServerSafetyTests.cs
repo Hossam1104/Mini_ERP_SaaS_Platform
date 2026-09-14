@@ -109,7 +109,8 @@ public sealed class MigrationValidationSqlServerSafetyTests
             tenant,
             "tenant.migration.run.create");
         var persistence = new MigrationPersistence(options);
-        var foundation = new MigrationFoundationService(persistence, new NoopAuditSink());
+        var audit = new ToggleAuditSink();
+        var foundation = new MigrationFoundationService(persistence, audit);
         var definition = new MigrationDefinitionReference("tenant-onboarding.foundation", "1");
         var profile = new MigrationSourceProfileReference("neutral-source-profile", "1");
         var objectId = Guid.NewGuid();
@@ -133,7 +134,7 @@ public sealed class MigrationValidationSqlServerSafetyTests
             persistence,
             storage,
             new TenantWideScopeResolver(),
-            new NoopAuditSink()).RegisterAsync(
+            audit).RegisterAsync(
                 request,
                 new MigrationIntakeRegistrationRequest(definition, profile, MigrationOperationKind.Validation, objectId),
                 $"sql-validation-service-intake-{Guid.NewGuid():N}");
@@ -145,7 +146,8 @@ public sealed class MigrationValidationSqlServerSafetyTests
             persistence,
             storage,
             new TenantWideScopeResolver(),
-            new NoopReferenceAuthority());
+            new NoopReferenceAuthority(),
+            new TenantWideScopeResolver());
 
         var validationResults = await Task.WhenAll(Enumerable.Range(0, 8).Select(
             _ => service.ValidateAsync(request, runId, "sql-validation-service-key")));
@@ -187,6 +189,72 @@ public sealed class MigrationValidationSqlServerSafetyTests
             Assert.Equal(MigrationPlannedAction.Create, item.PlannedAction);
             Assert.Equal("would be evaluated by the owning module", item.Projection);
         });
+
+        async Task<Guid> RegisterRunAsync(string key)
+        {
+            var next = await new MigrationIntakeService(
+                persistence,
+                storage,
+                new TenantWideScopeResolver(),
+                audit).RegisterAsync(
+                    request,
+                    new MigrationIntakeRegistrationRequest(definition, profile, MigrationOperationKind.Validation, objectId),
+                    key);
+            Assert.True(next.Succeeded, next.Code);
+            return next.Value!.Run.RunId;
+        }
+
+        audit.FailOn("migration.attempt.start");
+        var startFailureKey = "sql-validation-audit-start";
+        var startFailureRun = await RegisterRunAsync("sql-validation-audit-start-intake");
+        var startFailure = await service.ValidateAsync(request, startFailureRun, startFailureKey);
+        Assert.Equal(MigrationResultKind.UnknownOutcome, startFailure.Kind);
+        Assert.Equal("migration_audit_evidence_unavailable", startFailure.Code);
+        Assert.False(startFailure.IsSafeToRetry);
+        Assert.Single(await persistence.ListAttemptsAsync(tenant, startFailureRun), item => item.Operation == MigrationOperationKind.Validation);
+        var startFailureFresh = new MigrationPersistence(options);
+        var startIdentity = await startFailureFresh.FindIdempotencyAsync(tenant, MigrationOperationKind.Validation, startFailureKey);
+        Assert.NotNull(startIdentity);
+        Assert.False(startIdentity!.EvidenceConfirmed);
+        audit.Reset();
+        var startRetry = await service.ValidateAsync(request, startFailureRun, startFailureKey);
+        Assert.Equal(MigrationResultKind.UnknownOutcome, startRetry.Kind);
+        Assert.Equal("migration_audit_recovery_required", startRetry.Code);
+        Assert.False(startRetry.IsSafeToRetry);
+        Assert.Single(await startFailureFresh.ListAttemptsAsync(tenant, startFailureRun), item => item.Operation == MigrationOperationKind.Validation);
+
+        var dryRunFailureRun = await RegisterRunAsync("sql-validation-audit-dry-intake");
+        var dryValidation = await service.ValidateAsync(request, dryRunFailureRun, "sql-validation-audit-dry-validation");
+        Assert.True(dryValidation.Succeeded, dryValidation.Code);
+        const string dryRunFailureKey = "sql-validation-audit-dry-run";
+        audit.FailOn("migration.attempt.outcome");
+        var dryFailure = await service.DryRunAsync(request, dryRunFailureRun, dryRunFailureKey);
+        Assert.Equal(MigrationResultKind.UnknownOutcome, dryFailure.Kind);
+        Assert.Equal("migration_audit_evidence_unavailable", dryFailure.Code);
+        Assert.False(dryFailure.IsSafeToRetry);
+        Assert.NotNull(await new MigrationPersistence(options).FindLatestDryRunAsync(tenant, dryRunFailureRun));
+        audit.Reset();
+        var dryRetry = await service.DryRunAsync(request, dryRunFailureRun, dryRunFailureKey);
+        Assert.Equal(MigrationResultKind.UnknownOutcome, dryRetry.Kind);
+        Assert.Equal("migration_audit_recovery_required", dryRetry.Code);
+        Assert.False(dryRetry.IsSafeToRetry);
+        Assert.Single(await new MigrationPersistence(options).ListAttemptsAsync(tenant, dryRunFailureRun), item => item.Operation == MigrationOperationKind.DryRun);
+
+        var transitionFailureRun = await RegisterRunAsync("sql-validation-audit-transition-intake");
+        audit.FailOn("migration.run.transition", occurrence: 3);
+        var transitionFailure = await service.ValidateAsync(request, transitionFailureRun, "sql-validation-audit-transition");
+        Assert.Equal(MigrationResultKind.UnknownOutcome, transitionFailure.Kind);
+        Assert.Equal("migration_audit_evidence_unavailable", transitionFailure.Code);
+        Assert.False(transitionFailure.IsSafeToRetry);
+        var transitionRun = await new MigrationPersistence(options).FindRunAsync(tenant, transitionFailureRun);
+        Assert.NotNull(transitionRun);
+        Assert.Equal(MigrationRunStatus.Validated, transitionRun!.Status);
+        Assert.False(transitionRun.EvidenceConfirmed);
+        audit.Reset();
+        var transitionRetry = await service.ValidateAsync(request, transitionFailureRun, "sql-validation-audit-transition");
+        Assert.Equal(MigrationResultKind.UnknownOutcome, transitionRetry.Kind);
+        Assert.Equal("migration_audit_recovery_required", transitionRetry.Code);
+        Assert.False(transitionRetry.IsSafeToRetry);
     }
 
     [Fact]
@@ -232,7 +300,8 @@ public sealed class MigrationValidationSqlServerSafetyTests
             persistence,
             storage,
             resolver,
-            new NoopReferenceAuthority());
+            new NoopReferenceAuthority(),
+            resolver);
         var runId = intake.Value!.Run.RunId;
 
         Assert.True(await service.IsResourceAuthorizedAsync(tenant, runId));
@@ -278,18 +347,24 @@ public sealed class MigrationValidationSqlServerSafetyTests
             Task.FromResult<IReadOnlyList<MigrationReferenceCheck>>([]);
     }
 
-    private sealed class TenantWideScopeResolver : ICurrentOrganizationScopeResolver
+    private sealed class TenantWideScopeResolver : ICurrentOrganizationScopeResolver, IOrganizationScopeOwnershipResolver
     {
         public TenantWorkScopeResolution ResolveCurrent(TenantContext trustedTenantContext) =>
             TenantWorkScopeResolution.Resolved(TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, TenantWorkScopeRequest.TenantWide()));
+
+        public TenantWorkScopeResolution Resolve(TenantContext trustedTenantContext, TenantWorkScopeRequest requestedScope) =>
+            TenantWorkScopeResolution.Resolved(TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, requestedScope));
     }
 
-    private sealed class MutableScopeResolver(TenantWorkScopeRequest current) : ICurrentOrganizationScopeResolver
+    private sealed class MutableScopeResolver(TenantWorkScopeRequest current) : ICurrentOrganizationScopeResolver, IOrganizationScopeOwnershipResolver
     {
         public TenantWorkScopeRequest Current { get; set; } = current;
 
         public TenantWorkScopeResolution ResolveCurrent(TenantContext trustedTenantContext) =>
             TenantWorkScopeResolution.Resolved(TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, Current));
+
+        public TenantWorkScopeResolution Resolve(TenantContext trustedTenantContext, TenantWorkScopeRequest requestedScope) =>
+            TenantWorkScopeResolution.Resolved(TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, requestedScope));
     }
 
     private sealed class StaticPrivateObjectStorage : IPrivateObjectStorage
@@ -330,5 +405,34 @@ public sealed class MigrationValidationSqlServerSafetyTests
     private sealed class NoopAuditSink : IFoundationAuditEvidenceSink
     {
         public ValueTask AppendAsync(FoundationAuditEvidence evidence, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+    }
+
+    private sealed class ToggleAuditSink : IFoundationAuditEvidenceSink
+    {
+        private string? failedOperation;
+        private int occurrence;
+        private int failAt = 1;
+
+        public void FailOn(string operation, int occurrence = 1)
+        {
+            failedOperation = operation;
+            failAt = occurrence;
+            this.occurrence = 0;
+        }
+
+        public void Reset()
+        {
+            failedOperation = null;
+            occurrence = 0;
+            failAt = 1;
+        }
+
+        public ValueTask AppendAsync(FoundationAuditEvidence evidence, CancellationToken cancellationToken = default)
+        {
+            if (string.Equals(evidence.OperationId, failedOperation, StringComparison.Ordinal)
+                && ++occurrence == failAt)
+                throw new FoundationAuditAppendException("evidence_store_unavailable");
+            return ValueTask.CompletedTask;
+        }
     }
 }

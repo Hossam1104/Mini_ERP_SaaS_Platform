@@ -1075,7 +1075,8 @@ public sealed record MigrationRunRecord(
     MigrationRunStatus Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    byte[] Version);
+    byte[] Version,
+    bool EvidenceConfirmed = false);
 
 /// <summary>Persistence record for one explicit retry-lineage attempt.</summary>
 public sealed record MigrationAttemptRecord(
@@ -1091,7 +1092,8 @@ public sealed record MigrationAttemptRecord(
     DateTimeOffset StartedAt,
     DateTimeOffset? FinishedAt,
     string? SafeOutcomeCode,
-    byte[] Version);
+    byte[] Version,
+    bool EvidenceConfirmed = false);
 
 /// <summary>Persistence record containing identifiers only, never raw payload.</summary>
 public sealed record MigrationIdempotencyRecord(
@@ -1104,7 +1106,15 @@ public sealed record MigrationIdempotencyRecord(
     MigrationResultKind ResultKind,
     string ResultCode,
     DateTimeOffset CreatedAt,
-    byte[] Version);
+    byte[] Version,
+    bool EvidenceConfirmed = false);
+
+/// <summary>Identifies one durable Migration mutation whose evidence state is being changed.</summary>
+public sealed record MigrationEvidenceReference(
+    Guid RunId,
+    MigrationOperationKind? Operation = null,
+    string? IdempotencyKey = null,
+    Guid? AttemptId = null);
 
 /// <summary>Atomic creation contract for a Tenant-owned run and its key.</summary>
 public sealed record CreateMigrationRunCommand(
@@ -1244,6 +1254,19 @@ public interface IMigrationFoundationPersistence
         MigrationOperationKind operation,
         string idempotencyKey,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Confirms or preserves the durable evidence state for an existing
+    /// Migration mutation. The default is for non-SQL test seams; the
+    /// provider implementation persists the state on run/attempt/idempotency
+    /// rows.
+    /// </summary>
+    Task<MigrationPersistenceResult<bool>> SetEvidenceStateAsync(
+        TenantContext tenantContext,
+        MigrationEvidenceReference reference,
+        bool confirmed,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(MigrationPersistenceResult<bool>.Success(true));
 }
 
 /// <summary>
@@ -1337,7 +1360,19 @@ public sealed class MigrationFoundationService
             cancellationToken);
         if (!evidence)
         {
+            await SetEvidenceStateAsync(requestContext, new(persistedRun.RunId, request.Operation, key.Value), confirmed: false, cancellationToken);
             return EvidenceFailure<MigrationRunRecord>(saved);
+        }
+
+        if (saved.Outcome is MigrationPersistenceOutcome.Succeeded or MigrationPersistenceOutcome.Replayed
+            && !await SetEvidenceStateAsync(requestContext, new(persistedRun.RunId, request.Operation, key.Value), confirmed: true, cancellationToken))
+            return MigrationOperationResult<MigrationRunRecord>.Unknown(EvidenceUnavailableCode);
+
+        if (saved.Value is not null && requestContext.TenantContext is { } confirmedTenant)
+        {
+            var refreshed = await persistence.FindRunAsync(confirmedTenant, saved.Value.RunId, cancellationToken);
+            if (refreshed is not null)
+                saved = saved with { Value = refreshed };
         }
 
         return saved.Outcome switch
@@ -1414,7 +1449,27 @@ public sealed class MigrationFoundationService
             cancellationToken);
         if (!evidence)
         {
+            await SetEvidenceStateAsync(
+                requestContext,
+                new(runId, operation, key.Value, attempt?.AttemptId),
+                confirmed: false,
+                cancellationToken);
             return EvidenceFailure<MigrationAttemptRecord>(saved);
+        }
+
+        if (saved.Outcome is MigrationPersistenceOutcome.Succeeded or MigrationPersistenceOutcome.Replayed
+            && !await SetEvidenceStateAsync(
+                requestContext,
+                new(runId, operation, key.Value, attempt?.AttemptId),
+                confirmed: true,
+                cancellationToken))
+            return MigrationOperationResult<MigrationAttemptRecord>.Unknown(EvidenceUnavailableCode);
+
+        if (saved.Value is not null && requestContext.TenantContext is { } confirmedTenant)
+        {
+            var refreshed = await persistence.FindAttemptAsync(confirmedTenant, saved.Value.RunId, saved.Value.AttemptId, cancellationToken);
+            if (refreshed is not null)
+                saved = saved with { Value = refreshed };
         }
 
         return MapPersistence(saved);
@@ -1465,7 +1520,19 @@ public sealed class MigrationFoundationService
             cancellationToken);
         if (!evidence)
         {
+            await SetEvidenceStateAsync(requestContext, new(runId), confirmed: false, cancellationToken);
             return EvidenceFailure<MigrationRunRecord>(saved);
+        }
+
+        if (saved.Outcome is MigrationPersistenceOutcome.Succeeded or MigrationPersistenceOutcome.Replayed
+            && !await SetEvidenceStateAsync(requestContext, new(runId), confirmed: true, cancellationToken))
+            return MigrationOperationResult<MigrationRunRecord>.Unknown(EvidenceUnavailableCode);
+
+        if (saved.Value is not null)
+        {
+            var refreshed = await persistence.FindRunAsync(tenantContext, saved.Value.RunId, cancellationToken);
+            if (refreshed is not null)
+                saved = saved with { Value = refreshed };
         }
 
         return MapPersistence(saved);
@@ -1517,7 +1584,27 @@ public sealed class MigrationFoundationService
             cancellationToken);
         if (!evidence)
         {
+            await SetEvidenceStateAsync(
+                requestContext,
+                new(runId, attempt?.Operation, attempt?.IdempotencyKey?.Value, attemptId),
+                confirmed: false,
+                cancellationToken);
             return EvidenceFailure<MigrationAttemptRecord>(saved);
+        }
+
+        if (saved.Outcome is MigrationPersistenceOutcome.Succeeded or MigrationPersistenceOutcome.Replayed
+            && !await SetEvidenceStateAsync(
+                requestContext,
+                new(runId, attempt?.Operation, attempt?.IdempotencyKey?.Value, attemptId),
+                confirmed: true,
+                cancellationToken))
+            return MigrationOperationResult<MigrationAttemptRecord>.Unknown(EvidenceUnavailableCode);
+
+        if (saved.Value is not null)
+        {
+            var refreshed = await persistence.FindAttemptAsync(tenantContext, saved.Value.RunId, saved.Value.AttemptId, cancellationToken);
+            if (refreshed is not null)
+                saved = saved with { Value = refreshed };
         }
 
         return MapPersistence(saved);
@@ -1614,6 +1701,19 @@ public sealed class MigrationFoundationService
             or MigrationPersistenceOutcome.UnknownOutcome
             ? MigrationOperationResult<T>.Unknown(EvidenceUnavailableCode)
             : MigrationOperationResult<T>.Failure(EvidenceUnavailableCode, safeToRetry: true);
+
+    private async Task<bool> SetEvidenceStateAsync(
+        FoundationRequestContext requestContext,
+        MigrationEvidenceReference reference,
+        bool confirmed,
+        CancellationToken cancellationToken)
+    {
+        if (requestContext.TenantContext is not { } tenantContext)
+            return false;
+
+        var result = await persistence.SetEvidenceStateAsync(tenantContext, reference, confirmed, cancellationToken);
+        return result.Succeeded;
+    }
 
     private static MigrationOperationResult<T> MapPersistence<T>(MigrationPersistenceResult<T> saved) => saved.Outcome switch
     {

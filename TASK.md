@@ -1,9 +1,9 @@
-## MESP-141 Slice 3 - REMEDIATION IMPLEMENTED / DRAFT / AWAITING SOL RE-ACCEPTANCE (13 September 2026)
+## MESP-141 Slice 3 - SECOND SOL REMEDIATION IMPLEMENTED / DRAFT / AWAITING SOL RE-ACCEPTANCE (14 September 2026)
 
 MESP-141 Slice 3 was activated by GitHub Issue #229 comment `5652383036` from
 verified `origin/main` baseline `2c82c3980ab01e50bee3f3584c597e1822f00b39`.
-The bounded branch is `feat/mesp-141-validation-dry-run`; the bounded Sol
-remediation source/test commit is `0adafa3`; Draft PR #246 is open against
+The bounded branch is `feat/mesp-141-validation-dry-run`; the second bounded
+Sol remediation source/test work is complete; Draft PR #246 is open against
 `main` and remains unmerged. Exact-head hosted CI verification is required on
 the final pushed remediation head before the handoff comment.
 
@@ -12,15 +12,18 @@ parser, immutable Tenant/run-qualified staging, owner-backed validation
 findings and Accepted/Rejected/Quarantined classification, and durable
 zero-business-effect dry-run preview. It includes lifecycle, idempotency,
 antiforgery, audit, authorization, safe read surfaces, and SQL Server race
-coverage. It excludes authoritative Product/Supplier/Customer/Inventory/
-Finance/Procurement loading, approval/sign-off, production, cutover, onboarding
-UI, Wafra-specific behavior, MESP-142, and `frontend/assets`.
+coverage. The second remediation closes S3-R6 audit-unproved replay safety,
+S3-R7 canonical organization and owner identity authority, and S3-R8 inactive
+Finance-company blocking. It excludes authoritative Product/Supplier/Customer/
+Inventory/Finance/Procurement loading, approval/sign-off, production, cutover,
+onboarding UI, Wafra-specific behavior, MESP-142, and `frontend/assets`.
 
 Local evidence: Release build `0 warnings / 0 errors`; full backend
-`1,324/1,324` with `0` failures and `0` skips including disposable LocalDB
+`1,326/1,326` with `0` failures and `0` skips including disposable LocalDB
 SQL safety; Angular `316/316`; Chromium `51/51`; production npm audit has the
-unchanged `4` moderate baseline and full audit the unchanged `7` moderate
-baseline; EF reports no pending model changes; the production bundle succeeds
+known `4` moderate baseline and full audit the known `7` moderate baseline;
+eight EF contexts report no pending migrations; NuGet vulnerability scans are
+clear across all discovered backend projects; the production bundle succeeds
 with the existing `514.26 kB` initial-budget warning; OpenAPI exposes the
 validation/staged-record/dry-run paths; and `git diff --check` is clean.
 Accepted capability completion remains **24 / 26 = 92.3%** and production

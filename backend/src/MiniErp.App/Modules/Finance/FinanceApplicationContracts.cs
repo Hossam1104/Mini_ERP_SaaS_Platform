@@ -136,6 +136,8 @@ public sealed class FinanceAuthorizationService
 public interface IFinanceCompanyProvider
 {
     IReadOnlyList<FinanceCompanyOption> List(TenantId tenantId);
+
+    IReadOnlyList<FinanceCompanyOption> ListAll(TenantId tenantId) => List(tenantId);
 }
 
 public sealed class NoFinanceCompanyProvider : IFinanceCompanyProvider
@@ -155,6 +157,12 @@ public sealed class ConfiguredFinanceCompanyProvider(IEnumerable<FinanceCompanyO
 
     public IReadOnlyList<FinanceCompanyOption> List(TenantId tenantId) => options
         .Where(item => item.TenantId == tenantId.Value && item.IsActive)
+        .OrderBy(item => item.CompanyName, StringComparer.Ordinal)
+        .ThenBy(item => item.CompanyId)
+        .ToArray();
+
+    public IReadOnlyList<FinanceCompanyOption> ListAll(TenantId tenantId) => options
+        .Where(item => item.TenantId == tenantId.Value)
         .OrderBy(item => item.CompanyName, StringComparer.Ordinal)
         .ThenBy(item => item.CompanyId)
         .ToArray();

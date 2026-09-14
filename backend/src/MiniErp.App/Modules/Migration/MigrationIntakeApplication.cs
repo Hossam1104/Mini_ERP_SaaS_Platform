@@ -239,11 +239,33 @@ public sealed class MigrationIntakeService
 
         if (!await AppendAsync(requestContext, persistedRun, saved, key, auditMetadata, cancellationToken))
         {
+            if (saved.Outcome is MigrationPersistenceOutcome.Succeeded
+                or MigrationPersistenceOutcome.Replayed
+                or MigrationPersistenceOutcome.UnknownOutcome)
+            {
+                await persistence.SetEvidenceStateAsync(
+                    tenantContext,
+                    new(persistedRun.RunId, request.Operation, key.Value),
+                    confirmed: false,
+                    cancellationToken);
+            }
+
             return saved.Outcome is MigrationPersistenceOutcome.Succeeded
                 or MigrationPersistenceOutcome.Replayed
                 or MigrationPersistenceOutcome.UnknownOutcome
                 ? MigrationOperationResult<MigrationIntakeRecord>.Unknown(EvidenceUnavailableCode)
                 : MigrationOperationResult<MigrationIntakeRecord>.Failure(EvidenceUnavailableCode, safeToRetry: true);
+        }
+
+        if (saved.Outcome is MigrationPersistenceOutcome.Succeeded or MigrationPersistenceOutcome.Replayed)
+        {
+            var confirmed = await persistence.SetEvidenceStateAsync(
+                tenantContext,
+                new(persistedRun.RunId, request.Operation, key.Value),
+                confirmed: true,
+                cancellationToken);
+            if (!confirmed.Succeeded)
+                return MigrationOperationResult<MigrationIntakeRecord>.Unknown(EvidenceUnavailableCode);
         }
 
         return saved.Outcome switch

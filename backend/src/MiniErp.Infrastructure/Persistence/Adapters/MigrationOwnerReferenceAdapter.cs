@@ -94,6 +94,29 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         }
     }
 
+    public MigrationBusinessIdentityResolution ResolveBusinessIdentity(MigrationParsedCanonicalRow row)
+    {
+        try
+        {
+            return row.Payload switch
+            {
+                MigrationProductPayload product when !string.IsNullOrWhiteSpace(product.Sku)
+                    => MigrationBusinessIdentityResolution.Valid($"product:{ProductIdentityValuePolicy.ComparisonKey(product.Sku)}"),
+                MigrationSupplierPayload supplier when !string.IsNullOrWhiteSpace(supplier.Code)
+                    => MigrationBusinessIdentityResolution.Valid($"supplier:{SupplierValuePolicy.ComparisonKey(supplier.Code)}"),
+                MigrationCustomerPayload customer when !string.IsNullOrWhiteSpace(customer.Code)
+                    => MigrationBusinessIdentityResolution.Valid($"customer:{CustomerValuePolicy.ComparisonKey(customer.Code)}"),
+                MigrationProductPayload or MigrationSupplierPayload or MigrationCustomerPayload
+                    => MigrationBusinessIdentityResolution.NotApplicable(),
+                _ => MigrationBusinessIdentityResolution.NotApplicable()
+            };
+        }
+        catch (ArgumentException)
+        {
+            return MigrationBusinessIdentityResolution.Invalid("The owner-module business identity is outside its approved bounds.");
+        }
+    }
+
     private async Task<IReadOnlyList<MigrationReferenceCheck>> ProductAsync(TenantContext tenant, MigrationProductPayload payload, CancellationToken cancellationToken)
     {
         var findings = new List<MigrationReferenceCheck>();
@@ -102,10 +125,18 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
             var product = await products.FindProductAsync(tenant, productId, cancellationToken);
             findings.Add(product is null ? Missing("product", productId) : Lifecycle(product.LifecycleState == MasterDataLifecycleState.Active, "product", productId));
         }
-        else if (!string.IsNullOrWhiteSpace(payload.Sku)
-            && (await products.ListProductsAsync(tenant, cancellationToken)).Any(item => string.Equals(ProductIdentityValuePolicy.ComparisonKey(item.Sku), ProductIdentityValuePolicy.ComparisonKey(payload.Sku), StringComparison.Ordinal)))
+        else if (!string.IsNullOrWhiteSpace(payload.Sku))
         {
-            findings.Add(Duplicate("product", payload.Sku));
+            try
+            {
+                var key = ProductIdentityValuePolicy.ComparisonKey(payload.Sku);
+                if ((await products.ListProductsAsync(tenant, cancellationToken)).Any(item => string.Equals(ProductIdentityValuePolicy.ComparisonKey(item.Sku), key, StringComparison.Ordinal)))
+                    findings.Add(Duplicate("product", payload.Sku));
+            }
+            catch (ArgumentException)
+            {
+                findings.Add(InvalidIdentity("product", payload.Sku));
+            }
         }
         if (payload.CategoryId is { } categoryId && payload.BaseUnitOfMeasureId is { } unitId)
         {
@@ -130,12 +161,20 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         if (id is not { } value)
         {
             if (string.IsNullOrWhiteSpace(code)) return [];
-            var exists = owner switch
+            bool exists;
+            try
             {
-                ISupplierPersistence supplier => (await supplier.ListSuppliersAsync(tenant, cancellationToken)).Any(item => string.Equals(SupplierValuePolicy.ComparisonKey(item.Code), SupplierValuePolicy.ComparisonKey(code), StringComparison.Ordinal)),
-                ICustomerPersistence customer => (await customer.ListCustomersAsync(tenant, cancellationToken)).Any(item => string.Equals(CustomerValuePolicy.ComparisonKey(item.Code), CustomerValuePolicy.ComparisonKey(code), StringComparison.Ordinal)),
-                _ => false
-            };
+                exists = owner switch
+                {
+                    ISupplierPersistence supplier => (await supplier.ListSuppliersAsync(tenant, cancellationToken)).Any(item => string.Equals(SupplierValuePolicy.ComparisonKey(item.Code), SupplierValuePolicy.ComparisonKey(code), StringComparison.Ordinal)),
+                    ICustomerPersistence customer => (await customer.ListCustomersAsync(tenant, cancellationToken)).Any(item => string.Equals(CustomerValuePolicy.ComparisonKey(item.Code), CustomerValuePolicy.ComparisonKey(code), StringComparison.Ordinal)),
+                    _ => false
+                };
+            }
+            catch (ArgumentException)
+            {
+                return [InvalidIdentity(name, code)];
+            }
             return exists ? [Duplicate(name, code)] : [];
         }
         object? record = owner switch
@@ -216,8 +255,11 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
             return [];
 
         var findings = new List<MigrationReferenceCheck>();
-        var companyOption = companies.List(requestContext.TenantContext!.TenantId).FirstOrDefault(item => item.CompanyId == company);
-        findings.Add(companyOption is null ? Missing("company", company) : Active("company", company));
+        var companyOption = companies.ListAll(requestContext.TenantContext!.TenantId).FirstOrDefault(item => item.CompanyId == company);
+        findings.Add(companyOption is null ? Missing("company", company) : Lifecycle(companyOption.IsActive, "company", company));
+        if (companyOption is not { IsActive: true })
+            return findings;
+
         foreach (var accountId in accountIds.Where(item => item is not null).Select(item => item!.Value).Distinct())
             findings.AddRange(await AccountAsync(context!, company, accountId, openingDate, currency, cancellationToken));
 
@@ -358,6 +400,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
 
     private static MigrationReferenceCheck Active(string name, object id) => new(MigrationReferenceState.Active, MigrationFindingCategory.Reference, $"migration_{name}_active", $"The {name} reference is active.", id.ToString());
     private static MigrationReferenceCheck Duplicate(string name, object id) => new(MigrationReferenceState.Missing, MigrationFindingCategory.Duplicate, $"migration_{name}_already_exists", $"The {name} identity already exists in this Tenant.", id.ToString());
+    private static MigrationReferenceCheck InvalidIdentity(string name, object id) => new(MigrationReferenceState.Missing, MigrationFindingCategory.Reference, "migration_business_identity_invalid", $"The {name} business identity is invalid according to its owner module.", id.ToString());
     private static MigrationReferenceCheck Missing(string name, object id) => new(MigrationReferenceState.Missing, MigrationFindingCategory.Reference, $"migration_{name}_missing", $"The {name} reference was not found in this Tenant.", id.ToString());
     private static MigrationReferenceCheck Invalid(string name, object id) => new(MigrationReferenceState.Missing, name is "uom-conversion" ? MigrationFindingCategory.Uom : name is "exchange-rate" ? MigrationFindingCategory.Currency : MigrationFindingCategory.Reference, $"migration_{name.Replace('-', '_')}_invalid", $"The {name} reference is invalid for this migration.", id.ToString());
     private static MigrationReferenceCheck Lifecycle(bool active, string name, object id) => active ? Active(name, id) : new(MigrationReferenceState.Inactive, MigrationFindingCategory.Reference, $"migration_{name}_inactive", $"The {name} reference is inactive.", id.ToString());

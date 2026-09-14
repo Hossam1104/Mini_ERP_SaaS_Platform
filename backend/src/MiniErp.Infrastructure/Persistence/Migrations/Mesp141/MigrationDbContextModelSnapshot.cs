@@ -27,6 +27,9 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                     b.Property<Guid>("AttemptId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("EvidenceConfirmed")
+                        .HasColumnType("bit");
+
                     b.Property<DateTimeOffset?>("FinishedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -204,6 +207,9 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<bool>("EvidenceConfirmed")
+                        .HasColumnType("bit");
+
                     b.Property<string>("RequestFingerprint")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -313,6 +319,9 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                 {
                     b.Property<Guid>("RunId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("EvidenceConfirmed")
+                        .HasColumnType("bit");
 
                     b.Property<Guid>("ActorId")
                         .HasColumnType("uniqueidentifier");

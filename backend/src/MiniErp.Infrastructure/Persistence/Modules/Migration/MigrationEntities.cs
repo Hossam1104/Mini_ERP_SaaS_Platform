@@ -31,6 +31,7 @@ internal sealed class MigrationRunEntity : ITenantOwned
         Status = run.Status;
         CreatedAt = run.CreatedAt;
         UpdatedAt = run.UpdatedAt;
+        EvidenceConfirmed = false;
     }
 
     internal Guid RunId { get; private set; }
@@ -54,6 +55,8 @@ internal sealed class MigrationRunEntity : ITenantOwned
     internal DateTimeOffset CreatedAt { get; private set; }
 
     internal DateTimeOffset UpdatedAt { get; private set; }
+
+    internal bool EvidenceConfirmed { get; private set; }
 
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
 
@@ -82,6 +85,8 @@ internal sealed class MigrationRunEntity : ITenantOwned
         UpdatedAt = updatedAt;
         Version = Guid.NewGuid().ToByteArray();
     }
+
+    internal void SetEvidenceConfirmed(bool confirmed) => EvidenceConfirmed = confirmed;
 }
 
 /// <summary>Module-owned retry lineage for one logical migration run.</summary>
@@ -107,6 +112,7 @@ internal sealed class MigrationAttemptEntity : ITenantOwned
         StartedAt = attempt.StartedAt;
         FinishedAt = attempt.FinishedAt;
         SafeOutcomeCode = attempt.SafeOutcomeCode;
+        EvidenceConfirmed = false;
     }
 
     internal Guid AttemptId { get; private set; }
@@ -133,6 +139,8 @@ internal sealed class MigrationAttemptEntity : ITenantOwned
 
     internal string? SafeOutcomeCode { get; private set; }
 
+    internal bool EvidenceConfirmed { get; private set; }
+
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
 
     /// <summary>
@@ -156,6 +164,8 @@ internal sealed class MigrationAttemptEntity : ITenantOwned
         Version = Guid.NewGuid().ToByteArray();
         return true;
     }
+
+    internal void SetEvidenceConfirmed(bool confirmed) => EvidenceConfirmed = confirmed;
 }
 
 /// <summary>Module-owned idempotency identity; no request payload is stored.</summary>
@@ -188,6 +198,7 @@ internal sealed class MigrationIdempotencyEntity : ITenantOwned
         ResultKind = resultKind;
         ResultCode = resultCode;
         CreatedAt = createdAt;
+        EvidenceConfirmed = false;
     }
 
     public TenantId TenantId { get; private set; }
@@ -208,7 +219,10 @@ internal sealed class MigrationIdempotencyEntity : ITenantOwned
 
     internal DateTimeOffset CreatedAt { get; private set; }
 
+    internal bool EvidenceConfirmed { get; private set; }
+
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
+    internal void SetEvidenceConfirmed(bool confirmed) => EvidenceConfirmed = confirmed;
 }
 
 /// <summary>Module-owned immutable source snapshot captured at intake.</summary>

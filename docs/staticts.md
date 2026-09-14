@@ -1,6 +1,32 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 13 September 2026 (MESP-141 Slice 3 Sol remediation implemented in Draft PR #246)
+**Last Updated:** 14 September 2026 (MESP-141 Slice 3 second Sol remediation implemented in Draft PR #246)
+
+## Current execution snapshot - 14 September 2026 (MESP-141 Slice 3 second Sol remediation / Draft)
+
+The second bounded Sol remediation is implemented on
+`feat/mesp-141-validation-dry-run` and is awaiting independent GPT-5.6 Sol
+re-acceptance. S3-R6 durably distinguishes confirmed from unproved audit
+evidence on Migration run/attempt/idempotency lineage and blocks automatic
+replay of unproved effects. S3-R7 reuses canonical organization containment and
+owner Product/Supplier/Customer identity policies. S3-R8 blocks inactive
+Finance companies before account, period, or FX validation. Validation and
+dry-run remain zero authoritative business effect.
+
+PR #246 remains **OPEN / DRAFT / UNMERGED**. No Ready transition, merge, Jira
+or GitHub tracker mutation, MESP-142 activation, production/cutover work, or
+next-slice work was performed. Local validation passed: Release build `0
+warnings / 0 errors`; full backend `1,326/1,326` with `0` failures and `0`
+skips including disposable LocalDB SQL safety; Angular `316/316`; Chromium
+`51/51`; known npm audit baselines `4` moderate production / `7` moderate full
+tree; eight EF contexts with no pending migrations; and clear NuGet vulnerability
+scans across all discovered backend projects. The existing `514.26 kB`
+initial-bundle warning remains unchanged.
+
+**No headline changes.** Accepted fast-track capability completion remains
+**24 / 26 = 92.3%** and production readiness remains approximately **47%
+overall / 41% Procurement/P2P**. MESP-142 remains **OPEN / NOT ACTIVATED**;
+MESP-48 and MESP-50 remain open production gates.
 
 ## Current execution snapshot - 13 September 2026 (MESP-141 Slice 3 remediation implemented / Draft)
 

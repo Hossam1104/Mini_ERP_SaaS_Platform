@@ -85,6 +85,31 @@ public sealed record MigrationReferenceCheck(
     string Message,
     string? ReferenceId = null);
 
+public enum MigrationBusinessIdentityState
+{
+    NotApplicable = 1,
+    Valid = 2,
+    Invalid = 3,
+    Unavailable = 4
+}
+
+public sealed record MigrationBusinessIdentityResolution(
+    MigrationBusinessIdentityState State,
+    string? Key = null,
+    string? Code = null,
+    string? Message = null)
+{
+    public static MigrationBusinessIdentityResolution NotApplicable() => new(MigrationBusinessIdentityState.NotApplicable);
+
+    public static MigrationBusinessIdentityResolution Valid(string key) => new(MigrationBusinessIdentityState.Valid, key);
+
+    public static MigrationBusinessIdentityResolution Invalid(string message) =>
+        new(MigrationBusinessIdentityState.Invalid, Code: "migration_business_identity_invalid", Message: message);
+
+    public static MigrationBusinessIdentityResolution Unavailable() =>
+        new(MigrationBusinessIdentityState.Unavailable, Code: "migration_reference_authority_unavailable", Message: "The owner-module identity authority is unavailable.");
+}
+
 /// <summary>
 /// Internal normalized staging contract. It is not a customer transport
 /// choice; future source adapters may normalize into this package later.
@@ -570,6 +595,9 @@ public interface IMigrationReferenceAuthority
         FoundationRequestContext requestContext,
         MigrationParsedCanonicalRow row,
         CancellationToken cancellationToken = default);
+
+    MigrationBusinessIdentityResolution ResolveBusinessIdentity(MigrationParsedCanonicalRow row) =>
+        MigrationBusinessIdentityResolution.NotApplicable();
 }
 
 public sealed class UnavailableMigrationReferenceAuthority : IMigrationReferenceAuthority
@@ -580,6 +608,11 @@ public sealed class UnavailableMigrationReferenceAuthority : IMigrationReference
         CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<MigrationReferenceCheck>>(
             [new(MigrationReferenceState.Unavailable, MigrationFindingCategory.Reference, "migration_reference_authority_unavailable", "The owner-module reference authority is unavailable.")]);
+
+    public MigrationBusinessIdentityResolution ResolveBusinessIdentity(MigrationParsedCanonicalRow row) =>
+        row.Payload is MigrationProductPayload or MigrationSupplierPayload or MigrationCustomerPayload
+            ? MigrationBusinessIdentityResolution.Unavailable()
+            : MigrationBusinessIdentityResolution.NotApplicable();
 }
 
 public static class MigrationValidationRules
@@ -669,13 +702,6 @@ public static class MigrationValidationRules
         return findings;
     }
 
-    public static string? BusinessKey(MigrationParsedCanonicalRow row) => row.Payload switch
-    {
-        MigrationProductPayload product => string.IsNullOrWhiteSpace(product.Sku) ? null : $"product:{product.Sku.Trim().ToUpperInvariant()}",
-        MigrationSupplierPayload supplier => string.IsNullOrWhiteSpace(supplier.Code) ? null : $"supplier:{supplier.Code.Trim().ToUpperInvariant()}",
-        MigrationCustomerPayload customer => string.IsNullOrWhiteSpace(customer.Code) ? null : $"customer:{customer.Code.Trim().ToUpperInvariant()}",
-        _ => null
-    };
 }
 
 #pragma warning restore CS1591
