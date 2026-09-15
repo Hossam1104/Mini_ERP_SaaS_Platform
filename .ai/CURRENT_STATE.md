@@ -10,13 +10,13 @@
 
 ---
 
-## CURRENT AUTHORITY - 15 September 2026 (MESP-141 SLICE 4 IMPLEMENTATION / DRAFT HANDOFF)
+## CURRENT AUTHORITY - 15 September 2026 (MESP-141 SLICE 4 REMEDIATION / DRAFT HANDOFF)
 
 ### Bounded implementation session
 
 | Item | Value |
 |---|---|
-| MESP-141 | **OPEN / ACTIVE / IN PROGRESS** in GitHub Issue #229; Slice 1, Slice 2, and Slice 3 accepted/merged; Slice 4 implementation complete on Draft PR, awaiting independent GPT-5.6 Sol acceptance |
+| MESP-141 | **OPEN / ACTIVE / IN PROGRESS** in GitHub Issue #229; Slice 1, Slice 2, and Slice 3 accepted/merged; Slice 4 bounded remediation complete on Draft PR, awaiting independent GPT-5.6 Sol re-acceptance |
 | Slice 4 activation | Issue #229 comment `5671574482`; activated from verified `origin/main` baseline `c25e902c389d5d25b37c10d6e3e070be3d6ea74b` |
 | Bounded branch | `feat/mesp-141-master-reference-execution`; mutable head remains live GitHub authority |
 | Draft PR | **#248 OPEN / DRAFT / UNMERGED**; `https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/248` |
@@ -26,19 +26,32 @@
 | Metrics | Accepted fast-track capability completion remains **24 / 26 = 92.3%**; production readiness remains approximately **47% overall / 41% Procurement/P2P** |
 | Jira mutations | **0** — Jira remains historical provenance only |
 | Owner-managed frontend/assets | **Untouched** |
-| CI | Exact-head run `34944134737` passed `Repository Validation` (job `104299421630`), `Backend` (job `104299421832`), and `Frontend` (job `104299421772`) |
+| CI | Final exact-head hosted CI is the live GitHub authority after the remediation push; no final-head run is claimed before that push |
 
-Slice 4 adds only the Migration coordinator and a neutral internal owner gateway
-contract. Master Data remains the owner of its import processors, business
-identity, persistence, duplicate semantics, and audit evidence; Migration owns
-only accepted-input gates, server fingerprinting, execution-attempt lineage,
-durable owner-batch/effect references, and safe outcome classification. No
+Slice 4 remediation uses an explicit two-phase Migration coordinator and a
+neutral internal owner gateway contract. Phase A keeps the run pre-effect while
+it verifies the authoritative snapshot, acquires the durable Prepared claim,
+prepares lineage, creates/simulates owner metadata, and revalidates execution-
+time references. Only after every group passes does Phase B transition the run
+to Executing, mark the durable effect boundary, call owner Execute, read owner
+evidence, and reconcile. Master Data remains the owner of its import processors,
+business identity, persistence, duplicate semantics, and audit evidence; no
 Migration code accesses sibling DbContexts or writes owner business tables.
 
+OutcomeUnknown is now a hard execution stop: POST performs no automatic owner
+read/reconcile/replay or mutation, and a different key is rejected until the
+separate reconciliation capability resolves it. Distinct execution keys may
+race only through the bounded execution-attempt lineage exception; the unique
+Tenant + Run + record-type Prepared/Started/Completed claim elects one owner
+lineage and the loser fails before owner batch creation.
+
 Local handoff evidence is Release build `0 warnings / 0 errors`; the full
-official disposable-LocalDB backend runner is `1,341/1,341` with `0` failures
+official disposable-LocalDB backend runner is `1,345/1,345` with `0` failures
 and `0` skips; focused execution coverage is `10/10`; the SQL active-claim race
-is `1/1`; Angular is `316/316`; Chromium is `51/51`; npm audits retain the
+is `1/1` through the actual two-service orchestration; focused migration
+execution is `12/12`, authority is `1/1`, and vertical integration is `1/1`
+(`14/14` combined); Angular is `316/316`;
+Chromium is `51/51`; npm audits retain the
 known `4` moderate production / `7` moderate full-tree baseline; all eight EF
 contexts report no pending model changes; the solution-wide NuGet scan is
 clear; the production bundle remains `514.26 kB` with the existing warning; and

@@ -325,7 +325,7 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         executionBatch.HasAlternateKey(item => new { item.TenantId, item.RunId, item.AttemptId, item.RecordType });
         executionBatch.HasIndex(item => new { item.TenantId, item.RunId, item.RecordType })
             .IsUnique()
-            .HasFilter("[State] IN (2, 3)");
+            .HasFilter("[State] IN (1, 2, 3)");
         executionBatch.HasOne<MigrationRunEntity>().WithMany()
             .HasForeignKey(item => new { item.TenantId, item.RunId })
             .HasPrincipalKey(item => new { item.TenantId, item.RunId })

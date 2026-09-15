@@ -69,6 +69,13 @@ public sealed class MasterDataImportService
         ArgumentNullException.ThrowIfNull(trustedContext);
         ArgumentNullException.ThrowIfNull(request);
 
+        if (!IsTrustedMigrationContext(trustedContext))
+        {
+            return MasterDataImportOperationResult<MasterDataImportBatchRecord>.Failure(
+                "migration_execution_authority_required",
+                StatusCodes.Status403Forbidden);
+        }
+
         MasterDataRequestContext context;
         try
         {
@@ -1061,6 +1068,8 @@ public sealed class MasterDataImportService
 
     private static Task<MasterDataRequestContext?> TrustedContextAsync(FoundationRequestContext trustedContext)
     {
+        if (!IsTrustedMigrationContext(trustedContext))
+            return Task.FromResult<MasterDataRequestContext?>(null);
         try
         {
             return Task.FromResult<MasterDataRequestContext?>(MasterDataRequestContext.FromFoundationContext(trustedContext));
@@ -1070,6 +1079,20 @@ public sealed class MasterDataImportService
             return Task.FromResult<MasterDataRequestContext?>(null);
         }
     }
+
+    private static bool IsTrustedMigrationContext(FoundationRequestContext? context) =>
+        context is not null
+        && context.SecurityProfile is (FoundationSecurityProfile.OrdinaryMembership or FoundationSecurityProfile.SupportGrant)
+        && context.TenantContext is { } tenant
+        && context.PlatformGovernanceContext is null
+        && context.ActorId is { } actorId
+        && actorId != Guid.Empty
+        && (tenant.AuthorizationPath == TenantAuthorizationPath.OrdinaryMembership && context.SecurityProfile == FoundationSecurityProfile.OrdinaryMembership
+            || tenant.AuthorizationPath == TenantAuthorizationPath.SupportGrant && context.SecurityProfile == FoundationSecurityProfile.SupportGrant)
+        && (tenant.ActorId is null || tenant.ActorId == actorId)
+        && context.SessionId is { } sessionId
+        && sessionId != Guid.Empty
+        && string.Equals(context.Permission, "tenant.migration.execute", StringComparison.Ordinal);
 
     private static async Task<T?> TryAsync<T>(Func<Task<T>> action)
     {

@@ -62,6 +62,35 @@ public sealed class MigrationExecutionTests
     }
 
     [Fact]
+    public async Task Owner_preflight_failure_stops_before_executing_or_owner_effect()
+    {
+        await using var fixture = await ExecutionFixture.CreateAsync(failOwnerCreate: true);
+        var prepared = await fixture.PrepareAsync(
+            [fixture.Record(MigrationCanonicalRecordType.Supplier, "{\"code\":\"SUP-1\",\"nameEnglish\":\"Supplier\"}")],
+            [MigrationPlannedAction.Create]);
+
+        var result = await fixture.Service.ExecuteAsync(
+            fixture.Request,
+            prepared.Run.RunId,
+            "preflight-key",
+            prepared.Run.Version);
+        var run = await fixture.Persistence.FindRunAsync(fixture.Tenant, prepared.Run.RunId);
+
+        Assert.Equal(MigrationResultKind.KnownFailure, result.Kind);
+        Assert.Equal("owner_preflight_failed", result.Code);
+        Assert.Equal(MigrationRunStatus.Approved, run!.Status);
+        Assert.Equal(0, fixture.Owner.ExecuteCalls);
+        var attempts = await fixture.Persistence.ListAttemptsAsync(fixture.Tenant, prepared.Run.RunId);
+        var attempt = Assert.Single(attempts, item => item.Operation == MigrationOperationKind.Execution);
+        Assert.All(
+            await fixture.Persistence.ListBatchesAsync(fixture.Tenant, prepared.Run.RunId, attempt.AttemptId),
+            item => Assert.Equal(MigrationExecutionBatchState.Failed, item.State));
+        Assert.All(
+            await fixture.Persistence.ListEffectsAsync(fixture.Tenant, prepared.Run.RunId, attempt.AttemptId),
+            item => Assert.Equal(MigrationExecutionEffectDisposition.Failed, item.Disposition));
+    }
+
+    [Fact]
     public async Task Same_key_changed_authoritative_fingerprint_conflicts_without_a_new_effect()
     {
         await using var fixture = await ExecutionFixture.CreateAsync();
@@ -85,6 +114,30 @@ public sealed class MigrationExecutionTests
         Assert.Equal(MigrationResultKind.Rejected, conflict.Kind);
         Assert.Equal("migration_idempotency_conflict", conflict.Code);
         Assert.Equal(1, fixture.Owner.ExecuteCalls);
+    }
+
+    [Fact]
+    public async Task Per_row_sequence_or_type_drift_is_rejected_before_owner_preflight()
+    {
+        await using var fixture = await ExecutionFixture.CreateAsync();
+        var prepared = await fixture.PrepareAsync(
+            [fixture.Record(MigrationCanonicalRecordType.Supplier, "{\"code\":\"SUP-1\",\"nameEnglish\":\"Supplier\"}")],
+            [MigrationPlannedAction.Create]);
+        fixture.Validation.Validation = fixture.Validation.Validation! with
+        {
+            Records = [fixture.Validation.Validation.Records[0] with { SourceSequence = 99 }]
+        };
+
+        var result = await fixture.Service.ExecuteAsync(
+            fixture.Request,
+            prepared.Run.RunId,
+            "snapshot-key",
+            prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.Rejected, result.Kind);
+        Assert.Equal("migration_execution_authoritative_snapshot_mismatch", result.Code);
+        Assert.Equal(0, fixture.Owner.CreateCalls);
+        Assert.Equal(0, fixture.Owner.ExecuteCalls);
     }
 
     [Fact]
@@ -219,7 +272,7 @@ public sealed class MigrationExecutionTests
     }
 
     [Fact]
-    public async Task Unknown_owner_read_recovers_the_same_batch_without_a_second_commit()
+    public async Task Outcome_unknown_is_a_hard_stop_without_automatic_reconciliation_or_retry()
     {
         await using var fixture = await ExecutionFixture.CreateAsync(hideEvidenceAfterExecute: true);
         var prepared = await fixture.PrepareAsync(
@@ -231,18 +284,28 @@ public sealed class MigrationExecutionTests
             prepared.Run.RunId,
             "crash-key",
             prepared.Run.Version);
-        var recovered = await fixture.Service.ExecuteAsync(
+        var retry = await fixture.Service.ExecuteAsync(
             fixture.Request,
             prepared.Run.RunId,
             "crash-key",
             prepared.Run.Version);
+        var differentKey = await fixture.Service.ExecuteAsync(
+            fixture.Request,
+            prepared.Run.RunId,
+            "different-crash-key",
+            prepared.Run.Version);
 
         Assert.Equal(MigrationResultKind.UnknownOutcome, first.Kind);
-        Assert.Equal(MigrationResultKind.Replayed, recovered.Kind);
-        Assert.Equal("migration_execution_recovered_owner_evidence", recovered.Code);
+        Assert.Equal(MigrationResultKind.UnknownOutcome, retry.Kind);
+        Assert.Equal("migration_execution_outcome_unknown", retry.Code);
         Assert.Equal(1, fixture.Owner.CreateCalls);
         Assert.Equal(1, fixture.Owner.ExecuteCalls);
-        Assert.Single(recovered.Value!.Effects, item => item.Disposition == MigrationExecutionEffectDisposition.Committed);
+        Assert.DoesNotContain(retry.Value!.Effects, item => item.Disposition == MigrationExecutionEffectDisposition.Committed);
+        Assert.Contains(retry.Value.Effects, item => item.Disposition == MigrationExecutionEffectDisposition.Unknown);
+        Assert.Equal(MigrationRunStatus.OutcomeUnknown, retry.Value.RunStatus);
+        Assert.Equal(MigrationResultKind.Rejected, differentKey.Kind);
+        Assert.Equal("migration_run_requires_reconciliation", differentKey.Code);
+        Assert.Equal(1, fixture.Owner.ExecuteCalls);
     }
 
     private sealed class ExecutionFixture : IAsyncDisposable
@@ -278,7 +341,8 @@ public sealed class MigrationExecutionTests
             IReadOnlySet<OwnerResourceKind>? failingKinds = null,
             bool hideEvidenceAfterExecute = false,
             bool driftOnExecute = false,
-            bool blockFirstOwnerExecute = false)
+            bool blockFirstOwnerExecute = false,
+            bool failOwnerCreate = false)
         {
             var connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
@@ -299,7 +363,7 @@ public sealed class MigrationExecutionTests
             }
 
             var persistence = new MigrationPersistence(options);
-            var owner = new OwnerGateway(hideEvidenceAfterExecute, failingKinds ?? new HashSet<OwnerResourceKind>(), driftOnExecute, blockFirstOwnerExecute);
+            var owner = new OwnerGateway(hideEvidenceAfterExecute, failingKinds ?? new HashSet<OwnerResourceKind>(), driftOnExecute, blockFirstOwnerExecute, failOwnerCreate);
             var validation = new InMemoryValidationPersistence(persistence);
             var service = new MigrationExecutionService(
                 new MigrationFoundationService(persistence, new NoopAuditSink()),
@@ -308,7 +372,8 @@ public sealed class MigrationExecutionTests
                 persistence,
                 new TenantWideScopeResolver(),
                 new TenantWideScopeResolver(),
-                owner);
+                owner,
+                new TestReferenceAuthority());
             return new ExecutionFixture(connection, tenant, request, persistence, service, owner, validation);
         }
 
@@ -319,7 +384,8 @@ public sealed class MigrationExecutionTests
             Persistence,
             new TenantWideScopeResolver(),
             new TenantWideScopeResolver(),
-            Owner);
+            Owner,
+            new TestReferenceAuthority());
 
         internal MigrationStagedRecord Record(MigrationCanonicalRecordType type, string payload)
         {
@@ -544,6 +610,7 @@ public sealed class MigrationExecutionTests
         private readonly bool hideEvidenceAfterExecute;
         private readonly bool driftOnExecute;
         private readonly bool blockFirstOwnerExecute;
+        private readonly bool failOwnerCreate;
         private readonly TaskCompletionSource<bool> allowFirstExecute = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int firstExecuteWait = 1;
         private bool hideNextRead;
@@ -552,12 +619,14 @@ public sealed class MigrationExecutionTests
             bool hideEvidenceAfterExecute,
             IReadOnlySet<OwnerResourceKind> failingKinds,
             bool driftOnExecute = false,
-            bool blockFirstOwnerExecute = false)
+            bool blockFirstOwnerExecute = false,
+            bool failOwnerCreate = false)
         {
             this.hideEvidenceAfterExecute = hideEvidenceAfterExecute;
             FailingKinds = failingKinds;
             this.driftOnExecute = driftOnExecute;
             this.blockFirstOwnerExecute = blockFirstOwnerExecute;
+            this.failOwnerCreate = failOwnerCreate;
         }
 
         internal IReadOnlySet<OwnerResourceKind> FailingKinds { get; }
@@ -573,6 +642,8 @@ public sealed class MigrationExecutionTests
             lock (sync)
             {
                 CreateCalls++;
+                if (failOwnerCreate)
+                    return Task.FromResult(new OwnerOperationResult<OwnerBatchEvidence>(false, "owner_preflight_failed", null, 422));
                 if (!batches.TryGetValue(request.BatchId, out var current))
                 {
                     current = (request, Evidence(request, OwnerBatchStatus.Draft, []));
@@ -659,6 +730,16 @@ public sealed class MigrationExecutionTests
 
         public TenantWorkScopeResolution Resolve(TenantContext trustedTenantContext, TenantWorkScopeRequest requestedScope) =>
             TenantWorkScopeResolution.Resolved(TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, requestedScope));
+    }
+
+    private sealed class TestReferenceAuthority : IMigrationReferenceAuthority
+    {
+        public Task<IReadOnlyList<MigrationReferenceCheck>> ValidateAsync(
+            FoundationRequestContext requestContext,
+            MigrationParsedCanonicalRow row,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MigrationReferenceCheck>>(
+                [new(MigrationReferenceState.NotApplicable, MigrationFindingCategory.Reference, "reference_not_required", "Test owner has no external reference requirement.")]);
     }
 
     private sealed class NoopAuditSink : IFoundationAuditEvidenceSink

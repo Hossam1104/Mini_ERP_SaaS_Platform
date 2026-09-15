@@ -1,24 +1,26 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 15 September 2026 (MESP-141 Slice 4 implementation complete on Draft PR)
+**Last Updated:** 15 September 2026 (MESP-141 Slice 4 bounded remediation complete on Draft PR)
 
-## Current execution snapshot - 15 September 2026 (MESP-141 Slice 4 implementation complete / Draft handoff)
+## Current execution snapshot - 15 September 2026 (MESP-141 Slice 4 bounded remediation complete / Draft handoff)
 
 MESP-141 Slice 4 was activated by GitHub Issue #229 comment `5671574482` from
 verified `origin/main` baseline
 `c25e902c389d5d25b37c10d6e3e070be3d6ea74b`. The bounded branch is
-`feat/mesp-141-master-reference-execution`; implementation is complete on Draft
-PR #248 and awaits independent GPT-5.6 Sol acceptance. The Draft PR remains
+`feat/mesp-141-master-reference-execution`; remediation is complete on Draft
+PR #248 and awaits independent GPT-5.6 Sol re-acceptance. The Draft PR remains
 open, unmerged, and intentionally not Ready; live GitHub remains authority for
-the mutable head and CI.
+the mutable head and final CI.
 
 The bounded capability executes only approved, validated canonical `Product`,
 `Supplier`, `Customer`, `Currency`, `Tax`, `PaymentTerm`, and `UnitOfMeasure`
-records through the existing owner import engine. It adds durable Migration
-owner-batch/effect lineage, server-computed `migration-master-execution-v1`
-fingerprinting, same-key replay/conflict, active execution claims, partial and
-unknown-outcome safety, fresh-context recovery, and owner-drift classification.
-Migration has no direct owner-table writes and no sibling DbContext access.
+records through the existing owner import engine. It adds an explicit two-phase
+pre-effect/effect boundary, a unique Prepared/Started/Completed durable claim,
+execution-time reference revalidation, durable Migration owner-batch/effect
+lineage, server-computed `migration-master-execution-v1` fingerprinting,
+same-key replay/conflict, partial and owner-drift classification, and a hard
+OutcomeUnknown stop with reconciliation-only handoff. Migration has no direct
+owner-table writes and no sibling DbContext access.
 
 Excluded: Organization, InventoryOpening, GlOpening, ApOpening, ArOpening,
 CashBankOpening, economic effects, approval-policy implementation,
@@ -28,22 +30,25 @@ remains **24 / 26 = 92.3%**; production readiness remains approximately **47%
 overall / 41% Procurement/P2P**.
 
 Local evidence: Release build `0 warnings / 0 errors`; official disposable-
-LocalDB backend `1,341/1,341` with `0` failures / `0` skips; focused execution
-`10/10`; SQL active-claim race `1/1`; Angular `316/316`; Chromium `51/51`;
+LocalDB backend `1,345/1,345` with `0` failures / `0` skips; focused migration
+execution/authority/vertical suites `14/14`; SQL active-claim race `1/1`
+through two service instances; Angular `316/316`; Chromium `51/51`;
 known npm audit baselines `4` moderate production / `7` moderate full tree;
 eight EF contexts with no pending model changes; solution-wide NuGet scan
 clear; production bundle `514.26 kB` with the existing 500 kB warning; and
 `git diff --check` clean. No capability or readiness percentage changed.
 
-### Progress history - 15 September 2026 (MESP-141 Slice 4 implementation)
+### Progress history - 15 September 2026 (MESP-141 Slice 4 bounded remediation)
 
-Slice 4 implementation completed the bounded Migration-to-owner execution seam
-and its durable safety proof. The existing Master Data import API and owner
+Slice 4 remediation completed the bounded Migration-to-owner execution seam,
+OutcomeUnknown hard stop, two-phase effect boundary, Prepared-state durable
+claim, execution-time reference revalidation, actual owner vertical proof, and
+its durable safety evidence. The existing Master Data import API and owner
 authorization/audit/persistence remain authoritative. No Inventory, Finance,
-AP, AR, Cash/Bank, or economic effect was created. Exact-head hosted CI run
-`34944134737` passed `Repository Validation`, `Backend`, and `Frontend`; the
-next exact boundary is independent GPT-5.6 Sol acceptance. No Ready, merge,
-Jira, production, cutover, or MESP-142 action was performed.
+AP, AR, Cash/Bank, or economic effect was created. Final exact-head hosted CI
+is pending the remediation push and remains live GitHub authority. The next
+boundary is independent GPT-5.6 Sol re-acceptance. No Ready, merge, Jira,
+production, cutover, or MESP-142 action was performed.
 
 ## Current execution snapshot - 15 September 2026 (MESP-141 Slice 3 accepted and merged)
 

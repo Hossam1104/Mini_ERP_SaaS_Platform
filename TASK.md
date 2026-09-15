@@ -1,21 +1,23 @@
-## MESP-141 Slice 4 - IMPLEMENTATION COMPLETE / DRAFT HANDOFF (15 September 2026)
+## MESP-141 Slice 4 - BOUNDED REMEDIATION COMPLETE / DRAFT HANDOFF (15 September 2026)
 
 MESP-141 Slice 4 was activated by GitHub Issue #229 comment `5671574482` from
 verified `origin/main` baseline
 `c25e902c389d5d25b37c10d6e3e070be3d6ea74b`. The bounded branch is
-`feat/mesp-141-master-reference-execution`; implementation is complete on Draft
-PR #248 and awaits independent GPT-5.6 Sol acceptance. The PR remains
+`feat/mesp-141-master-reference-execution`; remediation is complete on Draft
+PR #248 and awaits independent GPT-5.6 Sol re-acceptance. The PR remains
 **OPEN / DRAFT / UNMERGED**; live GitHub remains authority for its mutable head
-and CI.
+and final CI.
 
 The bounded capability is approved-run execution of validated canonical
 `Product`, `Supplier`, `Customer`, `Currency`, `Tax`, `PaymentTerm`, and
 `UnitOfMeasure` records through a neutral internal gateway to the existing
-Master Data owner import engine. Migration persists deterministic owner-batch
-and per-row effect lineage, server-computed `migration-master-execution-v1`
-fingerprints, safe same-key replay/conflict, active execution claims,
-owner-drift handling, partial completion, and outcome-unknown recovery. No
-Migration direct owner-table writes or sibling DbContext access were added.
+Master Data owner import engine. Migration now uses an explicit two-phase
+pre-effect/effect boundary, a unique Prepared/Started/Completed durable claim,
+execution-time reference revalidation, deterministic owner-batch and per-row
+effect lineage, server-computed `migration-master-execution-v1` fingerprints,
+safe same-key replay/conflict, owner-drift handling, partial completion, and a
+hard OutcomeUnknown stop. No Migration direct owner-table writes or sibling
+DbContext access were added.
 
 Organization, InventoryOpening, GlOpening, ApOpening, ArOpening,
 CashBankOpening, economic opening effects, approval-policy implementation,
@@ -25,16 +27,17 @@ remains **24 / 26 = 92.3%** and production readiness remains approximately
 **47% overall / 41% Procurement/P2P**.
 
 Validation is Release build `0 warnings / 0 errors`; official disposable-
-LocalDB backend `1,341/1,341` with `0` failures / `0` skips; focused execution
-`10/10`; SQL active-claim race `1/1`; Angular `316/316`; Chromium `51/51`;
+LocalDB backend `1,345/1,345` with `0` failures / `0` skips; focused migration
+execution/authority/vertical suites `14/14`; SQL active-claim race `1/1`
+through two service instances; Angular `316/316`; Chromium `51/51`;
 production/full npm audits retain the known `4` / `7` moderate advisories;
 eight EF contexts report no pending model changes; the solution-wide NuGet
 scan is clear; and the production bundle remains `514.26 kB` with the existing
 500 kB budget warning. No UI source or Owner-managed asset changed.
 
-Exact-head hosted CI run `34944134737` passed `Repository Validation`, `Backend`,
-and `Frontend` (jobs `104299421630`, `104299421832`, and `104299421772`). The
-required next boundary is independent GPT-5.6 Sol acceptance. No Ready transition, merge, Jira write,
+The final exact-head hosted CI run is pending the remediation push and is live
+GitHub authority; no earlier CI run is claimed for this head. The required next
+boundary is independent GPT-5.6 Sol re-acceptance. No Ready transition, merge, Jira write,
 production/cutover action, economic opening, reconciliation, or MESP-142
 activation is authorized by this handoff.
 

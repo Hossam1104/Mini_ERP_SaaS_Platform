@@ -58,8 +58,19 @@ internal sealed partial class MigrationPersistence
                     && item.AttemptId == record.AttemptId
                     && item.RecordType == record.RecordType,
                 cancellationToken);
-            return winner is not null && SameBatch(winner, record)
-                ? MigrationPersistenceResult<MigrationExecutionBatchRecord>.Replay(ToRecord(winner))
+            if (winner is not null && SameBatch(winner, record))
+                return MigrationPersistenceResult<MigrationExecutionBatchRecord>.Replay(ToRecord(winner));
+
+            var active = await fresh.ExecutionBatches.AnyAsync(
+                item => item.TenantId == record.TenantId
+                    && item.RunId == record.RunId
+                    && item.RecordType == record.RecordType
+                    && (item.State == MigrationExecutionBatchState.Prepared
+                        || item.State == MigrationExecutionBatchState.Started
+                        || item.State == MigrationExecutionBatchState.Completed),
+                cancellationToken);
+            return active
+                ? MigrationPersistenceResult<MigrationExecutionBatchRecord>.Denied(MigrationPersistenceOutcome.Conflict, "migration_execution_batch_claim_conflict")
                 : MigrationPersistenceResult<MigrationExecutionBatchRecord>.Denied(MigrationPersistenceOutcome.UnknownOutcome, "migration_execution_batch_outcome_unknown");
         }
         catch (DbUpdateException)
@@ -127,7 +138,8 @@ internal sealed partial class MigrationPersistence
             var active = await fresh.ExecutionBatches.AnyAsync(
                 item => item.RunId == entity.RunId
                     && item.RecordType == entity.RecordType
-                    && (item.State == MigrationExecutionBatchState.Started
+                    && (item.State == MigrationExecutionBatchState.Prepared
+                        || item.State == MigrationExecutionBatchState.Started
                         || item.State == MigrationExecutionBatchState.Completed),
                 cancellationToken);
             return active

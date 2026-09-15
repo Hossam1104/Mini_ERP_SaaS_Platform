@@ -1,7 +1,9 @@
 #pragma warning disable CS1591
 
-using MiniErp.App.Modules.MasterData;
+using Microsoft.AspNetCore.Http;
 using MiniErp.App.BuildingBlocks.Rest;
+using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.Modules.MasterData;
 using MiniErp.Contracts.Modules.Foundation;
 using MiniErp.Contracts.Modules.MasterData;
 
@@ -27,6 +29,8 @@ internal sealed class MasterDataOwnerExecutionGateway : IOwnerExecutionGateway
         OwnerImportRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!IsAuthorized(trustedContext))
+            return Denied<OwnerBatchEvidence>();
         var result = await imports.CreateTrustedOwnerBatchAsync(
             trustedContext,
             new TrustedOwnerImportRequest(
@@ -44,20 +48,26 @@ internal sealed class MasterDataOwnerExecutionGateway : IOwnerExecutionGateway
         FoundationRequestContext trustedContext,
         Guid batchId,
         CancellationToken cancellationToken = default) =>
-        Map(await imports.SimulateTrustedOwnerBatchAsync(trustedContext, batchId, cancellationToken), ToBatchEvidence);
+        IsAuthorized(trustedContext)
+            ? Map(await imports.SimulateTrustedOwnerBatchAsync(trustedContext, batchId, cancellationToken), ToBatchEvidence)
+            : Denied<OwnerBatchEvidence>();
 
     public async Task<OwnerOperationResult<OwnerBatchEvidence>> ExecuteAsync(
         FoundationRequestContext trustedContext,
         Guid batchId,
         byte[] expectedVersion,
         CancellationToken cancellationToken = default) =>
-        Map(await imports.ExecuteTrustedOwnerBatchAsync(trustedContext, batchId, expectedVersion, cancellationToken), ToBatchEvidence);
+        IsAuthorized(trustedContext)
+            ? Map(await imports.ExecuteTrustedOwnerBatchAsync(trustedContext, batchId, expectedVersion, cancellationToken), ToBatchEvidence)
+            : Denied<OwnerBatchEvidence>();
 
     public async Task<OwnerEvidence?> ReadEvidenceAsync(
         FoundationRequestContext trustedContext,
         Guid batchId,
         CancellationToken cancellationToken = default)
     {
+        if (!IsAuthorized(trustedContext))
+            return null;
         var evidence = await imports.ReadTrustedOwnerEvidenceAsync(trustedContext, batchId, cancellationToken);
         return evidence is null
             ? null
@@ -83,6 +93,23 @@ internal sealed class MasterDataOwnerExecutionGateway : IOwnerExecutionGateway
                     item.ResultingResourceCode,
                     item.Diagnostics.Select(diagnostic => new OwnerDiagnosticEvidence(diagnostic.Code)).ToArray())).ToArray());
     }
+
+    private static bool IsAuthorized(FoundationRequestContext? context) =>
+        context is not null
+        && context.SecurityProfile is (FoundationSecurityProfile.OrdinaryMembership or FoundationSecurityProfile.SupportGrant)
+        && context.TenantContext is { } tenant
+        && context.PlatformGovernanceContext is null
+        && context.ActorId is { } actorId
+        && actorId != Guid.Empty
+        && (tenant.AuthorizationPath == TenantAuthorizationPath.OrdinaryMembership && context.SecurityProfile == FoundationSecurityProfile.OrdinaryMembership
+            || tenant.AuthorizationPath == TenantAuthorizationPath.SupportGrant && context.SecurityProfile == FoundationSecurityProfile.SupportGrant)
+        && (tenant.ActorId is null || tenant.ActorId == actorId)
+        && context.SessionId is { } sessionId
+        && sessionId != Guid.Empty
+        && string.Equals(context.Permission, "tenant.migration.execute", StringComparison.Ordinal);
+
+    private static OwnerOperationResult<T> Denied<T>() =>
+        new(false, "migration_execution_authority_required", default, StatusCodes.Status403Forbidden);
 
     private static OwnerBatchEvidence ToBatchEvidence(MasterDataImportBatchRecord batch) => new(
         batch.Id,

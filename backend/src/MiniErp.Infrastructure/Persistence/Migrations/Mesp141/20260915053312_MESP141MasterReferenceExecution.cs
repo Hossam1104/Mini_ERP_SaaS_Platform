@@ -105,7 +105,7 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
                 table: "MigrationExecutionBatches",
                 columns: new[] { "TenantId", "RunId", "RecordType" },
                 unique: true,
-                filter: "[State] IN (2, 3)");
+                filter: "[State] IN (1, 2, 3)");
 
             migrationBuilder.CreateIndex(
                 name: "IX_MigrationExecutionEffects_TenantId_RunId_AttemptId_StagedRecordId",

@@ -241,7 +241,7 @@ namespace MiniErp.Infrastructure.Persistence.Migrations.Mesp141
 
                     b.HasIndex("TenantId", "RunId", "RecordType")
                         .IsUnique()
-                        .HasFilter("[State] IN (2, 3)");
+                        .HasFilter("[State] IN (1, 2, 3)");
 
                     b.ToTable("MigrationExecutionBatches", "migration");
                 });
