@@ -1,6 +1,13 @@
-## MESP-141 Slice 4 - FINAL R7 / R8 / R9 REMEDIATION (15 September 2026)
+## MESP-141 Slice 4 - governance-only acceptance hold (15 September 2026)
 
-**MESP-141 Slice 4 final residual remediation implemented. PR #248 remains OPEN / DRAFT / UNMERGED. Awaiting independent GPT-5.6 Sol acceptance.**
+**MESP-141 Slice 4 technical implementation is accepted by GPT-5.6 Sol. This task implements the G1 SHA-chasing governance correction only. PR #248 remains OPEN / DRAFT / UNMERGED; the next gate is independent Sol verification.**
+
+| Item | Status |
+|---|---|
+| Technical implementation | Sol accepted |
+| G1 SHA-chasing correction | Implemented by this task |
+| PR #248 | OPEN / DRAFT / UNMERGED |
+| Next gate | Independent GPT-5.6 Sol verification |
 
 MESP-141 Slice 4 was activated by GitHub Issue #229 comment `5671574482` from
 verified `origin/main` baseline
@@ -45,9 +52,10 @@ eight EF contexts report no pending model changes; the solution-wide NuGet
 scan is clear; and the production bundle remains `514.26 kB` with the existing
 500 kB budget warning. No UI source or Owner-managed asset changed.
 
-Exact-head hosted CI run `34969230812` passed `Repository Validation`,
-`Backend`, and `Frontend` on final head
-`c36c73cc7ade62435a1ad4043f75533c30993ec2`; GitHub remains live authority. The
+The live GitHub PR #248 head and exact-head CI remain authoritative for mutable
+Draft state; exact SHA / CI evidence is held in the live PR handoff and will be
+reconciled into repository governance after merge. GitHub remains the live
+authority. The
 required next boundary is independent GPT-5.6 Sol re-acceptance. No Ready transition, merge, Jira write,
 production/cutover action, economic opening, reconciliation, or MESP-142
 activation is authorized by this handoff.

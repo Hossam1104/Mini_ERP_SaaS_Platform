@@ -10,9 +10,9 @@
 
 ---
 
-## CURRENT AUTHORITY - 15 September 2026 (MESP-141 SLICE 4 FINAL R7 / R8 / R9 REMEDIATION)
+## CURRENT AUTHORITY - 15 September 2026 (MESP-141 SLICE 4 FINAL GOVERNANCE-ONLY ACCEPTANCE HOLD)
 
-**MESP-141 Slice 4 final residual remediation implemented. PR #248 remains OPEN / DRAFT / UNMERGED. Awaiting independent GPT-5.6 Sol acceptance.**
+**MESP-141 Slice 4 implementation is complete. R1-R9 technical findings are closed. GPT-5.6 Sol has accepted the Slice 4 code / architecture / safety. One governance-only SHA-chasing hold is being corrected. PR #248 remains OPEN / DRAFT / UNMERGED. Formal Slice 4 acceptance remains pending Sol verification of this governance-only correction.**
 
 ### Bounded implementation session
 
@@ -29,7 +29,7 @@
 | Metrics | Accepted fast-track capability completion remains **24 / 26 = 92.3%**; production readiness remains approximately **47% overall / 41% Procurement/P2P** |
 | Jira mutations | **0** — Jira remains historical provenance only |
 | Owner-managed frontend/assets | **Untouched** |
-| CI | Exact-head hosted CI run `34969230812` passed `Repository Validation`, `Backend`, and `Frontend` on final head `c36c73cc7ade62435a1ad4043f75533c30993ec2` |
+| Mutable Draft state authority | Live GitHub PR #248 head and exact-head CI; exact SHA / CI evidence is held in the live PR handoff and will be reconciled into repository governance after merge |
 
 Slice 4 remediation uses an explicit two-phase Migration coordinator and a
 neutral internal owner gateway contract. Phase A keeps the run pre-effect while
