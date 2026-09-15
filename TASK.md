@@ -45,9 +45,10 @@ eight EF contexts report no pending model changes; the solution-wide NuGet
 scan is clear; and the production bundle remains `514.26 kB` with the existing
 500 kB budget warning. No UI source or Owner-managed asset changed.
 
-The final exact-head hosted CI run is pending the remediation push and is live
-GitHub authority; no earlier CI run is claimed for this head. The required next
-boundary is independent GPT-5.6 Sol re-acceptance. No Ready transition, merge, Jira write,
+Exact-head hosted CI run `34969230812` passed `Repository Validation`,
+`Backend`, and `Frontend` on final head
+`c36c73cc7ade62435a1ad4043f75533c30993ec2`; GitHub remains live authority. The
+required next boundary is independent GPT-5.6 Sol re-acceptance. No Ready transition, merge, Jira write,
 production/cutover action, economic opening, reconciliation, or MESP-142
 activation is authorized by this handoff.
 

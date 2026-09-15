@@ -29,7 +29,7 @@
 | Metrics | Accepted fast-track capability completion remains **24 / 26 = 92.3%**; production readiness remains approximately **47% overall / 41% Procurement/P2P** |
 | Jira mutations | **0** — Jira remains historical provenance only |
 | Owner-managed frontend/assets | **Untouched** |
-| CI | Final exact-head hosted CI is the live GitHub authority after the remediation push; no final-head run is claimed before that push |
+| CI | Exact-head hosted CI run `34969230812` passed `Repository Validation`, `Backend`, and `Frontend` on final head `c36c73cc7ade62435a1ad4043f75533c30993ec2` |
 
 Slice 4 remediation uses an explicit two-phase Migration coordinator and a
 neutral internal owner gateway contract. Phase A keeps the run pre-effect while
