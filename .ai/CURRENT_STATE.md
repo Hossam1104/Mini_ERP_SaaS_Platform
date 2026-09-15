@@ -21,6 +21,7 @@
 | Bounded branch | `feat/mesp-141-master-reference-execution`; mutable head remains live GitHub authority |
 | Draft PR | **#248 OPEN / DRAFT / UNMERGED**; `https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/248` |
 | Slice 4 scope | Approved-run execution of validated `Product`, `Supplier`, `Customer`, `Currency`, `Tax`, `PaymentTerm`, and `UnitOfMeasure` records through the existing owner import engine, with durable owner-batch/effect lineage, replay, concurrency, partial, unknown-outcome, and drift safety |
+| Slice 4 effect distinction | Authoritative business creates are `Product`, `Supplier`, and `Customer`; `Currency`, `Tax`, `PaymentTerm`, and `UnitOfMeasure` are reference-only prerequisites, execution-time revalidated and recorded as Migration `NonEffect` lineage |
 | Slice 4 exclusions | Organization, InventoryOpening, GlOpening, ApOpening, ArOpening, CashBankOpening, economic effects, approval-policy implementation, reconciliation, onboarding UI, production/cutover, Wafra-specific behavior, MESP-142, and `frontend/assets` |
 | MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
 | Metrics | Accepted fast-track capability completion remains **24 / 26 = 92.3%**; production readiness remains approximately **47% overall / 41% Procurement/P2P** |

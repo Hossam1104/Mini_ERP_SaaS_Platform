@@ -22,6 +22,11 @@ same-key replay/conflict, partial and owner-drift classification, and a hard
 OutcomeUnknown stop with reconciliation-only handoff. Migration has no direct
 owner-table writes and no sibling DbContext access.
 
+Only `Product`, `Supplier`, and `Customer` are authoritative business creates
+in Slice 4. `Currency`, `Tax`, `PaymentTerm`, and `UnitOfMeasure` are
+reference-only prerequisites, revalidated at execution time and recorded as
+Migration `NonEffect` lineage rather than owner-created migration effects.
+
 Excluded: Organization, InventoryOpening, GlOpening, ApOpening, ArOpening,
 CashBankOpening, economic effects, approval-policy implementation,
 reconciliation, onboarding UI, production/cutover, Wafra-specific behavior,
