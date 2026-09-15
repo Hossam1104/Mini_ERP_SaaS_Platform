@@ -26,11 +26,11 @@ using Xunit;
 namespace MiniErp.ArchitectureTests;
 
 [Collection(SqlServerSafetyCollection.Name)]
-public sealed class MigrationOwnerExecutionSqlServerIntegrationTests
+public sealed class MigrationOwnerExecutionSqlServerSafetyTests
 {
     private readonly SqlServerSafetyFixture safety;
 
-    public MigrationOwnerExecutionSqlServerIntegrationTests(SqlServerSafetyFixture safety) => this.safety = safety;
+    public MigrationOwnerExecutionSqlServerSafetyTests(SqlServerSafetyFixture safety) => this.safety = safety;
 
     [Fact]
     public async Task Sql_server_full_migration_execution_reaches_real_owner_records_with_replay_and_isolation()
