@@ -10,6 +10,63 @@
 
 ---
 
+## CURRENT AUTHORITY - 15 September 2026 (MESP-141 SLICE 4 FINAL GOVERNANCE-ONLY ACCEPTANCE HOLD)
+
+**MESP-141 Slice 4 implementation is complete. R1-R9 technical findings are closed. GPT-5.6 Sol has accepted the Slice 4 code / architecture / safety. One governance-only SHA-chasing hold is being corrected. PR #248 remains OPEN / DRAFT / UNMERGED. Formal Slice 4 acceptance remains pending Sol verification of this governance-only correction.**
+
+### Bounded implementation session
+
+| Item | Value |
+|---|---|
+| MESP-141 | **OPEN / ACTIVE / IN PROGRESS** in GitHub Issue #229; Slice 1, Slice 2, and Slice 3 accepted/merged; Slice 4 bounded remediation complete on Draft PR, awaiting independent GPT-5.6 Sol re-acceptance |
+| Slice 4 activation | Issue #229 comment `5671574482`; activated from verified `origin/main` baseline `c25e902c389d5d25b37c10d6e3e070be3d6ea74b` |
+| Bounded branch | `feat/mesp-141-master-reference-execution`; mutable head remains live GitHub authority |
+| Draft PR | **#248 OPEN / DRAFT / UNMERGED**; `https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/248` |
+| Slice 4 scope | Approved-run execution of validated `Product`, `Supplier`, `Customer`, `Currency`, `Tax`, `PaymentTerm`, and `UnitOfMeasure` records through the existing owner import engine, with durable owner-batch/effect lineage, replay, concurrency, partial, unknown-outcome, and drift safety |
+| Slice 4 effect distinction | Authoritative business creates are `Product`, `Supplier`, and `Customer`; `Currency`, `Tax`, `PaymentTerm`, and `UnitOfMeasure` are reference-only prerequisites, execution-time revalidated and recorded as Migration `NonEffect` lineage |
+| Slice 4 exclusions | Organization, InventoryOpening, GlOpening, ApOpening, ArOpening, CashBankOpening, economic effects, approval-policy implementation, reconciliation, onboarding UI, production/cutover, Wafra-specific behavior, MESP-142, and `frontend/assets` |
+| MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
+| Metrics | Accepted fast-track capability completion remains **24 / 26 = 92.3%**; production readiness remains approximately **47% overall / 41% Procurement/P2P** |
+| Jira mutations | **0** — Jira remains historical provenance only |
+| Owner-managed frontend/assets | **Untouched** |
+| Mutable Draft state authority | Live GitHub PR #248 head and exact-head CI; exact SHA / CI evidence is held in the live PR handoff and will be reconciled into repository governance after merge |
+
+Slice 4 remediation uses an explicit two-phase Migration coordinator and a
+neutral internal owner gateway contract. Phase A keeps the run pre-effect while
+it verifies the authoritative snapshot, acquires the durable Prepared claim,
+prepares lineage, creates/simulates owner metadata, and revalidates execution-
+time references. Only after every group passes does Phase B transition the run
+to Executing, mark the durable effect boundary, call owner Execute, read owner
+evidence, and reconcile. Master Data remains the owner of its import processors,
+business identity, persistence, duplicate semantics, and audit evidence; no
+Migration code accesses sibling DbContexts or writes owner business tables.
+
+OutcomeUnknown is now a hard execution stop: POST performs no automatic owner
+read/reconcile/replay or mutation, and a different key is rejected until the
+separate reconciliation capability resolves it. Distinct execution keys may
+race only through the bounded execution-attempt lineage exception; the unique
+Tenant + Run + record-type Prepared/Started/Completed claim elects one owner
+lineage and the loser fails before owner batch creation.
+
+Local handoff evidence is Release build `0 warnings / 0 errors`; the full
+official disposable-LocalDB backend runner is `1,365/1,365` with `0` failures
+and `0` skips; the R7 catalog contract test is included in focused
+`MigrationExecutionTests` `31/31`; R9 has 10 authoritative-snapshot negative
+cases, 4 reference-drift cases, and 4 valid reference-only cases; the R8 real
+SQL Server owner vertical path is `1/1`; and the SQL active-claim race is
+`1/1` through the actual two-service orchestration. Angular is `316/316`;
+Chromium is `51/51`; npm audits retain the
+known `4` moderate production / `7` moderate full-tree baseline; all eight EF
+contexts report no pending model changes; the solution-wide NuGet scan is
+clear; the production bundle remains `514.26 kB` with the existing warning; and
+`git diff --check` is clean. No authoritative Inventory, Finance, AP, AR, or
+Cash/Bank effects are introduced.
+
+Known intentional migration debt: historical pre-Slice-3 Migration rows
+introduced before durable `EvidenceConfirmed` cannot be assumed proven after
+upgrade; production recovery/backfill remains governed future work and no
+blanket `true` backfill is authorized.
+
 ## CURRENT AUTHORITY - 15 September 2026 (MESP-141 SLICE 3 ACCEPTED / MERGED)
 
 ### Bounded implementation session

@@ -13,6 +13,7 @@ public static class MigrationServiceCollectionExtensions
         services.AddSingleton<MigrationFoundationService>();
         services.AddSingleton<MigrationIntakeService>();
         services.AddSingleton<MigrationValidationService>();
+        services.AddSingleton<MigrationExecutionService>();
         services.AddSingleton<IMigrationReferenceAuthority, UnavailableMigrationReferenceAuthority>();
         return services;
     }

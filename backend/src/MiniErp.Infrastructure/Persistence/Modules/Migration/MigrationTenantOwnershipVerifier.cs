@@ -66,6 +66,14 @@ internal static class MigrationTenantOwnershipVerifier
                 .Where(item => item.TenantId == previewRow.TenantId && item.PreviewId == previewRow.PreviewId && item.StagedRecordId == previewRow.StagedRecordId)
                 .Select(item => item.TenantId)
                 .SingleOrDefault(),
+            MigrationExecutionBatchEntity batch => migrationContext.ExecutionBatches
+                .Where(item => item.Id == batch.Id)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
+            MigrationExecutionEffectEntity effect => migrationContext.ExecutionEffects
+                .Where(item => item.Id == effect.Id)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
             _ => null
         };
     }
@@ -123,6 +131,14 @@ internal static class MigrationTenantOwnershipVerifier
                 .SingleOrDefaultAsync(cancellationToken),
             MigrationDryRunPreviewRowEntity previewRow => await migrationContext.DryRunPreviewRows
                 .Where(item => item.TenantId == previewRow.TenantId && item.PreviewId == previewRow.PreviewId && item.StagedRecordId == previewRow.StagedRecordId)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationExecutionBatchEntity batch => await migrationContext.ExecutionBatches
+                .Where(item => item.Id == batch.Id)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationExecutionEffectEntity effect => await migrationContext.ExecutionEffects
+                .Where(item => item.Id == effect.Id)
                 .Select(item => (TenantId?)item.TenantId)
                 .SingleOrDefaultAsync(cancellationToken),
             _ => null

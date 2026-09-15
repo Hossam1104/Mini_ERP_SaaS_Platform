@@ -5,6 +5,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Migrations;
+using MiniErp.App.BuildingBlocks.Owners;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.BuildingBlocks.Work;
 using MiniErp.App.Modules.Finance;
@@ -435,7 +436,8 @@ public sealed class SqlServerSafetyTests
                     "20260912224151_MESP141MigrationIntakeStaging",
                     "20260913060835_MESP141MigrationIntakeTenantInvariant",
                     "20260913094150_MESP141ValidationDryRun",
-                    "20260913135834_MESP141ValidationDurability"
+                    "20260913135834_MESP141ValidationDurability",
+                    "20260915053312_MESP141MasterReferenceExecution"
                 ],
                 (await migration.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await migration.Database.GetPendingMigrationsAsync());
@@ -3480,6 +3482,34 @@ public sealed class SqlServerSafetyTests
     }
 
     [Fact]
+    public async Task MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight()
+    {
+        var (foundation, _, options) = await CreateMigrationServiceAsync();
+        var persistence = new MigrationPersistence(options);
+        var tenant = MigrationTenant("sql-execution-claim-race");
+        var request = MigrationRequest(tenant, "tenant.migration.execute");
+        var run = await PrepareExecutionRunAsync(foundation, persistence, tenant, request);
+        var owner = new SqlClaimOwnerGateway();
+        var firstService = CreateExecutionService(options, owner);
+        var secondService = CreateExecutionService(options, owner);
+
+        var results = await Task.WhenAll(
+            firstService.ExecuteAsync(request, run.RunId, $"sql-execution-key-a-{Guid.NewGuid():N}", run.Version),
+            secondService.ExecuteAsync(request, run.RunId, $"sql-execution-key-b-{Guid.NewGuid():N}", run.Version));
+
+        Assert.Single(results, item => item.Succeeded);
+        var loser = Assert.Single(results, item => !item.Succeeded);
+        Assert.Equal("migration_execution_batch_claim_conflict", loser.Code);
+        Assert.Equal(1, owner.CreateCalls);
+        Assert.Equal(1, owner.ExecuteCalls);
+        Assert.Single(owner.BatchIds);
+
+        await using var db = new MigrationDbContext(options, tenant);
+        Assert.Single(await db.ExecutionBatches.Where(item => item.RunId == run.RunId).ToListAsync());
+        Assert.Equal(MigrationExecutionBatchState.Completed, await db.ExecutionBatches.Where(item => item.RunId == run.RunId).Select(item => item.State).SingleAsync());
+    }
+
+    [Fact]
     public async Task MESP141_sql_server_concurrent_identical_intake_converges_to_one_run_and_replay()
     {
         var options = SqlServerMigrationConfiguration.Configure(
@@ -3802,6 +3832,172 @@ public sealed class SqlServerSafetyTests
         key,
         $"{key}-fingerprint");
 
+    private static MigrationExecutionService CreateExecutionService(
+        DbContextOptions options,
+        IOwnerExecutionGateway owner)
+    {
+        var persistence = new MigrationPersistence(options);
+        var scope = new SqlMigrationExecutionScopeResolver();
+        return new MigrationExecutionService(
+            new MigrationFoundationService(persistence, new SqlMigrationAuditSink([])),
+            persistence,
+            persistence,
+            persistence,
+            scope,
+            scope,
+            owner,
+            new SqlMigrationReferenceAuthority());
+    }
+
+    private static async Task<MigrationRunRecord> PrepareExecutionRunAsync(
+        MigrationFoundationService foundation,
+        MigrationPersistence persistence,
+        TenantContext tenant,
+        FoundationRequestContext request)
+    {
+        const string packageHash = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        const string sourceHash = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+        var runAggregate = MigrationRun.Create(
+            tenant,
+            new MigrationDefinitionReference("tenant-onboarding.foundation", "1"),
+            new MigrationSourceProfileReference("neutral-source-profile", "1"));
+
+        var source = new MigrationSourceArtifactSnapshot(
+            Guid.NewGuid(),
+            tenant.TenantId,
+            null,
+            null,
+            null,
+            sourceHash,
+            1,
+            1);
+        var intakeKey = new MigrationIdempotencyKey($"sql-execution-intake-{Guid.NewGuid():N}");
+        var intake = await persistence.CreateIntakeAsync(
+            tenant,
+            new CreateMigrationIntakeCommand(
+                runAggregate,
+                MigrationOperationKind.Validation,
+                intakeKey,
+                new MigrationRequestFingerprint("sql-execution-intake-fingerprint"),
+                MigrationIntakeFingerprint.Version,
+                source));
+        Assert.True(intake.Succeeded, intake.Code);
+        var evidence = await persistence.SetEvidenceStateAsync(
+            tenant,
+            new MigrationEvidenceReference(runAggregate.RunId, MigrationOperationKind.Validation, intakeKey.Value),
+            true);
+        Assert.True(evidence.Succeeded, evidence.Code);
+        var run = (await persistence.FindRunAsync(tenant, runAggregate.RunId))!;
+
+        var payload = $$"""{"code":"SUP-{{Guid.NewGuid():N}}","nameEnglish":"SQL claim supplier"}""";
+        var staged = new MigrationStagedRecord(
+            Guid.NewGuid(),
+            tenant.TenantId,
+            run.RunId,
+            1,
+            MigrationCanonicalRecordType.Supplier.ToString(),
+            MigrationCanonicalRecordType.Supplier,
+            payload,
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(payload))),
+            packageHash,
+            MigrationCanonicalPackageParser.Version,
+            source.ObjectId,
+            sourceHash,
+            DateTimeOffset.UtcNow);
+        var stagedResult = await persistence.StagePackageAsync(
+            tenant,
+            new StageMigrationPackageCommand(
+                run.RunId,
+                source.ObjectId,
+                sourceHash,
+                packageHash,
+                MigrationCanonicalPackageParser.Version,
+                DateTimeOffset.UtcNow,
+                [staged]));
+        Assert.True(stagedResult.Succeeded, stagedResult.Code);
+
+        async Task<MigrationRunRecord> TransitionAsync(MigrationRunRecord current, MigrationRunStatus status)
+        {
+            var result = await foundation.TransitionRunAsync(request, current.RunId, status, current.Version);
+            Assert.True(result.Succeeded, result.Code);
+            return result.Value!;
+        }
+
+        run = await TransitionAsync(run, MigrationRunStatus.Prepared);
+        run = await TransitionAsync(run, MigrationRunStatus.Validating);
+        var validationAttempt = await foundation.StartAttemptAsync(
+            request,
+            run.RunId,
+            MigrationOperationKind.Validation,
+            $"sql-execution-validation-{Guid.NewGuid():N}",
+            "sql-execution-validation-fingerprint");
+        Assert.True(validationAttempt.Succeeded, validationAttempt.Code);
+        var validation = new MigrationValidationSummary(
+            Guid.NewGuid(),
+            tenant.TenantId,
+            run.RunId,
+            validationAttempt.Value!.AttemptId,
+            packageHash,
+            sourceHash,
+            1,
+            1,
+            0,
+            0,
+            new Dictionary<string, int>(),
+            [new MigrationValidationRecordResult(staged.StagedRecordId, 1, staged.RecordType, MigrationRecordDisposition.Accepted, [])],
+            DateTimeOffset.UtcNow);
+        var savedValidation = await persistence.SaveValidationAsync(tenant, new SaveMigrationValidationCommand(validation, []));
+        Assert.True(savedValidation.Succeeded, savedValidation.Code);
+        var completedValidation = await foundation.RecordAttemptOutcomeAsync(
+            request,
+            run.RunId,
+            validationAttempt.Value.AttemptId,
+            MigrationAttemptOutcome.Succeeded,
+            "validation_completed",
+            validationAttempt.Value.Version);
+        Assert.True(completedValidation.Succeeded, completedValidation.Code);
+        run = (await persistence.FindRunAsync(tenant, run.RunId))!;
+        run = await TransitionAsync(run, MigrationRunStatus.Validated);
+
+        var dryAttempt = await foundation.StartAttemptAsync(
+            request,
+            run.RunId,
+            MigrationOperationKind.DryRun,
+            $"sql-execution-dry-run-{Guid.NewGuid():N}",
+            "sql-execution-dry-run-fingerprint");
+        Assert.True(dryAttempt.Succeeded, dryAttempt.Code);
+        var dryRun = new MigrationDryRunPreview(
+            Guid.NewGuid(),
+            tenant.TenantId,
+            run.RunId,
+            dryAttempt.Value!.AttemptId,
+            validationAttempt.Value.AttemptId,
+            packageHash,
+            sourceHash,
+            1,
+            1,
+            0,
+            0,
+            new Dictionary<string, int>(),
+            new Dictionary<string, decimal>(),
+            0,
+            0,
+            [new MigrationPreviewRow(staged.StagedRecordId, 1, staged.RecordType, MigrationRecordDisposition.Accepted, MigrationPlannedAction.Create, null)],
+            DateTimeOffset.UtcNow);
+        var savedDryRun = await persistence.SaveDryRunAsync(tenant, new SaveMigrationDryRunCommand(dryRun));
+        Assert.True(savedDryRun.Succeeded, savedDryRun.Code);
+        var completedDryRun = await foundation.RecordAttemptOutcomeAsync(
+            request,
+            run.RunId,
+            dryAttempt.Value.AttemptId,
+            MigrationAttemptOutcome.Succeeded,
+            "dry_run_completed",
+            dryAttempt.Value.Version);
+        Assert.True(completedDryRun.Succeeded, completedDryRun.Code);
+        run = (await persistence.FindRunAsync(tenant, run.RunId))!;
+        return await TransitionAsync(run, MigrationRunStatus.Approved);
+    }
+
     /// <summary>Collects appended evidence so a durable audit failure is never silent.</summary>
     private sealed class SqlMigrationAuditSink(List<FoundationAuditEvidence> appended)
         : MiniErp.App.Modules.Audit.IFoundationAuditEvidenceSink
@@ -3826,6 +4022,97 @@ public sealed class SqlServerSafetyTests
                 TenantWorkScope.IssueFromVerifiedAuthority(
                     trustedTenantContext,
                     TenantWorkScopeRequest.TenantWide()));
+    }
+
+    private sealed class SqlMigrationExecutionScopeResolver : ICurrentOrganizationScopeResolver, IOrganizationScopeOwnershipResolver
+    {
+        public TenantWorkScopeResolution ResolveCurrent(TenantContext trustedTenantContext) =>
+            TenantWorkScopeResolution.Resolved(
+                TenantWorkScope.IssueFromVerifiedAuthority(
+                    trustedTenantContext,
+                    TenantWorkScopeRequest.TenantWide()));
+
+        public TenantWorkScopeResolution Resolve(TenantContext trustedTenantContext, TenantWorkScopeRequest requestedScope) =>
+            TenantWorkScopeResolution.Resolved(
+                TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, requestedScope));
+    }
+
+    private sealed class SqlMigrationReferenceAuthority : IMigrationReferenceAuthority
+    {
+        public Task<IReadOnlyList<MigrationReferenceCheck>> ValidateAsync(
+            FoundationRequestContext requestContext,
+            MigrationParsedCanonicalRow row,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MigrationReferenceCheck>>(
+                [new(MigrationReferenceState.NotApplicable, MigrationFindingCategory.Reference, "reference_not_required", "SQL claim test supplier has no external references.")]);
+    }
+
+    private sealed class SqlClaimOwnerGateway : IOwnerExecutionGateway
+    {
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, (OwnerImportRequest Request, OwnerEvidence Evidence)> batches = [];
+        private int createCalls;
+        private int executeCalls;
+
+        internal int CreateCalls => Volatile.Read(ref createCalls);
+        internal int ExecuteCalls => Volatile.Read(ref executeCalls);
+        internal IReadOnlyCollection<Guid> BatchIds => batches.Keys.ToArray();
+
+        public Task<OwnerOperationResult<OwnerBatchEvidence>> CreateBatchAsync(
+            FoundationRequestContext context,
+            OwnerImportRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref createCalls);
+            var current = batches.GetOrAdd(request.BatchId, _ =>
+                (request, new OwnerEvidence(
+                    new OwnerBatchEvidence(request.BatchId, OwnerBatchStatus.Draft, Guid.NewGuid().ToByteArray()),
+                    [])));
+            return Task.FromResult(new OwnerOperationResult<OwnerBatchEvidence>(true, "owner_ok", current.Evidence.Batch));
+        }
+
+        public Task<OwnerOperationResult<OwnerBatchEvidence>> SimulateAsync(
+            FoundationRequestContext context,
+            Guid batchId,
+            CancellationToken cancellationToken = default)
+        {
+            if (!batches.TryGetValue(batchId, out var current))
+                return Task.FromResult(new OwnerOperationResult<OwnerBatchEvidence>(false, "owner_batch_not_found", null, 404));
+            var evidence = new OwnerEvidence(
+                new OwnerBatchEvidence(batchId, OwnerBatchStatus.Validated, Guid.NewGuid().ToByteArray()),
+                current.Evidence.Rows);
+            batches[batchId] = (current.Request, evidence);
+            return Task.FromResult(new OwnerOperationResult<OwnerBatchEvidence>(true, "owner_ok", evidence.Batch));
+        }
+
+        public Task<OwnerOperationResult<OwnerBatchEvidence>> ExecuteAsync(
+            FoundationRequestContext context,
+            Guid batchId,
+            byte[] expectedVersion,
+            CancellationToken cancellationToken = default)
+        {
+            if (!batches.TryGetValue(batchId, out var current))
+                return Task.FromResult(new OwnerOperationResult<OwnerBatchEvidence>(false, "owner_batch_not_found", null, 404));
+            Interlocked.Increment(ref executeCalls);
+            var rows = current.Request.Rows.Select(row => new OwnerRowEvidence(
+                row.RowNumber,
+                OwnerRowOutcome.Accepted,
+                OwnerMutationDisposition.Committed,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                row.Fields.TryGetValue("code", out var code) ? code : null,
+                [])).ToArray();
+            var evidence = new OwnerEvidence(
+                new OwnerBatchEvidence(batchId, OwnerBatchStatus.Completed, Guid.NewGuid().ToByteArray()),
+                rows);
+            batches[batchId] = (current.Request, evidence);
+            return Task.FromResult(new OwnerOperationResult<OwnerBatchEvidence>(true, "owner_ok", evidence.Batch));
+        }
+
+        public Task<OwnerEvidence?> ReadEvidenceAsync(
+            FoundationRequestContext context,
+            Guid batchId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(batches.TryGetValue(batchId, out var current) ? (OwnerEvidence?)current.Evidence : null);
     }
 
     private async Task<(FinanceAccountRecord Debit, FinanceAccountRecord Credit)> CreateFinanceAccountsAsync(IFinancePersistence persistence, FinanceRequestContext context, Guid companyId, string prefix)

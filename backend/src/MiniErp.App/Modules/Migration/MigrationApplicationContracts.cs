@@ -576,7 +576,8 @@ public sealed class MigrationAttemptLineage
     public static MigrationAttemptLineage FromPersistedAttempts(
         TenantId tenantId,
         Guid runId,
-        IReadOnlyCollection<MigrationAttemptRecord> persistedAttempts)
+        IReadOnlyCollection<MigrationAttemptRecord> persistedAttempts,
+        bool allowConcurrentExecution = false)
     {
         ArgumentNullException.ThrowIfNull(persistedAttempts);
         if (runId == Guid.Empty)
@@ -616,11 +617,13 @@ public sealed class MigrationAttemptLineage
 
         // A prior attempt that is still Pending, or whose outcome could not be
         // proved, must not be superseded by a second authoritative attempt.
-        // BRD section 13.7 and M40-AC-022 stop automatic replay and require
+        // The one bounded exception is a concurrent Execution attempt: the
+        // durable pre-effect claim is the authority that elects its winner.
+        // BRD section 13.7 and M40-AC-022 still stop unknown replay and require
         // reconciliation instead.
         var blocking = latest.Outcome switch
         {
-            MigrationAttemptOutcome.Pending => "migration_attempt_previous_still_open",
+            MigrationAttemptOutcome.Pending when !(allowConcurrentExecution && latest.Operation == MigrationOperationKind.Execution) => "migration_attempt_previous_still_open",
             MigrationAttemptOutcome.UnknownOutcome => "migration_attempt_previous_outcome_unknown",
             _ => null
         };

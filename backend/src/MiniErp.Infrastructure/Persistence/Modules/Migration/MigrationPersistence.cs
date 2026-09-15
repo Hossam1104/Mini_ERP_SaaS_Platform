@@ -12,7 +12,7 @@ namespace MiniErp.Infrastructure.Persistence.Modules.Migration;
 /// trusted Tenant context and every idempotency record stores identifiers and
 /// fingerprints only; no imported payload is persisted by this slice.
 /// </summary>
-internal sealed partial class MigrationPersistence : IMigrationFoundationPersistence, IMigrationValidationPersistence
+internal sealed partial class MigrationPersistence : IMigrationFoundationPersistence, IMigrationValidationPersistence, IMigrationExecutionPersistence
 {
     private readonly DbContextOptions options;
     private readonly TimeProvider timeProvider;
@@ -250,7 +250,8 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
         var lineage = MigrationAttemptLineage.FromPersistedAttempts(
             tenantContext.TenantId,
             command.RunId,
-            persistedAttempts);
+            persistedAttempts,
+            command.Operation == MigrationOperationKind.Execution);
         var started = MigrationAttempt.StartNext(
             run,
             command.Operation,
@@ -725,7 +726,7 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
         {
             return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
                 MigrationPersistenceOutcome.Conflict,
-                "migration_idempotency_key_reuse");
+                "migration_idempotency_conflict");
         }
 
         // A provider can expose the idempotency key at the end of a unique-key
@@ -755,7 +756,7 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
 
         return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
             MigrationPersistenceOutcome.Conflict,
-            "migration_idempotency_key_reuse");
+            "migration_idempotency_conflict");
     }
 
     /// <summary>
@@ -826,6 +827,15 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
         if (concurrent is not null)
         {
             return await ResolveAttemptReplayAsync(tenantContext, concurrent, command, cancellationToken);
+        }
+
+        if (command.Operation == MigrationOperationKind.Execution)
+        {
+            // Distinct execution keys may race the server-derived sequence.
+            // Re-enter through a fresh context so the next sequence is derived
+            // from the committed attempt before the durable pre-effect claim
+            // elects the owner-batch winner.
+            return await StartAttemptAsync(tenantContext, command, cancellationToken);
         }
 
         // The idempotency key is free, so the violation was the Tenant-scoped
