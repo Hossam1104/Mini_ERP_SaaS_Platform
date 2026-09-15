@@ -1,8 +1,10 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 15 September 2026 (MESP-141 Slice 4 bounded remediation complete on Draft PR)
+**Last Updated:** 15 September 2026 (MESP-141 Slice 4 final R7 / R8 / R9 remediation)
 
-## Current execution snapshot - 15 September 2026 (MESP-141 Slice 4 bounded remediation complete / Draft handoff)
+## Current execution snapshot - 15 September 2026 (MESP-141 Slice 4 final R7 / R8 / R9 remediation)
+
+**MESP-141 Slice 4 final residual remediation implemented. PR #248 remains OPEN / DRAFT / UNMERGED. Awaiting independent GPT-5.6 Sol acceptance.**
 
 MESP-141 Slice 4 was activated by GitHub Issue #229 comment `5671574482` from
 verified `origin/main` baseline
@@ -35,9 +37,11 @@ remains **24 / 26 = 92.3%**; production readiness remains approximately **47%
 overall / 41% Procurement/P2P**.
 
 Local evidence: Release build `0 warnings / 0 errors`; official disposable-
-LocalDB backend `1,345/1,345` with `0` failures / `0` skips; focused migration
-execution/authority/vertical suites `14/14`; SQL active-claim race `1/1`
-through two service instances; Angular `316/316`; Chromium `51/51`;
+LocalDB backend `1,365/1,365` with `0` failures / `0` skips; R7 catalog
+contract plus R9 snapshot/reference matrices are covered by focused
+`MigrationExecutionTests` `31/31`; the R8 real SQL Server owner vertical path
+is `1/1`; SQL active-claim race is `1/1` through two service instances;
+Angular `316/316`; Chromium `51/51`;
 known npm audit baselines `4` moderate production / `7` moderate full tree;
 eight EF contexts with no pending model changes; solution-wide NuGet scan
 clear; production bundle `514.26 kB` with the existing 500 kB warning; and
@@ -45,7 +49,7 @@ clear; production bundle `514.26 kB` with the existing 500 kB warning; and
 
 ### Progress history - 15 September 2026 (MESP-141 Slice 4 bounded remediation)
 
-Slice 4 remediation completed the bounded Migration-to-owner execution seam,
+Slice 4 final R7 / R8 / R9 remediation completed the bounded Migration-to-owner execution seam,
 OutcomeUnknown hard stop, two-phase effect boundary, Prepared-state durable
 claim, execution-time reference revalidation, actual owner vertical proof, and
 its durable safety evidence. The existing Master Data import API and owner

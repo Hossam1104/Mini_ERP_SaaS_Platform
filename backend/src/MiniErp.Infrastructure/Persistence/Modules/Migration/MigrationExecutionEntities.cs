@@ -54,7 +54,7 @@ internal sealed class MigrationExecutionBatchEntity : ITenantOwned
 
         var allowed = State switch
         {
-            MigrationExecutionBatchState.Prepared => state is MigrationExecutionBatchState.Started or MigrationExecutionBatchState.Failed or MigrationExecutionBatchState.Unknown,
+            MigrationExecutionBatchState.Prepared => state is MigrationExecutionBatchState.Started or MigrationExecutionBatchState.Completed or MigrationExecutionBatchState.Failed or MigrationExecutionBatchState.Unknown,
             MigrationExecutionBatchState.Started => state is MigrationExecutionBatchState.Completed or MigrationExecutionBatchState.Failed or MigrationExecutionBatchState.Unknown,
             _ => false
         };

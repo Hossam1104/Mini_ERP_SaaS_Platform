@@ -7,6 +7,7 @@ using MiniErp.App.BuildingBlocks.Owners;
 using MiniErp.App.Modules.Audit;
 using MiniErp.App.Modules.Migration;
 using MiniErp.Contracts.Modules.Audit;
+using MiniErp.Contracts.Modules.Foundation;
 using MiniErp.Contracts.Modules.Migration;
 using MiniErp.Infrastructure.Persistence.Modules.Migration;
 using Xunit;
@@ -15,6 +16,19 @@ namespace MiniErp.ArchitectureTests;
 
 public sealed class MigrationExecutionTests
 {
+    [Fact]
+    public void Migration_execution_start_catalog_declares_the_complete_mutation_contract()
+    {
+        var operation = FoundationOperationCatalog.GetRequired(MigrationExecutionService.OperationId);
+
+        Assert.Equal(FoundationConcurrencyPolicy.IfMatch, operation.Concurrency);
+        Assert.Equal(FoundationIdempotencyPolicy.Required, operation.Idempotency);
+        Assert.True(operation.RequiresAntiforgery);
+        Assert.True(operation.RequiresMandatoryAudit);
+        Assert.True(operation.IsUnsafe);
+        Assert.Equal("tenant.migration.execute", operation.ExactPermissionCode);
+    }
+
     [Fact]
     public async Task Approved_owner_commit_replays_same_key_without_a_second_owner_effect()
     {
@@ -137,6 +151,145 @@ public sealed class MigrationExecutionTests
         Assert.Equal(MigrationResultKind.Rejected, result.Kind);
         Assert.Equal("migration_execution_authoritative_snapshot_mismatch", result.Code);
         Assert.Equal(0, fixture.Owner.CreateCalls);
+        Assert.Equal(0, fixture.Owner.ExecuteCalls);
+    }
+
+    [Theory]
+    [InlineData("validation-sequence")]
+    [InlineData("dry-run-sequence")]
+    [InlineData("validation-type")]
+    [InlineData("dry-run-type")]
+    [InlineData("staged-id")]
+    [InlineData("staged-sequence")]
+    [InlineData("validation-id")]
+    [InlineData("validation-sequence-duplicate")]
+    [InlineData("dry-run-id")]
+    [InlineData("dry-run-sequence-duplicate")]
+    public async Task Authoritative_snapshot_negative_matrix_rejects_before_attempt_or_owner_preflight(string mutation)
+    {
+        await using var fixture = await ExecutionFixture.CreateAsync();
+        var prepared = await fixture.PrepareAsync(
+            [
+                fixture.Record(MigrationCanonicalRecordType.Supplier, "{\"code\":\"SUP-1\",\"nameEnglish\":\"Supplier\"}"),
+                fixture.Record(MigrationCanonicalRecordType.Customer, "{\"code\":\"CUS-1\",\"nameEnglish\":\"Customer\"}")
+            ],
+            [MigrationPlannedAction.Create, MigrationPlannedAction.Create]);
+
+        var staged = prepared.Staged.ToArray();
+        var validation = fixture.Validation.Validation!;
+        var dryRun = fixture.Validation.DryRun!;
+        switch (mutation)
+        {
+            case "validation-sequence":
+                fixture.Validation.Validation = validation with { Records = [validation.Records[0] with { SourceSequence = 99 }, validation.Records[1]] };
+                break;
+            case "dry-run-sequence":
+                fixture.Validation.DryRun = dryRun with { Rows = [dryRun.Rows[0] with { SourceSequence = 99 }, dryRun.Rows[1]] };
+                break;
+            case "validation-type":
+                fixture.Validation.Validation = validation with { Records = [validation.Records[0] with { RecordType = MigrationCanonicalRecordType.Customer }, validation.Records[1]] };
+                break;
+            case "dry-run-type":
+                fixture.Validation.DryRun = dryRun with { Rows = [dryRun.Rows[0] with { RecordType = MigrationCanonicalRecordType.Customer }, dryRun.Rows[1]] };
+                break;
+            case "staged-id":
+                fixture.Validation.Staged = [staged[0], staged[1] with { StagedRecordId = staged[0].StagedRecordId }];
+                break;
+            case "staged-sequence":
+                fixture.Validation.Staged = [staged[0], staged[1] with { SourceSequence = staged[0].SourceSequence }];
+                break;
+            case "validation-id":
+                fixture.Validation.Validation = validation with { Records = [validation.Records[0], validation.Records[1] with { StagedRecordId = validation.Records[0].StagedRecordId }] };
+                break;
+            case "validation-sequence-duplicate":
+                fixture.Validation.Validation = validation with { Records = [validation.Records[0], validation.Records[1] with { SourceSequence = validation.Records[0].SourceSequence }] };
+                break;
+            case "dry-run-id":
+                fixture.Validation.DryRun = dryRun with { Rows = [dryRun.Rows[0], dryRun.Rows[1] with { StagedRecordId = dryRun.Rows[0].StagedRecordId }] };
+                break;
+            case "dry-run-sequence-duplicate":
+                fixture.Validation.DryRun = dryRun with { Rows = [dryRun.Rows[0], dryRun.Rows[1] with { SourceSequence = dryRun.Rows[0].SourceSequence }] };
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(mutation), mutation, null);
+        }
+
+        var result = await fixture.Service.ExecuteAsync(
+            fixture.Request,
+            prepared.Run.RunId,
+            $"snapshot-{mutation}",
+            prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.Rejected, result.Kind);
+        Assert.Equal("migration_execution_authoritative_snapshot_mismatch", result.Code);
+        Assert.Equal(0, fixture.Owner.CreateCalls);
+        Assert.Equal(0, fixture.Owner.SimulateCalls);
+        Assert.Equal(0, fixture.Owner.ExecuteCalls);
+        Assert.DoesNotContain(
+            await fixture.Persistence.ListAttemptsAsync(fixture.Tenant, prepared.Run.RunId),
+            item => item.Operation == MigrationOperationKind.Execution);
+    }
+
+    [Theory]
+    [InlineData(MigrationCanonicalRecordType.Currency)]
+    [InlineData(MigrationCanonicalRecordType.Tax)]
+    [InlineData(MigrationCanonicalRecordType.PaymentTerm)]
+    [InlineData(MigrationCanonicalRecordType.UnitOfMeasure)]
+    public async Task Reference_only_drift_fails_before_executing(MigrationCanonicalRecordType type)
+    {
+        await using var fixture = await ExecutionFixture.CreateAsync(referenceState: MigrationReferenceState.Active);
+        var parsedReference = new MigrationParsedCanonicalRow(
+            1,
+            "reference-1",
+            type,
+            new MigrationReferencePayload(Guid.Parse("00000000-0000-0000-0000-000000000001"), "REF-1"),
+            "{}");
+        Assert.Equal(MigrationReferenceState.Active, Assert.Single(await fixture.References.ValidateAsync(fixture.Request, parsedReference)).State);
+        fixture.References.State = MigrationReferenceState.Missing;
+        var prepared = await fixture.PrepareAsync(
+            [fixture.Record(type, "{\"referenceId\":\"00000000-0000-0000-0000-000000000001\",\"code\":\"REF-1\"}")],
+            [MigrationPlannedAction.MatchReference]);
+
+        var result = await fixture.Service.ExecuteAsync(
+            fixture.Request,
+            prepared.Run.RunId,
+            $"reference-drift-{type}",
+            prepared.Run.Version);
+        var read = await fixture.Service.ReadAsync(fixture.Request, prepared.Run.RunId);
+
+        Assert.Equal(MigrationResultKind.KnownFailure, result.Kind);
+        Assert.Equal("migration_reference_drift", result.Code);
+        Assert.Equal(MigrationRunStatus.Approved, read!.RunStatus);
+        Assert.Equal(0, fixture.Owner.CreateCalls);
+        Assert.Equal(0, fixture.Owner.SimulateCalls);
+        Assert.Equal(0, fixture.Owner.ExecuteCalls);
+        Assert.Single(read.Batches, item => item.State == MigrationExecutionBatchState.Failed);
+        Assert.Single(read.Effects, item => item.Disposition == MigrationExecutionEffectDisposition.Failed);
+    }
+
+    [Theory]
+    [InlineData(MigrationCanonicalRecordType.Currency)]
+    [InlineData(MigrationCanonicalRecordType.Tax)]
+    [InlineData(MigrationCanonicalRecordType.PaymentTerm)]
+    [InlineData(MigrationCanonicalRecordType.UnitOfMeasure)]
+    public async Task Valid_reference_only_rows_become_non_effects(MigrationCanonicalRecordType type)
+    {
+        await using var fixture = await ExecutionFixture.CreateAsync(referenceState: MigrationReferenceState.Active);
+        var prepared = await fixture.PrepareAsync(
+            [fixture.Record(type, "{\"referenceId\":\"00000000-0000-0000-0000-000000000001\",\"code\":\"REF-1\"}")],
+            [MigrationPlannedAction.MatchReference]);
+
+        var result = await fixture.Service.ExecuteAsync(
+            fixture.Request,
+            prepared.Run.RunId,
+            $"reference-valid-{type}",
+            prepared.Run.Version);
+
+        Assert.True(result.Succeeded, result.Code);
+        Assert.Equal(MigrationRunStatus.Completed, result.Value!.RunStatus);
+        Assert.Single(result.Value.Effects, item => item.Disposition == MigrationExecutionEffectDisposition.NonEffect);
+        Assert.Equal(0, fixture.Owner.CreateCalls);
+        Assert.Equal(0, fixture.Owner.SimulateCalls);
         Assert.Equal(0, fixture.Owner.ExecuteCalls);
     }
 
@@ -319,7 +472,8 @@ public sealed class MigrationExecutionTests
             MigrationPersistence persistence,
             MigrationExecutionService service,
             OwnerGateway owner,
-            InMemoryValidationPersistence validation)
+            InMemoryValidationPersistence validation,
+            TestReferenceAuthority references)
         {
             this.connection = connection;
             Tenant = tenant;
@@ -328,6 +482,7 @@ public sealed class MigrationExecutionTests
             Service = service;
             Owner = owner;
             Validation = validation;
+            References = references;
         }
 
         internal TenantContext Tenant { get; }
@@ -336,13 +491,15 @@ public sealed class MigrationExecutionTests
         internal MigrationExecutionService Service { get; }
         internal OwnerGateway Owner { get; }
         internal InMemoryValidationPersistence Validation { get; }
+        internal TestReferenceAuthority References { get; }
 
         internal static async Task<ExecutionFixture> CreateAsync(
             IReadOnlySet<OwnerResourceKind>? failingKinds = null,
             bool hideEvidenceAfterExecute = false,
             bool driftOnExecute = false,
             bool blockFirstOwnerExecute = false,
-            bool failOwnerCreate = false)
+            bool failOwnerCreate = false,
+            MigrationReferenceState referenceState = MigrationReferenceState.NotApplicable)
         {
             var connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
@@ -365,6 +522,7 @@ public sealed class MigrationExecutionTests
             var persistence = new MigrationPersistence(options);
             var owner = new OwnerGateway(hideEvidenceAfterExecute, failingKinds ?? new HashSet<OwnerResourceKind>(), driftOnExecute, blockFirstOwnerExecute, failOwnerCreate);
             var validation = new InMemoryValidationPersistence(persistence);
+            var references = new TestReferenceAuthority(referenceState);
             var service = new MigrationExecutionService(
                 new MigrationFoundationService(persistence, new NoopAuditSink()),
                 persistence,
@@ -373,8 +531,8 @@ public sealed class MigrationExecutionTests
                 new TenantWideScopeResolver(),
                 new TenantWideScopeResolver(),
                 owner,
-                new TestReferenceAuthority());
-            return new ExecutionFixture(connection, tenant, request, persistence, service, owner, validation);
+                references);
+            return new ExecutionFixture(connection, tenant, request, persistence, service, owner, validation, references);
         }
 
         internal MigrationExecutionService NewService(IFoundationAuditEvidenceSink? auditSink = null) => new(
@@ -385,7 +543,7 @@ public sealed class MigrationExecutionTests
             new TenantWideScopeResolver(),
             new TenantWideScopeResolver(),
             Owner,
-            new TestReferenceAuthority());
+            References);
 
         internal MigrationStagedRecord Record(MigrationCanonicalRecordType type, string payload)
         {
@@ -631,6 +789,7 @@ public sealed class MigrationExecutionTests
 
         internal IReadOnlySet<OwnerResourceKind> FailingKinds { get; }
         internal int CreateCalls { get; private set; }
+        internal int SimulateCalls { get; private set; }
         internal int ExecuteCalls { get; private set; }
         internal int BatchCount { get { lock (sync) return batches.Count; } }
         internal TaskCompletionSource<bool> FirstExecuteEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -657,6 +816,7 @@ public sealed class MigrationExecutionTests
         {
             lock (sync)
             {
+                SimulateCalls++;
                 var current = batches[batchId];
                 if (current.Evidence.Batch.Status is OwnerBatchStatus.Completed or OwnerBatchStatus.CompletedWithErrors)
                     return Task.FromResult(Success(current.Evidence.Batch));
@@ -732,14 +892,16 @@ public sealed class MigrationExecutionTests
             TenantWorkScopeResolution.Resolved(TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, requestedScope));
     }
 
-    private sealed class TestReferenceAuthority : IMigrationReferenceAuthority
+    private sealed class TestReferenceAuthority(MigrationReferenceState state) : IMigrationReferenceAuthority
     {
+        internal MigrationReferenceState State { get; set; } = state;
+
         public Task<IReadOnlyList<MigrationReferenceCheck>> ValidateAsync(
             FoundationRequestContext requestContext,
             MigrationParsedCanonicalRow row,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<MigrationReferenceCheck>>(
-                [new(MigrationReferenceState.NotApplicable, MigrationFindingCategory.Reference, "reference_not_required", "Test owner has no external reference requirement.")]);
+                [new(State, MigrationFindingCategory.Reference, State == MigrationReferenceState.NotApplicable ? "reference_not_required" : "migration_reference_drift", "Test reference authority state.")]);
     }
 
     private sealed class NoopAuditSink : IFoundationAuditEvidenceSink

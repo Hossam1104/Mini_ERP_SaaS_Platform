@@ -10,7 +10,9 @@
 
 ---
 
-## CURRENT AUTHORITY - 15 September 2026 (MESP-141 SLICE 4 REMEDIATION / DRAFT HANDOFF)
+## CURRENT AUTHORITY - 15 September 2026 (MESP-141 SLICE 4 FINAL R7 / R8 / R9 REMEDIATION)
+
+**MESP-141 Slice 4 final residual remediation implemented. PR #248 remains OPEN / DRAFT / UNMERGED. Awaiting independent GPT-5.6 Sol acceptance.**
 
 ### Bounded implementation session
 
@@ -47,11 +49,12 @@ Tenant + Run + record-type Prepared/Started/Completed claim elects one owner
 lineage and the loser fails before owner batch creation.
 
 Local handoff evidence is Release build `0 warnings / 0 errors`; the full
-official disposable-LocalDB backend runner is `1,345/1,345` with `0` failures
-and `0` skips; focused execution coverage is `10/10`; the SQL active-claim race
-is `1/1` through the actual two-service orchestration; focused migration
-execution is `12/12`, authority is `1/1`, and vertical integration is `1/1`
-(`14/14` combined); Angular is `316/316`;
+official disposable-LocalDB backend runner is `1,365/1,365` with `0` failures
+and `0` skips; the R7 catalog contract test is included in focused
+`MigrationExecutionTests` `31/31`; R9 has 10 authoritative-snapshot negative
+cases, 4 reference-drift cases, and 4 valid reference-only cases; the R8 real
+SQL Server owner vertical path is `1/1`; and the SQL active-claim race is
+`1/1` through the actual two-service orchestration. Angular is `316/316`;
 Chromium is `51/51`; npm audits retain the
 known `4` moderate production / `7` moderate full-tree baseline; all eight EF
 contexts report no pending model changes; the solution-wide NuGet scan is

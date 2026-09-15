@@ -1,4 +1,6 @@
-## MESP-141 Slice 4 - BOUNDED REMEDIATION COMPLETE / DRAFT HANDOFF (15 September 2026)
+## MESP-141 Slice 4 - FINAL R7 / R8 / R9 REMEDIATION (15 September 2026)
+
+**MESP-141 Slice 4 final residual remediation implemented. PR #248 remains OPEN / DRAFT / UNMERGED. Awaiting independent GPT-5.6 Sol acceptance.**
 
 MESP-141 Slice 4 was activated by GitHub Issue #229 comment `5671574482` from
 verified `origin/main` baseline
@@ -33,9 +35,11 @@ remains **24 / 26 = 92.3%** and production readiness remains approximately
 **47% overall / 41% Procurement/P2P**.
 
 Validation is Release build `0 warnings / 0 errors`; official disposable-
-LocalDB backend `1,345/1,345` with `0` failures / `0` skips; focused migration
-execution/authority/vertical suites `14/14`; SQL active-claim race `1/1`
-through two service instances; Angular `316/316`; Chromium `51/51`;
+LocalDB backend `1,365/1,365` with `0` failures / `0` skips; R7 catalog
+contract plus R9 snapshot/reference matrices are covered by focused
+`MigrationExecutionTests` `31/31`; the R8 real SQL Server owner vertical path
+is `1/1`; SQL active-claim race is `1/1` through two service instances;
+Angular `316/316`; Chromium `51/51`;
 production/full npm audits retain the known `4` / `7` moderate advisories;
 eight EF contexts report no pending model changes; the solution-wide NuGet
 scan is clear; and the production bundle remains `514.26 kB` with the existing
