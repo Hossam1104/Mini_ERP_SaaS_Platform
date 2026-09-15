@@ -12,7 +12,7 @@ namespace MiniErp.Infrastructure.Persistence.Modules.Migration;
 /// trusted Tenant context and every idempotency record stores identifiers and
 /// fingerprints only; no imported payload is persisted by this slice.
 /// </summary>
-internal sealed partial class MigrationPersistence : IMigrationFoundationPersistence, IMigrationValidationPersistence
+internal sealed partial class MigrationPersistence : IMigrationFoundationPersistence, IMigrationValidationPersistence, IMigrationExecutionPersistence
 {
     private readonly DbContextOptions options;
     private readonly TimeProvider timeProvider;
@@ -725,7 +725,7 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
         {
             return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
                 MigrationPersistenceOutcome.Conflict,
-                "migration_idempotency_key_reuse");
+                "migration_idempotency_conflict");
         }
 
         // A provider can expose the idempotency key at the end of a unique-key
@@ -755,7 +755,7 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
 
         return MigrationPersistenceResult<MigrationIntakeRecord>.Denied(
             MigrationPersistenceOutcome.Conflict,
-            "migration_idempotency_key_reuse");
+            "migration_idempotency_conflict");
     }
 
     /// <summary>

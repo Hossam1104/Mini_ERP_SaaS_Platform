@@ -4,8 +4,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
+using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Owners;
 using MiniErp.Contracts.Modules.Audit;
+using MiniErp.Contracts.Modules.Foundation;
 using MiniErp.Contracts.Modules.MasterData;
 
 namespace MiniErp.App.Modules.MasterData;
@@ -55,6 +58,56 @@ public sealed class MasterDataImportService
             return Failure<MasterDataImportBatchRecord>(authorizationFailure);
         }
 
+        return await CreateBatchCoreAsync(context, request, idempotencyKey, null, cancellationToken);
+    }
+
+    internal async Task<MasterDataImportOperationResult<MasterDataImportBatchRecord>> CreateTrustedOwnerBatchAsync(
+        FoundationRequestContext trustedContext,
+        TrustedOwnerImportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(trustedContext);
+        ArgumentNullException.ThrowIfNull(request);
+
+        MasterDataRequestContext context;
+        try
+        {
+            context = MasterDataRequestContext.FromFoundationContext(trustedContext);
+        }
+        catch (ArgumentException)
+        {
+            return MasterDataImportOperationResult<MasterDataImportBatchRecord>.Failure(
+                "tenant_context_failed",
+                StatusCodes.Status403Forbidden);
+        }
+
+        return await CreateBatchCoreAsync(
+            context,
+            new MasterDataImportBatchRequest(
+                request.ResourceKind,
+                new MasterDataImportSourceRequest(
+                    request.Source.SourceSystemCategory,
+                    request.Source.SourceFileReference,
+                    request.Source.BatchReference),
+                request.Source.SourceFileReference,
+                MasterDataImportDuplicatePolicy.Reject,
+                MasterDataImportMode.Commit,
+                request.Rows),
+            request.IdempotencyKey,
+            request.BatchId,
+            cancellationToken);
+    }
+
+    private async Task<MasterDataImportOperationResult<MasterDataImportBatchRecord>> CreateBatchCoreAsync(
+        MasterDataRequestContext context,
+        MasterDataImportBatchRequest request,
+        string? idempotencyKey,
+        Guid? requestedBatchId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(request);
+
         if (!processors.TryGet(request.ResourceKind, out _))
         {
             return Failure<MasterDataImportBatchRecord>(
@@ -84,7 +137,9 @@ public sealed class MasterDataImportService
         var rowNumbers = new HashSet<int>();
         var rows = new List<MasterDataImportRowRecord>(rowsInput.Count);
         var now = DateTimeOffset.UtcNow;
-        var batchId = Guid.NewGuid();
+        var batchId = requestedBatchId is { } suppliedBatchId && suppliedBatchId != Guid.Empty
+            ? suppliedBatchId
+            : Guid.NewGuid();
         foreach (var input in rowsInput)
         {
             if (input is null)
@@ -221,14 +276,46 @@ public sealed class MasterDataImportService
             return Failure<MasterDataImportBatchRecord>(batch.Error!);
         }
 
-        if (batch.Value.Status is MasterDataImportStatus.Validated
+        return await SimulateCoreAsync(context, batch.Value, cancellationToken);
+    }
+
+    internal async Task<MasterDataImportOperationResult<MasterDataImportBatchRecord>> SimulateTrustedOwnerBatchAsync(
+        FoundationRequestContext trustedContext,
+        Guid batchId,
+        CancellationToken cancellationToken = default)
+    {
+        var context = await TrustedContextAsync(trustedContext);
+        if (context is null)
+        {
+            return MasterDataImportOperationResult<MasterDataImportBatchRecord>.Failure(
+                "tenant_context_failed",
+                StatusCodes.Status403Forbidden);
+        }
+
+        var batch = await TryReadAsync(() => persistence.FindBatchAsync(context.TenantContext, batchId, cancellationToken));
+        if (!batch.Available)
+        {
+            return Unavailable<MasterDataImportBatchRecord>();
+        }
+
+        return batch.Value is null
+            ? MasterDataImportOperationResult<MasterDataImportBatchRecord>.Failure("import_batch_not_found", StatusCodes.Status404NotFound)
+            : await SimulateCoreAsync(context, batch.Value, cancellationToken);
+    }
+
+    private async Task<MasterDataImportOperationResult<MasterDataImportBatchRecord>> SimulateCoreAsync(
+        MasterDataRequestContext context,
+        MasterDataImportBatchRecord batch,
+        CancellationToken cancellationToken)
+    {
+        if (batch.Status is MasterDataImportStatus.Validated
             or MasterDataImportStatus.Completed
             or MasterDataImportStatus.CompletedWithErrors)
         {
-            return MasterDataImportOperationResult<MasterDataImportBatchRecord>.Success(batch.Value, "already_simulated");
+            return MasterDataImportOperationResult<MasterDataImportBatchRecord>.Success(batch, "already_simulated");
         }
 
-        if (batch.Value.Status != MasterDataImportStatus.Draft)
+        if (batch.Status != MasterDataImportStatus.Draft)
         {
             return Failure<MasterDataImportBatchRecord>(
                 MasterDataImportOperationResult<MasterDataImportBatchRecord>.Failure(
@@ -236,7 +323,7 @@ public sealed class MasterDataImportService
                     StatusCodes.Status409Conflict));
         }
 
-        var rowsRead = await TryReadAsync(() => persistence.ListRowsAsync(context.TenantContext, batch.Value.Id, cancellationToken));
+        var rowsRead = await TryReadAsync(() => persistence.ListRowsAsync(context.TenantContext, batch.Id, cancellationToken));
         if (!rowsRead.Available)
         {
             return Unavailable<MasterDataImportBatchRecord>();
@@ -246,7 +333,7 @@ public sealed class MasterDataImportService
         var start = DateTimeOffset.UtcNow;
         var simulating = await SaveAsync(
             context,
-            batch.Value,
+            batch,
             MasterDataImportStatus.Simulating,
             start,
             null,
@@ -312,12 +399,47 @@ public sealed class MasterDataImportService
             return Failure<MasterDataImportBatchRecord>(batch.Error!);
         }
 
-        if (batch.Value.Status is MasterDataImportStatus.Completed or MasterDataImportStatus.CompletedWithErrors)
+        return await ExecuteCoreAsync(context, batch.Value, expectedVersion, cancellationToken);
+    }
+
+    internal async Task<MasterDataImportOperationResult<MasterDataImportBatchRecord>> ExecuteTrustedOwnerBatchAsync(
+        FoundationRequestContext trustedContext,
+        Guid batchId,
+        byte[] expectedVersion,
+        CancellationToken cancellationToken = default)
+    {
+        var context = await TrustedContextAsync(trustedContext);
+        if (context is null)
         {
-            return MasterDataImportOperationResult<MasterDataImportBatchRecord>.Success(batch.Value, "already_completed");
+            return MasterDataImportOperationResult<MasterDataImportBatchRecord>.Failure(
+                "tenant_context_failed",
+                StatusCodes.Status403Forbidden);
         }
 
-        if (batch.Value.Mode == MasterDataImportMode.DryRun)
+        var batch = await TryReadAsync(() => persistence.FindBatchAsync(context.TenantContext, batchId, cancellationToken));
+        if (!batch.Available)
+        {
+            return Unavailable<MasterDataImportBatchRecord>();
+        }
+
+        return batch.Value is null
+            ? MasterDataImportOperationResult<MasterDataImportBatchRecord>.Failure("import_batch_not_found", StatusCodes.Status404NotFound)
+            : await ExecuteCoreAsync(context, batch.Value, expectedVersion, cancellationToken);
+    }
+
+    private async Task<MasterDataImportOperationResult<MasterDataImportBatchRecord>> ExecuteCoreAsync(
+        MasterDataRequestContext context,
+        MasterDataImportBatchRecord batch,
+        byte[]? expectedVersion,
+        CancellationToken cancellationToken)
+    {
+
+        if (batch.Status is MasterDataImportStatus.Completed or MasterDataImportStatus.CompletedWithErrors)
+        {
+            return MasterDataImportOperationResult<MasterDataImportBatchRecord>.Success(batch, "already_completed");
+        }
+
+        if (batch.Mode == MasterDataImportMode.DryRun)
         {
             return Failure<MasterDataImportBatchRecord>(
                 MasterDataImportOperationResult<MasterDataImportBatchRecord>.Failure(
@@ -325,7 +447,7 @@ public sealed class MasterDataImportService
                     StatusCodes.Status409Conflict));
         }
 
-        if (batch.Value.Status != MasterDataImportStatus.Validated)
+        if (batch.Status != MasterDataImportStatus.Validated)
         {
             return Failure<MasterDataImportBatchRecord>(
                 MasterDataImportOperationResult<MasterDataImportBatchRecord>.Failure(
@@ -333,7 +455,7 @@ public sealed class MasterDataImportService
                     StatusCodes.Status409Conflict));
         }
 
-        if (expectedVersion is null || !VersionMatches(batch.Value.Version, expectedVersion))
+        if (expectedVersion is null || !VersionMatches(batch.Version, expectedVersion))
         {
             return Failure<MasterDataImportBatchRecord>(
                 MasterDataImportOperationResult<MasterDataImportBatchRecord>.Failure(
@@ -341,7 +463,7 @@ public sealed class MasterDataImportService
                     StatusCodes.Status409Conflict));
         }
 
-        var rowsRead = await TryReadAsync(() => persistence.ListRowsAsync(context.TenantContext, batch.Value.Id, cancellationToken));
+        var rowsRead = await TryReadAsync(() => persistence.ListRowsAsync(context.TenantContext, batch.Id, cancellationToken));
         if (!rowsRead.Available)
         {
             return Unavailable<MasterDataImportBatchRecord>();
@@ -350,7 +472,7 @@ public sealed class MasterDataImportService
         var rows = rowsRead.Value ?? [];
         var processing = new MasterDataImportProcessingContext(
             context,
-            batch.Value,
+            batch,
             new HashSet<string>(
                 rows.Where(item => item.IsCurrent && item.Outcome == MasterDataImportRowOutcome.Accepted)
                     .Select(item => item.IdentityKey),
@@ -377,9 +499,9 @@ public sealed class MasterDataImportService
             : MasterDataImportStatus.CompletedWithErrors;
         var saved = await SaveAsync(
             context,
-            batch.Value,
+            batch,
             status,
-            batch.Value.StartedAt ?? DateTimeOffset.UtcNow,
+            batch.StartedAt ?? DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow,
             executedRows,
             cancellationToken,
@@ -411,6 +533,29 @@ public sealed class MasterDataImportService
         }
 
         return MasterDataImportOperationResult<MasterDataImportBatchRecord>.Success(saved.Value, "executed");
+    }
+
+    internal async Task<MasterDataImportEvidenceReadModel?> ReadTrustedOwnerEvidenceAsync(
+        FoundationRequestContext trustedContext,
+        Guid batchId,
+        CancellationToken cancellationToken = default)
+    {
+        var context = await TrustedContextAsync(trustedContext);
+        if (context is null)
+        {
+            return null;
+        }
+
+        var batch = await TryAsync(() => persistence.FindBatchAsync(context.TenantContext, batchId, cancellationToken));
+        var rows = await TryAsync(() => persistence.ListRowsAsync(context.TenantContext, batchId, cancellationToken));
+        var audit = await TryAsync(() => persistence.ListAuditAsync(context.TenantContext, batchId, cancellationToken));
+        return batch is null || rows is null || audit is null
+            ? null
+            : new MasterDataImportEvidenceReadModel(
+                batch,
+                rows,
+                audit,
+                MasterDataImportReconciliation.FromRows(rows));
     }
 
     public async Task<MasterDataImportOperationResult<MasterDataImportBatchRecord>> ReplayQuarantinedRowAsync(
@@ -913,6 +1058,18 @@ public sealed class MasterDataImportService
 
     private static bool VersionMatches(byte[] current, byte[] expected) =>
         current.Length != 0 && expected.Length != 0 && current.SequenceEqual(expected);
+
+    private static Task<MasterDataRequestContext?> TrustedContextAsync(FoundationRequestContext trustedContext)
+    {
+        try
+        {
+            return Task.FromResult<MasterDataRequestContext?>(MasterDataRequestContext.FromFoundationContext(trustedContext));
+        }
+        catch (ArgumentException)
+        {
+            return Task.FromResult<MasterDataRequestContext?>(null);
+        }
+    }
 
     private static async Task<T?> TryAsync<T>(Func<Task<T>> action)
     {

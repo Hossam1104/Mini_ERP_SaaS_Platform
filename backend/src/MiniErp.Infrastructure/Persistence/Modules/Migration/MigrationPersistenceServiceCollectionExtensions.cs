@@ -22,6 +22,7 @@ public static class MigrationPersistenceServiceCollectionExtensions
         services.AddSingleton(new MigrationPersistence(optionsBuilder.Options));
         services.AddSingleton<IMigrationFoundationPersistence>(serviceProvider => serviceProvider.GetRequiredService<MigrationPersistence>());
         services.AddSingleton<IMigrationValidationPersistence>(serviceProvider => serviceProvider.GetRequiredService<MigrationPersistence>());
+        services.AddSingleton<IMigrationExecutionPersistence>(serviceProvider => serviceProvider.GetRequiredService<MigrationPersistence>());
         services.AddSingleton<IMigrationReferenceAuthority, MigrationOwnerReferenceAdapter>();
         return services;
     }

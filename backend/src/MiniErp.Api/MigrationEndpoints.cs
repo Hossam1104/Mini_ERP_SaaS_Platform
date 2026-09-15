@@ -67,6 +67,20 @@ public static class MigrationEndpoints
             .WithName("migration.dry-run.read")
             .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.dry-run.read")));
 
+        endpoints.MapPost(
+            "/api/v1/migrations/{runId:guid}/execution",
+            async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationExecutionService service) =>
+                await ExecuteMutationAsync(runId, httpContext, resolver, service))
+            .WithName("migration.execution.start")
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.execution.start")));
+
+        endpoints.MapGet(
+            "/api/v1/migrations/{runId:guid}/execution",
+            async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationExecutionService service) =>
+                await ExecuteExecutionReadAsync(runId, httpContext, resolver, service))
+            .WithName("migration.execution.read")
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.execution.read")));
+
         return endpoints;
     }
 
@@ -151,6 +165,41 @@ public static class MigrationEndpoints
             return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", "migration.dry-run.read");
         var value = await service.ReadDryRunAsync(context.Value!.TenantContext!, runId, httpContext.RequestAborted);
         return value is null ? Problem(httpContext, 404, "migration_dry_run_not_found", "Not found", "The migration dry-run preview was not found.", "migration.dry-run.read") : Results.Json(ToDryRunResponse(value));
+    }
+
+    private static async Task<IResult> ExecuteMutationAsync(
+        Guid runId,
+        HttpContext httpContext,
+        ITrustedRequestContextResolver resolver,
+        MigrationExecutionService service)
+    {
+        const string operationId = MigrationExecutionService.OperationId;
+        var context = await ResolveMutationContextAsync(httpContext, resolver, operationId);
+        if (context.Error is not null)
+            return context.Error;
+        var key = httpContext.Request.Headers["Idempotency-Key"].FirstOrDefault();
+        if (!FoundationCorrelation.IsValid(key))
+            return Problem(httpContext, 400, "idempotency_key_invalid", "Invalid idempotency key", "A valid Idempotency-Key is required for this mutation.", operationId);
+        if (!TryReadExpectedVersion(httpContext, out var expectedVersion))
+            return Problem(httpContext, 400, "if_match_required", "If-Match required", "A valid If-Match run version is required.", operationId);
+        var result = await service.ExecuteAsync(context.Value!, runId, key!, expectedVersion, httpContext.RequestAborted);
+        return MutationResponse(httpContext, result, operationId, "Migration execution failed", ToExecutionResponse);
+    }
+
+    private static async Task<IResult> ExecuteExecutionReadAsync(
+        Guid runId,
+        HttpContext httpContext,
+        ITrustedRequestContextResolver resolver,
+        MigrationExecutionService service)
+    {
+        const string operationId = "migration.execution.read";
+        var context = await ResolveReadContextAsync(httpContext, resolver, operationId);
+        if (context.Error is not null)
+            return context.Error;
+        var value = await service.ReadAsync(context.Value!, runId, httpContext.RequestAborted);
+        return value is null
+            ? Problem(httpContext, 404, "migration_execution_not_found", "Not found", "The migration execution result was not found.", operationId)
+            : Results.Json(ToExecutionResponse(value));
     }
 
     private static async Task<IResult> ExecuteMutationAsync(
@@ -318,6 +367,21 @@ public static class MigrationEndpoints
         zeroAuthoritativeBusinessEffect = true
     };
 
+    private static object ToExecutionResponse(MigrationExecutionResult value) => new
+    {
+        value.RunId,
+        tenantId = value.TenantId.Value,
+        value.AttemptId,
+        value.FingerprintVersion,
+        value.Fingerprint,
+        value.RunStatus,
+        value.AttemptOutcome,
+        value.OutcomeCode,
+        value.Batches,
+        value.Effects,
+        zeroEconomicEffects = true
+    };
+
     private static object ToResponse(MigrationIntakeRecord record) => new
     {
         runId = record.Run.RunId,
@@ -354,7 +418,16 @@ public static class MigrationEndpoints
         "migration_validation_failed" => 409,
         "migration_run_not_found" or
         "migration_validation_not_found" or
-        "migration_dry_run_not_found" => 404,
+        "migration_dry_run_not_found" or
+        "migration_execution_not_found" => 404,
+        "migration_execution_approval_required" or
+        "migration_execution_blocking_row_present" or
+        "migration_execution_record_type_not_supported" or
+        "migration_execution_authoritative_snapshot_mismatch" or
+        "migration_execution_state_invalid" => 409,
+        "migration_execution_outcome_unknown" or
+        "migration_owner_evidence_unavailable" or
+        "migration_owner_effect_unproven" => 503,
         "migration_audit_evidence_unavailable" or
         "migration_intake_outcome_unknown" => 503,
         _ when result.Kind == MigrationResultKind.KnownFailure => 503,
@@ -369,6 +442,26 @@ public static class MigrationEndpoints
             return true;
         }
         catch (AntiforgeryValidationException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryReadExpectedVersion(HttpContext httpContext, out byte[] version)
+    {
+        version = [];
+        var value = httpContext.Request.Headers.IfMatch.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(value) || value.StartsWith("W/", StringComparison.OrdinalIgnoreCase))
+            return false;
+        value = value.Trim();
+        if (value.Length > 1 && value[0] == '"' && value[^1] == '"')
+            value = value[1..^1];
+        try
+        {
+            version = Convert.FromBase64String(value);
+            return version.Length is > 0 and <= 64;
+        }
+        catch (FormatException)
         {
             return false;
         }

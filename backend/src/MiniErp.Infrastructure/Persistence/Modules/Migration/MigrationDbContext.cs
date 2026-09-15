@@ -37,6 +37,10 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
 
     internal DbSet<MigrationDryRunPreviewRowEntity> DryRunPreviewRows => Set<MigrationDryRunPreviewRowEntity>();
 
+    internal DbSet<MigrationExecutionBatchEntity> ExecutionBatches => Set<MigrationExecutionBatchEntity>();
+
+    internal DbSet<MigrationExecutionEffectEntity> ExecutionEffects => Set<MigrationExecutionEffectEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -301,6 +305,68 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
             .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.StagedRecordId })
             .OnDelete(DeleteBehavior.Restrict);
         previewRow.HasQueryFilter(item => item.TenantId == TrustedTenantId);
+
+        var executionBatch = modelBuilder.Entity<MigrationExecutionBatchEntity>();
+        executionBatch.ToTable("MigrationExecutionBatches", "migration");
+        executionBatch.HasKey(item => item.Id);
+        executionBatch.Property(item => item.Id).ValueGeneratedNever();
+        ConfigureTenant(executionBatch.Property(item => item.TenantId));
+        executionBatch.Property(item => item.RunId).IsRequired();
+        executionBatch.Property(item => item.AttemptId).IsRequired();
+        executionBatch.Property(item => item.RecordType).IsRequired();
+        executionBatch.Property(item => item.State).IsRequired();
+        executionBatch.Property(item => item.OwnerBatchId).IsRequired();
+        executionBatch.Property(item => item.Fingerprint).HasMaxLength(128).IsRequired();
+        executionBatch.Property(item => item.CreatedAt).IsRequired();
+        executionBatch.Property(item => item.StartedAt).IsRequired(false);
+        executionBatch.Property(item => item.CompletedAt).IsRequired(false);
+        executionBatch.Property(item => item.CorrelationId).HasMaxLength(128).IsRequired();
+        ConfigureVersion(executionBatch.Property(item => item.Version));
+        executionBatch.HasAlternateKey(item => new { item.TenantId, item.RunId, item.AttemptId, item.RecordType });
+        executionBatch.HasIndex(item => new { item.TenantId, item.RunId, item.RecordType })
+            .IsUnique()
+            .HasFilter("[State] IN (2, 3)");
+        executionBatch.HasOne<MigrationRunEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId })
+            .OnDelete(DeleteBehavior.Restrict);
+        executionBatch.HasOne<MigrationAttemptEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.AttemptId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.AttemptId })
+            .OnDelete(DeleteBehavior.Restrict);
+        executionBatch.HasQueryFilter(item => item.TenantId == TrustedTenantId);
+
+        var executionEffect = modelBuilder.Entity<MigrationExecutionEffectEntity>();
+        executionEffect.ToTable("MigrationExecutionEffects", "migration");
+        executionEffect.HasKey(item => item.Id);
+        executionEffect.Property(item => item.Id).ValueGeneratedNever();
+        ConfigureTenant(executionEffect.Property(item => item.TenantId));
+        executionEffect.Property(item => item.RunId).IsRequired();
+        executionEffect.Property(item => item.AttemptId).IsRequired();
+        executionEffect.Property(item => item.StagedRecordId).IsRequired();
+        executionEffect.Property(item => item.SourceSequence).IsRequired();
+        executionEffect.Property(item => item.RecordType).IsRequired();
+        executionEffect.Property(item => item.OwnerBatchId).IsRequired();
+        executionEffect.Property(item => item.OwnerRowId).IsRequired(false);
+        executionEffect.Property(item => item.ResultingResourceId).IsRequired(false);
+        executionEffect.Property(item => item.ResultingResourceCode).HasMaxLength(128).IsRequired(false);
+        executionEffect.Property(item => item.Disposition).IsRequired();
+        executionEffect.Property(item => item.SafeCode).HasMaxLength(128).IsRequired(false);
+        executionEffect.Property(item => item.CreatedAt).IsRequired();
+        executionEffect.Property(item => item.EffectStartedAt).IsRequired(false);
+        executionEffect.Property(item => item.CompletedAt).IsRequired(false);
+        executionEffect.Property(item => item.CorrelationId).HasMaxLength(128).IsRequired();
+        ConfigureVersion(executionEffect.Property(item => item.Version));
+        executionEffect.HasIndex(item => new { item.TenantId, item.RunId, item.AttemptId, item.StagedRecordId }).IsUnique();
+        executionEffect.HasOne<MigrationExecutionBatchEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.AttemptId, item.RecordType })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.AttemptId, item.RecordType })
+            .OnDelete(DeleteBehavior.Restrict);
+        executionEffect.HasOne<MigrationStagedRecordEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.StagedRecordId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.StagedRecordId })
+            .OnDelete(DeleteBehavior.Restrict);
+        executionEffect.HasQueryFilter(item => item.TenantId == TrustedTenantId);
     }
 
     private void ConfigureTenant(Microsoft.EntityFrameworkCore.Metadata.Builders.PropertyBuilder<TenantId> property) =>

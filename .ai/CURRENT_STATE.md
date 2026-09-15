@@ -10,6 +10,45 @@
 
 ---
 
+## CURRENT AUTHORITY - 15 September 2026 (MESP-141 SLICE 4 IMPLEMENTATION / DRAFT HANDOFF)
+
+### Bounded implementation session
+
+| Item | Value |
+|---|---|
+| MESP-141 | **OPEN / ACTIVE / IN PROGRESS** in GitHub Issue #229; Slice 1, Slice 2, and Slice 3 accepted/merged; Slice 4 implementation complete on Draft PR, awaiting independent GPT-5.6 Sol acceptance |
+| Slice 4 activation | Issue #229 comment `5671574482`; activated from verified `origin/main` baseline `c25e902c389d5d25b37c10d6e3e070be3d6ea74b` |
+| Bounded branch | `feat/mesp-141-master-reference-execution`; mutable head remains live GitHub authority |
+| Slice 4 scope | Approved-run execution of validated `Product`, `Supplier`, `Customer`, `Currency`, `Tax`, `PaymentTerm`, and `UnitOfMeasure` records through the existing owner import engine, with durable owner-batch/effect lineage, replay, concurrency, partial, unknown-outcome, and drift safety |
+| Slice 4 exclusions | Organization, InventoryOpening, GlOpening, ApOpening, ArOpening, CashBankOpening, economic effects, approval-policy implementation, reconciliation, onboarding UI, production/cutover, Wafra-specific behavior, MESP-142, and `frontend/assets` |
+| MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230; Project **Todo** |
+| Metrics | Accepted fast-track capability completion remains **24 / 26 = 92.3%**; production readiness remains approximately **47% overall / 41% Procurement/P2P** |
+| Jira mutations | **0** — Jira remains historical provenance only |
+| Owner-managed frontend/assets | **Untouched** |
+| CI | **GitHub Actions — ACTIVE / VERIFIED**; required checks remain `Repository Validation`, `Backend`, and `Frontend` |
+
+Slice 4 adds only the Migration coordinator and a neutral internal owner gateway
+contract. Master Data remains the owner of its import processors, business
+identity, persistence, duplicate semantics, and audit evidence; Migration owns
+only accepted-input gates, server fingerprinting, execution-attempt lineage,
+durable owner-batch/effect references, and safe outcome classification. No
+Migration code accesses sibling DbContexts or writes owner business tables.
+
+Local handoff evidence is Release build `0 warnings / 0 errors`; the full
+official disposable-LocalDB backend runner is `1,341/1,341` with `0` failures
+and `0` skips; focused execution coverage is `10/10`; the SQL active-claim race
+is `1/1`; Angular is `316/316`; Chromium is `51/51`; npm audits retain the
+known `4` moderate production / `7` moderate full-tree baseline; all eight EF
+contexts report no pending model changes; the solution-wide NuGet scan is
+clear; the production bundle remains `514.26 kB` with the existing warning; and
+`git diff --check` is clean. No authoritative Inventory, Finance, AP, AR, or
+Cash/Bank effects are introduced.
+
+Known intentional migration debt: historical pre-Slice-3 Migration rows
+introduced before durable `EvidenceConfirmed` cannot be assumed proven after
+upgrade; production recovery/backfill remains governed future work and no
+blanket `true` backfill is authorized.
+
 ## CURRENT AUTHORITY - 15 September 2026 (MESP-141 SLICE 3 ACCEPTED / MERGED)
 
 ### Bounded implementation session

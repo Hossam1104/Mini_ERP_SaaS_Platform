@@ -435,7 +435,8 @@ public sealed class SqlServerSafetyTests
                     "20260912224151_MESP141MigrationIntakeStaging",
                     "20260913060835_MESP141MigrationIntakeTenantInvariant",
                     "20260913094150_MESP141ValidationDryRun",
-                    "20260913135834_MESP141ValidationDurability"
+                    "20260913135834_MESP141ValidationDurability",
+                    "20260915053312_MESP141MasterReferenceExecution"
                 ],
                 (await migration.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await migration.Database.GetPendingMigrationsAsync());
@@ -3480,6 +3481,74 @@ public sealed class SqlServerSafetyTests
     }
 
     [Fact]
+    public async Task MESP141_sql_server_execution_batch_claim_prevents_two_active_attempts_for_one_run()
+    {
+        var (foundation, _, options) = await CreateMigrationServiceAsync();
+        var tenant = MigrationTenant("sql-execution-claim-race");
+        var request = MigrationRequest(tenant, "tenant.migration.attempt.start");
+        var run = await PreparedMigrationRunAsync(foundation, request, $"sql-execution-claim-run-{Guid.NewGuid():N}");
+
+        var firstAttempt = await foundation.StartAttemptAsync(
+            request,
+            run.RunId,
+            MigrationOperationKind.Validation,
+            $"sql-execution-claim-validation-{Guid.NewGuid():N}",
+            "sql-execution-claim-validation-fingerprint");
+        Assert.True(firstAttempt.Succeeded, firstAttempt.Code);
+        var completedFirst = await foundation.RecordAttemptOutcomeAsync(
+            request,
+            run.RunId,
+            firstAttempt.Value!.AttemptId,
+            MigrationAttemptOutcome.Succeeded,
+            "validation_completed",
+            firstAttempt.Value.Version);
+        Assert.True(completedFirst.Succeeded, completedFirst.Code);
+
+        var secondAttempt = await foundation.StartAttemptAsync(
+            request,
+            run.RunId,
+            MigrationOperationKind.Validation,
+            $"sql-execution-claim-validation-2-{Guid.NewGuid():N}",
+            "sql-execution-claim-validation-2-fingerprint");
+        Assert.True(secondAttempt.Succeeded, secondAttempt.Code);
+
+        var persistence = new MigrationPersistence(options);
+        var firstBatch = await persistence.CreateBatchAsync(
+            tenant,
+            new CreateMigrationExecutionBatchCommand(ExecutionBatch(run, firstAttempt.Value!, "A")));
+        var secondBatch = await persistence.CreateBatchAsync(
+            tenant,
+            new CreateMigrationExecutionBatchCommand(ExecutionBatch(run, secondAttempt.Value!, "B")));
+        Assert.True(firstBatch.Succeeded, firstBatch.Code);
+        Assert.True(secondBatch.Succeeded, secondBatch.Code);
+
+        var started = await Task.WhenAll(
+            persistence.UpdateBatchAsync(
+                tenant,
+                new UpdateMigrationExecutionBatchCommand(
+                    firstBatch.Value!.Id,
+                    MigrationExecutionBatchState.Started,
+                    DateTimeOffset.UtcNow,
+                    null,
+                    firstBatch.Value.Version)),
+            persistence.UpdateBatchAsync(
+                tenant,
+                new UpdateMigrationExecutionBatchCommand(
+                    secondBatch.Value!.Id,
+                    MigrationExecutionBatchState.Started,
+                    DateTimeOffset.UtcNow,
+                    null,
+                    secondBatch.Value.Version)));
+
+        Assert.Single(started, item => item.Succeeded);
+        var conflict = Assert.Single(started, item => !item.Succeeded);
+        Assert.Equal("migration_execution_batch_claim_conflict", conflict.Code);
+
+        await using var db = new MigrationDbContext(options, tenant);
+        Assert.Equal(1, await db.ExecutionBatches.CountAsync(item => item.RunId == run.RunId && item.State == MigrationExecutionBatchState.Started));
+    }
+
+    [Fact]
     public async Task MESP141_sql_server_concurrent_identical_intake_converges_to_one_run_and_replay()
     {
         var options = SqlServerMigrationConfiguration.Configure(
@@ -3801,6 +3870,24 @@ public sealed class SqlServerSafetyTests
         MigrationOperationKind.Validation,
         key,
         $"{key}-fingerprint");
+
+    private static MigrationExecutionBatchRecord ExecutionBatch(
+        MigrationRunRecord run,
+        MigrationAttemptRecord attempt,
+        string suffix) => new(
+        Guid.NewGuid(),
+        run.TenantId,
+        run.RunId,
+        attempt.AttemptId,
+        MigrationCanonicalRecordType.Supplier,
+        MigrationExecutionBatchState.Prepared,
+        Guid.NewGuid(),
+        $"sql-execution-batch-{suffix}",
+        DateTimeOffset.UtcNow,
+        null,
+        null,
+        run.CorrelationId.Value,
+        Guid.NewGuid().ToByteArray());
 
     /// <summary>Collects appended evidence so a durable audit failure is never silent.</summary>
     private sealed class SqlMigrationAuditSink(List<FoundationAuditEvidence> appended)
