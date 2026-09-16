@@ -29,7 +29,7 @@ using Xunit;
 namespace MiniErp.ArchitectureTests;
 
 [Collection(SqlServerSafetyCollection.Name)]
-public sealed class MigrationInventoryOpeningSqlServerIntegrationTests(SqlServerSafetyFixture safety)
+public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafetyFixture safety)
 {
     [Fact]
     public async Task Sql_server_inventory_opening_posts_stock_valuation_finance_and_reconciles_exactly()
