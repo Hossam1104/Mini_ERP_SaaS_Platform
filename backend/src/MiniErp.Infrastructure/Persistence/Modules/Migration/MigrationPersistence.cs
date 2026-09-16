@@ -223,6 +223,17 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
 
         if (!runEntity.EvidenceConfirmed)
         {
+            if (command.Operation == MigrationOperationKind.Execution
+                && await db.Attempts.AnyAsync(item => item.RunId == command.RunId
+                    && item.Operation == MigrationOperationKind.Execution
+                    && item.Outcome == MigrationAttemptOutcome.Pending
+                    && item.IdempotencyKey != command.IdempotencyKey.Value, cancellationToken))
+            {
+                return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
+                    MigrationPersistenceOutcome.Conflict,
+                    "migration_execution_attempt_claim_conflict");
+            }
+
             return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
                 MigrationPersistenceOutcome.UnknownOutcome,
                 "migration_audit_recovery_required");
@@ -831,11 +842,14 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
 
         if (command.Operation == MigrationOperationKind.Execution)
         {
-            // Distinct execution keys may race the server-derived sequence.
-            // Re-enter through a fresh context so the next sequence is derived
-            // from the committed attempt before the durable pre-effect claim
-            // elects the owner-batch winner.
-            return await StartAttemptAsync(tenantContext, command, cancellationToken);
+            // A unique sequence violation means another execution attempt has
+            // already claimed this run. Do not create a second attempt: the
+            // pre-effect execution claim is the authority that elects the
+            // winner, and recursive recovery could finalize a loser while the
+            // winner was transitioning the run's evidence state.
+            return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
+                MigrationPersistenceOutcome.Conflict,
+                "migration_execution_attempt_claim_conflict");
         }
 
         // The idempotency key is free, so the violation was the Tenant-scoped

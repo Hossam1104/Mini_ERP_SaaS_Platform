@@ -275,6 +275,62 @@ internal sealed class FinancePersistence(
         var inventoryContext = context.ToInventoryRequestContext(); var handoffs = await inventory.ListFinanceHandoffsAsync(inventoryContext, new InventoryValuationQuery(companyId), cancellationToken); await using var db = CreateContext(context); var effects = await db.SourceEffects.AsNoTracking().Where(item => item.CompanyId == companyId && item.SourceContract == InventoryContract).ToListAsync(cancellationToken); var journals = await db.Journals.AsNoTracking().Where(item => item.CompanyId == companyId && item.SourceContract == InventoryContract).ToListAsync(cancellationToken); var rules = await db.PostingRules.AsNoTracking().Where(item => item.CompanyId == companyId && item.SourceContract == InventoryContract && item.Lifecycle == FinancePostingRuleLifecycle.Enabled).ToListAsync(cancellationToken); return handoffs.Select(item => { var effect = effects.SingleOrDefault(value => value.SourceEvidenceId == item.ValuationEvidenceId && value.SourceEvidenceVersion == item.ValuationEvidenceVersion); var journal = journals.SingleOrDefault(value => value.SourceEvidenceId == item.ValuationEvidenceId && value.SourceEvidenceVersion == item.ValuationEvidenceVersion); var eventName = FinanceInventoryPostingClassifier.Classify(item.SourceType, item.Direction); var matchingRules = rules.Where(rule => rule.SourceEvent == eventName && rule.EffectiveFrom <= DateOnly.FromDateTime(item.AsOf.UtcDateTime) && (rule.EffectiveTo == null || rule.EffectiveTo >= DateOnly.FromDateTime(item.AsOf.UtcDateTime))).ToArray(); var status = effect is not null ? FinanceSourceHandoffStatus.Posted : journal?.Status == FinanceJournalStatus.Submitted ? FinanceSourceHandoffStatus.PendingApproval : matchingRules.Length == 0 ? FinanceSourceHandoffStatus.PendingMapping : matchingRules.Length > 1 ? FinanceSourceHandoffStatus.Blocked : FinanceSourceHandoffStatus.Ready; return ToHandoff(item, effect, journals, status); }).ToArray();
     }
 
+    public async Task<FinanceInventoryOpeningPreflightResult> PreflightInventoryOpeningAsync(
+        FinanceRequestContext context,
+        Guid companyId,
+        DateOnly postingDate,
+        CancellationToken cancellationToken = default)
+    {
+        static FinanceInventoryOpeningPreflightResult Block(string code, string currency = "") =>
+            new(false, code, currency, FinanceApprovalRequirement.NotConfigured);
+
+        if (!InventoryResourceAuthorizationService.IsMigrationExecutionContext(context.FoundationContext))
+            return Block("forbidden");
+        var company = Company(context, companyId);
+        if (company is null || string.IsNullOrWhiteSpace(company.FunctionalCurrencyCode))
+            return Block("company_scope_denied");
+
+        await using var db = CreateContext(context);
+        var periods = await db.FiscalPeriods.AsNoTracking()
+            .Where(item => item.CompanyId == companyId && item.StartDate <= postingDate && item.EndDate >= postingDate)
+            .ToListAsync(cancellationToken);
+        if (periods.Count == 0) return Block("period_not_configured", company.FunctionalCurrencyCode);
+        if (periods.Count != 1) return Block("period_ambiguous", company.FunctionalCurrencyCode);
+        if (periods[0].State != FinanceFiscalPeriodState.Open)
+            return Block(periods[0].State == FinanceFiscalPeriodState.SoftClosed ? "period_soft_closed" : "period_closed", company.FunctionalCurrencyCode);
+
+        var eventName = FinanceInventoryPostingClassifier.Classify(InventoryMovementSourceType.OpeningBalance, InventoryMovementDirection.Inbound);
+        var rules = await db.PostingRules.AsNoTracking()
+            .Where(item => item.CompanyId == companyId
+                && item.SourceContract == InventoryContract
+                && item.SourceEvent == eventName
+                && item.Lifecycle == FinancePostingRuleLifecycle.Enabled
+                && item.EffectiveFrom <= postingDate
+                && (item.EffectiveTo == null || item.EffectiveTo >= postingDate))
+            .ToListAsync(cancellationToken);
+        if (rules.Count == 0) return Block("pending_mapping", company.FunctionalCurrencyCode);
+        if (rules.Count != 1) return Block("ambiguous_mapping", company.FunctionalCurrencyCode);
+
+        var rule = rules[0];
+        if (rule.DebitAccountId == rule.CreditAccountId) return Block("posting_rule_accounts_invalid", company.FunctionalCurrencyCode);
+        var accountIds = new[] { rule.DebitAccountId, rule.CreditAccountId }.Distinct().ToArray();
+        var accounts = await db.Accounts.AsNoTracking()
+            .Where(item => item.CompanyId == companyId && accountIds.Contains(item.Id))
+            .ToListAsync(cancellationToken);
+        if (accounts.Count != accountIds.Length
+            || accounts.Any(item => !item.IsPostingAccount
+                || item.Lifecycle != FinanceAccountLifecycle.Active
+                || item.EffectiveFrom > postingDate
+                || item.EffectiveTo < postingDate))
+            return Block("account_not_postable", company.FunctionalCurrencyCode);
+        if (rule.CostCenterRequired) return Block("dimension_required", company.FunctionalCurrencyCode);
+
+        var approval = SourceApprovalPolicy.Resolve(InventoryContract, eventName);
+        if (approval == FinanceApprovalRequirement.NotConfigured)
+            return Block("approval_policy_not_configured", company.FunctionalCurrencyCode);
+        return new(true, approval == FinanceApprovalRequirement.Required ? "approval_required" : "ready", company.FunctionalCurrencyCode, approval);
+    }
+
     public async Task<FinanceOperationResult<FinanceJournalRecord>> ProcessHandoffAsync(FinanceRequestContext context, FinanceHandoffProcessCommand command, CancellationToken cancellationToken = default)
     {
         var inventoryContext = context.ToInventoryRequestContext(); var handoffCompanyId = await inventory.ResolveFinanceHandoffCompanyIdAsync(inventoryContext, command.HandoffId, cancellationToken); if (handoffCompanyId is null || Company(context, handoffCompanyId.Value) is null) return Failure<FinanceJournalRecord>("company_scope_denied"); var handoff = (await inventory.ListFinanceHandoffsAsync(inventoryContext, new InventoryValuationQuery(handoffCompanyId.Value), cancellationToken)).SingleOrDefault(item => item.Id == command.HandoffId); if (handoff is null) return Failure<FinanceJournalRecord>("handoff_not_found"); if (handoff.Status != InventoryFinanceValuationHandoffStatus.ReadyForFinance) return Failure<FinanceJournalRecord>("handoff_not_ready");

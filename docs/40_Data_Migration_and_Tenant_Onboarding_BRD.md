@@ -867,13 +867,22 @@ bounded by Sol/Owner.
 
 ### 23.3 MESP-141 contract gate partition
 
+#### Current bounded implementation governance note - 17 September 2026
+
+The BRD's open decisions remain open and are not resolved by implementation.
+Accepted project governance permits a bounded internal MESP-141 slice when it
+is decision-neutral, fail-closed, and non-production. This permits the
+Inventory-only Slice 5 implementation under explicit Issue #229 authority;
+it does not authorize production execution, reconciliation/sign-off,
+capability closure, or any later economic type.
+
 The following three gate types are distinct. A prerequisite in one category is
 not silently promoted into another category.
 
 #### A. Generic MESP-141 implementation-activation prerequisites
 
-These answer **whether generic MESP-141 implementation may begin**. Before
-activation, Sol must confirm MESP-40 independent acceptance and resolve or
+These answer **whether an unbounded or production-affecting MESP-141 scope may
+begin**. Sol must confirm MESP-40 independent acceptance and resolve or
 explicitly bound the generic contracts represented by:
 
 - M40-DEC-001, the historical/open-document boundary.
@@ -922,8 +931,9 @@ validation remains required before destructive or production action, whether
 the underlying need is generic implementation safety or a Tenant-specific
 cutover prerequisite.
 
-MESP-141 remains Open / Not Activated. This document does not activate it,
-move it to In Progress, create its branch or authorize its implementation.
+At the time of this BRD baseline, MESP-141 remained Open / Not Activated. A
+later bounded activation is governed by GitHub Issue #229 and does not resolve
+the open decisions or authorize production execution.
 
 ## 24. MESP-142 compatibility
 
@@ -949,12 +959,12 @@ implementation decision that would hard-code an unresolved gate assumption.
 
 | ID | Question | Options to decide | Impact | Owner | Blocking classification | Related issue/gate |
 |---|---|---|---|---|---|---|
-| M40-DEC-001 | Will Release 1 start from controlled opening state only, or also migrate open documents and/or historical transactions? | A. Configuration, masters and opening state only (recommended by the current bounded scope); B. Add selected open PO/SO/invoice/receipt documents; C. Add a defined historical period; D. Full history | Changes domains, templates, lineage, reconciliation, reports, cutover, correction and MESP-141 acceptance | Product Owner with Tenant business owner, Finance, Inventory, Procurement and Sales | B — Does not block MESP-40 acceptance but blocks MESP-141 activation | MESP-51/#140, MESP-141/#229, MESP-23 |
+| M40-DEC-001 | Will Release 1 start from controlled opening state only, or also migrate open documents and/or historical transactions? | A. Configuration, masters and opening state only (recommended by the current bounded scope); B. Add selected open PO/SO/invoice/receipt documents; C. Add a defined historical period; D. Full history | Changes domains, templates, lineage, reconciliation, reports, cutover, correction and MESP-141 acceptance | Product Owner with Tenant business owner, Finance, Inventory, Procurement and Sales | B — Blocks unbounded or production-affecting scope; does not block a bounded decision-neutral implementation slice | MESP-51/#140, MESP-141/#229, MESP-23 |
 | M40-DEC-002 | What source systems, extracts, owners and opening date apply to each production Tenant? | One source system; multiple source systems with crosswalk; source-specific onboarding pack | Determines cleansing, mappings, evidence, responsibility and cutover timing | Tenant business owner and Migration Owner | C — Non-blocking to generic implementation; required per production onboarding | MESP-51/#140 |
-| M40-DEC-003 | What file/transport profile and operational volume envelope will the implementation support? | One structured tabular profile; multiple versioned profiles; approved integration profile later | Determines operator workflow, limits, sizing and support evidence | Product/Architecture/Operations with MESP-48 evidence | B — Blocks MESP-141 activation | MESP-48/#137, MESP-141/#229 |
+| M40-DEC-003 | What file/transport profile and operational volume envelope will the implementation support? | One structured tabular profile; multiple versioned profiles; approved integration profile later | Determines operator workflow, limits, sizing and support evidence | Product/Architecture/Operations with MESP-48 evidence | B — Blocks unbounded or production-affecting scope; does not block a bounded decision-neutral implementation slice | MESP-48/#137, MESP-141/#229 |
 | M40-DEC-004 | Which source fields are sensitive/restricted for each Tenant and what export/support policy applies? | Standard classification; Tenant-specific contractual classification; stricter country/legal profile | Determines masking, reviewer access, exports and incident handling | Security/Privacy owner with Tenant owner | C — May be deferred, but blocks affected production data | MESP-50/#139, MESP-38 |
 | M40-DEC-005 | What is the approved production recovery/correction authority after a cutover effect? | Domain compensating correction/reversal; controlled non-production reset only; separately approved production restoration path | Determines go/no-go, business continuity, unknown outcomes and correction evidence; no arbitrary database rollback | Product Owner with Finance, Inventory, Operations and qualified provider/backup owners | C — May be deferred; blocks destructive production cutover | MESP-51/#140, MESP-50/#139 |
-| M40-DEC-006 | What exact approval quorum and SoD exceptions apply to migration, reconciliation and handover? | Named independent reviewer; domain-owner plus Platform/Tenant acknowledgements; policy-specific delegated approval | Determines who may approve, self-approval handling and readiness evidence | Product Owner with IAM, Finance, Inventory and Security/Audit | B — Blocks MESP-141 activation | MESP-27/#116, MESP-28/#117, MESP-38/#127 |
+| M40-DEC-006 | What exact approval quorum and SoD exceptions apply to migration, reconciliation and handover? | Named independent reviewer; domain-owner plus Platform/Tenant acknowledgements; policy-specific delegated approval | Determines who may approve, self-approval handling and readiness evidence | Product Owner with IAM, Finance, Inventory and Security/Audit | B — Blocks unbounded or production-affecting scope; does not block a bounded decision-neutral implementation slice | MESP-27/#116, MESP-28/#117, MESP-38/#127 |
 
 No open decision is silently treated as a default. A decision owner must record
 the selected option, rejected alternatives, rationale, affected IDs, effective
@@ -1178,7 +1188,7 @@ defined below or in section 21.
 | MESP-51 / GitHub #140 | Approved B1/PD-041 migration contract |
 | MESP-48 / GitHub #137 | Open supported-volume/capacity/production-governance gate |
 | MESP-50 / GitHub #139 | Open residency/retention/privacy/backup/restore/legal gate |
-| MESP-141 / GitHub #229 | Future implementation; may start only after MESP-40 acceptance and blockers |
+| MESP-141 / GitHub #229 | Bounded implementation may proceed only under explicit Sol activation; open decisions and production gates still govern closure and execution |
 | MESP-142 / GitHub #230 | Later stabilization/release-candidate work; not activated |
 
 ## 31. Review and approval handoff
@@ -1198,7 +1208,8 @@ MESP-40 is ready for independent review when:
   behavior explicit.
 - Generic MESP-141 activation blockers, per-Tenant cutover prerequisites and
   MESP-48/MESP-50 production gates are partitioned explicitly.
-- MESP-141 and MESP-142 remain not activated.
+- MESP-141 and MESP-142 remained not activated at the time of this
+  requirements acceptance; later bounded activation is separately governed.
 - MESP-48 and MESP-50 remain open.
 - No product implementation or owner-managed asset was changed.
 

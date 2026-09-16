@@ -22,7 +22,24 @@ public enum MigrationExecutionEffectDisposition
     Started = 3,
     Committed = 4,
     Failed = 5,
-    Unknown = 6
+    Unknown = 6,
+    PartialCompleted = 7
+}
+
+public enum MigrationEconomicOwnerModule
+{
+    Inventory = 1,
+    Finance = 2
+}
+
+public enum MigrationEconomicRepresentationKind
+{
+    InventoryOpening = 1,
+    InventoryOpeningRow = 2,
+    InventoryStockMovement = 3,
+    InventoryValuationEvent = 4,
+    InventoryFinanceHandoff = 5,
+    FinanceJournal = 6
 }
 
 public sealed record MigrationExecutionBatchRecord(
@@ -70,7 +87,48 @@ public sealed record MigrationExecutionResult(
     MigrationAttemptOutcome AttemptOutcome,
     string OutcomeCode,
     IReadOnlyList<MigrationExecutionBatchRecord> Batches,
-    IReadOnlyList<MigrationExecutionEffectRecord> Effects);
+    IReadOnlyList<MigrationExecutionEffectRecord> Effects,
+    IReadOnlyList<MigrationEconomicRepresentationRecord>? Representations = null,
+    IReadOnlyList<MigrationEconomicReconciliationRecord>? EconomicReconciliations = null);
+
+public sealed record MigrationEconomicRepresentationRecord(
+    Guid Id,
+    TenantId TenantId,
+    Guid RunId,
+    Guid AttemptId,
+    Guid EffectId,
+    MigrationEconomicOwnerModule OwnerModule,
+    MigrationEconomicRepresentationKind Kind,
+    Guid OwnerId,
+    string? OwnerReference,
+    string Status,
+    string EvidenceVersion,
+    DateTimeOffset OccurredAt,
+    DateTimeOffset RecordedAt,
+    bool EvidenceConfirmed,
+    byte[] Version);
+
+public sealed record MigrationEconomicReconciliationRecord(
+    Guid EffectId,
+    int SourceSequence,
+    string Status,
+    string? SafeCode,
+    bool PhysicalQuantityProven,
+    bool ValuationAmountProven,
+    bool FinanceAmountProven,
+    decimal? CanonicalQuantity,
+    decimal? InventoryQuantity,
+    decimal? CanonicalValue,
+    decimal? InventoryValue,
+    decimal? DeclaredRoundingAdjustment,
+    decimal? FinancePostedAmount,
+    string? FunctionalCurrencyCode,
+    DateTimeOffset ReconciledAt,
+    int? InventoryUnitCostScale = null,
+    int? InventoryAmountScale = null,
+    string? InventoryRoundingMode = null);
+
+public sealed record CreateMigrationEconomicRepresentationCommand(MigrationEconomicRepresentationRecord Representation);
 
 public sealed record CreateMigrationExecutionBatchCommand(MigrationExecutionBatchRecord Batch);
 
@@ -134,6 +192,17 @@ public interface IMigrationExecutionPersistence
         TenantContext tenantContext,
         UpdateMigrationExecutionEffectCommand command,
         CancellationToken cancellationToken = default);
+
+    Task<MigrationPersistenceResult<MigrationEconomicRepresentationRecord>> CreateRepresentationAsync(
+        TenantContext tenantContext,
+        CreateMigrationEconomicRepresentationCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<MigrationEconomicRepresentationRecord>> ListRepresentationsAsync(
+        TenantContext tenantContext,
+        Guid runId,
+        Guid attemptId,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class UnavailableMigrationExecutionPersistence : IMigrationExecutionPersistence
@@ -148,6 +217,8 @@ public sealed class UnavailableMigrationExecutionPersistence : IMigrationExecuti
     public Task<MigrationPersistenceResult<MigrationExecutionEffectRecord>> CreateEffectAsync(TenantContext tenantContext, CreateMigrationExecutionEffectCommand command, CancellationToken cancellationToken = default) => Unavailable<MigrationPersistenceResult<MigrationExecutionEffectRecord>>();
     public Task<IReadOnlyList<MigrationExecutionEffectRecord>> ListEffectsAsync(TenantContext tenantContext, Guid runId, Guid attemptId, CancellationToken cancellationToken = default) => Unavailable<IReadOnlyList<MigrationExecutionEffectRecord>>();
     public Task<MigrationPersistenceResult<MigrationExecutionEffectRecord>> UpdateEffectAsync(TenantContext tenantContext, UpdateMigrationExecutionEffectCommand command, CancellationToken cancellationToken = default) => Unavailable<MigrationPersistenceResult<MigrationExecutionEffectRecord>>();
+    public Task<MigrationPersistenceResult<MigrationEconomicRepresentationRecord>> CreateRepresentationAsync(TenantContext tenantContext, CreateMigrationEconomicRepresentationCommand command, CancellationToken cancellationToken = default) => Unavailable<MigrationPersistenceResult<MigrationEconomicRepresentationRecord>>();
+    public Task<IReadOnlyList<MigrationEconomicRepresentationRecord>> ListRepresentationsAsync(TenantContext tenantContext, Guid runId, Guid attemptId, CancellationToken cancellationToken = default) => Unavailable<IReadOnlyList<MigrationEconomicRepresentationRecord>>();
 }
 
 internal sealed record MigrationExecutionPlanRow(

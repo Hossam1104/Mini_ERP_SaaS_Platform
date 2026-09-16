@@ -115,12 +115,53 @@ internal sealed class InventoryValuationPersistence(
             if (command.WarehouseId.HasValue) movementsQuery = movementsQuery.Where(item => item.WarehouseId == command.WarehouseId);
             if (command.ProductId.HasValue) movementsQuery = movementsQuery.Where(item => item.ProductId == command.ProductId);
             if (command.UnitOfMeasureId.HasValue) movementsQuery = movementsQuery.Where(item => item.UnitOfMeasureId == command.UnitOfMeasureId);
-            var movements = await movementsQuery.OrderBy(item => item.LedgerSequence).ThenBy(item => item.Id).ToListAsync(cancellationToken);
+            var scopeMovements = await movementsQuery.OrderBy(item => item.LedgerSequence).ThenBy(item => item.Id).ToListAsync(cancellationToken);
+            var movementIdsRequested = command.MovementIds?.Distinct().ToArray();
+            if (command.MovementIds is not null && (movementIdsRequested!.Length == 0 || movementIdsRequested.Length != command.MovementIds.Count))
+                return InventoryPersistenceResult<InventoryValuationProcessResult>.Denied(InventoryPersistenceOutcome.InvalidState, "valuation_movement_scope_invalid");
+            var movements = movementIdsRequested is null
+                ? scopeMovements
+                : scopeMovements.Where(item => movementIdsRequested.Contains(item.Id)).ToList();
+            if (movementIdsRequested is not null
+                && (movements.Count != movementIdsRequested.Length || movements.Any(item => item.SourceType != InventoryMovementSourceType.OpeningBalance)))
+                return InventoryPersistenceResult<InventoryValuationProcessResult>.Denied(InventoryPersistenceOutcome.InvalidState, "valuation_movement_scope_invalid");
             var policies = await db.ValuationPolicies.AsNoTracking().Where(item => item.CompanyId == command.CompanyId && item.IsActive).ToListAsync(cancellationToken);
             var movementIds = movements.Select(item => item.Id).ToArray();
             var existingEvents = movementIds.Length == 0
                 ? []
                 : await db.MovementValuationEvents.Where(item => movementIds.Contains(item.MovementId)).ToListAsync(cancellationToken);
+            if (movementIdsRequested is not null)
+            {
+                var scopeMovementIds = scopeMovements.Select(item => item.Id).ToArray();
+                var scopeEvents = scopeMovementIds.Length == 0
+                    ? []
+                    : await db.MovementValuationEvents.AsNoTracking().Where(item => scopeMovementIds.Contains(item.MovementId)).ToListAsync(cancellationToken);
+                foreach (var target in movements)
+                {
+                    var targetPolicy = policies
+                        .Where(item => item.EffectiveFrom <= target.EffectiveDate && (item.EffectiveTo == null || item.EffectiveTo >= target.EffectiveDate))
+                        .OrderByDescending(item => item.EffectiveFrom)
+                        .ThenByDescending(item => item.VersionNumber)
+                        .FirstOrDefault();
+                    if (targetPolicy is null) continue;
+                    var targetScope = ValuationScopeKey.From(target, targetPolicy.ScopeMode);
+                    var pendingPredecessor = scopeMovements
+                        .Where(item => item.LedgerSequence < target.LedgerSequence)
+                        .Any(item =>
+                        {
+                            var policy = policies
+                                .Where(candidate => candidate.EffectiveFrom <= item.EffectiveDate && (candidate.EffectiveTo == null || candidate.EffectiveTo >= item.EffectiveDate))
+                                .OrderByDescending(candidate => candidate.EffectiveFrom)
+                                .ThenByDescending(candidate => candidate.VersionNumber)
+                                .FirstOrDefault();
+                            return policy is not null
+                                && ValuationScopeKey.From(item, policy.ScopeMode) == targetScope
+                                && !scopeEvents.Any(evidence => evidence.MovementId == item.Id && evidence.Status == InventoryValuationEventStatus.Applied);
+                        });
+                    if (pendingPredecessor)
+                        return InventoryPersistenceResult<InventoryValuationProcessResult>.Denied(InventoryPersistenceOutcome.Conflict, "pending_predecessor");
+                }
+            }
             var appliedEventsForCompany = await db.MovementValuationEvents.AsNoTracking().Where(item => item.CompanyId == command.CompanyId && item.Status == InventoryValuationEventStatus.Applied).ToListAsync(cancellationToken);
 
             var applied = 0;

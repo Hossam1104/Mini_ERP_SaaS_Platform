@@ -1,6 +1,9 @@
 #pragma warning disable CS1591
 
 using Microsoft.Extensions.DependencyInjection;
+using MiniErp.App.BuildingBlocks.Owners;
+using MiniErp.App.BuildingBlocks.Tenancy;
+using MiniErp.App.BuildingBlocks.Work;
 
 namespace MiniErp.App.Modules.Migration;
 
@@ -13,7 +16,18 @@ public static class MigrationServiceCollectionExtensions
         services.AddSingleton<MigrationFoundationService>();
         services.AddSingleton<MigrationIntakeService>();
         services.AddSingleton<MigrationValidationService>();
-        services.AddSingleton<MigrationExecutionService>();
+        services.AddSingleton<MigrationInventoryOpeningExecutionCoordinator>();
+        services.AddSingleton<MigrationExecutionService>(provider => new MigrationExecutionService(
+            provider.GetRequiredService<MigrationFoundationService>(),
+            provider.GetRequiredService<IMigrationFoundationPersistence>(),
+            provider.GetRequiredService<IMigrationValidationPersistence>(),
+            provider.GetRequiredService<IMigrationExecutionPersistence>(),
+            provider.GetRequiredService<ICurrentOrganizationScopeResolver>(),
+            provider.GetRequiredService<IOrganizationScopeOwnershipResolver>(),
+            provider.GetRequiredService<IOwnerExecutionGateway>(),
+            provider.GetRequiredService<IMigrationReferenceAuthority>(),
+            provider.GetRequiredService<MigrationInventoryOpeningExecutionCoordinator>(),
+            provider.GetService<TimeProvider>()));
         services.AddSingleton<IMigrationReferenceAuthority, UnavailableMigrationReferenceAuthority>();
         return services;
     }

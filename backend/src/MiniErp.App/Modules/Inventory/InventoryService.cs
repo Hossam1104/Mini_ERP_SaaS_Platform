@@ -133,38 +133,8 @@ public sealed partial class InventoryService(
         InventoryRequestContext context,
         InventoryOpeningBalanceCreateRequest request,
         string? idempotencyKey,
-        CancellationToken cancellationToken = default)
-    {
-        if (request.Rows is null || request.Rows.Count == 0 || request.Rows.Count > 10000) return InventoryOperationResult<InventoryOpeningBalanceRecord>.Failure("rows_required");
-        if (request.CompanyId == Guid.Empty || request.WarehouseId == Guid.Empty || string.IsNullOrWhiteSpace(request.SourceOwner) || string.IsNullOrWhiteSpace(request.SourceSystem)) return InventoryOperationResult<InventoryOpeningBalanceRecord>.Failure("invalid_opening_source");
-        if (request.ExtractedAt > DateTimeOffset.UtcNow.AddMinutes(5)) return InventoryOperationResult<InventoryOpeningBalanceRecord>.Failure("invalid_extracted_at");
-        var scope = await ResolveScopeAsync(context, "inventory.opening.create", request.WarehouseId, request.CompanyId, request.BranchId, cancellationToken);
-        if (!scope.Succeeded) return InventoryOperationResult<InventoryOpeningBalanceRecord>.Failure(scope.Code);
-
-        var rows = new List<InventoryOpeningBalanceRowCommand>(request.Rows.Count);
-        foreach (var row in request.Rows)
-        {
-            var product = await products.FindAsync(context, row.ProductId, cancellationToken);
-            var validation = ValidateProduct(product, row.UnitOfMeasureId, row.TrackingIdentity);
-            var code = validation.Succeeded ? ValidateOpeningRow(row) : validation.Code;
-            rows.Add(new InventoryOpeningBalanceRowCommand(
-                Guid.NewGuid(), row.ProductId, row.UnitOfMeasureId, row.Quantity, row.UnitCost,
-                NormalizeCurrency(row.CurrencyCode), NormalizeTracking(row.TrackingIdentity),
-                Normalize(row.SourceLineReference, 256), product, code));
-        }
-
-        var command = new InventoryOpeningBalanceCommand(
-            Guid.NewGuid(), scope.Value!, scope.Warehouse!.Code, scope.Warehouse.Name, request.AsOfDate, NormalizeRequired(request.SourceOwner, 256),
-            NormalizeRequired(request.SourceSystem, 256), request.ExtractedAt, Normalize(request.SourceReference, 512),
-            rows, context.ActorId, DateTimeOffset.UtcNow, context.CorrelationId?.Value ?? Guid.NewGuid().ToString("N"),
-            Normalize(idempotencyKey, 256), InventoryFingerprints.Create(request));
-        try
-        {
-            var value = await persistence.CreateOpeningBalanceAsync(context, command, cancellationToken);
-            return value is null ? InventoryOperationResult<InventoryOpeningBalanceRecord>.Failure("duplicate_or_conflict") : InventoryOperationResult<InventoryOpeningBalanceRecord>.Success(value);
-        }
-        catch (InvalidOperationException) { return InventoryOperationResult<InventoryOpeningBalanceRecord>.Failure("persistence_unavailable"); }
-    }
+        CancellationToken cancellationToken = default) =>
+        await CreateOpeningBalanceCoreAsync(context, request, idempotencyKey, null, null, migrationExecution: false, cancellationToken);
 
     public Task<InventoryOperationResult<InventoryOpeningBalanceRecord>> ValidateOpeningBalanceAsync(InventoryRequestContext context, Guid id, byte[] expectedVersion, string? reason, string? idempotencyKey, CancellationToken cancellationToken = default) =>
         ActOpeningAsync(context, id, expectedVersion, reason, idempotencyKey, "inventory.opening.validate", persistence.ValidateOpeningBalanceAsync, cancellationToken);
@@ -183,12 +153,15 @@ public sealed partial class InventoryService(
         string? idempotencyKey,
         string operationId,
         Func<InventoryRequestContext, Guid, byte[], Guid, string?, string, string?, string, CancellationToken, Task<InventoryOpeningBalanceRecord?>> action,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool migrationExecution = false)
     {
         var current = await persistence.FindOpeningBalanceAsync(context, id, cancellationToken);
         if (current is null) return InventoryOperationResult<InventoryOpeningBalanceRecord>.Failure("not_found");
         var scope = new InventoryScope(context.TenantId.Value, current.CompanyId, current.BranchId, current.WarehouseId);
-        if (!authorization.IsAllowed(context, operationId, scope)) return InventoryOperationResult<InventoryOpeningBalanceRecord>.Failure("forbidden");
+        if (migrationExecution
+            ? !authorization.IsMigrationAllowed(context, scope)
+            : !authorization.IsAllowed(context, operationId, scope)) return InventoryOperationResult<InventoryOpeningBalanceRecord>.Failure("forbidden");
         try
         {
             var value = await action(context, id, expectedVersion, context.ActorId, Normalize(reason, 2048), context.CorrelationId?.Value ?? Guid.NewGuid().ToString("N"), Normalize(idempotencyKey, 256), InventoryFingerprints.Create(new { id, reason, expectedVersion }), cancellationToken);

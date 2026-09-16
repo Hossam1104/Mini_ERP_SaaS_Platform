@@ -58,7 +58,7 @@ public sealed class MigrationFoundationTests
             MigrationRunStatus.OutcomeUnknown
         ],
         [MigrationRunStatus.Completed] = [MigrationRunStatus.ReconciliationPending],
-        [MigrationRunStatus.PartiallyCompleted] = [MigrationRunStatus.ReconciliationPending],
+        [MigrationRunStatus.PartiallyCompleted] = [MigrationRunStatus.Executing, MigrationRunStatus.ReconciliationPending],
         [MigrationRunStatus.Failed] =
         [
             MigrationRunStatus.ReconciliationPending
@@ -131,7 +131,8 @@ public sealed class MigrationFoundationTests
     [InlineData(MigrationRunStatus.OutcomeUnknown, MigrationRunStatus.ReconciliationPending, true)]
     [InlineData(MigrationRunStatus.Completed, MigrationRunStatus.ReconciliationPending, true)]
     [InlineData(MigrationRunStatus.PartiallyCompleted, MigrationRunStatus.ReconciliationPending, true)]
-    public void Post_effect_outcomes_follow_only_the_reconciliation_edges(
+    [InlineData(MigrationRunStatus.PartiallyCompleted, MigrationRunStatus.Executing, true)]
+    public void Known_partial_can_forward_resume_and_post_effect_outcomes_can_reconcile(
         MigrationRunStatus from,
         MigrationRunStatus to,
         bool expected) =>
@@ -1018,8 +1019,18 @@ public sealed class MigrationFoundationTests
         foreach (var file in files)
         {
             var text = File.ReadAllText(file);
+            var inventoryEconomicCoordinator = Path.GetFileName(file) == "MigrationInventoryOpeningExecutionCoordinator.cs";
+            if (inventoryEconomicCoordinator)
+            {
+                // Slice 5's one bounded cross-owner orchestrator may use owner
+                // application contracts, but it must never reach persistence.
+                Assert.DoesNotContain("Infrastructure.Persistence", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("DbContext", text, StringComparison.Ordinal);
+            }
             foreach (var module in forbidden)
             {
+                if (inventoryEconomicCoordinator && module is ("Inventory" or "Finance"))
+                    continue;
                 Assert.False(
                     text.Contains($"Modules.{module}", StringComparison.Ordinal),
                     $"{Path.GetFileName(file)} depends on the {module} module.");

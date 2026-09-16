@@ -330,9 +330,39 @@ public sealed class MigrationExecutionTests
 
         Assert.Single(results, result => result.Kind == MigrationResultKind.Succeeded);
         Assert.Single(results, result => result.Kind == MigrationResultKind.Rejected);
-        Assert.Contains(results, result => result.Code is "migration_execution_batch_claim_conflict" or "migration_execution_approval_required");
+        Assert.Contains(results, result => result.Code is "migration_execution_attempt_claim_conflict" or "migration_execution_batch_claim_conflict" or "migration_execution_approval_required");
         Assert.Equal(1, fixture.Owner.ExecuteCalls);
         Assert.Equal(1, fixture.Owner.BatchCount);
+    }
+
+    [Fact]
+    public async Task Different_key_is_known_conflict_while_execution_start_audit_is_pending()
+    {
+        await using var fixture = await ExecutionFixture.CreateAsync();
+        var prepared = await fixture.PrepareAsync(
+            [fixture.Record(MigrationCanonicalRecordType.Supplier, "{\"code\":\"SUP-1\",\"nameEnglish\":\"Supplier\"}")],
+            [MigrationPlannedAction.Create]);
+        var audit = new BlockingExecutionTransitionAuditSink();
+        var firstTask = fixture.NewService(audit).ExecuteAsync(
+            fixture.Request, prepared.Run.RunId, "audit-claim-key-a", prepared.Run.Version);
+        await audit.WaitAsync();
+
+        MigrationOperationResult<MigrationExecutionResult> second;
+        try
+        {
+            second = await fixture.NewService().ExecuteAsync(
+                fixture.Request, prepared.Run.RunId, "audit-claim-key-b", prepared.Run.Version);
+        }
+        finally
+        {
+            audit.Release();
+        }
+        var first = await firstTask;
+
+        Assert.True(first.Succeeded, first.Code);
+        Assert.Equal(MigrationResultKind.Rejected, second.Kind);
+        Assert.Equal("migration_execution_attempt_claim_conflict", second.Code);
+        Assert.Equal(1, fixture.Owner.ExecuteCalls);
     }
 
     [Fact]
@@ -396,6 +426,47 @@ public sealed class MigrationExecutionTests
             await fixture.Persistence.ListAttemptsAsync(fixture.Tenant, prepared.Run.RunId),
             item => item.Operation == MigrationOperationKind.Execution);
         Assert.Empty(await fixture.Persistence.ListBatchesAsync(fixture.Tenant, prepared.Run.RunId, Guid.NewGuid()));
+    }
+
+    [Theory]
+    [InlineData(MigrationCanonicalRecordType.GlOpening)]
+    [InlineData(MigrationCanonicalRecordType.ApOpening)]
+    [InlineData(MigrationCanonicalRecordType.ArOpening)]
+    [InlineData(MigrationCanonicalRecordType.CashBankOpening)]
+    public async Task Unsupported_economic_opening_types_are_rejected_before_attempt_or_owner_effect(MigrationCanonicalRecordType type)
+    {
+        await using var fixture = await ExecutionFixture.CreateAsync();
+        var prepared = await fixture.PrepareAsync(
+            [fixture.Record(type, "{}")],
+            [MigrationPlannedAction.MatchReference]);
+
+        var result = await fixture.Service.ExecuteAsync(
+            fixture.Request, prepared.Run.RunId, $"unsupported-economic-{type}", prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.Rejected, result.Kind);
+        Assert.Equal("migration_execution_record_type_not_supported", result.Code);
+        Assert.Equal(0, fixture.Owner.CreateCalls);
+        Assert.Equal(0, fixture.Owner.ExecuteCalls);
+        Assert.DoesNotContain(
+            await fixture.Persistence.ListAttemptsAsync(fixture.Tenant, prepared.Run.RunId),
+            item => item.Operation == MigrationOperationKind.Execution);
+    }
+
+    [Fact]
+    public async Task Inventory_opening_requires_inventory_and_finance_owner_services_before_attempt()
+    {
+        await using var fixture = await ExecutionFixture.CreateAsync();
+        var prepared = await fixture.PrepareAsync(
+            [fixture.Record(MigrationCanonicalRecordType.InventoryOpening, "{\"companyId\":\"11111111-1111-1111-1111-111111111111\",\"branchId\":\"22222222-2222-2222-2222-222222222222\",\"warehouseId\":\"33333333-3333-3333-3333-333333333333\",\"productId\":\"44444444-4444-4444-4444-444444444444\",\"unitOfMeasureId\":\"55555555-5555-5555-5555-555555555555\",\"quantity\":1,\"unitCost\":2,\"currencyCode\":\"SAR\",\"openingDate\":\"2026-01-01\",\"sourceLineReference\":\"opening-1\"}")],
+            [MigrationPlannedAction.Create]);
+
+        var result = await fixture.Service.ExecuteAsync(fixture.Request, prepared.Run.RunId, "inventory-services-key", prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.Rejected, result.Kind);
+        Assert.Equal("migration_inventory_execution_unavailable", result.Code);
+        Assert.DoesNotContain(await fixture.Persistence.ListAttemptsAsync(fixture.Tenant, prepared.Run.RunId), item => item.Operation == MigrationOperationKind.Execution);
+        Assert.Equal(0, fixture.Owner.CreateCalls);
+        Assert.Equal(0, fixture.Owner.ExecuteCalls);
     }
 
     [Fact]
@@ -907,6 +978,25 @@ public sealed class MigrationExecutionTests
     private sealed class NoopAuditSink : IFoundationAuditEvidenceSink
     {
         public ValueTask AppendAsync(FoundationAuditEvidence evidence, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+    }
+
+    private sealed class BlockingExecutionTransitionAuditSink : IFoundationAuditEvidenceSink
+    {
+        private readonly TaskCompletionSource<bool> entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async ValueTask AppendAsync(FoundationAuditEvidence evidence, CancellationToken cancellationToken = default)
+        {
+            if (evidence.OperationId != "migration.run.transition")
+                return;
+
+            entered.TrySetResult(true);
+            await released.Task.WaitAsync(cancellationToken);
+        }
+
+        internal Task WaitAsync() => entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        internal void Release() => released.TrySetResult(true);
     }
 
     private sealed class FailAfterAuditSink(int successfulAppends) : IFoundationAuditEvidenceSink

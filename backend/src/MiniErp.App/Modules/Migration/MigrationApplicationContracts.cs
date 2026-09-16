@@ -247,6 +247,7 @@ public sealed class MigrationRun : ITenantOwned
             },
             [MigrationRunStatus.PartiallyCompleted] = new HashSet<MigrationRunStatus>
             {
+                MigrationRunStatus.Executing,
                 MigrationRunStatus.ReconciliationPending
             },
             [MigrationRunStatus.Failed] = new HashSet<MigrationRunStatus>
@@ -493,7 +494,7 @@ public sealed class MigrationRun : ITenantOwned
             // the attempt lineage separately refuses to supersede an open or
             // unprovable prior attempt (M40-RULE-013, M40-AC-022).
             MigrationOperationKind.Execution =>
-                Status is MigrationRunStatus.Approved or MigrationRunStatus.Executing,
+                Status is MigrationRunStatus.Approved or MigrationRunStatus.Executing or MigrationRunStatus.PartiallyCompleted,
 
             _ => false
         };
@@ -1475,6 +1476,13 @@ public sealed class MigrationFoundationService
 
         var run = MigrationRun.Rehydrate(runRecord);
         var attempt = saved.Value is null ? null : MigrationAttempt.Rehydrate(saved.Value);
+        if (saved.Outcome == MigrationPersistenceOutcome.Replayed)
+        {
+            // The original attempt-start mutation already owns its audit evidence;
+            // replay is read-only and must not race a duplicate audit append.
+            return MapPersistence(saved);
+        }
+
         var metadata = MigrationAuditMetadata.Create()
             .With("operation", operation.ToString())
             .With("to", run.Status.ToString());

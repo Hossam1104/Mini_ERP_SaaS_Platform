@@ -10,6 +10,23 @@
 
 ---
 
+## CURRENT AUTHORITY - 17 September 2026 (MESP-141 SLICE 5 IMPLEMENTATION HANDOFF)
+
+**MESP-141 Slice 5 — Inventory Economic Opening Execution is implemented on the bounded feature branch and is awaiting independent GPT-5.6 Sol acceptance.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-4 remain accepted and merged; MESP-142 remains OPEN / NOT ACTIVATED.
+
+| Item | Value |
+|---|---|
+| Bounded branch | `feat/mesp-141-inventory-economic-opening` from exact baseline `3d7779e53f864c43cad61f95bed1fa220d7426d2` |
+| Slice activation | Issue #229 comment `5697161045`; architecture authority `5696150024` |
+| Scope | InventoryOpening economic execution, one parent effect to many owner representations, Inventory valuation, Finance-owned pre-effect readiness and handoff, functional-currency-only restriction, known PartialCompleted forward resume, read-only reconciliation evidence |
+| Excluded | GL/AP/AR/Cash opening, production execution, reconciliation/sign-off capability, correction/reversal orchestration, unknown recovery, UI, MESP-142, Golden E2E |
+| Lifecycle | Draft PR handoff only; no Ready transition, merge, Jira mutation, or production authority |
+| Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
+
+Local validation is Release build `0 warnings / 0 errors`; official disposable LocalDB backend `1,371/1,371`; Angular `316/316`; Chromium `51/51`; all eight EF contexts report no pending model changes; NuGet scanning is clear. The known frontend baselines remain a `514.26 kB` initial bundle warning and four moderate production npm advisories. Runtime remains on `http://localhost:5300` and `http://localhost:4300` under the repository launcher. No production data or owner-managed assets were used.
+
+## HISTORICAL RECORD - earlier MESP-141 and project state
+
 ## CURRENT AUTHORITY - 16 September 2026 (MESP-141 SLICE 4 ACCEPTED / MERGED; POST-MERGE GOVERNANCE RECONCILIATION)
 
 **MESP-141 Slice 4 is accepted by GPT-5.6 Sol and merged. Slices 1-4 are accepted and merged. The bounded feature lifecycle is closed; post-merge governance reconciliation is in progress until its governance PR merges. MESP-141 remains OPEN / ACTIVE / IN PROGRESS.**

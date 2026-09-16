@@ -74,6 +74,10 @@ internal static class MigrationTenantOwnershipVerifier
                 .Where(item => item.Id == effect.Id)
                 .Select(item => item.TenantId)
                 .SingleOrDefault(),
+            MigrationEconomicRepresentationEntity representation => migrationContext.EconomicRepresentations
+                .Where(item => item.Id == representation.Id)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
             _ => null
         };
     }
@@ -139,6 +143,10 @@ internal static class MigrationTenantOwnershipVerifier
                 .SingleOrDefaultAsync(cancellationToken),
             MigrationExecutionEffectEntity effect => await migrationContext.ExecutionEffects
                 .Where(item => item.Id == effect.Id)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationEconomicRepresentationEntity representation => await migrationContext.EconomicRepresentations
+                .Where(item => item.Id == representation.Id)
                 .Select(item => (TenantId?)item.TenantId)
                 .SingleOrDefaultAsync(cancellationToken),
             _ => null

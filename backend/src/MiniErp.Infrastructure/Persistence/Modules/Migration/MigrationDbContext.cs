@@ -40,6 +40,7 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
     internal DbSet<MigrationExecutionBatchEntity> ExecutionBatches => Set<MigrationExecutionBatchEntity>();
 
     internal DbSet<MigrationExecutionEffectEntity> ExecutionEffects => Set<MigrationExecutionEffectEntity>();
+    internal DbSet<MigrationEconomicRepresentationEntity> EconomicRepresentations => Set<MigrationEconomicRepresentationEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -358,6 +359,7 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         executionEffect.Property(item => item.CorrelationId).HasMaxLength(128).IsRequired();
         ConfigureVersion(executionEffect.Property(item => item.Version));
         executionEffect.HasIndex(item => new { item.TenantId, item.RunId, item.AttemptId, item.StagedRecordId }).IsUnique();
+        executionEffect.HasAlternateKey(item => new { item.TenantId, item.RunId, item.AttemptId, item.Id });
         executionEffect.HasOne<MigrationExecutionBatchEntity>().WithMany()
             .HasForeignKey(item => new { item.TenantId, item.RunId, item.AttemptId, item.RecordType })
             .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.AttemptId, item.RecordType })
@@ -367,6 +369,31 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
             .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.StagedRecordId })
             .OnDelete(DeleteBehavior.Restrict);
         executionEffect.HasQueryFilter(item => item.TenantId == TrustedTenantId);
+
+        var representation = modelBuilder.Entity<MigrationEconomicRepresentationEntity>();
+        representation.ToTable("MigrationEconomicRepresentations", "migration");
+        representation.HasKey(item => item.Id);
+        representation.Property(item => item.Id).ValueGeneratedNever();
+        ConfigureTenant(representation.Property(item => item.TenantId));
+        representation.Property(item => item.RunId).IsRequired();
+        representation.Property(item => item.AttemptId).IsRequired();
+        representation.Property(item => item.EffectId).IsRequired();
+        representation.Property(item => item.OwnerModule).IsRequired();
+        representation.Property(item => item.Kind).IsRequired();
+        representation.Property(item => item.OwnerId).IsRequired();
+        representation.Property(item => item.OwnerReference).HasMaxLength(128).IsRequired(false);
+        representation.Property(item => item.Status).HasMaxLength(64).IsRequired();
+        representation.Property(item => item.EvidenceVersion).HasMaxLength(128).IsRequired();
+        representation.Property(item => item.OccurredAt).IsRequired();
+        representation.Property(item => item.RecordedAt).IsRequired();
+        representation.Property(item => item.EvidenceConfirmed).IsRequired();
+        ConfigureVersion(representation.Property(item => item.Version));
+        representation.HasIndex(item => new { item.TenantId, item.RunId, item.AttemptId, item.EffectId, item.OwnerModule, item.Kind, item.OwnerId, item.EvidenceVersion }).IsUnique();
+        representation.HasOne<MigrationExecutionEffectEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.AttemptId, item.EffectId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.AttemptId, item.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+        representation.HasQueryFilter(item => item.TenantId == TrustedTenantId);
     }
 
     private void ConfigureTenant(Microsoft.EntityFrameworkCore.Metadata.Builders.PropertyBuilder<TenantId> property) =>

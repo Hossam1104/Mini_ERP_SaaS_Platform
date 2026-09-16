@@ -125,8 +125,8 @@ internal sealed class MigrationExecutionEffectEntity : ITenantOwned
 
         var allowed = Disposition switch
         {
-            MigrationExecutionEffectDisposition.Prepared => command.Disposition is MigrationExecutionEffectDisposition.NonEffect or MigrationExecutionEffectDisposition.Started or MigrationExecutionEffectDisposition.Failed or MigrationExecutionEffectDisposition.Unknown,
-            MigrationExecutionEffectDisposition.Started => command.Disposition is MigrationExecutionEffectDisposition.Committed or MigrationExecutionEffectDisposition.Failed or MigrationExecutionEffectDisposition.Unknown,
+            MigrationExecutionEffectDisposition.Prepared => command.Disposition is MigrationExecutionEffectDisposition.NonEffect or MigrationExecutionEffectDisposition.Started or MigrationExecutionEffectDisposition.Committed or MigrationExecutionEffectDisposition.PartialCompleted or MigrationExecutionEffectDisposition.Failed or MigrationExecutionEffectDisposition.Unknown,
+            MigrationExecutionEffectDisposition.Started => command.Disposition is MigrationExecutionEffectDisposition.Committed or MigrationExecutionEffectDisposition.PartialCompleted or MigrationExecutionEffectDisposition.Failed or MigrationExecutionEffectDisposition.Unknown,
             _ => false
         };
         if (!allowed)
@@ -142,4 +142,49 @@ internal sealed class MigrationExecutionEffectEntity : ITenantOwned
         Version = Guid.NewGuid().ToByteArray();
         return true;
     }
+}
+
+internal sealed class MigrationEconomicRepresentationEntity : ITenantOwned
+{
+    private MigrationEconomicRepresentationEntity()
+    {
+        OwnerReference = null;
+        Status = string.Empty;
+        EvidenceVersion = string.Empty;
+    }
+
+    internal MigrationEconomicRepresentationEntity(MigrationEconomicRepresentationRecord record)
+    {
+        Id = record.Id;
+        TenantId = record.TenantId;
+        RunId = record.RunId;
+        AttemptId = record.AttemptId;
+        EffectId = record.EffectId;
+        OwnerModule = record.OwnerModule;
+        Kind = record.Kind;
+        OwnerId = record.OwnerId;
+        OwnerReference = record.OwnerReference;
+        Status = record.Status;
+        EvidenceVersion = record.EvidenceVersion;
+        OccurredAt = record.OccurredAt;
+        RecordedAt = record.RecordedAt;
+        EvidenceConfirmed = record.EvidenceConfirmed;
+        Version = record.Version;
+    }
+
+    internal Guid Id { get; private set; }
+    public TenantId TenantId { get; private set; }
+    internal Guid RunId { get; private set; }
+    internal Guid AttemptId { get; private set; }
+    internal Guid EffectId { get; private set; }
+    internal MigrationEconomicOwnerModule OwnerModule { get; private set; }
+    internal MigrationEconomicRepresentationKind Kind { get; private set; }
+    internal Guid OwnerId { get; private set; }
+    internal string? OwnerReference { get; private set; }
+    internal string Status { get; private set; }
+    internal string EvidenceVersion { get; private set; }
+    internal DateTimeOffset OccurredAt { get; private set; }
+    internal DateTimeOffset RecordedAt { get; private set; }
+    internal bool EvidenceConfirmed { get; private set; }
+    internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
 }

@@ -6,7 +6,7 @@ using MiniErp.Contracts.Modules.MasterData;
 
 namespace MiniErp.App.Modules.Inventory;
 
-public sealed class InventoryValuationService(
+public sealed partial class InventoryValuationService(
     IInventoryValuationPersistence persistence,
     InventoryResourceAuthorizationService authorization,
     IInventoryWarehouseProvider warehouses,

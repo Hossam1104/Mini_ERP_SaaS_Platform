@@ -255,6 +255,90 @@ internal sealed partial class MigrationPersistence
         }
     }
 
+    public async Task<MigrationPersistenceResult<MigrationEconomicRepresentationRecord>> CreateRepresentationAsync(
+        TenantContext tenantContext,
+        CreateMigrationEconomicRepresentationCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tenantContext);
+        ArgumentNullException.ThrowIfNull(command);
+        var record = command.Representation;
+        if (record.TenantId != tenantContext.TenantId
+            || record.Id == Guid.Empty
+            || record.RunId == Guid.Empty
+            || record.AttemptId == Guid.Empty
+            || record.EffectId == Guid.Empty
+            || record.OwnerId == Guid.Empty
+            || !Enum.IsDefined(record.OwnerModule)
+            || !Enum.IsDefined(record.Kind)
+            || !record.EvidenceConfirmed
+            || string.IsNullOrWhiteSpace(record.Status)
+            || string.IsNullOrWhiteSpace(record.EvidenceVersion))
+            return MigrationPersistenceResult<MigrationEconomicRepresentationRecord>.Denied(MigrationPersistenceOutcome.InvalidReference, "migration_economic_representation_invalid");
+
+        await using var db = CreateContext(tenantContext);
+        var parent = await db.ExecutionEffects.SingleOrDefaultAsync(item =>
+            item.TenantId == record.TenantId
+            && item.RunId == record.RunId
+            && item.AttemptId == record.AttemptId
+            && item.Id == record.EffectId
+            && item.RecordType == MigrationCanonicalRecordType.InventoryOpening, cancellationToken);
+        if (parent is null)
+            return MigrationPersistenceResult<MigrationEconomicRepresentationRecord>.Denied(MigrationPersistenceOutcome.InvalidReference, "migration_economic_representation_parent_invalid");
+
+        var existing = await db.EconomicRepresentations.SingleOrDefaultAsync(item =>
+            item.TenantId == record.TenantId
+            && item.EffectId == record.EffectId
+            && item.OwnerModule == record.OwnerModule
+            && item.Kind == record.Kind
+            && item.OwnerId == record.OwnerId
+            && item.EvidenceVersion == record.EvidenceVersion, cancellationToken);
+        if (existing is not null)
+            return SameRepresentation(existing, record)
+                ? MigrationPersistenceResult<MigrationEconomicRepresentationRecord>.Replay(ToRecord(existing))
+                : MigrationPersistenceResult<MigrationEconomicRepresentationRecord>.Denied(MigrationPersistenceOutcome.Conflict, "migration_economic_representation_conflict");
+
+        db.EconomicRepresentations.Add(new MigrationEconomicRepresentationEntity(record));
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            var saved = await db.EconomicRepresentations.SingleAsync(item => item.Id == record.Id, cancellationToken);
+            return MigrationPersistenceResult<MigrationEconomicRepresentationRecord>.Success(ToRecord(saved));
+        }
+        catch (DbUpdateException exception) when (IsUniqueViolation(exception))
+        {
+            await using var fresh = CreateContext(tenantContext);
+            var winner = await fresh.EconomicRepresentations.SingleOrDefaultAsync(item =>
+                item.TenantId == record.TenantId
+                && item.EffectId == record.EffectId
+                && item.OwnerModule == record.OwnerModule
+                && item.Kind == record.Kind
+                && item.OwnerId == record.OwnerId
+                && item.EvidenceVersion == record.EvidenceVersion, cancellationToken);
+            return winner is not null && SameRepresentation(winner, record)
+                ? MigrationPersistenceResult<MigrationEconomicRepresentationRecord>.Replay(ToRecord(winner))
+                : MigrationPersistenceResult<MigrationEconomicRepresentationRecord>.Denied(MigrationPersistenceOutcome.Conflict, "migration_economic_representation_conflict");
+        }
+        catch (DbUpdateException)
+        {
+            return MigrationPersistenceResult<MigrationEconomicRepresentationRecord>.Denied(MigrationPersistenceOutcome.UnknownOutcome, "migration_economic_representation_outcome_unknown");
+        }
+    }
+
+    public async Task<IReadOnlyList<MigrationEconomicRepresentationRecord>> ListRepresentationsAsync(
+        TenantContext tenantContext,
+        Guid runId,
+        Guid attemptId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = CreateContext(tenantContext);
+        var entities = await db.EconomicRepresentations
+            .Where(item => item.RunId == runId && item.AttemptId == attemptId)
+            .OrderBy(item => item.Id)
+            .ToListAsync(cancellationToken);
+        return entities.Select(ToRecord).ToArray();
+    }
+
     private static bool SameBatch(MigrationExecutionBatchEntity entity, MigrationExecutionBatchRecord record) =>
         entity.Id == record.Id
         && entity.OwnerBatchId == record.OwnerBatchId
@@ -266,6 +350,19 @@ internal sealed partial class MigrationPersistence
         && entity.StagedRecordId == record.StagedRecordId
         && entity.OwnerBatchId == record.OwnerBatchId
         && entity.RecordType == record.RecordType;
+
+    private static bool SameRepresentation(MigrationEconomicRepresentationEntity entity, MigrationEconomicRepresentationRecord record) =>
+        entity.Id == record.Id
+        && entity.RunId == record.RunId
+        && entity.AttemptId == record.AttemptId
+        && entity.EffectId == record.EffectId
+        && entity.OwnerModule == record.OwnerModule
+        && entity.Kind == record.Kind
+        && entity.OwnerId == record.OwnerId
+        && string.Equals(entity.OwnerReference, record.OwnerReference, StringComparison.Ordinal)
+        && string.Equals(entity.Status, record.Status, StringComparison.Ordinal)
+        && string.Equals(entity.EvidenceVersion, record.EvidenceVersion, StringComparison.Ordinal)
+        && entity.EvidenceConfirmed == record.EvidenceConfirmed;
 
     private static MigrationExecutionBatchRecord ToRecord(MigrationExecutionBatchEntity entity) => new(
         entity.Id,
@@ -300,5 +397,22 @@ internal sealed partial class MigrationPersistence
         entity.EffectStartedAt,
         entity.CompletedAt,
         entity.CorrelationId,
+        entity.Version);
+
+    private static MigrationEconomicRepresentationRecord ToRecord(MigrationEconomicRepresentationEntity entity) => new(
+        entity.Id,
+        entity.TenantId,
+        entity.RunId,
+        entity.AttemptId,
+        entity.EffectId,
+        entity.OwnerModule,
+        entity.Kind,
+        entity.OwnerId,
+        entity.OwnerReference,
+        entity.Status,
+        entity.EvidenceVersion,
+        entity.OccurredAt,
+        entity.RecordedAt,
+        entity.EvidenceConfirmed,
         entity.Version);
 }
