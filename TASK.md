@@ -1,3 +1,65 @@
+## MESP-141 Slice 4 - governance-only acceptance hold (15 September 2026)
+
+**MESP-141 Slice 4 technical implementation is accepted by GPT-5.6 Sol. This task implements the G1 SHA-chasing governance correction only. PR #248 remains OPEN / DRAFT / UNMERGED; the next gate is independent Sol verification.**
+
+| Item | Status |
+|---|---|
+| Technical implementation | Sol accepted |
+| G1 SHA-chasing correction | Implemented by this task |
+| PR #248 | OPEN / DRAFT / UNMERGED |
+| Next gate | Independent GPT-5.6 Sol verification |
+
+MESP-141 Slice 4 was activated by GitHub Issue #229 comment `5671574482` from
+verified `origin/main` baseline
+`c25e902c389d5d25b37c10d6e3e070be3d6ea74b`. The bounded branch is
+`feat/mesp-141-master-reference-execution`; remediation is complete on Draft
+PR #248 and awaits independent GPT-5.6 Sol re-acceptance. The PR remains
+**OPEN / DRAFT / UNMERGED**; live GitHub remains authority for its mutable head
+and final CI.
+
+The bounded capability is approved-run execution of validated canonical
+`Product`, `Supplier`, `Customer`, `Currency`, `Tax`, `PaymentTerm`, and
+`UnitOfMeasure` records through a neutral internal gateway to the existing
+Master Data owner import engine. Migration now uses an explicit two-phase
+pre-effect/effect boundary, a unique Prepared/Started/Completed durable claim,
+execution-time reference revalidation, deterministic owner-batch and per-row
+effect lineage, server-computed `migration-master-execution-v1` fingerprints,
+safe same-key replay/conflict, owner-drift handling, partial completion, and a
+hard OutcomeUnknown stop. No Migration direct owner-table writes or sibling
+DbContext access were added.
+
+The effect boundary is explicit: only `Product`, `Supplier`, and `Customer`
+are authoritative business creates in Slice 4. `Currency`, `Tax`,
+`PaymentTerm`, and `UnitOfMeasure` are reference-only prerequisites; they are
+revalidated at execution time and recorded as Migration `NonEffect` lineage,
+not owner-created migration effects.
+
+Organization, InventoryOpening, GlOpening, ApOpening, ArOpening,
+CashBankOpening, economic opening effects, approval-policy implementation,
+reconciliation, onboarding UI, production/cutover, Wafra-specific behavior,
+MESP-142, and `frontend/assets` remain excluded. Accepted capability completion
+remains **24 / 26 = 92.3%** and production readiness remains approximately
+**47% overall / 41% Procurement/P2P**.
+
+Validation is Release build `0 warnings / 0 errors`; official disposable-
+LocalDB backend `1,365/1,365` with `0` failures / `0` skips; R7 catalog
+contract plus R9 snapshot/reference matrices are covered by focused
+`MigrationExecutionTests` `31/31`; the R8 real SQL Server owner vertical path
+is `1/1`; SQL active-claim race is `1/1` through two service instances;
+Angular `316/316`; Chromium `51/51`;
+production/full npm audits retain the known `4` / `7` moderate advisories;
+eight EF contexts report no pending model changes; the solution-wide NuGet
+scan is clear; and the production bundle remains `514.26 kB` with the existing
+500 kB budget warning. No UI source or Owner-managed asset changed.
+
+The live GitHub PR #248 head and exact-head CI remain authoritative for mutable
+Draft state; exact SHA / CI evidence is held in the live PR handoff and will be
+reconciled into repository governance after merge. GitHub remains the live
+authority. The
+required next boundary is independent GPT-5.6 Sol re-acceptance. No Ready transition, merge, Jira write,
+production/cutover action, economic opening, reconciliation, or MESP-142
+activation is authorized by this handoff.
+
 ## MESP-141 Slice 3 - ACCEPTED / MERGED (15 September 2026)
 
 MESP-141 Slice 3 was activated by GitHub Issue #229 comment `5652383036` from

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using MiniErp.App.Modules.BusinessParties;
+using MiniErp.App.BuildingBlocks.Owners;
 
 namespace MiniErp.App.Modules.MasterData;
 
@@ -101,6 +102,7 @@ public static class MasterDataServiceCollectionExtensions
                     serviceProvider.GetRequiredService<ISupplierPersistence>(),
                     serviceProvider.GetRequiredService<ICustomerPersistence>())));
         services.AddSingleton<MasterDataImportService>();
+        services.AddSingleton<IOwnerExecutionGateway, MasterDataOwnerExecutionGateway>();
         return services;
     }
 
