@@ -10,6 +10,47 @@
 
 ---
 
+## CURRENT AUTHORITY - 16 September 2026 (MESP-141 SLICE 4 ACCEPTED / MERGED; POST-MERGE GOVERNANCE RECONCILIATION)
+
+**MESP-141 Slice 4 is accepted by GPT-5.6 Sol and merged. Slices 1-4 are accepted and merged. The bounded feature lifecycle is closed; post-merge governance reconciliation is in progress until its governance PR merges. MESP-141 remains OPEN / ACTIVE / IN PROGRESS.**
+
+### Lifecycle state
+
+| Item | Value |
+|---|---|
+| MESP-141 | **OPEN / ACTIVE / IN PROGRESS** in GitHub Issue #229; remaining onboarding/migration scope is not activated by this merge |
+| Slice 4 accepted head | b35e8b3dbe059911e148c05d19ff11cdffd55a91 |
+| GPT-5.6 Sol acceptance | Issue/PR comment 5684723654 |
+| Feature PR | **#248 MERGED** by normal merge commit |
+| Feature merge commit | 2ec7a3a902ebc9befeb26ede3ed0dc15d030fba2; parents are pre-merge main c25e902c389d5d25b37c10d6e3e070be3d6ea74b and accepted head above |
+| Accepted exact-head CI | Run 34977910205: Repository Validation, Backend, and Frontend passed |
+| Slices 1-4 | **ACCEPTED / MERGED** |
+| Next implementation | **NOT YET AUTHORIZED** |
+| Economic opening | **NOT AUTHORIZED** |
+| Data reconciliation / sign-off | **NOT AUTHORIZED** |
+| MESP-142 | **OPEN / NOT ACTIVATED** in GitHub Issue #230 |
+| Post-merge governance | Reconciliation in progress until the governance PR merges; the live governance PR/head/CI is authority for mutable reconciliation state |
+| Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
+| Jira mutations | **0** — Jira remains historical provenance only |
+| Owner-managed frontend/assets | Untouched |
+
+Slice 4 delivers approved-run execution of validated Product, Supplier,
+Customer, Currency, Tax, PaymentTerm, and UnitOfMeasure records through the
+existing Master Data owner import engine. Only Product, Supplier, and Customer
+are authoritative business creates; reference records are revalidated and
+recorded as Migration NonEffect lineage. The two-phase pre-effect/effect
+boundary, durable claim, owner lineage, replay and OutcomeUnknown safeguards
+remain as accepted. No Inventory, Finance, AP, AR, Cash/Bank, economic opening,
+production, or cutover effect was introduced.
+
+Issue #229 remains open and active. No next Migration Slice, economic opening,
+data reconciliation, sign-off, MESP-141 closure, or MESP-142 activation is
+authorized. Golden E2E is NOT STARTED. The governance PR is limited to
+.ai/CURRENT_STATE.md, TASK.md, and docs/staticts.md; no mutable governance
+branch SHA or exact-head CI is pinned here.
+
+## HISTORICAL RECORD - earlier MESP-141 and project state
+
 ## CURRENT AUTHORITY - 15 September 2026 (MESP-141 SLICE 4 FINAL GOVERNANCE-ONLY ACCEPTANCE HOLD)
 
 **MESP-141 Slice 4 implementation is complete. R1-R9 technical findings are closed. GPT-5.6 Sol has accepted the Slice 4 code / architecture / safety. One governance-only SHA-chasing hold is being corrected. PR #248 remains OPEN / DRAFT / UNMERGED. Formal Slice 4 acceptance remains pending Sol verification of this governance-only correction.**
