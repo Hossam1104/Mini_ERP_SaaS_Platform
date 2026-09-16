@@ -1,3 +1,32 @@
+## MESP-141 Slice 4 - post-merge lifecycle reconciliation (16 September 2026)
+
+**Feature implementation: Sol accepted. Feature PR #248: merged. Slice 4: Accepted / Merged / Lifecycle Closed. Post-merge governance remains in reconciliation until its governance PR merges.**
+
+| Item | Status |
+|---|---|
+| Accepted Slice 4 head | b35e8b3dbe059911e148c05d19ff11cdffd55a91 |
+| Sol acceptance | Comment 5684723654 |
+| Feature PR #248 | Merged by normal merge commit 2ec7a3a902ebc9befeb26ede3ed0dc15d030fba2 |
+| Feature exact-head CI | Run 34977910205; Repository Validation, Backend, and Frontend passed |
+| Slices 1-4 | Accepted / Merged |
+| MESP-141 | Open / Active / In Progress |
+| Post-merge governance | In reconciliation until governance PR merges; live PR/head/CI is mutable authority |
+| Next Migration Slice | **NOT AUTHORIZED** |
+| Economic opening | **NOT AUTHORIZED** |
+| Data reconciliation / sign-off | **NOT AUTHORIZED** |
+| MESP-142 | **OPEN / NOT ACTIVATED** |
+
+The feature lifecycle is closed. Complete only the authorized governance
+reconciliation on chore/mesp-141-slice4-post-merge-reconcile, limited to
+.ai/CURRENT_STATE.md, TASK.md, and docs/staticts.md, then validate, open its
+ready/non-draft governance PR, wait for exact-head CI, and merge by normal
+merge commit. No post-governance documentation commit is authorized. Do not
+create a Slice 5 task, select or design the next implementation slice, close
+Issue #229, activate Issue #230, start Golden E2E, or perform economic opening
+or data-reconciliation work.
+
+## HISTORICAL TASK RECORD
+
 ## MESP-141 Slice 4 - governance-only acceptance hold (15 September 2026)
 
 **MESP-141 Slice 4 technical implementation is accepted by GPT-5.6 Sol. This task implements the G1 SHA-chasing governance correction only. PR #248 remains OPEN / DRAFT / UNMERGED; the next gate is independent Sol verification.**
