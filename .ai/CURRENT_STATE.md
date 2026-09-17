@@ -10,22 +10,28 @@
 
 ---
 
-## CURRENT AUTHORITY - 17 September 2026 (MESP-141 SLICE 5 BOUNDED REMEDIATION HANDOFF)
+## CURRENT AUTHORITY - 17 September 2026 (MESP-141 SLICE 5 ACCEPTED / MERGED; POST-MERGE GOVERNANCE RECONCILIATION)
 
-**MESP-141 Slice 5 — Inventory Economic Opening Execution is implemented on the bounded feature branch and is awaiting independent GPT-5.6 Sol acceptance.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-4 remain accepted and merged; MESP-142 remains OPEN / NOT ACTIVATED.
-
-**Bounded remediation S5-R1/S5-R2/S5-R3 is applied; this handoff awaits independent GPT-5.6 Sol re-acceptance.**
+**MESP-141 Slice 5 - Inventory Economic Opening Execution was accepted by GPT-5.6 Sol and merged through PR #250.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-5 are accepted and merged; MESP-142 remains OPEN / NOT ACTIVATED.
 
 | Item | Value |
 |---|---|
-| Bounded branch | `feat/mesp-141-inventory-economic-opening` from exact baseline `3d7779e53f864c43cad61f95bed1fa220d7426d2` |
-| Slice activation | Issue #229 comment `5697161045`; architecture authority `5696150024` |
-| Scope | InventoryOpening economic execution, one parent effect to many owner representations, Inventory valuation, Finance-owned pre-effect readiness and handoff, functional-currency-only restriction, known PartialCompleted forward resume, read-only reconciliation evidence |
-| Excluded | GL/AP/AR/Cash opening, production execution, reconciliation/sign-off capability, correction/reversal orchestration, unknown recovery, UI, MESP-142, Golden E2E |
-| Lifecycle | Draft PR handoff only; no Ready transition, merge, Jira mutation, or production authority |
+| Sol-accepted Slice 5 head | `4ceb6ec6e9dd46222f6deb46bb935e6ba42a928c` |
+| Sol acceptance | Issue/PR comment `5711137508` |
+| Feature PR | **#250 MERGED** by normal merge commit |
+| Feature merge commit | `efca1f4066ba916b8c3a582ba3ef7e25fc6c93ee` |
+| Slices 1-5 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** after governance merge |
+| MESP-141 | **OPEN / ACTIVE / IN PROGRESS** |
+| Current phase | **Economic Openings** |
+| Next Slice | **NOT AUTHORIZED** |
+| GL/AP/AR/Cash economic opening | **NOT AUTHORIZED** |
+| Production economic migration | **NOT AUTHORIZED** |
+| Reconciliation/sign-off capability | **NOT AUTHORIZED** |
+| MESP-142 | **OPEN / NOT ACTIVATED** |
+| Golden E2E | **NOT STARTED** |
 | Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
 
-Final mutable branch validation evidence is recorded in the live PR #250 handoff comment and exact-head CI. Repository governance records the test status, not a mutable pre-commit total. Release validation, eight-context EF checks, and NuGet scanning remain required gates. The known frontend baselines remain a `514.26 kB` initial bundle warning and four moderate production npm advisories. Runtime remains on `http://localhost:5300` and `http://localhost:4300` under the repository launcher. No production data or owner-managed assets were used.
+Post-merge governance reconciliation is in progress until the governance PR merges; the live governance PR/head/exact-head CI is authority for mutable post-merge reconciliation state. Final mutable branch validation evidence is maintained in the live PR handoff and exact-head CI. No governance branch SHA or mutable exact-head CI is pinned here. The accepted Slice 5 scope remains functional-currency-only InventoryOpening execution with Finance-owned pre-effect readiness and journal posting, Inventory-owned physical stock/MWA/valuation, one economic effect represented by multiple owner records, known PartialCompleted forward resume, OutcomeUnknown hard stop, and read-only Inventory/Finance reconciliation evidence. GL/AP/AR/Cash opening, multi-currency expansion, correction/reversal orchestration, production migration/execution, reconciliation/sign-off implementation, UI, MESP-142, and Golden E2E remain excluded.
 
 ## HISTORICAL RECORD - earlier MESP-141 and project state
 
