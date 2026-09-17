@@ -3,6 +3,7 @@
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.BuildingBlocks.Reporting;
 using MiniErp.Contracts.Modules.Inventory;
+using MiniErp.Contracts.Modules.Foundation;
 
 namespace MiniErp.App.Modules.Inventory;
 
@@ -25,7 +26,8 @@ public sealed record InventoryValuationProcessCommand(
     DateTimeOffset OccurredAt,
     string CorrelationId,
     string? IdempotencyKey,
-    string RequestFingerprint);
+    string RequestFingerprint,
+    IReadOnlyList<Guid>? MovementIds = null);
 
 public sealed record InventoryValuationCorrectionCommand(
     Guid OriginalValuationEventId,

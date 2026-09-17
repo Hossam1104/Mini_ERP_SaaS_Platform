@@ -184,7 +184,7 @@ internal sealed class MigrationOwnerExecutionCoordinator
         CancellationToken cancellationToken)
     {
         var effects = await persistence.ListEffectsAsync(tenant, attempt.RunId, attempt.AttemptId, cancellationToken);
-        foreach (var effect in effects.Where(item => item.Disposition == MigrationExecutionEffectDisposition.Prepared))
+        foreach (var effect in effects.Where(item => item.RecordType != MigrationCanonicalRecordType.InventoryOpening && item.Disposition == MigrationExecutionEffectDisposition.Prepared))
         {
             await persistence.UpdateEffectAsync(
                 tenant,
@@ -202,7 +202,7 @@ internal sealed class MigrationOwnerExecutionCoordinator
         }
 
         var batches = await persistence.ListBatchesAsync(tenant, attempt.RunId, attempt.AttemptId, cancellationToken);
-        foreach (var batch in batches.Where(item => item.State == MigrationExecutionBatchState.Prepared))
+        foreach (var batch in batches.Where(item => item.RecordType != MigrationCanonicalRecordType.InventoryOpening && item.State == MigrationExecutionBatchState.Prepared))
         {
             await persistence.UpdateBatchAsync(
                 tenant,

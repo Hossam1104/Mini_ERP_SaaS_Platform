@@ -195,6 +195,11 @@ public sealed record FinanceJournalCommand(Guid CompanyId, DateOnly JournalDate,
 public sealed record FinanceJournalActionCommand(Guid JournalId, byte[] ExpectedVersion, string? Reason, string IdempotencyKey, string RequestFingerprint);
 public sealed record FinanceReversalCommand(Guid JournalId, DateOnly PostingDate, string Reason, Guid Id, string IdempotencyKey, string RequestFingerprint);
 public sealed record FinanceHandoffProcessCommand(Guid HandoffId, string IdempotencyKey, string RequestFingerprint);
+public sealed record FinanceInventoryOpeningPreflightResult(
+    bool Ready,
+    string Code,
+    string FunctionalCurrencyCode,
+    FinanceApprovalRequirement ApprovalRequirement);
 public sealed record FinanceGlQuery(Guid CompanyId, Guid? AccountId = null, Guid? FiscalPeriodId = null, DateOnly? From = null, DateOnly? To = null, Guid? CostCenterId = null, string? SourceContract = null);
 
 public interface IFinancePersistence
@@ -224,6 +229,7 @@ public interface IFinancePersistence
     Task<FinanceOperationResult<FinanceJournalRecord>> ReverseJournalAsync(FinanceRequestContext context, FinanceReversalCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<FinanceGlLineRecord>> QueryGlAsync(FinanceRequestContext context, FinanceGlQuery query, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<FinanceHandoffRecord>> ListHandoffsAsync(FinanceRequestContext context, Guid companyId, CancellationToken cancellationToken = default);
+    Task<FinanceInventoryOpeningPreflightResult> PreflightInventoryOpeningAsync(FinanceRequestContext context, Guid companyId, DateOnly postingDate, CancellationToken cancellationToken = default);
     Task<FinanceOperationResult<FinanceJournalRecord>> ProcessHandoffAsync(FinanceRequestContext context, FinanceHandoffProcessCommand command, CancellationToken cancellationToken = default);
 }
 
@@ -264,6 +270,7 @@ public sealed class UnavailableFinancePersistence : IFinancePersistence
     public Task<FinanceOperationResult<FinanceJournalRecord>> ReverseJournalAsync(FinanceRequestContext context, FinanceReversalCommand command, CancellationToken cancellationToken = default) => Task.FromResult(Unavailable<FinanceJournalRecord>());
     public Task<IReadOnlyList<FinanceGlLineRecord>> QueryGlAsync(FinanceRequestContext context, FinanceGlQuery query, CancellationToken cancellationToken = default) => EmptyGl;
     public Task<IReadOnlyList<FinanceHandoffRecord>> ListHandoffsAsync(FinanceRequestContext context, Guid companyId, CancellationToken cancellationToken = default) => EmptyHandoffs;
+    public Task<FinanceInventoryOpeningPreflightResult> PreflightInventoryOpeningAsync(FinanceRequestContext context, Guid companyId, DateOnly postingDate, CancellationToken cancellationToken = default) => Task.FromResult(new FinanceInventoryOpeningPreflightResult(false, "finance_unavailable", string.Empty, FinanceApprovalRequirement.NotConfigured));
     public Task<FinanceOperationResult<FinanceJournalRecord>> ProcessHandoffAsync(FinanceRequestContext context, FinanceHandoffProcessCommand command, CancellationToken cancellationToken = default) => Task.FromResult(Unavailable<FinanceJournalRecord>());
 }
 

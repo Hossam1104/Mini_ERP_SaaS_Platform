@@ -1,3 +1,17 @@
+## MESP-141 Slice 5 - Inventory economic opening bounded remediation handoff (17 September 2026)
+
+**Slice 5 implementation and bounded S5-R1/S5-R2/S5-R3 remediation are complete on `feat/mesp-141-inventory-economic-opening` and await independent GPT-5.6 Sol re-acceptance.** Issue #229 remains Open / Active / In Progress; Slices 1-4 remain accepted and merged; Issue #230 remains Open / Not Activated.
+
+| Item | Status |
+|---|---|
+| Baseline | `3d7779e53f864c43cad61f95bed1fa220d7426d2` |
+| Activation | Issue #229 comment `5697161045`; architecture authority `5696150024` |
+| Included | Economic representation lineage, InventoryOpening execution, Inventory valuation, Finance preflight/handoff, functional currency restriction, known partial resume, OutcomeUnknown hard stop, read-only reconciliation, SQL LocalDB proof |
+| Excluded | GL/AP/AR/Cash, production, reconciliation/sign-off capability, correction/reversal orchestration, unknown recovery, UI, MESP-142, Golden E2E |
+| Metrics | Unchanged: 24/26 = 92.3%; approximately 47% overall / 41% Procurement/P2P |
+
+Final mutable branch validation evidence is recorded in the live PR #250 handoff comment and exact-head CI. Repository governance records the test status, not a mutable pre-commit total. Release validation, eight-context EF checks, and NuGet scanning remain required gates. Known baselines: production initial bundle `514.26 kB` warning and four moderate production npm advisories. Runtime remains running on `http://localhost:5300` and `http://localhost:4300`. No Ready, merge, Jira, production, or MESP-142 action was performed.
+
 ## MESP-141 Slice 4 - post-merge lifecycle reconciliation (16 September 2026)
 
 **Feature implementation: Sol accepted. Feature PR #248: merged. Slice 4: Accepted / Merged / Lifecycle Closed. Post-merge governance remains in reconciliation until its governance PR merges.**

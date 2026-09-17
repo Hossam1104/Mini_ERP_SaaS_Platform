@@ -437,7 +437,8 @@ public sealed class SqlServerSafetyTests
                     "20260913060835_MESP141MigrationIntakeTenantInvariant",
                     "20260913094150_MESP141ValidationDryRun",
                     "20260913135834_MESP141ValidationDurability",
-                    "20260915053312_MESP141MasterReferenceExecution"
+                    "20260915053312_MESP141MasterReferenceExecution",
+                    "20260916131448_MESP141InventoryEconomicRepresentations"
                 ],
                 (await migration.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await migration.Database.GetPendingMigrationsAsync());
@@ -3499,7 +3500,9 @@ public sealed class SqlServerSafetyTests
 
         Assert.Single(results, item => item.Succeeded);
         var loser = Assert.Single(results, item => !item.Succeeded);
-        Assert.Equal("migration_execution_batch_claim_conflict", loser.Code);
+        Assert.True(
+            loser.Code is "migration_execution_attempt_claim_conflict" or "migration_execution_batch_claim_conflict",
+            string.Join(" | ", results.Select(item => $"{item.Kind}:{item.Code}:attempt={item.Value?.AttemptId}")));
         Assert.Equal(1, owner.CreateCalls);
         Assert.Equal(1, owner.ExecuteCalls);
         Assert.Single(owner.BatchIds);

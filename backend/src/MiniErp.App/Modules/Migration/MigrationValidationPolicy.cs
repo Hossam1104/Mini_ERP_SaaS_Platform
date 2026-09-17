@@ -206,7 +206,7 @@ internal static class MigrationDryRunPreviewPolicy
     }
 
     private static MigrationPlannedAction PlannedAction(MigrationCanonicalRecordType type) =>
-        type is MigrationCanonicalRecordType.Product or MigrationCanonicalRecordType.Supplier or MigrationCanonicalRecordType.Customer
+        type is MigrationCanonicalRecordType.Product or MigrationCanonicalRecordType.Supplier or MigrationCanonicalRecordType.Customer or MigrationCanonicalRecordType.InventoryOpening
             ? MigrationPlannedAction.Create
             : MigrationPlannedAction.MatchReference;
 }

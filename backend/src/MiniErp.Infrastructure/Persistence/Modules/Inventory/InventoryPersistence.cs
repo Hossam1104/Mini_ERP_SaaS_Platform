@@ -56,7 +56,7 @@ internal sealed partial class InventoryPersistence(DbContextOptions options) : I
             var replay = await ReadReplayAsync<InventoryOpeningBalanceRecord>(db, context, "inventory.opening.create", command.IdempotencyKey, command.RequestFingerprint, cancellationToken);
             if (replay.Handled) return replay.Value;
             var sourceFingerprints = command.Rows
-                .Select(row => InventorySourceIdentity.Create(context.TenantId, command, row.SourceLineReference))
+                .Select(row => InventorySourceIdentity.Create(context.TenantId, command, row.SourceLineReference, row.TrackingIdentity))
                 .ToArray();
             var consumedSourceFingerprints = await ReadConsumedSourceFingerprintsAsync(
                 db,

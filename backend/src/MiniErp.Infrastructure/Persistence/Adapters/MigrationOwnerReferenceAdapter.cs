@@ -8,7 +8,9 @@ using MiniErp.App.Modules.Inventory;
 using MiniErp.App.Modules.MasterData;
 using MiniErp.App.Modules.Migration;
 using MiniErp.Contracts.Modules.Finance;
+using MiniErp.Contracts.Modules.Inventory;
 using MiniErp.Contracts.Modules.MasterData;
+using System.Text.Json;
 
 namespace MiniErp.Infrastructure.Persistence.Adapters;
 
@@ -106,6 +108,23 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
                     => MigrationBusinessIdentityResolution.Valid($"supplier:{SupplierValuePolicy.ComparisonKey(supplier.Code)}"),
                 MigrationCustomerPayload customer when !string.IsNullOrWhiteSpace(customer.Code)
                     => MigrationBusinessIdentityResolution.Valid($"customer:{CustomerValuePolicy.ComparisonKey(customer.Code)}"),
+                MigrationInventoryOpeningPayload inventory when inventory.CompanyId is { } companyId
+                    && inventory.WarehouseId is { } warehouseId
+                    && inventory.ProductId is { } productId
+                    && inventory.UnitOfMeasureId is { } unitId
+                    && inventory.OpeningDate is { } openingDate
+                    && !string.IsNullOrWhiteSpace(inventory.SourceLineReference)
+                    => MigrationBusinessIdentityResolution.Valid("inventory-opening:" + JsonSerializer.Serialize(new
+                    {
+                        CompanyId = companyId,
+                        inventory.BranchId,
+                        WarehouseId = warehouseId,
+                        ProductId = productId,
+                        UnitOfMeasureId = unitId,
+                        OpeningDate = openingDate,
+                        TrackingIdentity = inventory.TrackingIdentity?.Trim(),
+                        SourceLineReference = inventory.SourceLineReference.Trim()
+                    })),
                 MigrationProductPayload or MigrationSupplierPayload or MigrationCustomerPayload
                     => MigrationBusinessIdentityResolution.NotApplicable(),
                 _ => MigrationBusinessIdentityResolution.NotApplicable()
@@ -214,6 +233,13 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         {
             var product = await inventoryProducts.FindAsync(financeContext!.ToInventoryRequestContext(), productId, cancellationToken);
             findings.Add(product is null ? Missing("product", productId) : Lifecycle(product.IsActive && product.IsInventoryRelevant, "product", productId));
+            if (product is not null)
+            {
+                if (product.TrackingEnabled && string.IsNullOrWhiteSpace(payload.TrackingIdentity))
+                    findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.MandatoryData, "inventory_tracking_identity_required", "Tracked inventory requires a lot, batch, or serial identity."));
+                else if (!product.TrackingEnabled && !string.IsNullOrWhiteSpace(payload.TrackingIdentity))
+                    findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.MandatoryData, "inventory_tracking_identity_not_supported", "This product does not use a tracking identity."));
+            }
         }
         if (payload.UnitOfMeasureId is { } unitId)
         {
@@ -223,17 +249,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
                 var product = await inventoryProducts.FindAsync(inventoryContext!.ToInventoryRequestContext(), inventoryProductId, cancellationToken);
                 if (product is not null && product.BaseUnitOfMeasureId != unitId)
                 {
-                    var conversion = await catalog.FindConversionAsync(requestContext.TenantContext!, unitId, product.BaseUnitOfMeasureId, cancellationToken);
-                    if (conversion is null)
-                    {
-                        findings.Add(Invalid("uom-conversion", $"{unitId:N}->{product.BaseUnitOfMeasureId:N}"));
-                    }
-                    else if (payload.Quantity is { } quantity)
-                    {
-                        var converted = await catalog.ConvertQuantityAsync(requestContext.TenantContext!, conversion.Id, quantity, cancellationToken);
-                        if (!converted.Succeeded)
-                            findings.Add(Invalid("uom-conversion", converted.Code));
-                    }
+                    findings.Add(Invalid("inventory-unit-of-measure", $"{unitId:N}->{product.BaseUnitOfMeasureId:N}"));
                 }
             }
         }
@@ -244,7 +260,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
     {
         var (companyId, openingDate, currency, accountIds) = payload switch
         {
-            MigrationInventoryOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, new[] { item.ControlAccountId }),
+            MigrationInventoryOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, Array.Empty<Guid?>()),
             MigrationGlOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, new[] { item.AccountId }),
             MigrationApOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, new[] { item.ControlAccountId }),
             MigrationArOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, new[] { item.ControlAccountId }),
@@ -259,6 +275,10 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         findings.Add(companyOption is null ? Missing("company", company) : Lifecycle(companyOption.IsActive, "company", company));
         if (companyOption is not { IsActive: true })
             return findings;
+
+        if (payload is MigrationInventoryOpeningPayload
+            && !string.Equals(currency?.Trim(), companyOption.FunctionalCurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase))
+            findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.Currency, "migration_inventory_opening_currency_not_functional", "Inventory opening currency must equal the Company's Finance functional currency."));
 
         foreach (var accountId in accountIds.Where(item => item is not null).Select(item => item!.Value).Distinct())
             findings.AddRange(await AccountAsync(context!, company, accountId, openingDate, currency, cancellationToken));

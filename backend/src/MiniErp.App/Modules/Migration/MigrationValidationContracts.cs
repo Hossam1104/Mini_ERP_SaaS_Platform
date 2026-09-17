@@ -174,7 +174,9 @@ public sealed record MigrationInventoryOpeningPayload(
     decimal? UnitCost = null,
     string? CurrencyCode = null,
     DateOnly? OpeningDate = null,
-    Guid? ControlAccountId = null) : MigrationCanonicalPayload;
+    Guid? ControlAccountId = null,
+    string? TrackingIdentity = null,
+    string? SourceLineReference = null) : MigrationCanonicalPayload;
 
 public sealed record MigrationGlOpeningPayload(
     Guid? CompanyId = null,
@@ -654,6 +656,8 @@ public static class MigrationValidationRules
                 Required(findings, inventory.UnitCost is null, "unitCost");
                 Required(findings, string.IsNullOrWhiteSpace(inventory.CurrencyCode), "currencyCode");
                 Required(findings, inventory.OpeningDate is null, "openingDate");
+                Required(findings, inventory.ControlAccountId is not null, "controlAccountId");
+                Required(findings, string.IsNullOrWhiteSpace(inventory.SourceLineReference), "sourceLineReference");
                 if (inventory.Quantity < 0m) findings.Add((MigrationFindingCategory.MandatoryData, "migration_quantity_invalid", "Opening quantity cannot be negative."));
                 if (inventory.UnitCost < 0m) findings.Add((MigrationFindingCategory.MandatoryData, "migration_amount_invalid", "Opening unit cost cannot be negative."));
                 break;

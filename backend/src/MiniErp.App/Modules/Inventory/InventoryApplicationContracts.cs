@@ -162,6 +162,24 @@ public sealed class InventoryResourceAuthorizationService
         return ScopeAllows(context.TrustedScope, scope);
     }
 
+    internal bool IsMigrationAllowed(InventoryRequestContext context, InventoryScope scope) =>
+        scope.TenantId == context.TenantId.Value
+        && IsMigrationExecutionContext(context.FoundationContext)
+        && ScopeAllows(context.TrustedScope, scope);
+
+    public static bool IsMigrationExecutionContext(FoundationRequestContext? context) =>
+        context is not null
+        && context.SecurityProfile is FoundationSecurityProfile.OrdinaryMembership or FoundationSecurityProfile.SupportGrant
+        && context.TenantContext is { } tenant
+        && context.PlatformGovernanceContext is null
+        && context.ActorId is { } actorId
+        && actorId != Guid.Empty
+        && context.SessionId is { } sessionId
+        && sessionId != Guid.Empty
+        && tenant.AuthorizationPath is TenantAuthorizationPath.OrdinaryMembership or TenantAuthorizationPath.SupportGrant
+        && (tenant.ActorId is null || tenant.ActorId == actorId)
+        && string.Equals(context.Permission, FoundationOperationCatalog.GetRequired("migration.execution.start").ExactPermissionCode, StringComparison.Ordinal);
+
     public bool IsAllowed(InventoryRequestContext context, string operationId, Guid tenantId, Guid companyId, Guid? branchId, Guid warehouseId) =>
         IsAllowed(context, operationId, new InventoryScope(tenantId, companyId, branchId, warehouseId));
 
@@ -638,7 +656,8 @@ public static class InventorySourceIdentity
     public static string Create(
         TenantId tenantId,
         InventoryOpeningBalanceCommand command,
-        string? sourceLineReference)
+        string? sourceLineReference,
+        string? trackingIdentity = null)
     {
         ArgumentNullException.ThrowIfNull(command);
 
@@ -652,7 +671,8 @@ public static class InventorySourceIdentity
             SourceOwner = Normalize(command.SourceOwner),
             SourceSystem = Normalize(command.SourceSystem),
             SourceReference = Normalize(command.SourceReference),
-            SourceLineReference = Normalize(sourceLineReference)
+            SourceLineReference = Normalize(sourceLineReference),
+            TrackingIdentity = Normalize(trackingIdentity)
         };
 
         return Convert.ToHexString(

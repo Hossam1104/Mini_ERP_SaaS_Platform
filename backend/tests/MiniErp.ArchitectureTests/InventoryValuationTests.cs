@@ -173,6 +173,36 @@ public sealed class InventoryValuationTests
     }
 
     [Fact]
+    public async Task Targeted_opening_valuation_processes_only_its_movement_and_blocks_pending_predecessor()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<InventoryDbContext>().UseSqlite(connection).Options;
+        var context = Context();
+        var start = DateTimeOffset.UtcNow;
+        var predecessor = Guid.NewGuid();
+        var target = Guid.NewGuid();
+        var unrelated = Guid.NewGuid();
+        await AddMovementsAsync(options, context,
+            CustomMovement(predecessor, CompanyId, WarehouseId, ProductId, UnitId, InventoryMovementDirection.Inbound, 1m, 10m, "USD", new DateOnly(2026, 1, 1), start, "LOT-A"),
+            CustomMovement(target, CompanyId, WarehouseId, ProductId, UnitId, InventoryMovementDirection.Inbound, 1m, 20m, "SAR", new DateOnly(2026, 1, 2), start.AddSeconds(1), "LOT-A"),
+            CustomMovement(unrelated, CompanyId, WarehouseId, ProductId, UnitId, InventoryMovementDirection.Inbound, 1m, 30m, "SAR", new DateOnly(2026, 1, 3), start.AddSeconds(2), "LOT-B"));
+        var persistence = new InventoryValuationPersistence(options, null, null, new TestExchangeRatePersistence());
+        await CreatePolicyAsync(persistence, context, Policy(new DateOnly(2026, 1, 1), scope: InventoryValuationScopeMode.WarehouseProductUomTracking), "targeted-opening-policy");
+
+        var blocked = await persistence.ProcessAsync(context, ProcessCommand("targeted-opening-blocked", fingerprint: "targeted-opening-blocked") with { MovementIds = [target] });
+        Assert.False(blocked.Succeeded);
+        Assert.Equal("pending_predecessor", blocked.Code);
+        Assert.Empty(await persistence.ListEventsAsync(context, new InventoryValuationQuery(CompanyId)));
+
+        var isolated = await persistence.ProcessAsync(context, ProcessCommand("targeted-opening-isolated", fingerprint: "targeted-opening-isolated") with { MovementIds = [unrelated] });
+        Assert.True(isolated.Succeeded, isolated.Code);
+        Assert.Equal(1, isolated.Value!.AppliedCount);
+        var events = await persistence.ListEventsAsync(context, new InventoryValuationQuery(CompanyId));
+        Assert.Equal(unrelated, Assert.Single(events).MovementId);
+    }
+
+    [Fact]
     public async Task Valuation_correction_reverses_original_evidence_append_only()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");

@@ -75,7 +75,7 @@ public sealed class MigrationOwnerReferenceAdapterTests
                 new MigrationInventoryOpeningPayload(companyId, null, null, productId, fromUnitId, 2m, 10m, "SAR", new DateOnly(2026, 1, 1)),
                 "{}"));
 
-        Assert.Contains(findings, item => item.Code == "migration_uom_conversion_invalid");
+        Assert.Contains(findings, item => item.Code == "migration_inventory_unit_of_measure_invalid");
     }
 
     [Fact]
@@ -127,6 +127,35 @@ public sealed class MigrationOwnerReferenceAdapterTests
         Assert.StartsWith("customer:", customer.Key, StringComparison.Ordinal);
         Assert.Equal(MigrationBusinessIdentityState.Invalid, invalid.State);
         Assert.Equal("migration_business_identity_invalid", invalid.Code);
+    }
+
+    [Fact]
+    public void Inventory_business_identity_keeps_tracking_and_source_lines_distinct()
+    {
+        var (tenant, _) = Context();
+        var adapter = Create(tenant, new ConfiguredFinanceCompanyProvider([]));
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+        var unitId = Guid.NewGuid();
+        var date = new DateOnly(2026, 1, 1);
+
+        MigrationBusinessIdentityResolution Resolve(string? tracking, string sourceLine) => adapter.ResolveBusinessIdentity(new MigrationParsedCanonicalRow(
+            1,
+            sourceLine,
+            MigrationCanonicalRecordType.InventoryOpening,
+            new MigrationInventoryOpeningPayload(companyId, branchId, warehouseId, productId, unitId, 1m, 10m, "SAR", date, TrackingIdentity: tracking, SourceLineReference: sourceLine),
+            "{}"));
+
+        var first = Resolve("LOT-A", "line-1");
+        var same = Resolve(" LOT-A ", " line-1 ");
+        var otherTracking = Resolve("LOT-B", "line-1");
+        var otherSourceLine = Resolve("LOT-A", "line-2");
+
+        Assert.Equal(first.Key, same.Key);
+        Assert.NotEqual(first.Key, otherTracking.Key);
+        Assert.NotEqual(first.Key, otherSourceLine.Key);
     }
 
     [Fact]
