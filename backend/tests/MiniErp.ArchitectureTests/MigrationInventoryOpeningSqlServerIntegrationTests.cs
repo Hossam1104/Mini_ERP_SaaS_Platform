@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -70,7 +71,10 @@ public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafet
         var authorization = new InventoryResourceAuthorizationService();
         var inventoryPersistence = new InventoryPersistence(inventoryOptions);
         var valuationPersistence = new InventoryValuationPersistence(inventoryOptions, null, null, new UnavailableMasterDataExchangeRatePersistence());
-        var inventoryService = new InventoryService(inventoryPersistence, authorization, warehouses, products);
+        var migration = new MigrationPersistence(migrationOptions);
+        var boundaryObserver = new RunBoundaryObserver(migrationOptions, tenant);
+        var observedInventoryPersistence = ForwardingProxy<IInventoryPersistence>.Create(inventoryPersistence, boundaryObserver.Observe);
+        var inventoryService = new InventoryService(observedInventoryPersistence, authorization, warehouses, products);
         var valuationService = new InventoryValuationService(valuationPersistence, authorization, warehouses, currencies);
 
         var inventorySetup = new InventoryTenantContextResolver().Resolve(FoundationRequestContext.ForTenant(actorId, Guid.NewGuid(), tenant, "tenant.inventory.valuation.policy.create"));
@@ -84,6 +88,13 @@ public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafet
         var financeCompanyProvider = new ConfiguredFinanceCompanyProvider([new FinanceCompanyOption(tenant.TenantId.Value, companyId, "Opening company", currencyCode)]);
         var approval = new OpeningFinanceApprovalPolicy();
         var finance = new FinancePersistence(financeOptions, financeCompanyProvider, valuationPersistence, new UnavailableMasterDataExchangeRatePersistence(), approval);
+        var processHandoffCalls = 0;
+        var observedFinance = ForwardingProxy<IFinancePersistence>.Create(finance, (method, args) =>
+        {
+            boundaryObserver.Observe(method, args);
+            if (method.Name == nameof(IFinancePersistence.ProcessHandoffAsync))
+                Interlocked.Increment(ref processHandoffCalls);
+        });
         var accountContext = FinanceContext(tenant, actorId, "tenant.finance.account.manage");
         var calendarContext = FinanceContext(tenant, actorId, "tenant.finance.calendar.manage");
         var postingRuleContext = FinanceContext(tenant, actorId, "tenant.finance.posting-rule.manage");
@@ -130,10 +141,9 @@ public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafet
         approval.Requirement = FinanceApprovalRequirement.NotRequired;
 
         var request = FoundationRequestContext.ForTenant(actorId, Guid.NewGuid(), tenant, "tenant.migration.execute");
-        var migration = new MigrationPersistence(migrationOptions);
         var foundation = new MigrationFoundationService(migration, new NoopAuditSink());
         var references = new ActiveReferenceAuthority();
-        var economicCoordinator = new MigrationInventoryOpeningExecutionCoordinator(migration, references, inventoryService, valuationService, finance);
+        var economicCoordinator = new MigrationInventoryOpeningExecutionCoordinator(migration, references, inventoryService, valuationService, observedFinance);
         var execution = new MigrationExecutionService(
             foundation,
             migration,
@@ -147,13 +157,20 @@ public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafet
         foreach (var blockedPayload in new[]
         {
             new MigrationInventoryOpeningPayload(companyId, branchId, warehouseId, productId, unitId, 1m, 2m, "USD", openingDate, TrackingIdentity: "LOT-FOREIGN", SourceLineReference: "source-line-foreign"),
-            new MigrationInventoryOpeningPayload(companyId, branchId, Guid.NewGuid(), productId, unitId, 1m, 2m, currencyCode, openingDate, TrackingIdentity: "LOT-DENIED", SourceLineReference: "source-line-denied")
+            new MigrationInventoryOpeningPayload(companyId, branchId, Guid.NewGuid(), productId, unitId, 1m, 2m, currencyCode, openingDate, TrackingIdentity: "LOT-DENIED", SourceLineReference: "source-line-denied"),
+            new MigrationInventoryOpeningPayload(companyId, branchId, warehouseId, productId, unitId, -1m, 2m, currencyCode, openingDate, TrackingIdentity: "LOT-QUARANTINED", SourceLineReference: "source-line-quarantined")
         })
         {
+            var expectedCode = blockedPayload.CurrencyCode == "USD"
+                ? "migration_inventory_opening_currency_not_functional"
+                : blockedPayload.WarehouseId != warehouseId
+                    ? "warehouse_not_available"
+                    : "inventory_opening_row_quarantined";
             var blockedPrepared = await PrepareAsync(migration, foundation, request, tenant, [blockedPayload]);
+            boundaryObserver.RunId = blockedPrepared.Run.RunId;
             var blocked = await execution.ExecuteAsync(request, blockedPrepared.Run.RunId, blockedPrepared.ExecutionKey, blockedPrepared.Run.Version);
             Assert.Equal(MigrationResultKind.KnownFailure, blocked.Kind);
-            Assert.Equal(blockedPayload.CurrencyCode == "USD" ? "migration_inventory_opening_currency_not_functional" : "warehouse_not_available", blocked.Code);
+            Assert.Equal(expectedCode, blocked.Code);
             Assert.Empty((await execution.ReadAsync(request, blockedPrepared.Run.RunId))!.Effects);
             Assert.Empty(await inventoryPersistence.ListMovementsAsync(new InventoryTenantContextResolver().Resolve(request).Context!, new InventoryScope(tenant.TenantId.Value, companyId, branchId, warehouseId)));
             Assert.Empty(await finance.ListJournalsAsync(journalReadContext, companyId));
@@ -164,6 +181,7 @@ public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafet
             new(companyId, branchId, warehouseId, productId, unitId, 2m, 2.255m, currencyCode, openingDate, TrackingIdentity: "LOT-OPEN-002", SourceLineReference: "source-line-002")
         ];
         var prepared = await PrepareAsync(migration, foundation, request, tenant, payloads);
+        boundaryObserver.RunId = prepared.Run.RunId;
 
         var executionReplica = new MigrationExecutionService(
             foundation,
@@ -278,6 +296,7 @@ public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafet
             request,
             tenant,
             [new(companyId, branchId, warehouseId, productId, unitId, 1m, 4m, currencyCode, openingDate.AddDays(1), TrackingIdentity: trackingIdentity, SourceLineReference: "source-line-pending")]);
+        boundaryObserver.RunId = pendingPrepared.Run.RunId;
         var pendingResult = await execution.ExecuteAsync(request, pendingPrepared.Run.RunId, pendingPrepared.ExecutionKey, pendingPrepared.Run.Version);
         Assert.Equal(MigrationResultKind.KnownFailure, pendingResult.Kind);
         var pendingRead = (await execution.ReadAsync(request, pendingPrepared.Run.RunId))!;
@@ -305,6 +324,69 @@ public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafet
         Assert.Equal(3, (await inventoryPersistence.ListMovementsAsync(openingContextResolution.Context!, new InventoryScope(tenant.TenantId.Value, companyId, branchId, warehouseId))).Count);
         Assert.Equal(3, (await finance.ListJournalsAsync(journalReadContext, companyId)).Count);
 
+        approval.Requirement = FinanceApprovalRequirement.NotRequired;
+        var handoffBaseline = processHandoffCalls;
+        var zeroPayload = new MigrationInventoryOpeningPayload(companyId, branchId, warehouseId, productId, unitId, 1m, 5m, currencyCode, openingDate, TrackingIdentity: "LOT-HANDOFF-ZERO", SourceLineReference: "source-line-handoff-zero");
+        boundaryObserver.RunId = Guid.Empty;
+        var zero = await PreparePostedOpeningAsync(migration, foundation, request, tenant, inventoryService, valuationService, zeroPayload);
+        boundaryObserver.RunId = zero.Prepared.Run.RunId;
+        await DeleteHandoffAsync(inventoryOptions, tenant, zero.Handoff.Id);
+        var zeroResult = await execution.ExecuteAsync(request, zero.Prepared.Run.RunId, zero.Prepared.ExecutionKey, zero.Prepared.Run.Version);
+        Assert.Equal(MigrationResultKind.KnownFailure, zeroResult.Kind);
+        Assert.Equal("migration_execution_partially_completed", zeroResult.Code);
+        var zeroRead = (await execution.ReadAsync(request, zero.Prepared.Run.RunId))!;
+        Assert.Equal(MigrationRunStatus.PartiallyCompleted, zeroRead.RunStatus);
+        Assert.Equal(MigrationAttemptOutcome.KnownFailure, zeroRead.AttemptOutcome);
+        Assert.Equal(MigrationExecutionEffectDisposition.PartialCompleted, Assert.Single(zeroRead.Effects).Disposition);
+        Assert.Equal(handoffBaseline, processHandoffCalls);
+        var zeroJournals = await finance.ListJournalsAsync(journalReadContext, companyId);
+        Assert.DoesNotContain(zeroJournals, item => item.SourceEvidenceId == zero.Handoff.ValuationEvidenceId);
+
+        var multiplePayload = new MigrationInventoryOpeningPayload(companyId, branchId, warehouseId, productId, unitId, 1m, 6m, currencyCode, openingDate, TrackingIdentity: "LOT-HANDOFF-MULTIPLE", SourceLineReference: "source-line-handoff-multiple");
+        boundaryObserver.RunId = Guid.Empty;
+        var multiple = await PreparePostedOpeningAsync(migration, foundation, request, tenant, inventoryService, valuationService, multiplePayload);
+        boundaryObserver.RunId = multiple.Prepared.Run.RunId;
+        var duplicateHandoffId = await InsertDuplicateHandoffAsync(inventoryOptions, tenant, multiple.Handoff.Id);
+        try
+        {
+            var multipleResult = await execution.ExecuteAsync(request, multiple.Prepared.Run.RunId, multiple.Prepared.ExecutionKey, multiple.Prepared.Run.Version);
+            Assert.Equal(MigrationResultKind.UnknownOutcome, multipleResult.Kind);
+            Assert.Equal("inventory_finance_handoff_evidence_ambiguous", multipleResult.Code);
+            var multipleRead = (await execution.ReadAsync(request, multiple.Prepared.Run.RunId))!;
+            Assert.Equal(MigrationRunStatus.OutcomeUnknown, multipleRead.RunStatus);
+            Assert.Equal(MigrationAttemptOutcome.UnknownOutcome, multipleResult.Value!.AttemptOutcome);
+            Assert.Equal(MigrationExecutionEffectDisposition.Unknown, Assert.Single(multipleRead.Effects).Disposition);
+            Assert.Equal(handoffBaseline, processHandoffCalls);
+
+            var multipleReplay = await execution.ExecuteAsync(request, multiple.Prepared.Run.RunId, multiple.Prepared.ExecutionKey, multiple.Prepared.Run.Version);
+            Assert.Equal(MigrationResultKind.UnknownOutcome, multipleReplay.Kind);
+            Assert.Equal(handoffBaseline, processHandoffCalls);
+            var multipleRun = (await migration.FindRunAsync(tenant, multiple.Prepared.Run.RunId))!;
+            var differentKey = await execution.ExecuteAsync(request, multiple.Prepared.Run.RunId, "inventory-opening-multiple-different-key", multipleRun.Version);
+            Assert.Equal(MigrationResultKind.Rejected, differentKey.Kind);
+            Assert.Equal("migration_run_requires_reconciliation", differentKey.Code);
+            Assert.Equal(handoffBaseline, processHandoffCalls);
+            Assert.Single(await inventoryService.ListOpeningMovementsForMigrationAsync(request, multiple.Opening));
+            Assert.Equal(2, (await valuationService.ReadOpeningEvidenceForMigrationAsync(request, new InventoryScope(tenant.TenantId.Value, companyId, branchId, warehouseId), productId, unitId, multiple.OwnerRow.TrackingIdentity))!.Value.Handoffs.Count(item => item.MovementId == multiple.Movement.Id));
+            var multipleJournals = await finance.ListJournalsAsync(journalReadContext, companyId);
+            Assert.DoesNotContain(multipleJournals, item => item.SourceEvidenceId == multiple.Handoff.ValuationEvidenceId);
+        }
+        finally
+        {
+            await RestoreHandoffIndexAsync(inventoryOptions, tenant, duplicateHandoffId);
+        }
+
+        var preparationObservations = boundaryObserver.Observations.Where(item => item.Method is
+            nameof(IInventoryPersistence.CreateOpeningBalanceAsync)
+            or nameof(IInventoryPersistence.ValidateOpeningBalanceAsync)).ToArray();
+        Assert.NotEmpty(preparationObservations);
+        Assert.All(preparationObservations, item => Assert.True(item.Status is MigrationRunStatus.Approved or MigrationRunStatus.PartiallyCompleted));
+        Assert.Contains(boundaryObserver.Observations, item => item.Method == nameof(IFinancePersistence.PreflightInventoryOpeningAsync)
+            && (item.Status is MigrationRunStatus.Approved or MigrationRunStatus.PartiallyCompleted));
+        var postObservations = boundaryObserver.Observations.Where(item => item.Method == nameof(IInventoryPersistence.PostOpeningBalanceAsync)).ToArray();
+        Assert.NotEmpty(postObservations);
+        Assert.All(postObservations, item => Assert.Equal(MigrationRunStatus.Executing, item.Status));
+
         var inactiveDebit = await finance.SetAccountLifecycleAsync(accountContext, accounts.Debit.Id, companyId, FinanceAccountLifecycle.Inactive, accounts.Debit.Version, "opening-account-disable", "opening-account-disable");
         Assert.True(inactiveDebit.Succeeded, inactiveDebit.Code);
         var nonPostableAccount = await finance.PreflightInventoryOpeningAsync(migrationFinanceContext, companyId, openingDate, CancellationToken.None);
@@ -328,8 +410,125 @@ public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafet
         var ambiguousRule = await finance.PreflightInventoryOpeningAsync(migrationFinanceContext, companyId, openingDate, CancellationToken.None);
         Assert.False(ambiguousRule.Ready);
         Assert.Equal("ambiguous_mapping", ambiguousRule.Code);
-        Assert.Equal(3, (await inventoryPersistence.ListMovementsAsync(openingContextResolution.Context!, new InventoryScope(tenant.TenantId.Value, companyId, branchId, warehouseId))).Count);
+        Assert.Equal(5, (await inventoryPersistence.ListMovementsAsync(openingContextResolution.Context!, new InventoryScope(tenant.TenantId.Value, companyId, branchId, warehouseId))).Count);
         Assert.Equal(3, (await finance.ListJournalsAsync(journalReadContext, companyId)).Count);
+    }
+
+    private sealed record PostedOpening(
+        (MigrationRunRecord Run, string ExecutionKey) Prepared,
+        InventoryOpeningBalanceRecord Opening,
+        InventoryOpeningBalanceRowRecord OwnerRow,
+        InventoryMovementRecord Movement,
+        InventoryFinanceValuationHandoffRecord Handoff);
+
+    private static async Task<PostedOpening> PreparePostedOpeningAsync(
+        MigrationPersistence migration,
+        MigrationFoundationService foundation,
+        FoundationRequestContext request,
+        TenantContext tenant,
+        InventoryService inventory,
+        InventoryValuationService valuation,
+        MigrationInventoryOpeningPayload payload)
+    {
+        var prepared = await PrepareAsync(migration, foundation, request, tenant, [payload]);
+        var staged = Assert.Single(await migration.ListStagedRecordsAsync(tenant, prepared.Run.RunId));
+        var ownerId = StableId($"inventory-opening:{tenant.TenantId.Value:D}:{prepared.Run.RunId:D}:{staged.StagedRecordId:D}");
+        var ownerRowId = StableId($"inventory-opening-row:{tenant.TenantId.Value:D}:{prepared.Run.RunId:D}:{staged.StagedRecordId:D}");
+        var requestModel = new InventoryOpeningBalanceCreateRequest(
+            payload.CompanyId!.Value,
+            payload.BranchId,
+            payload.WarehouseId!.Value,
+            payload.OpeningDate!.Value,
+            "Migration",
+            "MESP-141",
+            prepared.Run.CreatedAt,
+            $"{prepared.Run.RunId:D}/{staged.StagedRecordId:D}",
+            [new InventoryOpeningBalanceRowRequest(
+                payload.ProductId!.Value,
+                payload.UnitOfMeasureId!.Value,
+                payload.Quantity!.Value,
+                payload.UnitCost!.Value,
+                payload.CurrencyCode!,
+                payload.TrackingIdentity,
+                payload.SourceLineReference)]);
+        var created = await inventory.CreateOpeningBalanceForMigrationAsync(request, requestModel, ownerId, ownerRowId, $"migration-opening:{prepared.Run.RunId:N}:create", CancellationToken.None);
+        Assert.True(created.Succeeded, created.Code);
+        var opening = created.Value!;
+        var validated = await inventory.ValidateOpeningBalanceForMigrationAsync(request, opening.Id, $"migration-opening:{prepared.Run.RunId:N}:validate");
+        Assert.True(validated.Succeeded, validated.Code);
+        opening = validated.Value!;
+        var posted = await inventory.PostOpeningBalanceForMigrationAsync(request, opening.Id, $"migration-opening:{prepared.Run.RunId:N}:post");
+        Assert.True(posted.Succeeded, posted.Code);
+        opening = posted.Value!;
+        var ownerRow = Assert.Single(opening.Rows);
+        var scope = new InventoryScope(tenant.TenantId.Value, opening.CompanyId, opening.BranchId, opening.WarehouseId);
+        var movement = Assert.Single(await inventory.ListOpeningMovementsForMigrationAsync(request, opening));
+        var valued = await valuation.ProcessOpeningMovementsForMigrationAsync(
+            request,
+            scope,
+            movement.ProductId,
+            movement.UnitOfMeasureId,
+            [movement.Id],
+            $"migration-opening:{prepared.Run.RunId:N}:valuation",
+            new DateTimeOffset(opening.AsOfDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)),
+            MigrationFingerprintEncoder.Compute("migration-inventory-opening-valuation-v1", prepared.Run.RunId.ToString("D"), staged.StagedRecordId.ToString("D"), movement.Id.ToString("D")));
+        Assert.True(valued.Succeeded, valued.Code);
+        var evidence = (await valuation.ReadOpeningEvidenceForMigrationAsync(request, scope, movement.ProductId, movement.UnitOfMeasureId, movement.TrackingIdentity))!.Value;
+        var handoff = Assert.Single(evidence.Handoffs, item => item.MovementId == movement.Id);
+        return new(prepared, opening, ownerRow, movement, handoff);
+    }
+
+    private static Guid StableId(string value) => new(SHA256.HashData(Encoding.UTF8.GetBytes(value))[..16]);
+
+    private static async Task DeleteHandoffAsync(DbContextOptions options, TenantContext tenant, Guid handoffId)
+    {
+        await using var db = new InventoryDbContext(options, tenant);
+        await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [inventory].[FinanceValuationHandoffs] WHERE [TenantId] = {tenant.TenantId.Value} AND [Id] = {handoffId}");
+    }
+
+    private static async Task<Guid> InsertDuplicateHandoffAsync(DbContextOptions options, TenantContext tenant, Guid sourceHandoffId)
+    {
+        var duplicateId = Guid.NewGuid();
+        var indexesDropped = false;
+        await using var db = new InventoryDbContext(options, tenant);
+        try
+        {
+            // Production uniqueness is the normal protection. This disposable LocalDB-only setup drops the two natural-key indexes to model legacy corruption/race residue; it never bypasses production constraints.
+            await db.Database.ExecuteSqlRawAsync("""
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[inventory].[FinanceValuationHandoffs]') AND name = N'IX_FinanceValuationHandoffs_TenantId_CompanyId_BranchId_WarehouseId_LedgerSequence')
+                    DROP INDEX [IX_FinanceValuationHandoffs_TenantId_CompanyId_BranchId_WarehouseId_LedgerSequence] ON [inventory].[FinanceValuationHandoffs];
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[inventory].[FinanceValuationHandoffs]') AND name = N'IX_FinanceValuationHandoffs_TenantId_MovementId')
+                    DROP INDEX [IX_FinanceValuationHandoffs_TenantId_MovementId] ON [inventory].[FinanceValuationHandoffs];
+                """);
+            indexesDropped = true;
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO [inventory].[FinanceValuationHandoffs]
+                    ([Id], [TenantId], [CompanyId], [BranchId], [WarehouseId], [MovementId], [LedgerSequence], [SourceType], [SourceDocumentId], [SourceLineId], [ValuationEvidenceId], [ValuationEvidenceVersion], [Quantity], [Direction], [BaseUnitCost], [BaseAmount], [SignedBaseAmount], [RoundingAdjustmentAmount], [PolicyId], [PolicyVersionNumber], [FunctionalCurrencyCode], [TransactionUnitCost], [TransactionCurrencyCode], [ExchangeRateId], [ExchangeRateVersionId], [ExchangeRateVersionNumber], [ExchangeRate], [ExchangeRateScale], [ExchangeRateProvenance], [ProductId], [UnitOfMeasureId], [TrackingIdentity], [CorrectionOfMovementId], [Status], [ContractVersion], [CorrelationId], [AsOf], [CreatedAt])
+                SELECT
+                    {duplicateId}, [TenantId], [CompanyId], [BranchId], [WarehouseId], [MovementId], [LedgerSequence], [SourceType], [SourceDocumentId], [SourceLineId], [ValuationEvidenceId], [ValuationEvidenceVersion], [Quantity], [Direction], [BaseUnitCost], [BaseAmount], [SignedBaseAmount], [RoundingAdjustmentAmount], [PolicyId], [PolicyVersionNumber], [FunctionalCurrencyCode], [TransactionUnitCost], [TransactionCurrencyCode], [ExchangeRateId], [ExchangeRateVersionId], [ExchangeRateVersionNumber], [ExchangeRate], [ExchangeRateScale], [ExchangeRateProvenance], [ProductId], [UnitOfMeasureId], [TrackingIdentity], [CorrectionOfMovementId], [Status], [ContractVersion], [CorrelationId], [AsOf], [CreatedAt]
+                FROM [inventory].[FinanceValuationHandoffs]
+                WHERE [TenantId] = {tenant.TenantId.Value} AND [Id] = {sourceHandoffId}
+                """);
+            return duplicateId;
+        }
+        catch
+        {
+            if (indexesDropped)
+                await RestoreHandoffIndexAsync(options, tenant, duplicateId);
+            throw;
+        }
+    }
+
+    private static async Task RestoreHandoffIndexAsync(DbContextOptions options, TenantContext tenant, Guid duplicateHandoffId)
+    {
+        await using var db = new InventoryDbContext(options, tenant);
+        await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [inventory].[FinanceValuationHandoffs] WHERE [TenantId] = {tenant.TenantId.Value} AND [Id] = {duplicateHandoffId}");
+        await db.Database.ExecuteSqlRawAsync("""
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[inventory].[FinanceValuationHandoffs]') AND name = N'IX_FinanceValuationHandoffs_TenantId_CompanyId_BranchId_WarehouseId_LedgerSequence')
+                CREATE UNIQUE INDEX [IX_FinanceValuationHandoffs_TenantId_CompanyId_BranchId_WarehouseId_LedgerSequence] ON [inventory].[FinanceValuationHandoffs] ([TenantId], [CompanyId], [BranchId], [WarehouseId], [LedgerSequence]);
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'[inventory].[FinanceValuationHandoffs]') AND name = N'IX_FinanceValuationHandoffs_TenantId_MovementId')
+                CREATE UNIQUE INDEX [IX_FinanceValuationHandoffs_TenantId_MovementId] ON [inventory].[FinanceValuationHandoffs] ([TenantId], [MovementId]);
+            """);
     }
 
     private static async Task AssertRepresentationSqlConstraintsAsync(
@@ -440,6 +639,60 @@ public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafet
     {
         Assert.True(FinanceRequestContext.TryCreate(FoundationRequestContext.ForTenant(actorId, Guid.NewGuid(), tenant, permission), out var context));
         return context!;
+    }
+
+    private class ForwardingProxy<T> : DispatchProxy where T : class
+    {
+        private T inner = null!;
+        private Action<MethodInfo, object?[]?> before = (_, _) => { };
+
+        internal static T Create(T inner, Action<MethodInfo, object?[]?> before)
+        {
+            var proxy = DispatchProxy.Create<T, ForwardingProxy<T>>();
+            var state = (ForwardingProxy<T>)(object)proxy;
+            state.inner = inner;
+            state.before = before;
+            return proxy;
+        }
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            ArgumentNullException.ThrowIfNull(targetMethod);
+            before(targetMethod, args);
+            try
+            {
+                return targetMethod.Invoke(inner, args);
+            }
+            catch (TargetInvocationException exception)
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException ?? exception).Throw();
+                throw;
+            }
+        }
+    }
+
+    private sealed class RunBoundaryObserver(DbContextOptions options, TenantContext tenant)
+    {
+        internal Guid RunId { get; set; }
+        internal List<(string Method, MigrationRunStatus Status)> Observations { get; } = [];
+
+        internal void Observe(MethodInfo method, object?[]? _)
+        {
+            if (RunId == Guid.Empty || method.Name is not (
+                nameof(IFinancePersistence.PreflightInventoryOpeningAsync)
+                or nameof(IInventoryPersistence.CreateOpeningBalanceAsync)
+                or nameof(IInventoryPersistence.ValidateOpeningBalanceAsync)
+                or nameof(IInventoryPersistence.PostOpeningBalanceAsync)))
+                return;
+
+            using var db = new MigrationDbContext(options, tenant);
+            var status = db.Runs.AsNoTracking()
+                .Where(item => item.RunId == RunId)
+                .Select(item => item.Status)
+                .Single();
+            lock (Observations)
+                Observations.Add((method.Name, status));
+        }
     }
 
     private static IMasterDataCurrencyPaymentTermPersistence CurrencyStub(MasterDataCurrencyRecord currency) => Stub<IMasterDataCurrencyPaymentTermPersistence>(method => method.Name == "FindCurrencyAsync" ? currency : null);

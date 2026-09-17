@@ -252,10 +252,6 @@ internal sealed class MigrationInventoryOpeningExecutionCoordinator
                 || ownerRow.Status != InventoryOpeningRowStatus.Valid)
                 return await FailEffectAsync(tenant, batch, effect, "inventory_opening_not_validated", unknown: false, cancellationToken);
 
-            var ready = await PreflightAsync(requestContext, opening.CompanyId, opening.AsOfDate, ownerRow.CurrencyCode, cancellationToken);
-            if (!ready.Succeeded)
-                return await FailEffectAsync(tenant, batch, effect, ready.Code, unknown: false, cancellationToken);
-
             effect = await ChangeEffectAsync(tenant, effect, MigrationExecutionEffectDisposition.Started, null, null, null, clock.GetUtcNow(), null, cancellationToken);
             if (effect is null) return MigrationEconomicGroupResult.Failure("migration_execution_effect_state_conflict", false);
             InventoryOperationResult<InventoryOpeningBalanceRecord> posted;
@@ -545,10 +541,15 @@ internal sealed class MigrationInventoryOpeningExecutionCoordinator
             return await MarkIncompleteAsync(tenant, effect, "inventory_valuation_evidence_ambiguous", unknown: true, cancellationToken);
         var valuationEvent = applied[0];
         var handoffs = evidence.Value.Handoffs.Where(item => item.MovementId == movement.Id).ToArray();
-        if (handoffs.Length != 1)
+        if (handoffs.Length == 0)
         {
             await SaveRepresentationsAsync(tenant, attempt, effect, opening, ownerRow, movement, events, handoffs, null, cancellationToken);
             return await MarkIncompleteAsync(tenant, effect, "inventory_finance_handoff_unavailable", unknown: false, cancellationToken);
+        }
+        if (handoffs.Length > 1)
+        {
+            await SaveRepresentationsAsync(tenant, attempt, effect, opening, ownerRow, movement, events, handoffs, null, cancellationToken);
+            return await MarkIncompleteAsync(tenant, effect, "inventory_finance_handoff_evidence_ambiguous", unknown: true, cancellationToken);
         }
         var handoff = handoffs[0];
         if (handoff.ValuationEvidenceId != valuationEvent.Id
@@ -652,22 +653,6 @@ internal sealed class MigrationInventoryOpeningExecutionCoordinator
         return completed is null
             ? MigrationEconomicGroupResult.Failure("migration_execution_effect_outcome_unknown", true)
             : MigrationEconomicGroupResult.Successful();
-    }
-
-    private async Task<PreflightResult> PreflightAsync(
-        FoundationRequestContext requestContext,
-        Guid companyId,
-        DateOnly openingDate,
-        string currencyCode,
-        CancellationToken cancellationToken)
-    {
-        if (!FinanceRequestContext.TryCreate(requestContext, out var financeContext) || financeContext is null)
-            return new(false, "finance_request_context_unavailable");
-        var financeReady = await finance.PreflightInventoryOpeningAsync(financeContext, companyId, openingDate, cancellationToken);
-        if (!financeReady.Ready) return new(false, financeReady.Code);
-        if (!string.Equals(currencyCode, financeReady.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase))
-            return new(false, "migration_inventory_opening_currency_not_functional");
-        return new(true, "ready");
     }
 
     private async Task<MigrationEconomicGroupResult> StopRemainingAsync(

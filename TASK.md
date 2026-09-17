@@ -1,6 +1,6 @@
-## MESP-141 Slice 5 - Inventory economic opening execution handoff (17 September 2026)
+## MESP-141 Slice 5 - Inventory economic opening bounded remediation handoff (17 September 2026)
 
-**Slice 5 implementation is complete on `feat/mesp-141-inventory-economic-opening` and awaits independent GPT-5.6 Sol acceptance.** Issue #229 remains Open / Active / In Progress; Slices 1-4 remain accepted and merged; Issue #230 remains Open / Not Activated.
+**Slice 5 implementation and bounded S5-R1/S5-R2/S5-R3 remediation are complete on `feat/mesp-141-inventory-economic-opening` and await independent GPT-5.6 Sol re-acceptance.** Issue #229 remains Open / Active / In Progress; Slices 1-4 remain accepted and merged; Issue #230 remains Open / Not Activated.
 
 | Item | Status |
 |---|---|
@@ -10,7 +10,7 @@
 | Excluded | GL/AP/AR/Cash, production, reconciliation/sign-off capability, correction/reversal orchestration, unknown recovery, UI, MESP-142, Golden E2E |
 | Metrics | Unchanged: 24/26 = 92.3%; approximately 47% overall / 41% Procurement/P2P |
 
-Validation: Release `0 warnings / 0 errors`; backend `1,371/1,371`; Angular `316/316`; Chromium `51/51`; eight EF contexts clear of pending model changes; NuGet scan clear. Known baselines: production initial bundle `514.26 kB` warning and four moderate production npm advisories. Runtime remains running on `http://localhost:5300` and `http://localhost:4300`. No Ready, merge, Jira, production, or MESP-142 action was performed.
+Final mutable branch validation evidence is recorded in the live PR #250 handoff comment and exact-head CI. Repository governance records the test status, not a mutable pre-commit total. Release validation, eight-context EF checks, and NuGet scanning remain required gates. Known baselines: production initial bundle `514.26 kB` warning and four moderate production npm advisories. Runtime remains running on `http://localhost:5300` and `http://localhost:4300`. No Ready, merge, Jira, production, or MESP-142 action was performed.
 
 ## MESP-141 Slice 4 - post-merge lifecycle reconciliation (16 September 2026)
 

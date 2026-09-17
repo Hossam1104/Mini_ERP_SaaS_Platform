@@ -10,9 +10,11 @@
 
 ---
 
-## CURRENT AUTHORITY - 17 September 2026 (MESP-141 SLICE 5 IMPLEMENTATION HANDOFF)
+## CURRENT AUTHORITY - 17 September 2026 (MESP-141 SLICE 5 BOUNDED REMEDIATION HANDOFF)
 
 **MESP-141 Slice 5 — Inventory Economic Opening Execution is implemented on the bounded feature branch and is awaiting independent GPT-5.6 Sol acceptance.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-4 remain accepted and merged; MESP-142 remains OPEN / NOT ACTIVATED.
+
+**Bounded remediation S5-R1/S5-R2/S5-R3 is applied; this handoff awaits independent GPT-5.6 Sol re-acceptance.**
 
 | Item | Value |
 |---|---|
@@ -23,7 +25,7 @@
 | Lifecycle | Draft PR handoff only; no Ready transition, merge, Jira mutation, or production authority |
 | Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
 
-Local validation is Release build `0 warnings / 0 errors`; official disposable LocalDB backend `1,371/1,371`; Angular `316/316`; Chromium `51/51`; all eight EF contexts report no pending model changes; NuGet scanning is clear. The known frontend baselines remain a `514.26 kB` initial bundle warning and four moderate production npm advisories. Runtime remains on `http://localhost:5300` and `http://localhost:4300` under the repository launcher. No production data or owner-managed assets were used.
+Final mutable branch validation evidence is recorded in the live PR #250 handoff comment and exact-head CI. Repository governance records the test status, not a mutable pre-commit total. Release validation, eight-context EF checks, and NuGet scanning remain required gates. The known frontend baselines remain a `514.26 kB` initial bundle warning and four moderate production npm advisories. Runtime remains on `http://localhost:5300` and `http://localhost:4300` under the repository launcher. No production data or owner-managed assets were used.
 
 ## HISTORICAL RECORD - earlier MESP-141 and project state
 

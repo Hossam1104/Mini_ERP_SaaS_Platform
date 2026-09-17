@@ -230,6 +230,17 @@ public sealed class MigrationExecutionService
             return await FinishWithoutOwnerEffectAsync(requestContext, run, attempt, prepared.Code, cancellationToken);
         }
 
+        if (economicPlan.Length > 0)
+        {
+            var economicPrepared = await inventoryOpeningCoordinator!.PrepareAsync(requestContext, tenant, run, attempt, economicPlan, cancellationToken);
+            if (!economicPrepared.Succeeded)
+            {
+                await ownerCoordinator.MarkPreparationFailedAsync(tenant, attempt, economicPrepared.Code, cancellationToken);
+                await inventoryOpeningCoordinator.MarkPreparationFailedAsync(tenant, attempt, economicPrepared.Code, cancellationToken);
+                return await FinishWithoutOwnerEffectAsync(requestContext, run, attempt, economicPrepared.Code, cancellationToken);
+            }
+        }
+
         var currentRun = await foundationPersistence.FindRunAsync(tenant, runId, cancellationToken) ?? run;
         if (currentRun.Status is MigrationRunStatus.Approved or MigrationRunStatus.PartiallyCompleted)
         {
@@ -253,20 +264,9 @@ public sealed class MigrationExecutionService
 
         if (economicPlan.Length > 0)
         {
-            var economicPrepared = await inventoryOpeningCoordinator!.PrepareAsync(requestContext, tenant, run, attempt, economicPlan, cancellationToken);
-            if (!economicPrepared.Succeeded)
-            {
-                await inventoryOpeningCoordinator.MarkPreparationFailedAsync(tenant, attempt, economicPrepared.Code, cancellationToken);
-                var effects = await executionPersistence.ListEffectsAsync(tenant, runId, attempt.AttemptId, CancellationToken.None);
-                var preparationCode = effects.Any(item => item.Disposition is MigrationExecutionEffectDisposition.Committed or MigrationExecutionEffectDisposition.PartialCompleted)
-                    ? "migration_execution_partially_completed"
-                    : economicPrepared.Code;
-                return await FinishAsync(requestContext, tenant, currentRun, attempt, MigrationAttemptOutcome.KnownFailure, preparationCode, CancellationToken.None);
-            }
-
             foreach (var group in economicPlan.GroupBy(item => item.Preview.RecordType))
             {
-                var processed = await inventoryOpeningCoordinator.ExecuteAsync(requestContext, tenant, run, attempt, group.ToArray(), cancellationToken);
+                var processed = await inventoryOpeningCoordinator!.ExecuteAsync(requestContext, tenant, run, attempt, group.ToArray(), cancellationToken);
                 if (!processed.Succeeded)
                     return await FinishGroupFailureAsync(requestContext, tenant, currentRun, attempt, processed, cancellationToken);
             }
