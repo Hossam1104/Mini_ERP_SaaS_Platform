@@ -1,18 +1,26 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 17 September 2026 (MESP-141 Slice 5 bounded remediation handoff)
+**Last Updated:** 17 September 2026 (MESP-141 Slice 5 accepted and merged; governance reconciliation in progress)
 
-## Current execution snapshot - 17 September 2026 (MESP-141 Slice 5 bounded remediation handoff)
+## Current execution snapshot - 17 September 2026 (MESP-141 Slice 5 accepted and merged)
 
-**MESP-141 Slice 5 — Inventory Economic Opening Execution is implemented on the bounded feature branch and awaits independent GPT-5.6 Sol acceptance.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-4 remain accepted/merged. MESP-142 remains OPEN / NOT ACTIVATED.
+**MESP-141 Slice 5 - Inventory Economic Opening Execution was accepted by GPT-5.6 Sol and merged through PR #250 by normal merge commit `efca1f4066ba916b8c3a582ba3ef7e25fc6c93ee`.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-5 are accepted/merged. MESP-142 remains OPEN / NOT ACTIVATED.
 
-Bounded remediation S5-R1/S5-R2/S5-R3 is applied and awaits independent GPT-5.6 Sol re-acceptance. The bounded Slice 5 scope covers the additive one-parent-effect to many-owner-representations model, canonical Inventory tracked/source identity, functional-currency-only economic opening, Finance-owned deterministic preflight and handoff, Inventory create/validate/post and valuation, known `PartialCompleted` forward resume, `OutcomeUnknown` hard stop, and read-only reconciliation evidence. GL/AP/AR/Cash opening, production execution, reconciliation/sign-off capability, correction/reversal orchestration, unknown recovery, UI, MESP-142, and Golden E2E remain excluded.
+MESP-141 internal progress:
 
-Final mutable branch validation evidence is recorded in the live PR #250 handoff comment and exact-head CI. Repository governance records the test status, not a mutable pre-commit total. Release validation, eight-context EF checks, and NuGet scanning remain required gates. The known frontend baselines remain the `514.26 kB` initial bundle warning and four moderate production npm advisories. Metrics are unchanged: accepted fast-track capability completion **24 / 26 = 92.3%**; production readiness approximately **47% overall / 41% Procurement/P2P**. Runtime remains running on ports 5300 and 4300. No production data or owner-managed assets were used.
+- 5 accepted / merged slices
+- Current phase: Economic Openings
+- Completed economic opening types: InventoryOpening
+- Remaining economic/opening and onboarding scope: governed separately
+- Total final Slice count: TBD by bounded planning
 
-### Progress history - 17 September 2026 (MESP-141 Slice 5 bounded remediation handoff)
+The bounded Slice 5 scope covers the additive one-parent-effect to many-owner-representations model, canonical Inventory tracked/source identity, functional-currency-only economic opening, Finance-owned deterministic preflight and handoff, Inventory create/validate/post and valuation, known `PartialCompleted` forward resume, `OutcomeUnknown` hard stop, and read-only reconciliation evidence. GL/AP/AR/Cash opening, production execution, reconciliation/sign-off capability, correction/reversal orchestration, unknown recovery, UI, MESP-142, and Golden E2E remain excluded.
 
-Slice 5 was activated by Issue #229 comment `5697161045` under architecture authority `5696150024`. S5-R1/S5-R2/S5-R3 bounded remediation is applied on the same Draft PR branch for independent Sol re-acceptance. Final mutable validation evidence belongs to the live PR #250 handoff comment and exact-head CI. No Ready transition, merge, Jira mutation, production execution, MESP-141 closure, or MESP-142 activation occurred.
+Final mutable branch validation evidence is maintained in the live PR handoff and exact-head CI; no mutable governance branch SHA or exact-head CI is pinned here. Release validation, eight-context EF checks, and NuGet scanning remain required gates. The known frontend baselines remain the `514.26 kB` initial bundle warning and four moderate production npm advisories. Metrics are unchanged: accepted fast-track capability completion **24 / 26 = 92.3%**; production readiness approximately **47% overall / 41% Procurement/P2P**. Runtime remains running on ports 5300 and 4300. No production data or owner-managed assets were used.
+
+### Progress history - 17 September 2026 (MESP-141 Slice 5 accepted and merged)
+
+Slice 5 was accepted by GPT-5.6 Sol at comment `5711137508` and merged through PR #250 at `efca1f4066ba916b8c3a582ba3ef7e25fc6c93ee` with a normal merge commit. Issue #229 remains OPEN / ACTIVE / IN PROGRESS; its feature-merge reconciliation is comment `5711482533`. Post-merge governance reconciliation is in progress until its governance PR merges; the live governance PR/head/exact-head CI is authority for mutable state. No capability or readiness percentage changed, no next Slice is authorized, and MESP-142 remains OPEN / NOT ACTIVATED.
 
 **Last Updated:** 16 September 2026 (MESP-141 Slice 4 accepted and merged; governance reconciliation in progress)
 
