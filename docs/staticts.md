@@ -1,27 +1,28 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 18 September 2026 (MESP-141 Slice 6 AR opening remediation active / awaiting Sol acceptance)
+**Last Updated:** 18 September 2026 (MESP-141 Slice 6 accepted/merged; post-merge governance reconciliation)
 
-## Current execution snapshot - 18 September 2026 (MESP-141 Slice 6 AR opening remediation active / awaiting Sol acceptance)
+## Current execution snapshot - 18 September 2026 (MESP-141 Slice 6 accepted/merged; post-merge governance reconciliation)
 
-**MESP-141 Slice 6 - AR Opening Economic Execution is activated and in implementation under Issue #229 comment `5713617627`; architecture authority is comment `5712571925`.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-5 are accepted/merged. MESP-142 remains OPEN / NOT ACTIVATED.
+**MESP-141 Slice 6 - AR Opening Economic Execution is implemented, accepted, merged, and lifecycle closed.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-6 are accepted/merged/lifecycle closed. MESP-142 remains OPEN / NOT ACTIVATED.
 
 MESP-141 internal progress:
 
-- 5 accepted / merged slices
-- Slice 6: AR Opening Economic Execution remediation complete / awaiting Sol acceptance
+- 6 accepted / merged slices
+- Slice 6: AR Opening Economic Execution implemented / accepted / merged / lifecycle closed
 - Current phase: Economic Openings
-- Completed economic opening types: InventoryOpening; AR opening implementation is pending acceptance
-- Remaining economic/opening and onboarding scope: governed separately
+- Completed economic opening types: InventoryOpening; ArOpening
+- Next Slice: NOT AUTHORIZED / NOT SELECTED BY THIS LIFECYCLE INTEGRATION
+- Remaining economic/opening and onboarding scope: governed separately and remains incomplete/unauthorized as applicable
 - Total final Slice count: TBD by bounded planning
 
-The bounded Slice 6 scope covers a distinct Finance-owned `migration-ar-opening.v1` recognition contract, canonical source/document/opening/due-date validation, functional-currency-only AR, deterministic cross-run identity, Finance preflight, atomic open-item plus recognition journal/source-effect creation, ordinary receipt allocation compatibility, partial/unknown forward handling, durable representations, and read-only AR reconciliation. GL/AP/Cash opening, production execution, reconciliation/sign-off capability, UI, MESP-142, and Golden E2E remain excluded.
+The bounded Slice 6 scope covers a distinct Finance-owned `migration-ar-opening.v1` recognition contract, canonical source/document/opening/due-date validation, functional-currency-only AR, deterministic cross-run identity, Finance preflight, atomic open-item plus recognition journal/source-effect creation, ordinary receipt allocation compatibility, partial/unknown forward handling, durable representations, and read-only AR reconciliation. AP opening, GL opening, Cash/Bank opening, multi-currency opening expansion, applicable Finance control-account classification prerequisites, correction/reversal orchestration beyond existing bounded behavior, OutcomeUnknown governed recovery tooling, migration reconciliation/sign-off completion, production migration/execution, minimal onboarding UI, cutover/repeatability evidence, MESP-142, and Golden E2E remain incomplete or unauthorized as applicable.
 
-Final branch validation evidence is maintained in the live PR #252 handoff and exact-head CI; mutable test totals, branch SHA, and exact-head CI results are intentionally not pinned here. The known frontend baseline remains the `514.26 kB` initial bundle warning. Metrics are unchanged: accepted fast-track capability completion **24 / 26 = 92.3%**; production readiness approximately **47% overall / 41% Procurement/P2P**. No production data or owner-managed assets were used.
+Final implementation validation evidence is maintained in the accepted PR #252 handoff, Sol acceptance record, and exact-head CI; mutable test totals, branch SHA, and exact-head CI results are intentionally not pinned here. Metrics are unchanged: accepted fast-track capability completion **24 / 26 = 92.3%**; production readiness approximately **47% overall / 41% Procurement/P2P**. No production data or owner-managed assets were used.
 
-### Progress history - 18 September 2026 (MESP-141 Slice 6 remediation handoff)
+### Progress history - 18 September 2026 (MESP-141 Slice 6 accepted/merged lifecycle)
 
-Slice 6 was activated by Issue #229 comment `5713617627` under architecture authority comment `5712571925`. Five prior slices remain accepted and merged; no capability or readiness percentage changed. The bounded remediation is complete on Draft PR #252 and awaits exact-head CI plus independent GPT-5.6 Sol acceptance. Final branch validation evidence is maintained in the live PR #252 handoff and exact-head CI. No Ready transition, merge, Jira mutation, production execution, reconciliation/sign-off, or MESP-142 activation is authorized.
+Slice 6 was accepted by GPT-5.6 Sol and integrated through PR #252 using a normal merge commit. The exact accepted implementation entered `main` unchanged; six slices are now accepted, merged, and lifecycle closed. No capability or readiness percentage changed. Post-merge governance reconciliation is limited to `.ai/CURRENT_STATE.md`, `TASK.md`, and `docs/staticts.md`; no Slice 7, production execution, reconciliation/sign-off, Jira mutation, or MESP-142 activation is authorized.
 
 ### Progress history - 17 September 2026 (MESP-141 Slice 5 accepted and merged)
 
