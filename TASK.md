@@ -1,20 +1,21 @@
-## MESP-141 Slice 5 - post-merge lifecycle reconciliation (17 September 2026)
+## MESP-141 Slice 6 - AR Opening Economic Execution (18 September 2026)
 
-**Slice 5 implementation was accepted by GPT-5.6 Sol and PR #250 was merged by normal merge commit.** Issue #229 remains Open / Active / In Progress; Slices 1-5 are accepted and merged; Issue #230 remains Open / Not Activated.
+**Slice 6 is activated by Issue #229 comment `5713617627`, with architecture authority in comment `5712571925`.** Issue #229 remains Open / Active / In Progress; Slices 1-5 are accepted and merged; Issue #230 remains Open / Not Activated.
 
 | Item | Status |
 |---|---|
-| Slice 5 implementation | Accepted by Sol |
-| Sol acceptance | Comment `5711137508` |
-| PR #250 | Merged |
-| Feature merge | `efca1f4066ba916b8c3a582ba3ef7e25fc6c93ee` |
-| Post-merge governance | In reconciliation until governance PR merges; live governance PR/head/exact-head CI is authority for mutable state |
-| Slices 1-5 | Accepted / Merged after governance lifecycle closure |
-| Next Migration Slice | **NOT AUTHORIZED** |
-| Other economic opening types | **NOT AUTHORIZED** |
+| Slice 6 implementation | Activated / remediation complete / awaiting Sol acceptance |
+| Bounded branch | `feat/mesp-141-ar-opening-economic-execution` |
+| Slice 6 scope | Finance-owned AR opening recognition and ordinary settlement compatibility |
+| GL/AP/Cash opening | **NOT AUTHORIZED** |
+| Production migration | **NOT AUTHORIZED** |
+| Reconciliation/sign-off capability | **NOT AUTHORIZED** |
+| Slices 1-5 | Accepted / Merged / Lifecycle Closed |
 | MESP-142 | **NOT ACTIVATED** |
 
-Complete only the authorized governance reconciliation on `chore/mesp-141-slice5-post-merge-reconcile`, limited to `.ai/CURRENT_STATE.md`, `TASK.md`, and `docs/staticts.md`; validate, open its ready/non-draft governance PR, wait for exact-head CI, and merge by normal merge commit. No post-governance documentation commit is authorized. Do not create a Slice 6 task, select or design another economic opening, close Issue #229, activate Issue #230, start Golden E2E, or perform production migration or reconciliation/sign-off work.
+The bounded implementation adds a distinct `migration-ar-opening.v1` Finance contract, canonical AR opening validation, Finance preflight and atomic open-item plus recognition-journal creation, deterministic cross-run identity, durable effect representations, partial/unknown outcome handling, AR reconciliation projection, and SQL Server LocalDB coverage. Migration does not write Finance tables or build journal lines. UI, frontend assets, BRD rewrite, production execution, reconciliation/sign-off, GL/AP/Cash opening, Golden E2E, and MESP-142 activation remain excluded. Stop after exact-head Draft PR CI and the GPT-5.6 Sol acceptance handoff; do not mark Ready or merge.
+
+Final branch validation evidence is maintained in the live PR #252 handoff and exact-head CI. The initial frontend bundle remains `514.26 kB` with the existing 500 kB warning. No frontend/assets files changed.
 
 ## MESP-141 Slice 4 - post-merge lifecycle reconciliation (16 September 2026)
 

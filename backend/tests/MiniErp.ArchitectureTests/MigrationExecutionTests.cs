@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MiniErp.App.BuildingBlocks.Rest;
@@ -5,8 +7,10 @@ using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.BuildingBlocks.Work;
 using MiniErp.App.BuildingBlocks.Owners;
 using MiniErp.App.Modules.Audit;
+using MiniErp.App.Modules.Finance;
 using MiniErp.App.Modules.Migration;
 using MiniErp.Contracts.Modules.Audit;
+using MiniErp.Contracts.Modules.Finance;
 using MiniErp.Contracts.Modules.Foundation;
 using MiniErp.Contracts.Modules.Migration;
 using MiniErp.Infrastructure.Persistence.Modules.Migration;
@@ -53,6 +57,117 @@ public sealed class MigrationExecutionTests
         Assert.Equal(1, fixture.Owner.ExecuteCalls);
         Assert.Single(second.Value!.Effects, item => item.Disposition == MigrationExecutionEffectDisposition.Committed);
         Assert.Equal(MigrationRunStatus.Completed, second.Value.RunStatus);
+        Assert.Equal(MigrationExecutionService.HistoricalFingerprintVersion, first.Value!.FingerprintVersion);
+    }
+
+    [Fact]
+    public async Task Historical_fingerprint_bytes_match_the_pre_slice6_contract_and_ar_selects_v2()
+    {
+        await using var fixture = await ExecutionFixture.CreateAsync();
+        var prepared = await fixture.PrepareAsync(
+            [fixture.Record(MigrationCanonicalRecordType.Supplier, "{\"code\":\"SUP-1\",\"nameEnglish\":\"Supplier\"}")],
+            [MigrationPlannedAction.Create]);
+        var intake = (await fixture.Persistence.FindIntakeAsync(fixture.Tenant, prepared.Run.RunId))!;
+        var validation = fixture.Validation.Validation!;
+        var dryRun = fixture.Validation.DryRun!;
+        var scope = TenantWorkScope.IssueFromVerifiedAuthority(fixture.Tenant, TenantWorkScopeRequest.TenantWide());
+        var common = new[]
+        {
+            prepared.Run.RunId.ToString("D"),
+            prepared.Run.TenantId.Value.ToString("D"),
+            prepared.Run.Definition.DefinitionId,
+            prepared.Run.Definition.Version,
+            prepared.Run.SourceProfile.ProfileId,
+            prepared.Run.SourceProfile.ProfileVersion,
+            intake.Source.Sha256,
+            validation.ValidationResultId.ToString("D"),
+            validation.PackageHash,
+            dryRun.PreviewId.ToString("D"),
+            dryRun.AttemptId.ToString("D"),
+            dryRun.PackageHash,
+            $"Tenant:{prepared.Run.TenantId.Value:D}",
+            "master-data-owner-import-v1"
+        };
+
+        var legacy = MigrationExecutionService.ComputeFingerprint(prepared.Run, intake, validation, dryRun, scope, []);
+        var inventory = MigrationExecutionService.ComputeFingerprint(prepared.Run, intake, validation, dryRun, scope, [MigrationCanonicalRecordType.InventoryOpening]);
+        var ar = MigrationExecutionService.ComputeFingerprint(prepared.Run, intake, validation, dryRun, scope, [MigrationCanonicalRecordType.ArOpening]);
+
+        Assert.Equal(MigrationExecutionService.HistoricalFingerprintVersion, legacy.Version);
+        Assert.Equal(MigrationFingerprintEncoder.Compute(MigrationExecutionService.HistoricalFingerprintVersion, common), legacy.Fingerprint);
+        Assert.Equal(MigrationExecutionService.HistoricalFingerprintVersion, inventory.Version);
+        Assert.Equal(MigrationFingerprintEncoder.Compute(MigrationExecutionService.HistoricalFingerprintVersion, [.. common, "inventory-economic-opening-v1"]), inventory.Fingerprint);
+        Assert.Equal(MigrationExecutionService.FingerprintVersion, ar.Version);
+        Assert.NotEqual(legacy.Fingerprint, ar.Fingerprint);
+    }
+
+    [Theory]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    public async Task Ar_effect_uncertainty_requires_complete_owner_readback(bool throwAfterCreate, bool hideReadback, bool expectedCommitted)
+    {
+        var proxy = DispatchProxy.Create<IFinanceSettlementPersistence, ArFinanceProxy>();
+        var finance = (ArFinanceProxy)(object)proxy;
+        finance.ThrowAfterCreate = throwAfterCreate;
+        finance.HideReadback = hideReadback;
+        await using var fixture = await ExecutionFixture.CreateAsync(arFinance: proxy);
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var prepared = await PrepareArAsync(fixture, companyId, customerId, "AR-UNIT-001", 100m);
+
+        var result = await fixture.Service.ExecuteAsync(fixture.Request, prepared.Run.RunId, "ar-unit-key", prepared.Run.Version);
+        var evidence = await fixture.Service.ReadAsync(fixture.Request, prepared.Run.RunId);
+
+        Assert.Equal(1, finance.CreateCalls);
+        if (expectedCommitted)
+        {
+            Assert.True(result.Succeeded, result.Code);
+            Assert.Equal(MigrationExecutionEffectDisposition.Committed, Assert.Single(result.Value!.Effects, item => item.RecordType == MigrationCanonicalRecordType.ArOpening).Disposition);
+            Assert.Equal(MigrationRunStatus.Completed, evidence!.RunStatus);
+        }
+        else
+        {
+            Assert.Equal(MigrationResultKind.UnknownOutcome, result.Kind);
+            Assert.Equal(MigrationRunStatus.OutcomeUnknown, evidence!.RunStatus);
+            Assert.Contains(evidence.Effects, item => item.RecordType == MigrationCanonicalRecordType.ArOpening && item.Disposition == MigrationExecutionEffectDisposition.Unknown);
+        }
+    }
+
+    [Fact]
+    public async Task Ar_outcome_unknown_is_a_hard_stop_for_same_and_different_keys()
+    {
+        var proxy = DispatchProxy.Create<IFinanceSettlementPersistence, ArFinanceProxy>();
+        var finance = (ArFinanceProxy)(object)proxy;
+        finance.HideReadback = true;
+        await using var fixture = await ExecutionFixture.CreateAsync(arFinance: proxy);
+        var prepared = await PrepareArAsync(fixture, Guid.NewGuid(), Guid.NewGuid(), "AR-UNIT-STOP", 100m);
+
+        var first = await fixture.Service.ExecuteAsync(fixture.Request, prepared.Run.RunId, "ar-stop-key", prepared.Run.Version);
+        var sameKey = await fixture.Service.ExecuteAsync(fixture.Request, prepared.Run.RunId, "ar-stop-key", prepared.Run.Version);
+        var differentKey = await fixture.Service.ExecuteAsync(fixture.Request, prepared.Run.RunId, "ar-stop-different", prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.UnknownOutcome, first.Kind);
+        Assert.Equal(MigrationResultKind.UnknownOutcome, sameKey.Kind);
+        Assert.Equal(MigrationResultKind.Rejected, differentKey.Kind);
+        Assert.Equal("migration_run_requires_reconciliation", differentKey.Code);
+        Assert.Equal(1, finance.CreateCalls);
+    }
+
+    private static async Task<PreparedRun> PrepareArAsync(ExecutionFixture fixture, Guid companyId, Guid customerId, string sourceReference, decimal amount)
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            companyId,
+            customerId,
+            sourceReference,
+            documentDate = new DateOnly(2026, 1, 10),
+            openingDate = new DateOnly(2026, 1, 15),
+            amount,
+            currencyCode = "SAR",
+            dueDate = new DateOnly(2026, 2, 14)
+        });
+        return await fixture.PrepareAsync([fixture.Record(MigrationCanonicalRecordType.ArOpening, payload)], [MigrationPlannedAction.Create]);
     }
 
     [Fact]
@@ -431,7 +546,6 @@ public sealed class MigrationExecutionTests
     [Theory]
     [InlineData(MigrationCanonicalRecordType.GlOpening)]
     [InlineData(MigrationCanonicalRecordType.ApOpening)]
-    [InlineData(MigrationCanonicalRecordType.ArOpening)]
     [InlineData(MigrationCanonicalRecordType.CashBankOpening)]
     public async Task Unsupported_economic_opening_types_are_rejected_before_attempt_or_owner_effect(MigrationCanonicalRecordType type)
     {
@@ -544,7 +658,8 @@ public sealed class MigrationExecutionTests
             MigrationExecutionService service,
             OwnerGateway owner,
             InMemoryValidationPersistence validation,
-            TestReferenceAuthority references)
+            TestReferenceAuthority references,
+            IFinanceSettlementPersistence? arFinance)
         {
             this.connection = connection;
             Tenant = tenant;
@@ -554,6 +669,7 @@ public sealed class MigrationExecutionTests
             Owner = owner;
             Validation = validation;
             References = references;
+            ArFinance = arFinance;
         }
 
         internal TenantContext Tenant { get; }
@@ -563,6 +679,7 @@ public sealed class MigrationExecutionTests
         internal OwnerGateway Owner { get; }
         internal InMemoryValidationPersistence Validation { get; }
         internal TestReferenceAuthority References { get; }
+        internal IFinanceSettlementPersistence? ArFinance { get; }
 
         internal static async Task<ExecutionFixture> CreateAsync(
             IReadOnlySet<OwnerResourceKind>? failingKinds = null,
@@ -570,7 +687,8 @@ public sealed class MigrationExecutionTests
             bool driftOnExecute = false,
             bool blockFirstOwnerExecute = false,
             bool failOwnerCreate = false,
-            MigrationReferenceState referenceState = MigrationReferenceState.NotApplicable)
+            MigrationReferenceState referenceState = MigrationReferenceState.NotApplicable,
+            IFinanceSettlementPersistence? arFinance = null)
         {
             var connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
@@ -602,8 +720,10 @@ public sealed class MigrationExecutionTests
                 new TenantWideScopeResolver(),
                 new TenantWideScopeResolver(),
                 owner,
-                references);
-            return new ExecutionFixture(connection, tenant, request, persistence, service, owner, validation, references);
+                references,
+                null,
+                arFinance is null ? null : new MigrationArOpeningExecutionCoordinator(persistence, references, arFinance));
+            return new ExecutionFixture(connection, tenant, request, persistence, service, owner, validation, references, arFinance);
         }
 
         internal MigrationExecutionService NewService(IFoundationAuditEvidenceSink? auditSink = null) => new(
@@ -614,7 +734,9 @@ public sealed class MigrationExecutionTests
             new TenantWideScopeResolver(),
             new TenantWideScopeResolver(),
             Owner,
-            References);
+            References,
+            null,
+            ArFinance is null ? null : new MigrationArOpeningExecutionCoordinator(Persistence, References, ArFinance));
 
         internal MigrationStagedRecord Record(MigrationCanonicalRecordType type, string payload)
         {
@@ -952,6 +1074,66 @@ public sealed class MigrationExecutionTests
 
         private static OwnerOperationResult<OwnerBatchEvidence> Success(OwnerBatchEvidence value) =>
             new(true, "owner_ok", value);
+    }
+
+    private class ArFinanceProxy : DispatchProxy
+    {
+        internal int CreateCalls { get; private set; }
+        internal bool ThrowAfterCreate { get; set; }
+        internal bool HideReadback { get; set; }
+        private FinanceMigrationArOpeningEvidence? evidence;
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            return targetMethod?.Name switch
+            {
+                nameof(IFinanceSettlementPersistence.PreflightMigrationArOpeningAsync) => Preflight((FinanceRequestContext)args![0]!, (FinanceMigrationArOpeningCommand)args[1]!),
+                nameof(IFinanceSettlementPersistence.CreateMigrationArOpeningAsync) => Create((FinanceRequestContext)args![0]!, (FinanceMigrationArOpeningCommand)args[1]!),
+                nameof(IFinanceSettlementPersistence.ReadMigrationArOpeningAsync) => Read(),
+                _ => DefaultTask(targetMethod?.ReturnType ?? typeof(Task))
+            };
+        }
+
+        private static Task<FinanceArOpeningPreflightResult> Preflight(FinanceRequestContext context, FinanceMigrationArOpeningCommand command) =>
+            Task.FromResult(new FinanceArOpeningPreflightResult(true, "ready", "SAR", FinanceApprovalRequirement.NotRequired, command.DueDate, null));
+
+        private Task<FinanceOperationResult<FinanceOpenItemRecord>> Create(FinanceRequestContext context, FinanceMigrationArOpeningCommand command)
+        {
+            CreateCalls++;
+            evidence ??= BuildEvidence(context, command);
+            if (ThrowAfterCreate) throw new InvalidOperationException("test response lost after commit");
+            return Task.FromResult(FinanceOperationResult<FinanceOpenItemRecord>.Success(evidence.OpenItem));
+        }
+
+        private Task<FinanceMigrationArOpeningEvidence?> Read() =>
+            Task.FromResult(HideReadback ? null : evidence);
+
+        private static FinanceMigrationArOpeningEvidence BuildEvidence(FinanceRequestContext context, FinanceMigrationArOpeningCommand command)
+        {
+            var itemId = Guid.NewGuid();
+            var journalId = Guid.NewGuid();
+            var evidenceId = Guid.NewGuid();
+            var debitAccount = Guid.NewGuid();
+            var creditAccount = Guid.NewGuid();
+            var openItem = new FinanceOpenItemRecord(itemId, context.TenantId.Value, command.CompanyId, FinanceOpenItemKind.Receivable, null, command.CustomerId, "migration-ar-opening.v1", evidenceId, 1, evidenceId, 1, command.SourceReference.Trim(), command.DocumentDate, command.DueDate!.Value, "SAR", command.Amount, "SAR", command.Amount, 1m, null, null, null, null, null, null, FinanceOpenItemRecognitionState.Recognized, journalId, 0m, command.Amount, FinanceOpenItemStatus.Open, Guid.NewGuid().ToByteArray());
+            var lines = new FinanceJournalLineRecord[]
+            {
+                new(Guid.NewGuid(), 1, debitAccount, "AR", "AR", command.Amount, 0m, command.Amount, 0m, command.Amount, "SAR", null, null, "AR opening"),
+                new(Guid.NewGuid(), 2, creditAccount, "OFFSET", "OFFSET", 0m, command.Amount, 0m, command.Amount, command.Amount, "SAR", null, null, "AR opening")
+            };
+            var journal = new FinanceJournalRecord(journalId, context.TenantId.Value, command.CompanyId, 1, "00000001", command.DocumentDate, command.OpeningDate, null, null, "SAR", "SAR", 1m, null, null, null, "migration-ar-opening.v1", "recognition", evidenceId, 1, Guid.NewGuid(), 1, "AR opening", FinanceJournalStatus.Posted, context.ActorId, null, null, context.ActorId, null, null, null, context.CorrelationId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, lines, Guid.NewGuid().ToByteArray(), FinanceJournalAmountAuthority.ManualTransactionCurrency, FinanceApprovalRequirement.NotRequired);
+            var sourceEffect = new FinanceSourceEffectRecord(Guid.NewGuid(), context.TenantId.Value, command.CompanyId, "migration-ar-opening.v1", evidenceId, 1, journalId, DateTimeOffset.UtcNow);
+            return new FinanceMigrationArOpeningEvidence(openItem, journal, sourceEffect);
+        }
+
+        private static object? DefaultTask(Type returnType)
+        {
+            if (returnType == typeof(Task)) return Task.CompletedTask;
+            if (!returnType.IsGenericType || returnType.GetGenericTypeDefinition() != typeof(Task<>)) return null;
+            var valueType = returnType.GetGenericArguments()[0];
+            var value = valueType.IsValueType ? Activator.CreateInstance(valueType) : null;
+            return typeof(Task).GetMethod(nameof(Task.FromResult))!.MakeGenericMethod(valueType).Invoke(null, [value]);
+        }
     }
 
     private sealed class TenantWideScopeResolver : ICurrentOrganizationScopeResolver, IOrganizationScopeOwnershipResolver

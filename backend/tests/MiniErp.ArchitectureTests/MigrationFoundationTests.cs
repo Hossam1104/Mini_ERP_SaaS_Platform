@@ -1019,8 +1019,8 @@ public sealed class MigrationFoundationTests
         foreach (var file in files)
         {
             var text = File.ReadAllText(file);
-            var inventoryEconomicCoordinator = Path.GetFileName(file) == "MigrationInventoryOpeningExecutionCoordinator.cs";
-            if (inventoryEconomicCoordinator)
+            var economicCoordinator = Path.GetFileName(file) is "MigrationInventoryOpeningExecutionCoordinator.cs" or "MigrationArOpeningExecutionCoordinator.cs";
+            if (economicCoordinator)
             {
                 // Slice 5's one bounded cross-owner orchestrator may use owner
                 // application contracts, but it must never reach persistence.
@@ -1029,7 +1029,7 @@ public sealed class MigrationFoundationTests
             }
             foreach (var module in forbidden)
             {
-                if (inventoryEconomicCoordinator && module is ("Inventory" or "Finance"))
+                if (economicCoordinator && module is ("Inventory" or "Finance"))
                     continue;
                 Assert.False(
                     text.Contains($"Modules.{module}", StringComparison.Ordinal),
