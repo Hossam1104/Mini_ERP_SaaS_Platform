@@ -197,10 +197,13 @@ public sealed record MigrationApOpeningPayload(
 public sealed record MigrationArOpeningPayload(
     Guid? CompanyId = null,
     Guid? CustomerId = null,
-    Guid? ControlAccountId = null,
+    string? SourceReference = null,
+    DateOnly? DocumentDate = null,
+    DateOnly? OpeningDate = null,
     decimal? Amount = null,
     string? CurrencyCode = null,
-    DateOnly? OpeningDate = null) : MigrationCanonicalPayload;
+    DateOnly? DueDate = null,
+    Guid? PaymentTermId = null) : MigrationCanonicalPayload;
 
 public sealed record MigrationCashBankOpeningPayload(
     Guid? CompanyId = null,
@@ -220,7 +223,8 @@ public sealed record MigrationParsedCanonicalRow(
     string? SourceRecordId,
     MigrationCanonicalRecordType RecordType,
     MigrationCanonicalPayload Payload,
-    string PayloadJson);
+    string PayloadJson,
+    bool HasForbiddenControlAccountId = false);
 
 /// <summary>Length-prefixed SHA-256 encoding shared by Migration operations.</summary>
 internal static class MigrationFingerprintEncoder
@@ -351,7 +355,9 @@ public static class MigrationCanonicalPackageParser
                     row.SourceRecordId,
                     type,
                     payload,
-                    JsonSerializer.Serialize(payload, payload.GetType(), Options)));
+                    JsonSerializer.Serialize(payload, payload.GetType(), Options),
+                    type == MigrationCanonicalRecordType.ArOpening
+                        && row.Payload.EnumerateObject().Any(item => string.Equals(item.Name, "controlAccountId", StringComparison.OrdinalIgnoreCase))));
             }
 
             return new(package, rows, null, null);
@@ -683,11 +689,15 @@ public static class MigrationValidationRules
             case MigrationArOpeningPayload ar:
                 Required(findings, ar.CompanyId is null, "companyId");
                 Required(findings, ar.CustomerId is null, "customerId");
-                Required(findings, ar.ControlAccountId is null, "controlAccountId");
+                Required(findings, string.IsNullOrWhiteSpace(ar.SourceReference), "sourceReference");
+                Required(findings, ar.DocumentDate is null, "documentDate");
+                Required(findings, ar.OpeningDate is null, "openingDate");
                 Required(findings, ar.Amount is null, "amount");
                 Required(findings, string.IsNullOrWhiteSpace(ar.CurrencyCode), "currencyCode");
-                Required(findings, ar.OpeningDate is null, "openingDate");
-                if (ar.Amount < 0m) findings.Add((MigrationFindingCategory.FinancialBalance, "migration_amount_invalid", "Opening amount cannot be negative."));
+                Required(findings, ar.DueDate is null && ar.PaymentTermId is null, "dueDate or paymentTermId");
+                if (ar.Amount <= 0m) findings.Add((MigrationFindingCategory.FinancialBalance, "migration_amount_invalid", "Opening amount must be greater than zero."));
+                if (row.HasForbiddenControlAccountId)
+                    findings.Add((MigrationFindingCategory.FinancialBalance, "migration_ar_control_account_not_allowed", "AR opening control-account selection is owned by Finance and is not accepted in the migration payload."));
                 break;
             case MigrationCashBankOpeningPayload cash:
                 Required(findings, cash.CompanyId is null, "companyId");

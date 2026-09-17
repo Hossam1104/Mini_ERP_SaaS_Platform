@@ -177,7 +177,7 @@ public sealed class MigrationOwnerReferenceAdapterTests
             new MigrationParsedCanonicalRow(3, "ap", MigrationCanonicalRecordType.ApOpening,
                 new MigrationApOpeningPayload(companyId, null, Guid.NewGuid(), 10m, "SAR", date), "{}"),
             new MigrationParsedCanonicalRow(4, "ar", MigrationCanonicalRecordType.ArOpening,
-                new MigrationArOpeningPayload(companyId, null, Guid.NewGuid(), 10m, "SAR", date), "{}"),
+                new MigrationArOpeningPayload(companyId, null, "AR-OPENING", date, date, 10m, "SAR", date, null), "{}"),
             new MigrationParsedCanonicalRow(5, "cash", MigrationCanonicalRecordType.CashBankOpening,
                 new MigrationCashBankOpeningPayload(companyId, Guid.NewGuid(), Guid.NewGuid(), 10m, "SAR", date), "{}")
         };

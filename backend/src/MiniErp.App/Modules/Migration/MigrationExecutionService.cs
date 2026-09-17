@@ -18,7 +18,7 @@ namespace MiniErp.App.Modules.Migration;
 public sealed class MigrationExecutionService
 {
     public const string OperationId = "migration.execution.start";
-    public const string FingerprintVersion = "migration-master-execution-v1";
+    public const string FingerprintVersion = "migration-economic-execution-v2";
 
     private static readonly MigrationCanonicalRecordType[] ExecutionOrder =
     [
@@ -29,7 +29,8 @@ public sealed class MigrationExecutionService
         MigrationCanonicalRecordType.Supplier,
         MigrationCanonicalRecordType.Customer,
         MigrationCanonicalRecordType.Product,
-        MigrationCanonicalRecordType.InventoryOpening
+        MigrationCanonicalRecordType.InventoryOpening,
+        MigrationCanonicalRecordType.ArOpening
     ];
 
     private readonly MigrationFoundationService foundation;
@@ -40,6 +41,7 @@ public sealed class MigrationExecutionService
     private readonly IOrganizationScopeOwnershipResolver scopeOwnership;
     private readonly MigrationOwnerExecutionCoordinator ownerCoordinator;
     private readonly MigrationInventoryOpeningExecutionCoordinator? inventoryOpeningCoordinator;
+    private readonly MigrationArOpeningExecutionCoordinator? arOpeningCoordinator;
     private readonly SemaphoreSlim executionGate = new(1, 1);
 
     public MigrationExecutionService(
@@ -52,7 +54,7 @@ public sealed class MigrationExecutionService
         IOwnerExecutionGateway owner,
         IMigrationReferenceAuthority references,
         TimeProvider? timeProvider = null)
-        : this(foundation, foundationPersistence, validationPersistence, executionPersistence, scopeResolver, scopeOwnership, owner, references, null, timeProvider)
+        : this(foundation, foundationPersistence, validationPersistence, executionPersistence, scopeResolver, scopeOwnership, owner, references, null, null, timeProvider)
     {
     }
 
@@ -66,6 +68,22 @@ public sealed class MigrationExecutionService
         IOwnerExecutionGateway owner,
         IMigrationReferenceAuthority references,
         MigrationInventoryOpeningExecutionCoordinator? inventoryOpeningCoordinator,
+        TimeProvider? timeProvider = null)
+        : this(foundation, foundationPersistence, validationPersistence, executionPersistence, scopeResolver, scopeOwnership, owner, references, inventoryOpeningCoordinator, null, timeProvider)
+    {
+    }
+
+    internal MigrationExecutionService(
+        MigrationFoundationService foundation,
+        IMigrationFoundationPersistence foundationPersistence,
+        IMigrationValidationPersistence validationPersistence,
+        IMigrationExecutionPersistence executionPersistence,
+        ICurrentOrganizationScopeResolver scopeResolver,
+        IOrganizationScopeOwnershipResolver scopeOwnership,
+        IOwnerExecutionGateway owner,
+        IMigrationReferenceAuthority references,
+        MigrationInventoryOpeningExecutionCoordinator? inventoryOpeningCoordinator,
+        MigrationArOpeningExecutionCoordinator? arOpeningCoordinator,
         TimeProvider? timeProvider = null)
     {
         this.foundation = foundation ?? throw new ArgumentNullException(nameof(foundation));
@@ -82,6 +100,7 @@ public sealed class MigrationExecutionService
             owner ?? throw new ArgumentNullException(nameof(owner)),
             clock);
         this.inventoryOpeningCoordinator = inventoryOpeningCoordinator;
+        this.arOpeningCoordinator = arOpeningCoordinator;
     }
 
     public async Task<MigrationOperationResult<MigrationExecutionResult>> ExecuteAsync(
@@ -160,10 +179,15 @@ public sealed class MigrationExecutionService
         var gate = BuildPlan(run, intake, validation, dryRun, staged, tenant);
         if (!gate.Succeeded || gate.Plan is null)
             return MigrationOperationResult<MigrationExecutionResult>.Rejected(gate.Code);
-        if (gate.Plan.Any(item => item.Staged.RecordType == MigrationCanonicalRecordType.InventoryOpening) && inventoryOpeningCoordinator is null)
+        var hasInventoryOpening = gate.Plan.Any(item => item.Staged.RecordType == MigrationCanonicalRecordType.InventoryOpening);
+        var hasArOpening = gate.Plan.Any(item => item.Staged.RecordType == MigrationCanonicalRecordType.ArOpening);
+        if (hasInventoryOpening && inventoryOpeningCoordinator is null)
             return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_inventory_execution_unavailable");
+        if (hasArOpening && arOpeningCoordinator is null)
+            return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_ar_execution_unavailable");
 
-        var fingerprint = ComputeFingerprint(run, intake, validation, dryRun, gate.Scope!, gate.Plan.Any(item => item.Staged.RecordType == MigrationCanonicalRecordType.InventoryOpening));
+        var economicTypes = gate.Plan.Where(item => item.Staged.RecordType is MigrationCanonicalRecordType.InventoryOpening or MigrationCanonicalRecordType.ArOpening).Select(item => item.Staged.RecordType).Distinct().ToArray();
+        var fingerprint = ComputeFingerprint(run, intake, validation, dryRun, gate.Scope!, economicTypes);
         var existing = await foundationPersistence.FindIdempotencyAsync(tenant, MigrationOperationKind.Execution, idempotencyKey, cancellationToken);
         if (existing is not null && !string.Equals(existing.RequestFingerprint, fingerprint, StringComparison.Ordinal))
             return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_idempotency_conflict");
@@ -180,12 +204,12 @@ public sealed class MigrationExecutionService
             if (prior is null || prior.Outcome != MigrationAttemptOutcome.KnownFailure
                 || priorEffects.Count == 0
                 || priorEffects.Any(item => item.Disposition is MigrationExecutionEffectDisposition.Started or MigrationExecutionEffectDisposition.Unknown)
-                || priorEffects.Any(item => item.RecordType != MigrationCanonicalRecordType.InventoryOpening && item.Disposition is not (MigrationExecutionEffectDisposition.NonEffect or MigrationExecutionEffectDisposition.Committed))
-                || !priorEffects.Any(item => item.RecordType == MigrationCanonicalRecordType.InventoryOpening && item.Disposition == MigrationExecutionEffectDisposition.PartialCompleted))
+                || priorEffects.Any(item => item.RecordType is not (MigrationCanonicalRecordType.InventoryOpening or MigrationCanonicalRecordType.ArOpening) && item.Disposition is not (MigrationExecutionEffectDisposition.NonEffect or MigrationExecutionEffectDisposition.Committed))
+                || !priorEffects.Any(item => item.RecordType is MigrationCanonicalRecordType.InventoryOpening or MigrationCanonicalRecordType.ArOpening && item.Disposition == MigrationExecutionEffectDisposition.PartialCompleted))
                 return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_execution_partial_resume_not_permitted");
-            var completedInventory = priorEffects.Where(item => item.RecordType == MigrationCanonicalRecordType.InventoryOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed)
+            var completedEconomic = priorEffects.Where(item => item.RecordType is MigrationCanonicalRecordType.InventoryOpening or MigrationCanonicalRecordType.ArOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed)
                 .Select(item => item.StagedRecordId).ToHashSet();
-            resumeRows = gate.Plan.Where(item => item.Staged.RecordType == MigrationCanonicalRecordType.InventoryOpening && !completedInventory.Contains(item.Staged.StagedRecordId)).ToArray();
+            resumeRows = gate.Plan.Where(item => item.Staged.RecordType is MigrationCanonicalRecordType.InventoryOpening or MigrationCanonicalRecordType.ArOpening && !completedEconomic.Contains(item.Staged.StagedRecordId)).ToArray();
             if (resumeRows.Length == 0)
                 return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_execution_partial_resume_not_permitted");
         }
@@ -218,10 +242,10 @@ public sealed class MigrationExecutionService
         }
 
         var masterPlan = (resumeRows.Length > 0 ? resumeRows : gate.Plan)
-            .Where(item => item.Staged.RecordType != MigrationCanonicalRecordType.InventoryOpening)
+            .Where(item => item.Staged.RecordType is not (MigrationCanonicalRecordType.InventoryOpening or MigrationCanonicalRecordType.ArOpening))
             .ToArray();
-        var economicPlan = resumeRows.Length > 0 ? resumeRows : gate.Plan
-            .Where(item => item.Staged.RecordType == MigrationCanonicalRecordType.InventoryOpening)
+        var economicPlan = (resumeRows.Length > 0 ? resumeRows : gate.Plan)
+            .Where(item => item.Staged.RecordType is MigrationCanonicalRecordType.InventoryOpening or MigrationCanonicalRecordType.ArOpening)
             .ToArray();
         var prepared = await ownerCoordinator.PrepareAsync(requestContext, tenant, run, attempt, masterPlan, cancellationToken);
         if (!prepared.Succeeded)
@@ -230,13 +254,26 @@ public sealed class MigrationExecutionService
             return await FinishWithoutOwnerEffectAsync(requestContext, run, attempt, prepared.Code, cancellationToken);
         }
 
-        if (economicPlan.Length > 0)
+        var inventoryPlan = economicPlan.Where(item => item.Staged.RecordType == MigrationCanonicalRecordType.InventoryOpening).ToArray();
+        var arPlan = economicPlan.Where(item => item.Staged.RecordType == MigrationCanonicalRecordType.ArOpening).ToArray();
+        if (inventoryPlan.Length > 0)
         {
-            var economicPrepared = await inventoryOpeningCoordinator!.PrepareAsync(requestContext, tenant, run, attempt, economicPlan, cancellationToken);
+            var economicPrepared = await inventoryOpeningCoordinator!.PrepareAsync(requestContext, tenant, run, attempt, inventoryPlan, cancellationToken);
             if (!economicPrepared.Succeeded)
             {
                 await ownerCoordinator.MarkPreparationFailedAsync(tenant, attempt, economicPrepared.Code, cancellationToken);
                 await inventoryOpeningCoordinator.MarkPreparationFailedAsync(tenant, attempt, economicPrepared.Code, cancellationToken);
+                return await FinishWithoutOwnerEffectAsync(requestContext, run, attempt, economicPrepared.Code, cancellationToken);
+            }
+        }
+        if (arPlan.Length > 0)
+        {
+            var economicPrepared = await arOpeningCoordinator!.PrepareAsync(requestContext, tenant, run, attempt, arPlan, cancellationToken);
+            if (!economicPrepared.Succeeded)
+            {
+                await ownerCoordinator.MarkPreparationFailedAsync(tenant, attempt, economicPrepared.Code, cancellationToken);
+                if (inventoryPlan.Length > 0) await inventoryOpeningCoordinator!.MarkPreparationFailedAsync(tenant, attempt, economicPrepared.Code, cancellationToken);
+                await arOpeningCoordinator.MarkPreparationFailedAsync(tenant, attempt, economicPrepared.Code, cancellationToken);
                 return await FinishWithoutOwnerEffectAsync(requestContext, run, attempt, economicPrepared.Code, cancellationToken);
             }
         }
@@ -264,9 +301,11 @@ public sealed class MigrationExecutionService
 
         if (economicPlan.Length > 0)
         {
-            foreach (var group in economicPlan.GroupBy(item => item.Preview.RecordType))
+            foreach (var group in economicPlan.GroupBy(item => item.Preview.RecordType).OrderBy(item => Array.IndexOf(ExecutionOrder, item.Key)))
             {
-                var processed = await inventoryOpeningCoordinator!.ExecuteAsync(requestContext, tenant, run, attempt, group.ToArray(), cancellationToken);
+                var processed = group.Key == MigrationCanonicalRecordType.InventoryOpening
+                    ? await inventoryOpeningCoordinator!.ExecuteAsync(requestContext, tenant, run, attempt, group.ToArray(), cancellationToken)
+                    : await arOpeningCoordinator!.ExecuteAsync(requestContext, tenant, run, attempt, group.ToArray(), cancellationToken);
                 if (!processed.Succeeded)
                     return await FinishGroupFailureAsync(requestContext, tenant, currentRun, attempt, processed, cancellationToken);
             }
@@ -361,6 +400,7 @@ public sealed class MigrationExecutionService
         var effects = await executionPersistence.ListEffectsAsync(tenant, run.RunId, attempt.AttemptId, cancellationToken);
         var representations = await executionPersistence.ListRepresentationsAsync(tenant, run.RunId, attempt.AttemptId, cancellationToken);
         IReadOnlyList<MigrationEconomicReconciliationRecord> reconciliations = [];
+        IReadOnlyList<MigrationArEconomicReconciliationRecord> arReconciliations = [];
         if (inventoryOpeningCoordinator is not null)
         {
             var attempts = await foundationPersistence.ListAttemptsAsync(tenant, run.RunId, cancellationToken);
@@ -381,7 +421,27 @@ public sealed class MigrationExecutionService
                 reconciliations = await inventoryOpeningCoordinator.ReadReconciliationsAsync(requestContext, tenant, latestEffects, staged, cancellationToken);
             }
         }
-        return new MigrationExecutionResult(run.RunId, tenant.TenantId, attempt.AttemptId, FingerprintVersion, fingerprint, run.Status, attempt.Outcome, code, batches, effects, representations, reconciliations);
+        if (arOpeningCoordinator is not null)
+        {
+            var attempts = await foundationPersistence.ListAttemptsAsync(tenant, run.RunId, cancellationToken);
+            var effectsByAttempt = new List<(int Sequence, MigrationExecutionEffectRecord Effect)>();
+            foreach (var item in attempts)
+            {
+                foreach (var effect in await executionPersistence.ListEffectsAsync(tenant, run.RunId, item.AttemptId, cancellationToken))
+                    effectsByAttempt.Add((item.Sequence, effect));
+            }
+            var latestEffects = effectsByAttempt
+                .Where(item => item.Effect.RecordType == MigrationCanonicalRecordType.ArOpening)
+                .GroupBy(item => item.Effect.StagedRecordId)
+                .Select(group => group.OrderByDescending(item => item.Sequence).First().Effect)
+                .ToArray();
+            if (latestEffects.Length > 0)
+            {
+                var staged = await validationPersistence.ListStagedRecordsAsync(tenant, run.RunId, 0, int.MaxValue, cancellationToken);
+                arReconciliations = await arOpeningCoordinator.ReadReconciliationsAsync(requestContext, tenant, latestEffects, staged, cancellationToken);
+            }
+        }
+        return new MigrationExecutionResult(run.RunId, tenant.TenantId, attempt.AttemptId, FingerprintVersion, fingerprint, run.Status, attempt.Outcome, code, batches, effects, representations, reconciliations, arReconciliations);
     }
 
     private PlanGate BuildPlan(
@@ -434,7 +494,9 @@ public sealed class MigrationExecutionService
                 return PlanGate.Failure("migration_execution_authoritative_snapshot_mismatch");
             if (!TryParse(record, out var parsed))
                 return PlanGate.Failure("migration_execution_payload_invalid");
-            if (preview.PlannedAction == MigrationPlannedAction.Create && parsed!.Payload is not (MigrationProductPayload or MigrationSupplierPayload or MigrationCustomerPayload or MigrationInventoryOpeningPayload))
+            if (parsed!.HasForbiddenControlAccountId)
+                return PlanGate.Failure("migration_ar_control_account_not_allowed");
+            if (preview.PlannedAction == MigrationPlannedAction.Create && parsed.Payload is not (MigrationProductPayload or MigrationSupplierPayload or MigrationCustomerPayload or MigrationInventoryOpeningPayload or MigrationArOpeningPayload))
                 return PlanGate.Failure("migration_execution_owner_action_invalid");
             if (preview.PlannedAction is not (MigrationPlannedAction.Create or MigrationPlannedAction.MatchReference or MigrationPlannedAction.Skip))
                 return PlanGate.Failure("migration_execution_plan_invalid");
@@ -466,7 +528,7 @@ public sealed class MigrationExecutionService
         }
     }
 
-    private static string ComputeFingerprint(MigrationRunRecord run, MigrationIntakeRecord intake, MigrationValidationSummary validation, MigrationDryRunPreview dryRun, TenantWorkScope scope, bool includesInventoryOpening)
+    private static string ComputeFingerprint(MigrationRunRecord run, MigrationIntakeRecord intake, MigrationValidationSummary validation, MigrationDryRunPreview dryRun, TenantWorkScope scope, IReadOnlyList<MigrationCanonicalRecordType> economicTypes)
     {
         var common = new[]
         {
@@ -485,9 +547,13 @@ public sealed class MigrationExecutionService
             ScopeValue(scope),
             "master-data-owner-import-v1"
         };
-        return includesInventoryOpening
-            ? MigrationFingerprintEncoder.Compute(FingerprintVersion, [.. common, "inventory-economic-opening-v1"])
-            : MigrationFingerprintEncoder.Compute(FingerprintVersion, common);
+        var economics = economicTypes.OrderBy(item => item).Select(item => item switch
+        {
+            MigrationCanonicalRecordType.InventoryOpening => "inventory-economic-opening-v1",
+            MigrationCanonicalRecordType.ArOpening => "ar-economic-opening-v1",
+            _ => item.ToString()
+        });
+        return MigrationFingerprintEncoder.Compute(FingerprintVersion, [.. common, .. economics]);
     }
 
     private static string ScopeValue(TenantWorkScope scope) => scope.WarehouseId is { } warehouse ? $"Warehouse:{warehouse:D}" : scope.BranchId is { } branch ? $"Branch:{branch:D}" : scope.CompanyId is { } company ? $"Company:{company:D}" : $"Tenant:{scope.TenantId.Value:D}";
@@ -500,7 +566,8 @@ public sealed class MigrationExecutionService
         MigrationCanonicalRecordType.Tax or
         MigrationCanonicalRecordType.PaymentTerm or
         MigrationCanonicalRecordType.UnitOfMeasure or
-        MigrationCanonicalRecordType.InventoryOpening;
+        MigrationCanonicalRecordType.InventoryOpening or
+        MigrationCanonicalRecordType.ArOpening;
 
     private static bool TryParse(MigrationStagedRecord staged, out MigrationParsedCanonicalRow? parsed)
     {
@@ -513,12 +580,13 @@ public sealed class MigrationExecutionService
             {
                 MigrationCanonicalRecordType.Product => document.Deserialize<MigrationProductPayload>(options),
                 MigrationCanonicalRecordType.InventoryOpening => document.Deserialize<MigrationInventoryOpeningPayload>(options),
+                MigrationCanonicalRecordType.ArOpening => document.Deserialize<MigrationArOpeningPayload>(options),
                 MigrationCanonicalRecordType.Supplier => document.Deserialize<MigrationSupplierPayload>(options),
                 MigrationCanonicalRecordType.Customer => document.Deserialize<MigrationCustomerPayload>(options),
                 MigrationCanonicalRecordType.Currency or MigrationCanonicalRecordType.Tax or MigrationCanonicalRecordType.PaymentTerm or MigrationCanonicalRecordType.UnitOfMeasure => document.Deserialize<MigrationReferencePayload>(options),
                 _ => null
             };
-            parsed = payload is null ? null : new MigrationParsedCanonicalRow(staged.SourceSequence, staged.SourceRecordId, staged.RecordType, payload, staged.CanonicalPayload);
+            parsed = payload is null ? null : new MigrationParsedCanonicalRow(staged.SourceSequence, staged.SourceRecordId, staged.RecordType, payload, staged.CanonicalPayload, staged.RecordType == MigrationCanonicalRecordType.ArOpening && document.RootElement.EnumerateObject().Any(item => string.Equals(item.Name, "controlAccountId", StringComparison.OrdinalIgnoreCase)));
             return parsed is not null;
         }
         catch (JsonException)

@@ -10,28 +10,26 @@
 
 ---
 
-## CURRENT AUTHORITY - 17 September 2026 (MESP-141 SLICE 5 ACCEPTED / MERGED; POST-MERGE GOVERNANCE RECONCILIATION)
+## CURRENT AUTHORITY - 17 September 2026 (MESP-141 SLICE 6 AR OPENING ECONOMIC EXECUTION ACTIVE)
 
-**MESP-141 Slice 5 - Inventory Economic Opening Execution was accepted by GPT-5.6 Sol and merged through PR #250.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-5 are accepted and merged; MESP-142 remains OPEN / NOT ACTIVATED.
+**MESP-141 Slice 6 - AR Opening Economic Execution is activated and in implementation.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-5 are accepted and merged; MESP-142 remains OPEN / NOT ACTIVATED.
 
 | Item | Value |
 |---|---|
-| Sol-accepted Slice 5 head | `4ceb6ec6e9dd46222f6deb46bb935e6ba42a928c` |
-| Sol acceptance | Issue/PR comment `5711137508` |
-| Feature PR | **#250 MERGED** by normal merge commit |
-| Feature merge commit | `efca1f4066ba916b8c3a582ba3ef7e25fc6c93ee` |
-| Slices 1-5 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** after governance merge |
+| Slice 6 activation | Issue #229 comment `5713617627` |
+| Architecture authority | Issue #229 comment `5712571925` |
+| Slices 1-5 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
+| Slice 6 | **ACTIVATED / IN IMPLEMENTATION / AWAITING SOL ACCEPTANCE** |
 | MESP-141 | **OPEN / ACTIVE / IN PROGRESS** |
 | Current phase | **Economic Openings** |
-| Next Slice | **NOT AUTHORIZED** |
-| GL/AP/AR/Cash economic opening | **NOT AUTHORIZED** |
+| GL/AP/Cash opening | **NOT AUTHORIZED** |
 | Production economic migration | **NOT AUTHORIZED** |
 | Reconciliation/sign-off capability | **NOT AUTHORIZED** |
 | MESP-142 | **OPEN / NOT ACTIVATED** |
 | Golden E2E | **NOT STARTED** |
 | Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
 
-Post-merge governance reconciliation is in progress until the governance PR merges; the live governance PR/head/exact-head CI is authority for mutable post-merge reconciliation state. Final mutable branch validation evidence is maintained in the live PR handoff and exact-head CI. No governance branch SHA or mutable exact-head CI is pinned here. The accepted Slice 5 scope remains functional-currency-only InventoryOpening execution with Finance-owned pre-effect readiness and journal posting, Inventory-owned physical stock/MWA/valuation, one economic effect represented by multiple owner records, known PartialCompleted forward resume, OutcomeUnknown hard stop, and read-only Inventory/Finance reconciliation evidence. GL/AP/AR/Cash opening, multi-currency expansion, correction/reversal orchestration, production migration/execution, reconciliation/sign-off implementation, UI, MESP-142, and Golden E2E remain excluded.
+Slice 6 is bounded to Finance-owned functional-currency AR opening recognition, durable open-item/journal/source-effect lineage, deterministic cross-run identity, ordinary settlement compatibility, and read-only reconciliation evidence through the existing migration execution seam. Migration owns canonical payload, validation, staging, execution lineage, and representations; it does not write Finance tables or build journal lines. No UI, frontend assets, production execution, reconciliation/sign-off, GL/AP/Cash opening, MESP-142 activation, or Golden E2E is authorized. Final mutable branch validation evidence is maintained in the live Draft PR handoff and exact-head CI; no mutable branch SHA or exact-head CI is pinned here.
 
 ## HISTORICAL RECORD - earlier MESP-141 and project state
 

@@ -17,6 +17,7 @@ public static class MigrationServiceCollectionExtensions
         services.AddSingleton<MigrationIntakeService>();
         services.AddSingleton<MigrationValidationService>();
         services.AddSingleton<MigrationInventoryOpeningExecutionCoordinator>();
+        services.AddSingleton<MigrationArOpeningExecutionCoordinator>();
         services.AddSingleton<MigrationExecutionService>(provider => new MigrationExecutionService(
             provider.GetRequiredService<MigrationFoundationService>(),
             provider.GetRequiredService<IMigrationFoundationPersistence>(),
@@ -27,6 +28,7 @@ public static class MigrationServiceCollectionExtensions
             provider.GetRequiredService<IOwnerExecutionGateway>(),
             provider.GetRequiredService<IMigrationReferenceAuthority>(),
             provider.GetRequiredService<MigrationInventoryOpeningExecutionCoordinator>(),
+            provider.GetRequiredService<MigrationArOpeningExecutionCoordinator>(),
             provider.GetService<TimeProvider>()));
         services.AddSingleton<IMigrationReferenceAuthority, UnavailableMigrationReferenceAuthority>();
         return services;
