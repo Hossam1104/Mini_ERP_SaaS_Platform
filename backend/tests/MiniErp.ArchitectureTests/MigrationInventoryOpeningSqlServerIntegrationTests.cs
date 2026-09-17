@@ -202,6 +202,7 @@ public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafet
 
         Assert.True(result.Succeeded, result.Code);
         Assert.Equal(MigrationRunStatus.Completed, result.Value!.RunStatus);
+        Assert.Equal(MigrationExecutionService.HistoricalFingerprintVersion, result.Value.FingerprintVersion);
         Assert.Equal(MigrationAttemptOutcome.Succeeded, result.Value.AttemptOutcome);
         var effects = result.Value.Effects.ToArray();
         Assert.Equal(2, effects.Length);
@@ -264,7 +265,7 @@ public sealed class MigrationInventoryOpeningSqlServerSafetyTests(SqlServerSafet
         }
         await using (var financeDb = new FinanceDbContext(financeOptions, tenant))
         {
-            var journals = await financeDb.Journals.Include(item => item.Lines).Where(item => item.SourceContract == "inventory-valuation-finance.v1").ToArrayAsync();
+            var journals = await financeDb.Journals.Include(item => item.Lines).Where(item => item.CompanyId == companyId && item.SourceContract == "inventory-valuation-finance.v1").ToArrayAsync();
             Assert.Equal(2, journals.Length);
             Assert.Equal(new decimal[] { 3m, 4.52m }, journals.OrderBy(item => item.Lines.Sum(line => line.FunctionalDebit)).Select(item => item.Lines.Sum(line => line.FunctionalDebit)).ToArray());
             Assert.All(journals, journal =>

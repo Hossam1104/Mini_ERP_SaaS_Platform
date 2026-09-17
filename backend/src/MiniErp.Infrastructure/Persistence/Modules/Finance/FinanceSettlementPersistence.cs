@@ -182,13 +182,7 @@ internal sealed class FinanceSettlementPersistence(
     {
         if (Company(context, command.CompanyId) is null) return null;
         await using var db = CreateContext(context);
-        var evidenceId = MigrationArSourceEvidenceId(context, command);
-        var item = await db.OpenItems.AsNoTracking().SingleOrDefaultAsync(value => value.CompanyId == command.CompanyId && value.SourceContract == MigrationArContract && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1, cancellationToken);
-        if (item is null) return null;
-        if (!MatchesRecordedMigrationArOpening(item, command)) return null;
-        if (item.RecognitionJournalId is not { } journalId) return null;
-        var journal = await db.Journals.AsNoTracking().Include(value => value.Lines).SingleOrDefaultAsync(value => value.Id == journalId && value.SourceContract == MigrationArContract && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1 && value.Status == FinanceJournalStatus.Posted, cancellationToken);
-        return journal is null || journal.PostingDate != command.OpeningDate ? null : new FinanceMigrationArOpeningEvidence(await ToOpenItemAsync(db, item, cancellationToken), ToJournal(journal));
+        return await ReadMigrationArOpeningEvidenceAsync(db, context, command, cancellationToken);
     }
 
     public async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationArOpeningAsync(FinanceRequestContext context, FinanceMigrationArOpeningCommand command, CancellationToken cancellationToken = default)
@@ -202,8 +196,19 @@ internal sealed class FinanceSettlementPersistence(
             var evidence = await ReadMigrationArOpeningAsync(context, command, CancellationToken.None);
             return evidence is not null
                 ? FinanceOperationResult<FinanceOpenItemRecord>.Success(evidence.OpenItem)
-                : Failure<FinanceOpenItemRecord>("migration_ar_opening_outcome_unknown");
+                : Failure<FinanceOpenItemRecord>(await ResolveMigrationArCreateFailureCodeAsync(context, command));
         }
+    }
+
+    private async Task<string> ResolveMigrationArCreateFailureCodeAsync(FinanceRequestContext context, FinanceMigrationArOpeningCommand command)
+    {
+        if (Company(context, command.CompanyId) is null) return "migration_ar_opening_outcome_unknown";
+        await using var db = CreateContext(context);
+        var evidenceId = MigrationArSourceEvidenceId(context, command);
+        var item = await db.OpenItems.AsNoTracking().SingleOrDefaultAsync(value => value.CompanyId == command.CompanyId && value.SourceContract == MigrationArContract && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1, CancellationToken.None);
+        return item is not null && !MatchesRecordedMigrationArOpening(item, command)
+            ? "migration_ar_source_conflict"
+            : "migration_ar_opening_outcome_unknown";
     }
 
     private async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationArOpeningCoreAsync(FinanceRequestContext context, FinanceMigrationArOpeningCommand command, CancellationToken cancellationToken)
@@ -219,10 +224,10 @@ internal sealed class FinanceSettlementPersistence(
         {
             if (!MatchesRecordedMigrationArOpening(existing, command) || existing.RecognitionJournalId is null)
                 return Failure<FinanceOpenItemRecord>(existing is not null && existing.RecognitionJournalId is null ? "migration_ar_opening_outcome_unknown" : "migration_ar_source_conflict");
-            var existingJournal = await db.Journals.AsNoTracking().SingleOrDefaultAsync(value => value.Id == existing.RecognitionJournalId.Value && value.SourceContract == MigrationArContract && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1 && value.Status == FinanceJournalStatus.Posted, cancellationToken);
-            if (existingJournal is null) return Failure<FinanceOpenItemRecord>("migration_ar_opening_outcome_unknown");
-            if (existingJournal.PostingDate != command.OpeningDate) return Failure<FinanceOpenItemRecord>("migration_ar_source_conflict");
-            return FinanceOperationResult<FinanceOpenItemRecord>.Success(await ToOpenItemAsync(db, existing, cancellationToken));
+            var existingEvidence = await ReadMigrationArOpeningEvidenceAsync(db, context, command, cancellationToken);
+            return existingEvidence is null
+                ? Failure<FinanceOpenItemRecord>("migration_ar_opening_outcome_unknown")
+                : FinanceOperationResult<FinanceOpenItemRecord>.Success(existingEvidence.OpenItem);
         }
         if (await db.SourceEffects.AnyAsync(value => value.CompanyId == command.CompanyId && value.SourceContract == MigrationArContract && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1, cancellationToken))
             return Failure<FinanceOpenItemRecord>("migration_ar_source_effect_inconsistent");
@@ -798,6 +803,45 @@ internal sealed class FinanceSettlementPersistence(
     private static Guid MigrationArOpenItemId(FinanceRequestContext context, FinanceMigrationArOpeningCommand command) => StableId("migration-ar-open-item", context.TenantId.Value.ToString("D"), command.CompanyId.ToString("D"), command.CustomerId.ToString("D"), command.SourceReference.Trim(), MigrationArContract);
     private static Guid StableId(params string[] values) => new(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("|", values))) [..16]);
     private static string MigrationArSnapshot(FinanceMigrationArOpeningCommand command, DateOnly dueDate, FinancePaymentTermSnapshotRecord? paymentTerm) => JsonSerializer.Serialize(new { source = MigrationArContract, sourceReference = command.SourceReference.Trim(), command.CompanyId, command.CustomerId, command.DocumentDate, command.OpeningDate, command.Amount, currencyCode = NormalizeCode(command.CurrencyCode), dueDate, paymentTermId = paymentTerm?.Id, command.SourcePayloadFingerprint });
+    private async Task<FinanceMigrationArOpeningEvidence?> ReadMigrationArOpeningEvidenceAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationArOpeningCommand command, CancellationToken cancellationToken)
+    {
+        var company = Company(context, command.CompanyId);
+        if (company is null) return null;
+        var evidenceId = MigrationArSourceEvidenceId(context, command);
+        var item = await db.OpenItems.AsNoTracking().SingleOrDefaultAsync(value => value.CompanyId == command.CompanyId && value.SourceContract == MigrationArContract && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1, cancellationToken);
+        if (item is null || !MatchesRecordedMigrationArOpening(item, command) || item.RecognitionJournalId is not { } journalId) return null;
+        var journal = await db.Journals.AsNoTracking().Include(value => value.Lines).SingleOrDefaultAsync(value => value.Id == journalId && value.CompanyId == command.CompanyId && value.SourceContract == MigrationArContract && value.SourceEvent == "recognition" && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1 && value.Status == FinanceJournalStatus.Posted, cancellationToken);
+        if (journal is null || journal.JournalDate != command.DocumentDate || journal.PostingDate != command.OpeningDate || !string.Equals(journal.FunctionalCurrencyCode, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase) || !string.Equals(journal.TransactionCurrencyCode, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase) || journal.ExchangeRate != 1m || journal.AmountAuthority != FinanceJournalAmountAuthority.ManualTransactionCurrency || journal.ApprovalRequirement != FinanceApprovalRequirement.NotRequired)
+            return null;
+        if (journal.PostingRuleId is not { } ruleId || journal.PostingRuleVersionNumber is not { } ruleVersion) return null;
+        var rule = await db.PostingRules.AsNoTracking().SingleOrDefaultAsync(value => value.Id == ruleId && value.CompanyId == command.CompanyId && value.SourceContract == MigrationArContract && value.SourceEvent == "recognition" && value.VersionNumber == ruleVersion, cancellationToken);
+        if (rule is null || !JournalMatchesMigrationArOpening(journal, rule, command, company.FunctionalCurrencyCode)) return null;
+        var sourceEffects = await db.SourceEffects.AsNoTracking().Where(value => value.CompanyId == command.CompanyId && value.SourceContract == MigrationArContract && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1).ToListAsync(cancellationToken);
+        return sourceEffects.Count != 1 || sourceEffects[0].JournalId != journal.Id
+            ? null
+            : new FinanceMigrationArOpeningEvidence(await ToOpenItemAsync(db, item, cancellationToken), ToJournal(journal), ToSourceEffect(sourceEffects[0]));
+    }
+
+    private static bool JournalMatchesMigrationArOpening(FinanceJournalEntity journal, FinancePostingRuleEntity rule, FinanceMigrationArOpeningCommand command, string functionalCurrencyCode)
+    {
+        var lines = journal.Lines.OrderBy(value => value.LineNumber).ToArray();
+        return lines.Length == 2
+            && lines[0].AccountId == rule.DebitAccountId
+            && lines[0].Debit == command.Amount
+            && lines[0].Credit == 0m
+            && lines[0].FunctionalDebit == command.Amount
+            && lines[0].FunctionalCredit == 0m
+            && lines[0].TransactionAmount == command.Amount
+            && string.Equals(lines[0].TransactionCurrencyCode, functionalCurrencyCode, StringComparison.OrdinalIgnoreCase)
+            && lines[1].AccountId == rule.CreditAccountId
+            && lines[1].Debit == 0m
+            && lines[1].Credit == command.Amount
+            && lines[1].FunctionalDebit == 0m
+            && lines[1].FunctionalCredit == command.Amount
+            && lines[1].TransactionAmount == command.Amount
+            && string.Equals(lines[1].TransactionCurrencyCode, functionalCurrencyCode, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool MatchesRecordedMigrationArOpening(FinanceOpenItemEntity item, FinanceMigrationArOpeningCommand command)
     {
         var term = item.PaymentTermId is { } termId ? new FinancePaymentTermSnapshotRecord(termId, string.Empty, null, null, 0, Guid.Empty, command.DocumentDate, item.DueDate) : null;
@@ -958,6 +1002,7 @@ internal sealed class FinanceSettlementPersistence(
     private static FinancePaymentMethodRecord ToMethod(FinancePaymentMethodEntity item) => new(item.Id, item.TenantId.Value, item.CompanyId, item.Code, item.EnglishName, item.ArabicName, item.Direction, item.Lifecycle, item.IsManual, item.RequiresReference, item.EffectiveFrom, item.EffectiveTo, item.Version);
     private static FinanceCashAccountRecord ToCash(FinanceCashAccountEntity item) => new(item.Id, item.TenantId.Value, item.CompanyId, item.Code, item.EnglishName, item.ArabicName, item.Kind, item.CurrencyCode, item.LinkedAccountId, item.LinkedAccountCode, item.BankReference, item.Lifecycle, item.EffectiveFrom, item.EffectiveTo, item.Version);
     private static FinanceAllocationRecord ToAllocation(FinanceAllocationEntity item) => new(item.Id, item.TenantId.Value, item.CompanyId, item.SettlementDocumentId, item.OpenItemId, item.Amount, item.CurrencyCode, item.FunctionalAmount, item.AllocationDate, item.Status, item.ReversalOfAllocationId, item.JournalId, item.CreatedBy, item.Reason, item.Version, item.HistoricalFunctionalAmount, item.SettlementFunctionalAmount, item.RealizedFxAmount, item.RealizedFxDirection, item.RealizedFxJournalId, item.RealizedFxRuleId, item.RealizedFxRuleVersionNumber);
+    private static FinanceSourceEffectRecord ToSourceEffect(FinanceSourceEffectEntity item) => new(item.Id, item.TenantId.Value, item.CompanyId, item.SourceContract, item.SourceEvidenceId, item.SourceEvidenceVersion, item.JournalId, item.CreatedAt);
     private static FinanceJournalRecord ToJournal(FinanceJournalEntity item) => new(item.Id, item.TenantId.Value, item.CompanyId, item.JournalSequence, item.JournalNumber, item.JournalDate, item.PostingDate, item.FiscalYearId, item.FiscalPeriodId, item.FunctionalCurrencyCode, item.TransactionCurrencyCode, item.ExchangeRate, item.ExchangeRateId, item.ExchangeRateVersionId, item.ExchangeRateVersionNumber, item.SourceContract, item.SourceEvent, item.SourceEvidenceId, item.SourceEvidenceVersion, item.PostingRuleId, item.PostingRuleVersionNumber, item.Description, item.Status, item.CreatedBy, item.SubmittedBy, item.ApprovedBy, item.PostedBy, item.ReversedBy, item.ReversalOfJournalId, item.ReversalJournalId, item.CorrelationId, item.CreatedAt, item.PostedAt, item.Lines.OrderBy(line => line.LineNumber).Select(line => new FinanceJournalLineRecord(line.Id, line.LineNumber, line.AccountId, line.AccountCode, line.AccountName, line.Debit, line.Credit, line.FunctionalDebit, line.FunctionalCredit, line.TransactionAmount, line.TransactionCurrencyCode, line.CostCenterId, line.CostCenterCode, line.Description)).ToArray(), item.Version, item.AmountAuthority, item.ApprovalRequirement);
     private void AddAudit(FinanceDbContext db, FinanceRequestContext context, string operation, string resourceType, Guid resourceId, string result, string? reason, string? key, DateTimeOffset at) => db.AuditEvents.Add(new FinanceAuditEntity(context.TenantId, Guid.NewGuid(), operation, resourceType, resourceId, context.ActorId, context.SessionId, result, reason, context.CorrelationId, key, at));
     private static async Task<FinanceOperationResult<T>?> ReadReplayAsync<T>(FinanceDbContext db, FinanceRequestContext context, string operation, string key, string fingerprint, CancellationToken cancellationToken) { var item = await db.Idempotency.SingleOrDefaultAsync(value => value.ActorId == context.ActorId && value.OperationId == operation && value.Key == key, cancellationToken); if (item is null) return null; if (item.Fingerprint != fingerprint) return FinanceOperationResult<T>.Failure("idempotency_conflict"); return FinanceOperationResult<T>.Success(JsonSerializer.Deserialize<T>(item.SnapshotJson)!); }

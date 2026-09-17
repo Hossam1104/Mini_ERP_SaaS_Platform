@@ -146,6 +146,7 @@ public sealed class MigrationArOpeningSqlServerSafetyTests(SqlServerSafetyFixtur
         var executed = await execution.ExecuteAsync(migrationFoundationContext, runId, "ar-execution", approved.Value!.Version);
         Assert.True(executed.Succeeded, executed.Code);
         Assert.Equal(MigrationRunStatus.Completed, executed.Value!.RunStatus);
+        Assert.Equal(MigrationExecutionService.FingerprintVersion, executed.Value.FingerprintVersion);
         Assert.Single(executed.Value.Effects, item => item.RecordType == MigrationCanonicalRecordType.ArOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed);
         Assert.Equal(2, executed.Value.Representations!.Count);
         Assert.Contains(executed.Value.Representations, item => item.Kind == MigrationEconomicRepresentationKind.FinanceOpenItem);
@@ -166,6 +167,15 @@ public sealed class MigrationArOpeningSqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.Equal(FinanceJournalStatus.Posted, evidence.RecognitionJournal.Status);
         Assert.Equal(openingDate, evidence.RecognitionJournal.PostingDate);
         Assert.Equal("migration-ar-opening.v1", evidence.RecognitionJournal.SourceContract);
+        Assert.Equal(evidence.OpenItem.RecognitionJournalId, evidence.RecognitionJournal.Id);
+        Assert.Equal(evidence.RecognitionJournal.Id, evidence.SourceEffect.JournalId);
+        Assert.Equal(evidence.OpenItem.SourceEvidenceId, evidence.SourceEffect.SourceEvidenceId);
+        Assert.Equal(evidence.OpenItem.SourceEvidenceVersion, evidence.SourceEffect.SourceEvidenceVersion);
+        Assert.Equal(2, evidence.RecognitionJournal.Lines.Count);
+        Assert.Equal(100m, evidence.RecognitionJournal.Lines.Sum(line => line.Debit));
+        Assert.Equal(100m, evidence.RecognitionJournal.Lines.Sum(line => line.Credit));
+        Assert.Equal(100m, evidence.RecognitionJournal.Lines.Sum(line => line.FunctionalDebit));
+        Assert.Equal(100m, evidence.RecognitionJournal.Lines.Sum(line => line.FunctionalCredit));
 
         var replay = await settlement.CreateMigrationArOpeningAsync(migrationContext, command with { IdempotencyKey = "ar-replay", RequestFingerprint = "ar-replay" });
         Assert.True(replay.Succeeded, replay.Code);
@@ -220,6 +230,7 @@ public sealed class MigrationArOpeningSqlServerSafetyTests(SqlServerSafetyFixtur
         await using var db = new FinanceDbContext(options, tenant);
         Assert.Equal(1, await db.OpenItems.CountAsync(item => item.SourceContract == "migration-ar-opening.v1" && item.CustomerId == customerId));
         Assert.Equal(1, await db.Journals.CountAsync(item => item.SourceContract == "migration-ar-opening.v1" && item.Status == FinanceJournalStatus.Posted));
+        Assert.Equal(1, await db.SourceEffects.CountAsync(item => item.SourceContract == "migration-ar-opening.v1"));
         Assert.Equal(4, await db.Allocations.CountAsync(item => item.OpenItemId == created.Value.Id));
     }
 

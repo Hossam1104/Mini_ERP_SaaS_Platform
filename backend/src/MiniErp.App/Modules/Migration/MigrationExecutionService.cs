@@ -18,6 +18,7 @@ namespace MiniErp.App.Modules.Migration;
 public sealed class MigrationExecutionService
 {
     public const string OperationId = "migration.execution.start";
+    public const string HistoricalFingerprintVersion = "migration-master-execution-v1";
     public const string FingerprintVersion = "migration-economic-execution-v2";
 
     private static readonly MigrationCanonicalRecordType[] ExecutionOrder =
@@ -136,7 +137,7 @@ public sealed class MigrationExecutionService
         var attempt = attempts.LastOrDefault(item => item.Operation == MigrationOperationKind.Execution);
         return attempt is null
             ? null
-            : await BuildResultAsync(requestContext, run, attempt, attempt.RequestFingerprint, attempt.SafeOutcomeCode ?? "execution_in_progress", tenant, cancellationToken);
+            : await BuildResultAsync(requestContext, run, attempt, attempt.RequestFingerprint, await ResolveFingerprintVersionAsync(tenant, run, intake, cancellationToken), attempt.SafeOutcomeCode ?? "execution_in_progress", tenant, cancellationToken);
     }
 
     private async Task<MigrationOperationResult<MigrationExecutionResult>> ExecuteCoreAsync(
@@ -187,7 +188,7 @@ public sealed class MigrationExecutionService
             return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_ar_execution_unavailable");
 
         var economicTypes = gate.Plan.Where(item => item.Staged.RecordType is MigrationCanonicalRecordType.InventoryOpening or MigrationCanonicalRecordType.ArOpening).Select(item => item.Staged.RecordType).Distinct().ToArray();
-        var fingerprint = ComputeFingerprint(run, intake, validation, dryRun, gate.Scope!, economicTypes);
+        var (fingerprintVersion, fingerprint) = ComputeFingerprint(run, intake, validation, dryRun, gate.Scope!, economicTypes);
         var existing = await foundationPersistence.FindIdempotencyAsync(tenant, MigrationOperationKind.Execution, idempotencyKey, cancellationToken);
         if (existing is not null && !string.Equals(existing.RequestFingerprint, fingerprint, StringComparison.Ordinal))
             return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_idempotency_conflict");
@@ -225,14 +226,14 @@ public sealed class MigrationExecutionService
         if (started.Kind == MigrationResultKind.Replayed && attempt.Outcome == MigrationAttemptOutcome.Pending)
         {
             var inProgressRun = await foundationPersistence.FindRunAsync(tenant, runId, cancellationToken) ?? run;
-            var inProgress = await BuildResultAsync(requestContext, inProgressRun, attempt, fingerprint, "migration_execution_in_progress", tenant, cancellationToken);
+            var inProgress = await BuildResultAsync(requestContext, inProgressRun, attempt, fingerprint, fingerprintVersion, "migration_execution_in_progress", tenant, cancellationToken);
             return MigrationOperationResult<MigrationExecutionResult>.Replay(inProgress);
         }
 
         if (attempt.Outcome != MigrationAttemptOutcome.Pending)
         {
             var replayRun = await foundationPersistence.FindRunAsync(tenant, runId, cancellationToken) ?? run;
-            var replayResult = await BuildResultAsync(requestContext, replayRun, attempt, fingerprint, attempt.SafeOutcomeCode ?? "execution_completed", tenant, cancellationToken);
+            var replayResult = await BuildResultAsync(requestContext, replayRun, attempt, fingerprint, fingerprintVersion, attempt.SafeOutcomeCode ?? "execution_completed", tenant, cancellationToken);
             return attempt.Outcome switch
             {
                 MigrationAttemptOutcome.UnknownOutcome => new MigrationOperationResult<MigrationExecutionResult>(MigrationResultKind.UnknownOutcome, attempt.SafeOutcomeCode ?? "migration_execution_outcome_unknown", replayResult, false),
@@ -296,7 +297,7 @@ public sealed class MigrationExecutionService
             var masterResult = await ownerCoordinator.ExecuteAsync(requestContext, tenant, attempt, group.Key, group.ToArray(), cancellationToken);
             var processed = new MigrationEconomicGroupResult(masterResult.Succeeded, masterResult.Code, masterResult.Unknown);
             if (!processed.Succeeded)
-                return await FinishGroupFailureAsync(requestContext, tenant, currentRun, attempt, processed, cancellationToken);
+                return await FinishGroupFailureAsync(requestContext, tenant, currentRun, attempt, processed, fingerprintVersion, cancellationToken);
         }
 
         if (economicPlan.Length > 0)
@@ -307,7 +308,7 @@ public sealed class MigrationExecutionService
                     ? await inventoryOpeningCoordinator!.ExecuteAsync(requestContext, tenant, run, attempt, group.ToArray(), cancellationToken)
                     : await arOpeningCoordinator!.ExecuteAsync(requestContext, tenant, run, attempt, group.ToArray(), cancellationToken);
                 if (!processed.Succeeded)
-                    return await FinishGroupFailureAsync(requestContext, tenant, currentRun, attempt, processed, cancellationToken);
+                    return await FinishGroupFailureAsync(requestContext, tenant, currentRun, attempt, processed, fingerprintVersion, cancellationToken);
             }
         }
 
@@ -324,7 +325,7 @@ public sealed class MigrationExecutionService
             MigrationAttemptOutcome.KnownFailure => "migration_execution_failed",
             _ => "migration_execution_outcome_unknown"
         };
-        return await FinishAsync(requestContext, tenant, currentRun, attempt, outcome, code, CancellationToken.None);
+        return await FinishAsync(requestContext, tenant, currentRun, attempt, outcome, code, fingerprintVersion, CancellationToken.None);
     }
 
     private async Task<MigrationOperationResult<MigrationExecutionResult>> FinishGroupFailureAsync(
@@ -333,15 +334,16 @@ public sealed class MigrationExecutionService
         MigrationRunRecord run,
         MigrationAttemptRecord attempt,
         MigrationEconomicGroupResult result,
+        string fingerprintVersion,
         CancellationToken cancellationToken)
     {
         var effects = await executionPersistence.ListEffectsAsync(tenant, run.RunId, attempt.AttemptId, CancellationToken.None);
         if (result.Unknown || effects.Any(item => item.Disposition is MigrationExecutionEffectDisposition.Started or MigrationExecutionEffectDisposition.Unknown))
-            return await FinishAsync(requestContext, tenant, run, attempt, MigrationAttemptOutcome.UnknownOutcome, result.Code, CancellationToken.None);
+            return await FinishAsync(requestContext, tenant, run, attempt, MigrationAttemptOutcome.UnknownOutcome, result.Code, fingerprintVersion, CancellationToken.None);
         var code = effects.Any(item => item.Disposition is MigrationExecutionEffectDisposition.Committed or MigrationExecutionEffectDisposition.PartialCompleted)
             ? "migration_execution_partially_completed"
             : result.Code;
-        return await FinishAsync(requestContext, tenant, run, attempt, MigrationAttemptOutcome.KnownFailure, code, CancellationToken.None);
+        return await FinishAsync(requestContext, tenant, run, attempt, MigrationAttemptOutcome.KnownFailure, code, fingerprintVersion, CancellationToken.None);
     }
 
     private async Task<MigrationOperationResult<MigrationExecutionResult>> FinishAsync(
@@ -351,6 +353,7 @@ public sealed class MigrationExecutionService
         MigrationAttemptRecord attempt,
         MigrationAttemptOutcome outcome,
         string code,
+        string fingerprintVersion,
         CancellationToken cancellationToken)
     {
         var stateToken = outcome == MigrationAttemptOutcome.UnknownOutcome ? CancellationToken.None : cancellationToken;
@@ -368,7 +371,7 @@ public sealed class MigrationExecutionService
         var transitioned = await foundation.TransitionRunAsync(requestContext, run.RunId, target, current.Version, stateToken);
         if (!transitioned.Succeeded || transitioned.Value is not { } completedRun)
             return MapExecutionFailure(transitioned);
-        var result = await BuildResultAsync(requestContext, completedRun, completedAttempt, attempt.RequestFingerprint, code, tenant, stateToken);
+        var result = await BuildResultAsync(requestContext, completedRun, completedAttempt, attempt.RequestFingerprint, fingerprintVersion, code, tenant, stateToken);
         return outcome == MigrationAttemptOutcome.Succeeded
             ? MigrationOperationResult<MigrationExecutionResult>.Success(result, code)
             : outcome == MigrationAttemptOutcome.KnownFailure
@@ -392,6 +395,7 @@ public sealed class MigrationExecutionService
         MigrationRunRecord run,
         MigrationAttemptRecord attempt,
         string fingerprint,
+        string fingerprintVersion,
         string code,
         TenantContext tenant,
         CancellationToken cancellationToken)
@@ -441,7 +445,7 @@ public sealed class MigrationExecutionService
                 arReconciliations = await arOpeningCoordinator.ReadReconciliationsAsync(requestContext, tenant, latestEffects, staged, cancellationToken);
             }
         }
-        return new MigrationExecutionResult(run.RunId, tenant.TenantId, attempt.AttemptId, FingerprintVersion, fingerprint, run.Status, attempt.Outcome, code, batches, effects, representations, reconciliations, arReconciliations);
+        return new MigrationExecutionResult(run.RunId, tenant.TenantId, attempt.AttemptId, fingerprintVersion, fingerprint, run.Status, attempt.Outcome, code, batches, effects, representations, reconciliations, arReconciliations);
     }
 
     private PlanGate BuildPlan(
@@ -528,7 +532,19 @@ public sealed class MigrationExecutionService
         }
     }
 
-    private static string ComputeFingerprint(MigrationRunRecord run, MigrationIntakeRecord intake, MigrationValidationSummary validation, MigrationDryRunPreview dryRun, TenantWorkScope scope, IReadOnlyList<MigrationCanonicalRecordType> economicTypes)
+    private async Task<string> ResolveFingerprintVersionAsync(TenantContext tenant, MigrationRunRecord run, MigrationIntakeRecord intake, CancellationToken cancellationToken)
+    {
+        var validation = await validationPersistence.FindLatestValidationAsync(tenant, run.RunId, cancellationToken);
+        var dryRun = await validationPersistence.FindLatestDryRunAsync(tenant, run.RunId, cancellationToken);
+        if (validation is null || dryRun is null)
+            return HistoricalFingerprintVersion;
+        var staged = await validationPersistence.ListStagedRecordsAsync(tenant, run.RunId, 0, int.MaxValue, cancellationToken);
+        return BuildPlan(run, intake, validation, dryRun, staged, tenant).Plan?.Any(item => item.Staged.RecordType == MigrationCanonicalRecordType.ArOpening) == true
+            ? FingerprintVersion
+            : HistoricalFingerprintVersion;
+    }
+
+    internal static (string Version, string Fingerprint) ComputeFingerprint(MigrationRunRecord run, MigrationIntakeRecord intake, MigrationValidationSummary validation, MigrationDryRunPreview dryRun, TenantWorkScope scope, IReadOnlyList<MigrationCanonicalRecordType> economicTypes)
     {
         var common = new[]
         {
@@ -547,13 +563,26 @@ public sealed class MigrationExecutionService
             ScopeValue(scope),
             "master-data-owner-import-v1"
         };
+        var version = economicTypes.Contains(MigrationCanonicalRecordType.ArOpening)
+            ? FingerprintVersion
+            : HistoricalFingerprintVersion;
         var economics = economicTypes.OrderBy(item => item).Select(item => item switch
         {
             MigrationCanonicalRecordType.InventoryOpening => "inventory-economic-opening-v1",
             MigrationCanonicalRecordType.ArOpening => "ar-economic-opening-v1",
             _ => item.ToString()
         });
-        return MigrationFingerprintEncoder.Compute(FingerprintVersion, [.. common, .. economics]);
+        string[] values = [.. common];
+        if (version == HistoricalFingerprintVersion)
+        {
+            if (economicTypes.Contains(MigrationCanonicalRecordType.InventoryOpening))
+                values = [.. common, "inventory-economic-opening-v1"];
+        }
+        else
+        {
+            values = [.. common, .. economics];
+        }
+        return (version, MigrationFingerprintEncoder.Compute(version, values));
     }
 
     private static string ScopeValue(TenantWorkScope scope) => scope.WarehouseId is { } warehouse ? $"Warehouse:{warehouse:D}" : scope.BranchId is { } branch ? $"Branch:{branch:D}" : scope.CompanyId is { } company ? $"Company:{company:D}" : $"Tenant:{scope.TenantId.Value:D}";

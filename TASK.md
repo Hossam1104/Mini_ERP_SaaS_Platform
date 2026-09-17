@@ -1,10 +1,10 @@
-## MESP-141 Slice 6 - AR Opening Economic Execution (17 September 2026)
+## MESP-141 Slice 6 - AR Opening Economic Execution (18 September 2026)
 
 **Slice 6 is activated by Issue #229 comment `5713617627`, with architecture authority in comment `5712571925`.** Issue #229 remains Open / Active / In Progress; Slices 1-5 are accepted and merged; Issue #230 remains Open / Not Activated.
 
 | Item | Status |
 |---|---|
-| Slice 6 implementation | Activated / in implementation / awaiting Sol acceptance |
+| Slice 6 implementation | Activated / remediation complete / awaiting Sol acceptance |
 | Bounded branch | `feat/mesp-141-ar-opening-economic-execution` |
 | Slice 6 scope | Finance-owned AR opening recognition and ordinary settlement compatibility |
 | GL/AP/Cash opening | **NOT AUTHORIZED** |
@@ -15,7 +15,7 @@
 
 The bounded implementation adds a distinct `migration-ar-opening.v1` Finance contract, canonical AR opening validation, Finance preflight and atomic open-item plus recognition-journal creation, deterministic cross-run identity, durable effect representations, partial/unknown outcome handling, AR reconciliation projection, and SQL Server LocalDB coverage. Migration does not write Finance tables or build journal lines. UI, frontend assets, BRD rewrite, production execution, reconciliation/sign-off, GL/AP/Cash opening, Golden E2E, and MESP-142 activation remain excluded. Stop after exact-head Draft PR CI and the GPT-5.6 Sol acceptance handoff; do not mark Ready or merge.
 
-Local validation: Release build `0 warnings / 0 errors`; disposable-LocalDB backend `1,378/1,378` with 0 failures/0 skips; Release CI-parity backend `1,276/1,276` with SQL safety filtered as in hosted CI; Angular `316/316`; Chromium `51/51`; eight EF contexts with no pending model changes; solution-wide NuGet scan clear; both npm audits pass at the hosted high threshold with the known 4/7 moderate advisories retained; and `git diff --check` clean. The initial frontend bundle remains `514.26 kB` with the existing 500 kB warning. Runtime is healthy on ports 5300/4300; no frontend/assets files changed.
+Final branch validation evidence is maintained in the live PR #252 handoff and exact-head CI. The initial frontend bundle remains `514.26 kB` with the existing 500 kB warning. No frontend/assets files changed.
 
 ## MESP-141 Slice 4 - post-merge lifecycle reconciliation (16 September 2026)
 

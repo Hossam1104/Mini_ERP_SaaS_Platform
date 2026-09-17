@@ -79,9 +79,20 @@ public sealed record FinanceArOpeningPreflightResult(
     DateOnly? DueDate,
     FinancePaymentTermSnapshotRecord? PaymentTerm);
 
+public sealed record FinanceSourceEffectRecord(
+    Guid Id,
+    Guid TenantId,
+    Guid CompanyId,
+    string SourceContract,
+    Guid SourceEvidenceId,
+    int SourceEvidenceVersion,
+    Guid JournalId,
+    DateTimeOffset CreatedAt);
+
 public sealed record FinanceMigrationArOpeningEvidence(
     FinanceOpenItemRecord OpenItem,
-    FinanceJournalRecord RecognitionJournal);
+    FinanceJournalRecord RecognitionJournal,
+    FinanceSourceEffectRecord SourceEffect);
 
 public sealed record FinanceSalesInvoiceCommand(
     Guid CompanyId,

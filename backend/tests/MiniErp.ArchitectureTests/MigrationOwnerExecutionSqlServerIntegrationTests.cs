@@ -48,6 +48,7 @@ public sealed class MigrationOwnerExecutionSqlServerSafetyTests
 
         Assert.True(result.Succeeded, result.Code);
         Assert.Equal(MigrationRunStatus.Completed, result.Value!.RunStatus);
+        Assert.Equal(MigrationExecutionService.HistoricalFingerprintVersion, result.Value.FingerprintVersion);
         Assert.Equal(MigrationAttemptOutcome.Succeeded, result.Value.AttemptOutcome);
         Assert.Equal(3, result.Value.Effects.Count(item => item.Disposition == MigrationExecutionEffectDisposition.Committed));
         Assert.All(result.Value.Batches, batch => Assert.Equal(MigrationExecutionBatchState.Completed, batch.State));
@@ -108,6 +109,49 @@ public sealed class MigrationOwnerExecutionSqlServerSafetyTests
         Assert.Empty(await fixture.Customers.ListCustomersAsync(tenantB));
         Assert.Empty(await fixture.Catalog.ListProductsAsync(tenantB));
         Assert.Null(await fixture.Gateway.ReadEvidenceAsync(otherRequest, result.Value.Effects[0].OwnerBatchId));
+    }
+
+    [Fact]
+    public async Task Sql_server_historical_v1_execution_replays_after_slice6_upgrade_without_new_attempt_or_owner_effect()
+    {
+        var fixture = await Fixture.CreateAsync(safety);
+        var (categoryId, unitId) = await fixture.CreateProductReferencesAsync();
+        var prepared = await fixture.PrepareAsync(categoryId, unitId);
+        var intake = (await fixture.Migration.FindIntakeAsync(fixture.Tenant, prepared.Run.RunId))!;
+        var validation = (await fixture.Migration.FindLatestValidationAsync(fixture.Tenant, prepared.Run.RunId))!;
+        var dryRun = (await fixture.Migration.FindLatestDryRunAsync(fixture.Tenant, prepared.Run.RunId))!;
+        var common = new[]
+        {
+            prepared.Run.RunId.ToString("D"),
+            prepared.Run.TenantId.Value.ToString("D"),
+            prepared.Run.Definition.DefinitionId,
+            prepared.Run.Definition.Version,
+            prepared.Run.SourceProfile.ProfileId,
+            prepared.Run.SourceProfile.ProfileVersion,
+            intake.Source.Sha256,
+            validation.ValidationResultId.ToString("D"),
+            validation.PackageHash,
+            dryRun.PreviewId.ToString("D"),
+            dryRun.AttemptId.ToString("D"),
+            dryRun.PackageHash,
+            $"Tenant:{prepared.Run.TenantId.Value:D}",
+            "master-data-owner-import-v1"
+        };
+        var historicalFingerprint = MigrationFingerprintEncoder.Compute(MigrationExecutionService.HistoricalFingerprintVersion, common);
+        var foundation = new MigrationFoundationService(fixture.Migration, new NoopAuditSink());
+        var historicalKey = "historical-v1-replay";
+        var started = await foundation.StartAttemptAsync(fixture.Request, prepared.Run.RunId, MigrationOperationKind.Execution, historicalKey, historicalFingerprint);
+        Assert.True(started.Succeeded, started.Code);
+        var completed = await foundation.RecordAttemptOutcomeAsync(fixture.Request, prepared.Run.RunId, started.Value!.AttemptId, MigrationAttemptOutcome.Succeeded, "historical_execution_completed", started.Value.Version);
+        Assert.True(completed.Succeeded, completed.Code);
+
+        var replay = await fixture.Execution.ExecuteAsync(fixture.Request, prepared.Run.RunId, historicalKey, prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.Replayed, replay.Kind);
+        Assert.Equal(MigrationExecutionService.HistoricalFingerprintVersion, replay.Value!.FingerprintVersion);
+        Assert.Equal(historicalFingerprint, replay.Value.Fingerprint);
+        Assert.Single(await fixture.Migration.ListAttemptsAsync(fixture.Tenant, prepared.Run.RunId), item => item.Operation == MigrationOperationKind.Execution);
+        Assert.Empty(await fixture.Migration.ListBatchesAsync(fixture.Tenant, prepared.Run.RunId, started.Value.AttemptId));
     }
 
     private static void AssertEffect(
