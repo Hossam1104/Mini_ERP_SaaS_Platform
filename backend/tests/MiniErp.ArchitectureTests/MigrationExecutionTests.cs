@@ -545,7 +545,6 @@ public sealed class MigrationExecutionTests
 
     [Theory]
     [InlineData(MigrationCanonicalRecordType.GlOpening)]
-    [InlineData(MigrationCanonicalRecordType.ApOpening)]
     [InlineData(MigrationCanonicalRecordType.CashBankOpening)]
     public async Task Unsupported_economic_opening_types_are_rejected_before_attempt_or_owner_effect(MigrationCanonicalRecordType type)
     {

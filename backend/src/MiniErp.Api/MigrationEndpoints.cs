@@ -379,7 +379,11 @@ public static class MigrationEndpoints
         value.OutcomeCode,
         value.Batches,
         value.Effects,
-        zeroEconomicEffects = true
+        value.Representations,
+        value.EconomicReconciliations,
+        value.ArEconomicReconciliations,
+        value.ApEconomicReconciliations,
+        zeroEconomicEffects = value.Representations is null or { Count: 0 }
     };
 
     private static object ToResponse(MigrationIntakeRecord record) => new

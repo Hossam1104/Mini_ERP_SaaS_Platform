@@ -192,7 +192,11 @@ public sealed record MigrationApOpeningPayload(
     Guid? ControlAccountId = null,
     decimal? Amount = null,
     string? CurrencyCode = null,
-    DateOnly? OpeningDate = null) : MigrationCanonicalPayload;
+    DateOnly? OpeningDate = null,
+    string? SourceReference = null,
+    DateOnly? DocumentDate = null,
+    DateOnly? DueDate = null,
+    Guid? PaymentTermId = null) : MigrationCanonicalPayload;
 
 public sealed record MigrationArOpeningPayload(
     Guid? CompanyId = null,
@@ -356,8 +360,8 @@ public static class MigrationCanonicalPackageParser
                     type,
                     payload,
                     JsonSerializer.Serialize(payload, payload.GetType(), Options),
-                    type == MigrationCanonicalRecordType.ArOpening
-                        && row.Payload.EnumerateObject().Any(item => string.Equals(item.Name, "controlAccountId", StringComparison.OrdinalIgnoreCase))));
+                    type is MigrationCanonicalRecordType.ArOpening or MigrationCanonicalRecordType.ApOpening
+                        && row.Payload.EnumerateObject().Any(item => string.Equals(item.Name, "controlAccountId", StringComparison.OrdinalIgnoreCase) && item.Value.ValueKind != JsonValueKind.Null)));
             }
 
             return new(package, rows, null, null);
@@ -680,11 +684,15 @@ public static class MigrationValidationRules
             case MigrationApOpeningPayload ap:
                 Required(findings, ap.CompanyId is null, "companyId");
                 Required(findings, ap.SupplierId is null, "supplierId");
-                Required(findings, ap.ControlAccountId is null, "controlAccountId");
+                Required(findings, string.IsNullOrWhiteSpace(ap.SourceReference), "sourceReference");
+                Required(findings, ap.DocumentDate is null, "documentDate");
                 Required(findings, ap.Amount is null, "amount");
                 Required(findings, string.IsNullOrWhiteSpace(ap.CurrencyCode), "currencyCode");
                 Required(findings, ap.OpeningDate is null, "openingDate");
-                if (ap.Amount < 0m) findings.Add((MigrationFindingCategory.FinancialBalance, "migration_amount_invalid", "Opening amount cannot be negative."));
+                Required(findings, ap.DueDate is null && ap.PaymentTermId is null, "dueDate or paymentTermId");
+                if (ap.Amount <= 0m) findings.Add((MigrationFindingCategory.FinancialBalance, "migration_amount_invalid", "Opening amount must be greater than zero."));
+                if (row.HasForbiddenControlAccountId)
+                    findings.Add((MigrationFindingCategory.FinancialBalance, "migration_ap_control_account_not_allowed", "AP opening control-account selection is owned by Finance and is not accepted in the migration payload."));
                 break;
             case MigrationArOpeningPayload ar:
                 Required(findings, ar.CompanyId is null, "companyId");
