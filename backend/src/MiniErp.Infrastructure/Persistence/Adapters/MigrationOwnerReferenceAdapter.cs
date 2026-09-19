@@ -135,6 +135,16 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
                         SourceReference = ar.SourceReference.Trim(),
                         Contract = "migration-ar-opening.v1"
                     })),
+                MigrationApOpeningPayload ap when ap.CompanyId is { } companyId
+                    && ap.SupplierId is { } supplierId
+                    && !string.IsNullOrWhiteSpace(ap.SourceReference)
+                    => MigrationBusinessIdentityResolution.Valid("ap-opening:" + JsonSerializer.Serialize(new
+                    {
+                        CompanyId = companyId,
+                        SupplierId = supplierId,
+                        SourceReference = ap.SourceReference.Trim(),
+                        Contract = "migration-ap-opening.v1"
+                    })),
                 MigrationProductPayload or MigrationSupplierPayload or MigrationCustomerPayload
                     => MigrationBusinessIdentityResolution.NotApplicable(),
                 _ => MigrationBusinessIdentityResolution.NotApplicable()
@@ -272,7 +282,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         {
             MigrationInventoryOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, Array.Empty<Guid?>()),
             MigrationGlOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, new[] { item.AccountId }),
-            MigrationApOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, new[] { item.ControlAccountId }),
+            MigrationApOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, Array.Empty<Guid?>()),
             MigrationArOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, Array.Empty<Guid?>()),
             MigrationCashBankOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, new[] { item.CashAccountId, item.ControlAccountId }),
             _ => (null, null, null, Array.Empty<Guid?>())
@@ -286,10 +296,10 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         if (companyOption is not { IsActive: true })
             return findings;
 
-        if (payload is MigrationInventoryOpeningPayload or MigrationArOpeningPayload
+        if (payload is MigrationInventoryOpeningPayload or MigrationArOpeningPayload or MigrationApOpeningPayload
             && !string.Equals(currency?.Trim(), companyOption.FunctionalCurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase))
             findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.Currency,
-                payload is MigrationArOpeningPayload ? "migration_ar_opening_currency_not_functional" : "migration_inventory_opening_currency_not_functional",
+                payload is MigrationArOpeningPayload ? "migration_ar_opening_currency_not_functional" : payload is MigrationApOpeningPayload ? "migration_ap_opening_currency_not_functional" : "migration_inventory_opening_currency_not_functional",
                 "Economic opening currency must equal the Company's Finance functional currency."));
 
         foreach (var accountId in accountIds.Where(item => item is not null).Select(item => item!.Value).Distinct())
@@ -297,7 +307,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
 
         if (openingDate is { } date)
             findings.Add(await PeriodAsync(context!, company, date, cancellationToken));
-        if (payload is not MigrationArOpeningPayload && companyOption is not null && !string.IsNullOrWhiteSpace(currency))
+        if (payload is not MigrationArOpeningPayload and not MigrationApOpeningPayload && companyOption is not null && !string.IsNullOrWhiteSpace(currency))
             findings.AddRange(await ExchangeRateAsync(requestContext.TenantContext!, currency, companyOption.FunctionalCurrencyCode, date: openingDate, cancellationToken));
         return findings;
     }

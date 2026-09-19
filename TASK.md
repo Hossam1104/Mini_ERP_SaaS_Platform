@@ -1,3 +1,50 @@
+## MESP-141 Slice 7 - AP Opening Economic Execution (19 September 2026)
+
+Slice 7 is implemented on `feat/mesp-141-ap-opening-economic-execution` from
+the verified `origin/main` baseline `d4e850af971baa9d448ee89d3948c7261be0788a`.
+Issue #229 activation comment `5735374291` is the current bounded authority.
+The implementation is **not accepted, not Ready, and not merged**; the next
+gate is independent GPT-5.6 Sol review of the exact pushed head and Draft PR.
+
+The bounded capability adds Finance-owned functional-currency `ApOpening`
+recognition under `migration-ap-opening.v1`: canonical AP source validation,
+Supplier/Company/reference and payment-term or due-date checks, deterministic
+identity, atomic payable open-item plus recognition journal/source-effect
+creation, replay/conflict and OutcomeUnknown handling, supplier-payment
+allocation compatibility, durable Finance representations, AP reconciliation
+projection, and provider-realistic SQL Server coverage. Migration does not
+write Finance tables or build journal lines. GL opening, Cash/Bank opening,
+multi-currency, production/cutover, reconciliation/sign-off completion,
+MESP-142, Jira mutation, and owner acceptance remain out of scope.
+
+Acceptance remediation evidence completed locally: Release solution build `0
+warnings / 0 errors`; the sanctioned disposable-LocalDB backend is
+`1,402/1,402` with `0` failures and `0` skips; focused migration/AP coverage
+is `56/56`; the Slice 7 SQL Server remediation set is `16/16`; the broader
+SQL Server safety suite is `119/119`; Angular is `316/316`; Chromium is
+`51/51`; solution-wide NuGet scanning is clear; all eight EF contexts report
+no pending migrations/model drift; and runtime health/OpenAPI/module/
+frontend/Finance-route probes returned HTTP 200 on API `5300` and frontend
+`4300`. The production npm audit retains the known `4` moderate baseline and
+the complete audit retains the known `7` moderate baseline; the production
+build succeeds with the existing `514.26 kB` initial-budget warning.
+`frontend/assets` is untouched. Metrics remain **24 / 26 = 92.3%** accepted
+fast-track capability completion and approximately **47% overall / 41%
+Procurement/P2P** production readiness.
+
+The bounded remediation adds provider-realistic AP cross-run concurrency,
+lost-response/read-back and incomplete-evidence proofs; the Inventory + AR +
+AP mixed package and zero-effect AP preflight-failure proof; historical,
+Inventory v1, AR v2, and AP fingerprint compatibility assertions; the AP
+due-date/payment-term, Supplier/Company authority, fiscal-period, posting
+rule/account/dimension, supplier-payment allocation, approval, and control
+overlap matrix; and ordinary supplier-payment full settlement/reversal proof.
+No production-code change was required.
+
+Stop after the authorized Draft PR, exact-head CI, and deterministic Issue #229
+handoff evidence. No Ready transition, merge, rebase, force-push, Jira write,
+MESP-142 activation, or next-slice work is authorized.
+
 ## MESP-141 Slice 6 - post-merge lifecycle reconciliation (18 September 2026)
 
 **Slice 6 was accepted by GPT-5.6 Sol and integrated through PR #252 using a normal merge commit.** Issue #229 remains Open / Active / In Progress; Slices 1-6 are accepted, merged, and lifecycle closed; Issue #230 remains Open / Not Activated.

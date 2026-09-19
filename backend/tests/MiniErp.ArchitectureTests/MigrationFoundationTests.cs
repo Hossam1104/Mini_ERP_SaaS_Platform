@@ -1019,7 +1019,7 @@ public sealed class MigrationFoundationTests
         foreach (var file in files)
         {
             var text = File.ReadAllText(file);
-            var economicCoordinator = Path.GetFileName(file) is "MigrationInventoryOpeningExecutionCoordinator.cs" or "MigrationArOpeningExecutionCoordinator.cs";
+            var economicCoordinator = Path.GetFileName(file) is "MigrationInventoryOpeningExecutionCoordinator.cs" or "MigrationArOpeningExecutionCoordinator.cs" or "MigrationApOpeningExecutionCoordinator.cs";
             if (economicCoordinator)
             {
                 // Slice 5's one bounded cross-owner orchestrator may use owner

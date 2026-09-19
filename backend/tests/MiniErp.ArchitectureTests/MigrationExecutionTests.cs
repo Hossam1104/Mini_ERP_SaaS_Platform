@@ -92,13 +92,21 @@ public sealed class MigrationExecutionTests
         var legacy = MigrationExecutionService.ComputeFingerprint(prepared.Run, intake, validation, dryRun, scope, []);
         var inventory = MigrationExecutionService.ComputeFingerprint(prepared.Run, intake, validation, dryRun, scope, [MigrationCanonicalRecordType.InventoryOpening]);
         var ar = MigrationExecutionService.ComputeFingerprint(prepared.Run, intake, validation, dryRun, scope, [MigrationCanonicalRecordType.ArOpening]);
+        var ap = MigrationExecutionService.ComputeFingerprint(prepared.Run, intake, validation, dryRun, scope, [MigrationCanonicalRecordType.ApOpening]);
+        var mixed = MigrationExecutionService.ComputeFingerprint(prepared.Run, intake, validation, dryRun, scope, [MigrationCanonicalRecordType.InventoryOpening, MigrationCanonicalRecordType.ArOpening, MigrationCanonicalRecordType.ApOpening]);
 
         Assert.Equal(MigrationExecutionService.HistoricalFingerprintVersion, legacy.Version);
         Assert.Equal(MigrationFingerprintEncoder.Compute(MigrationExecutionService.HistoricalFingerprintVersion, common), legacy.Fingerprint);
         Assert.Equal(MigrationExecutionService.HistoricalFingerprintVersion, inventory.Version);
         Assert.Equal(MigrationFingerprintEncoder.Compute(MigrationExecutionService.HistoricalFingerprintVersion, [.. common, "inventory-economic-opening-v1"]), inventory.Fingerprint);
         Assert.Equal(MigrationExecutionService.FingerprintVersion, ar.Version);
-        Assert.NotEqual(legacy.Fingerprint, ar.Fingerprint);
+        Assert.Equal(MigrationFingerprintEncoder.Compute(MigrationExecutionService.FingerprintVersion, [.. common, "ar-economic-opening-v1"]), ar.Fingerprint);
+        Assert.Equal(MigrationExecutionService.FingerprintVersion, ap.Version);
+        Assert.Equal(MigrationFingerprintEncoder.Compute(MigrationExecutionService.FingerprintVersion, [.. common, "ap-economic-opening-v1"]), ap.Fingerprint);
+        Assert.Equal(MigrationExecutionService.FingerprintVersion, mixed.Version);
+        Assert.Equal(MigrationFingerprintEncoder.Compute(MigrationExecutionService.FingerprintVersion, [.. common, "inventory-economic-opening-v1", "ap-economic-opening-v1", "ar-economic-opening-v1"]), mixed.Fingerprint);
+        Assert.NotEqual(ar.Fingerprint, ap.Fingerprint);
+        Assert.Equal(ap.Fingerprint, MigrationExecutionService.ComputeFingerprint(prepared.Run, intake, validation, dryRun, scope, [MigrationCanonicalRecordType.ApOpening]).Fingerprint);
     }
 
     [Theory]
@@ -545,7 +553,6 @@ public sealed class MigrationExecutionTests
 
     [Theory]
     [InlineData(MigrationCanonicalRecordType.GlOpening)]
-    [InlineData(MigrationCanonicalRecordType.ApOpening)]
     [InlineData(MigrationCanonicalRecordType.CashBankOpening)]
     public async Task Unsupported_economic_opening_types_are_rejected_before_attempt_or_owner_effect(MigrationCanonicalRecordType type)
     {

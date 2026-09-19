@@ -282,7 +282,7 @@ internal sealed partial class MigrationPersistence
             && item.RunId == record.RunId
             && item.AttemptId == record.AttemptId
             && item.Id == record.EffectId
-            && (item.RecordType == MigrationCanonicalRecordType.InventoryOpening || item.RecordType == MigrationCanonicalRecordType.ArOpening), cancellationToken);
+            && (item.RecordType == MigrationCanonicalRecordType.InventoryOpening || item.RecordType == MigrationCanonicalRecordType.ArOpening || item.RecordType == MigrationCanonicalRecordType.ApOpening), cancellationToken);
         if (parent is null)
             return MigrationPersistenceResult<MigrationEconomicRepresentationRecord>.Denied(MigrationPersistenceOutcome.InvalidReference, "migration_economic_representation_parent_invalid");
 

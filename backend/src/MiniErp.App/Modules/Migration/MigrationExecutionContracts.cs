@@ -91,7 +91,8 @@ public sealed record MigrationExecutionResult(
     IReadOnlyList<MigrationExecutionEffectRecord> Effects,
     IReadOnlyList<MigrationEconomicRepresentationRecord>? Representations = null,
     IReadOnlyList<MigrationEconomicReconciliationRecord>? EconomicReconciliations = null,
-    IReadOnlyList<MigrationArEconomicReconciliationRecord>? ArEconomicReconciliations = null);
+    IReadOnlyList<MigrationArEconomicReconciliationRecord>? ArEconomicReconciliations = null,
+    IReadOnlyList<MigrationApEconomicReconciliationRecord>? ApEconomicReconciliations = null);
 
 public sealed record MigrationEconomicRepresentationRecord(
     Guid Id,
@@ -137,6 +138,24 @@ public sealed record MigrationArEconomicReconciliationRecord(
     string? SafeCode,
     Guid CompanyId,
     Guid CustomerId,
+    string SourceReference,
+    decimal CanonicalAmount,
+    decimal? OpenItemOriginalAmount,
+    decimal? OutstandingAmount,
+    decimal? RecognitionJournalAmount,
+    decimal? AllocatedAmount,
+    string CurrencyCode,
+    Guid? OpenItemId,
+    Guid? JournalId,
+    DateTimeOffset ReconciledAt);
+
+public sealed record MigrationApEconomicReconciliationRecord(
+    Guid EffectId,
+    int SourceSequence,
+    string Status,
+    string? SafeCode,
+    Guid CompanyId,
+    Guid SupplierId,
     string SourceReference,
     decimal CanonicalAmount,
     decimal? OpenItemOriginalAmount,
