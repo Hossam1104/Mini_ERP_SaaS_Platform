@@ -10,33 +10,30 @@
 
 ---
 
-## CURRENT AUTHORITY - 19 September 2026 (MESP-141 SLICE 7 AP OPENING ECONOMIC EXECUTION MERGED)
+## CURRENT AUTHORITY - 19 September 2026 (MESP-141 SLICE 8 CASH/BANK OPENING ECONOMIC EXECUTION IMPLEMENTED; DRAFT HANDOFF)
 
-**MESP-141 Slice 7 - AP Opening Economic Execution was accepted by GPT-5.6 Sol and integrated through PR #254 using a normal merge commit.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-7 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
+**MESP-141 Slice 8 - Cash/Bank Opening Economic Execution is implemented on a bounded feature branch and awaiting independent GPT-5.6 Sol acceptance.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-7 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
 
 | Item | Value |
 |---|---|
-| Slice 7 activation | Issue #229 comment `5735374291` |
-| Slice 7 branch | `feat/mesp-141-ap-opening-economic-execution` |
-| Slice 7 accepted head | `ee0aad1a985693efe2961752919599923fc2ebe3` |
-| GPT-5.6 Sol acceptance | PR comment `5742202197`; Issue #229 comment `5742202475` |
-| Feature PR | **#254 MERGED** by normal merge commit |
-| Feature merge commit | `da16b183d09bc437f9fe03e8703f2c6d68635267`; parents are pre-merge `main` `d4e850af971baa9d448ee89d3948c7261be0788a` and accepted head above |
-| Accepted exact-head CI | Run `35443164338`: Repository Validation, Backend, and Frontend passed |
-| Post-feature main CI | Run `35445722836`: Repository Validation, Backend, and Frontend passed |
-| Slice 7 status | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
-| Architecture authority | Issue #229 comment `5735374291` |
+| Slice 8 activation | Issue #229 comment `5743854355` |
+| Slice 8 branch | `feat/mesp-141-cash-bank-opening-economic-execution` |
+| Slice 8 baseline | `origin/main` `1ff11550e2f491bc01cdbac357c37fe373322f50` |
+| Slice 8 status | **IMPLEMENTED / DRAFT HANDOFF / UNMERGED / NOT ACCEPTED** |
+| Draft PR | To be created from the pushed bounded head; live GitHub PR/head/CI is mutable authority |
+| Slices 1-7 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
 | Slices 1-7 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
 | Slice 6 | **AR OPENING ECONOMIC EXECUTION - IMPLEMENTED / ACCEPTED / MERGED / LIFECYCLE CLOSED** |
 | Slice 7 | **AP OPENING ECONOMIC EXECUTION - IMPLEMENTED / ACCEPTED / MERGED / LIFECYCLE CLOSED** |
+| Slice 8 | **CASH/BANK OPENING ECONOMIC EXECUTION - IMPLEMENTED / AWAITING SOL ACCEPTANCE** |
 | InventoryOpening | **IMPLEMENTED / ACCEPTED / MERGED** |
 | ArOpening | **IMPLEMENTED / ACCEPTED / MERGED** |
 | ApOpening | **IMPLEMENTED / ACCEPTED / MERGED** |
 | MESP-141 | **OPEN / ACTIVE / IN PROGRESS** |
 | Current phase | **Economic Openings** |
-| Next Slice | **NOT AUTHORIZED / NOT SELECTED BY THIS LIFECYCLE INTEGRATION** |
+| Next Slice after Slice 8 | **NOT AUTHORIZED / NOT SELECTED** |
 | Total final Slice count | **TBD** |
-| GL/Cash opening | **NOT AUTHORIZED** |
+| Residual GL opening | **NOT AUTHORIZED** |
 | Multi-currency opening | **NOT AUTHORIZED** |
 | Production economic migration | **NOT AUTHORIZED** |
 | Reconciliation/sign-off capability | **NOT AUTHORIZED** |
@@ -44,24 +41,29 @@
 | Golden E2E | **NOT STARTED** |
 | Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
 
-The bounded acceptance remediation closes the provider-realistic Slice 7 proof
-gaps for AP uncertainty/concurrency, mixed Inventory + AR + AP execution,
-fingerprint compatibility, AP Finance preflight, and complete ordinary
-supplier-payment settlement. It added focused evidence only; no production
-code correction was required. Local evidence is Release `0 warnings / 0
-errors`; the sanctioned disposable-LocalDB backend runner is `1,402/1,402`
-with `0` failures and `0` skips; focused migration/AP coverage is `56/56`,
-the Slice 7 SQL Server remediation set is `16/16`, the SQL Server safety suite
-is `119/119`, Angular is `316/316`, and Chromium is `51/51`. The production
-npm audit retains the known `4` moderate baseline and the full audit retains
-the known `7` moderate baseline; solution-wide NuGet scanning is clear and
-The eight EF contexts report no pending migrations/model drift. The exact
-accepted head entered `main` unchanged through the normal feature merge, and
-post-feature `main` CI passed. Governance reconciliation is limited to the
-deterministic current-state files and a governance-only protected-main PR.
-`frontend/assets` remains untouched.
+Slice 8 local evidence is Release `0 warnings / 0 errors`; the sanctioned
+disposable-LocalDB backend runner is `1,402/1,402` with `0` failures and `0`
+skips; focused Migration coverage is `172/172`; Angular is `316/316`; and
+Chromium is `51/51`. All eight EF contexts report no pending
+migrations/model drift; solution-wide NuGet scanning is clear; the
+production npm audit retains the known `4` moderate baseline and the full
+audit retains the known `7` moderate baseline; and the production build
+retains the existing `514.26 kB` initial-budget warning. Current live runtime
+listeners are not present after the canonical launcher stopped, so no current
+runtime acceptance is claimed. `frontend/assets` remains untouched.
 
-Slice 7 is bounded to Finance-owned functional-currency AP opening recognition, canonical supplier/document/opening/due-date or payment-term validation, deterministic Tenant+Company+Supplier+normalized SourceReference identity, atomic open-item/journal/source-effect lineage, settlement compatibility with `supplier-payment.v1`, overlap/integrity fail-closed checks, durable AP representations, and read-only AP reconciliation evidence. Migration owns canonical payload, validation, staging, execution lineage, and representations; it does not write Finance tables or build journal lines. GL opening, Cash/Bank opening, multi-currency opening expansion, applicable Finance control-account classification prerequisites, correction/reversal orchestration beyond existing bounded behavior, OutcomeUnknown governed recovery tooling, migration reconciliation/sign-off completion, production migration/execution, minimal onboarding UI, cutover/repeatability evidence, MESP-142, and Golden E2E remain incomplete, unauthorized, or not started as applicable. The feature lifecycle is closed; this governance reconciliation remains limited to current-state records and does not authorize any future Slice.
+Slice 8 is bounded to Finance-owned functional-currency Cash/Bank opening
+recognition for an already configured CashAccount, exact Company/Tenant and
+period/posting-rule authority, deterministic identity, one balanced opening
+journal/source effect, exact replay/conflict and OutcomeUnknown fail-closed
+semantics, durable evidence, ordinary settlement compatibility, and mixed
+economic-package preflight-before-effect. Migration owns canonical payload,
+validation, staging, execution lineage, and representations; it does not
+write Finance tables or build journal lines. Residual GL opening,
+multi-currency expansion, migration reconciliation/sign-off completion,
+production migration/execution, MESP-142, and any future Slice remain
+incomplete or unauthorized. The Draft PR must remain Open/Draft/Unmerged and
+not Ready pending independent GPT-5.6 Sol acceptance.
 
 ## HISTORICAL RECORD - earlier MESP-141 and project state
 

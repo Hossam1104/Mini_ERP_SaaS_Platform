@@ -212,10 +212,14 @@ public sealed record MigrationArOpeningPayload(
 public sealed record MigrationCashBankOpeningPayload(
     Guid? CompanyId = null,
     Guid? CashAccountId = null,
-    Guid? ControlAccountId = null,
+    string? SourceReference = null,
     decimal? Amount = null,
     string? CurrencyCode = null,
-    DateOnly? OpeningDate = null) : MigrationCanonicalPayload;
+    DateOnly? OpeningDate = null) : MigrationCanonicalPayload
+{
+    // Legacy parser visibility only; Finance owns the linked posting account.
+    public Guid? ControlAccountId { get; init; }
+}
 
 public sealed record MigrationReferencePayload(
     Guid? ReferenceId = null,
@@ -360,7 +364,7 @@ public static class MigrationCanonicalPackageParser
                     type,
                     payload,
                     JsonSerializer.Serialize(payload, payload.GetType(), Options),
-                    type is MigrationCanonicalRecordType.ArOpening or MigrationCanonicalRecordType.ApOpening
+                    type is (MigrationCanonicalRecordType.ArOpening or MigrationCanonicalRecordType.ApOpening or MigrationCanonicalRecordType.CashBankOpening)
                         && row.Payload.EnumerateObject().Any(item => string.Equals(item.Name, "controlAccountId", StringComparison.OrdinalIgnoreCase) && item.Value.ValueKind != JsonValueKind.Null)));
             }
 
@@ -710,11 +714,14 @@ public static class MigrationValidationRules
             case MigrationCashBankOpeningPayload cash:
                 Required(findings, cash.CompanyId is null, "companyId");
                 Required(findings, cash.CashAccountId is null, "cashAccountId");
-                Required(findings, cash.ControlAccountId is null, "controlAccountId");
+                Required(findings, string.IsNullOrWhiteSpace(cash.SourceReference), "sourceReference");
                 Required(findings, cash.Amount is null, "amount");
                 Required(findings, string.IsNullOrWhiteSpace(cash.CurrencyCode), "currencyCode");
                 Required(findings, cash.OpeningDate is null, "openingDate");
                 if (cash.Amount < 0m) findings.Add((MigrationFindingCategory.FinancialBalance, "migration_amount_invalid", "Opening amount cannot be negative."));
+                if (cash.Amount == 0m) findings.Add((MigrationFindingCategory.FinancialBalance, "migration_cash_bank_opening_zero_amount", "Opening amount must be positive; zero does not create an economic effect."));
+                if (row.HasForbiddenControlAccountId || cash.ControlAccountId is not null)
+                    findings.Add((MigrationFindingCategory.FinancialBalance, "migration_cash_bank_control_account_not_allowed", "Cash/Bank opening control-account selection is owned by Finance and is not accepted in the migration payload."));
                 break;
             case MigrationReferencePayload reference:
                 Required(findings, reference.ReferenceId is null && string.IsNullOrWhiteSpace(reference.Code), "reference");

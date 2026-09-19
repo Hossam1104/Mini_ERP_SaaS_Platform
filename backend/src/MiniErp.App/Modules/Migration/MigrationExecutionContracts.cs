@@ -40,7 +40,9 @@ public enum MigrationEconomicRepresentationKind
     InventoryValuationEvent = 4,
     InventoryFinanceHandoff = 5,
     FinanceJournal = 6,
-    FinanceOpenItem = 7
+    FinanceOpenItem = 7,
+    FinanceSourceEffect = 8,
+    FinanceCashAccount = 9
 }
 
 public sealed record MigrationExecutionBatchRecord(
@@ -92,7 +94,8 @@ public sealed record MigrationExecutionResult(
     IReadOnlyList<MigrationEconomicRepresentationRecord>? Representations = null,
     IReadOnlyList<MigrationEconomicReconciliationRecord>? EconomicReconciliations = null,
     IReadOnlyList<MigrationArEconomicReconciliationRecord>? ArEconomicReconciliations = null,
-    IReadOnlyList<MigrationApEconomicReconciliationRecord>? ApEconomicReconciliations = null);
+    IReadOnlyList<MigrationApEconomicReconciliationRecord>? ApEconomicReconciliations = null,
+    IReadOnlyList<MigrationCashBankEconomicReconciliationRecord>? CashBankEconomicReconciliations = null);
 
 public sealed record MigrationEconomicRepresentationRecord(
     Guid Id,
@@ -165,6 +168,23 @@ public sealed record MigrationApEconomicReconciliationRecord(
     string CurrencyCode,
     Guid? OpenItemId,
     Guid? JournalId,
+    DateTimeOffset ReconciledAt);
+
+public sealed record MigrationCashBankEconomicReconciliationRecord(
+    Guid EffectId,
+    int SourceSequence,
+    string Status,
+    string? SafeCode,
+    Guid CompanyId,
+    Guid CashAccountId,
+    Guid LinkedAccountId,
+    string SourceReference,
+    decimal CanonicalAmount,
+    decimal? PostedAmount,
+    string CurrencyCode,
+    DateOnly OpeningDate,
+    Guid? JournalId,
+    Guid? SourceEffectId,
     DateTimeOffset ReconciledAt);
 
 public sealed record CreateMigrationEconomicRepresentationCommand(MigrationEconomicRepresentationRecord Representation);
