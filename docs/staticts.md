@@ -1,20 +1,21 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 19 September 2026 (MESP-141 Slice 7 AP Opening Economic Execution acceptance remediation handoff)
+**Last Updated:** 19 September 2026 (MESP-141 Slice 7 accepted/merged; governance reconciliation)
 
-## Current execution snapshot - 19 September 2026 (MESP-141 Slice 7 AP Opening Economic Execution implementation)
+## Current execution snapshot - 19 September 2026 (MESP-141 Slice 7 AP Opening Economic Execution accepted/merged)
 
-**MESP-141 Slice 7 - AP Opening Economic Execution is implemented on a bounded feature branch and awaits independent GPT-5.6 Sol review.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-6 are accepted/merged/lifecycle closed; Slice 7 is not yet accepted or merged. MESP-142 remains OPEN / NOT ACTIVATED.
+**MESP-141 Slice 7 - AP Opening Economic Execution was accepted by GPT-5.6 Sol and merged through PR #254 using a normal merge commit.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-7 are accepted/merged/lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
 
 MESP-141 internal progress:
 
-- 6 accepted / merged slices; Slice 7 implementation handoff pending acceptance
-- Slice 7: AP Opening Economic Execution implemented / unaccepted / unmerged
+- 7 accepted / merged slices; Slice 7 lifecycle closed
+- Slice 7: AP Opening Economic Execution implemented / accepted / merged / lifecycle closed
 - Current phase: Economic Openings
-- Completed economic opening types: InventoryOpening; ArOpening
-- AP opening type: implemented on bounded Draft branch; pending Sol acceptance
+- Completed economic opening types: InventoryOpening; ArOpening; ApOpening
+- AP opening type: implemented / accepted / merged
 - GL/Cash opening, multi-currency, production migration, and reconciliation/sign-off: NOT AUTHORIZED
 - Validation: Release `0 warnings / 0 errors`; sanctioned disposable-LocalDB backend `1,402/1,402` with `0` failures / `0` skips; focused migration/AP coverage `56/56`; Slice 7 SQL Server remediation `16/16`; broader SQL Server safety `119/119`; Angular `316/316`; Chromium `51/51`; eight EF contexts clear of pending migrations/model drift; solution-wide NuGet scan clear; runtime API/frontend probes HTTP 200; existing `514.26 kB` initial-budget warning retained
+- Merge evidence: accepted head `ee0aad1a985693efe2961752919599923fc2ebe3`; feature PR #254 merged as `da16b183d09bc437f9fe03e8703f2c6d68635267`; post-feature `main` CI run `35445722836` passed Repository Validation, Backend, and Frontend
 
 The bounded Slice 7 scope covers Finance-owned `migration-ap-opening.v1`
 functional-currency recognition, canonical Supplier/Company/document/opening/
@@ -28,9 +29,9 @@ owner-managed assets were used; `frontend/assets` is untouched.
 Metrics are unchanged: accepted fast-track capability completion **24 / 26 =
 92.3%**; production readiness approximately **47% overall / 41% Procurement/P2P**.
 
-### Progress history - 19 September 2026 (MESP-141 Slice 7 acceptance remediation handoff)
+### Progress history - 19 September 2026 (MESP-141 Slice 7 accepted/merged lifecycle)
 
-Slice 7 was implemented from verified `origin/main` `d4e850af971baa9d448ee89d3948c7261be0788a` under Issue #229 activation comment `5735374291`, then bounded acceptance remediation closed the six Sol proof gaps without a production-code change. Provider-realistic AP concurrency/evidence, mixed Inventory + AR + AP execution and zero-effect failure, fingerprint compatibility, AP preflight matrix, and full ordinary supplier-payment settlement are covered. The sanctioned disposable-LocalDB backend is `1,402/1,402`; focused migration/AP coverage is `56/56`; the Slice 7 SQL Server set is `16/16`; Angular is `316/316`; Chromium is `51/51`; NuGet is clear; eight EF contexts have no pending migrations/model drift; and runtime probes on API `5300` / frontend `4300` returned HTTP 200. The exact feature head, Draft PR, and hosted CI remain live authority after the normal feature-branch push. No capability or readiness percentage changed. No Ready transition, merge, Jira mutation, MESP-142 activation, production execution, or next-slice work is authorized pending independent GPT-5.6 Sol review.
+Slice 7 was implemented from verified `origin/main` `d4e850af971baa9d448ee89d3948c7261be0788a` under Issue #229 activation comment `5735374291`, then bounded acceptance remediation closed the six Sol proof gaps without a production-code change. GPT-5.6 Sol accepted exact head `ee0aad1a985693efe2961752919599923fc2ebe3`; PR #254 merged normally as `da16b183d09bc437f9fe03e8703f2c6d68635267`; and post-feature `main` CI run `35445722836` passed Repository Validation, Backend, and Frontend. Provider-realistic AP concurrency/evidence, mixed Inventory + AR + AP execution and zero-effect failure, fingerprint compatibility, AP preflight matrix, and full ordinary supplier-payment settlement are covered. The sanctioned disposable-LocalDB backend is `1,402/1,402`; focused migration/AP coverage is `56/56`; the Slice 7 SQL Server set is `16/16`; Angular is `316/316`; Chromium is `51/51`; NuGet is clear; eight EF contexts have no pending migrations/model drift; and runtime probes on API `5300` / frontend `4300` returned HTTP 200. No capability or readiness percentage changed. Governance reconciliation is limited to the three tracked current-state files; no next-slice work, Jira mutation, MESP-142 activation, production execution, or reconciliation/sign-off implementation is authorized.
 
 ## Current execution snapshot - 18 September 2026 (MESP-141 Slice 6 accepted/merged; post-merge governance reconciliation)
 
