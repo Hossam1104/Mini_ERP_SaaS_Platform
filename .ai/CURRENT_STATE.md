@@ -10,7 +10,7 @@
 
 ---
 
-## CURRENT AUTHORITY - 19 September 2026 (MESP-141 SLICE 8 CASH/BANK OPENING ECONOMIC EXECUTION IMPLEMENTED; DRAFT HANDOFF)
+## CURRENT AUTHORITY - 20 September 2026 (MESP-141 SLICE 8 CASH/BANK OPENING ECONOMIC EXECUTION IMPLEMENTED; DRAFT HANDOFF)
 
 **MESP-141 Slice 8 - Cash/Bank Opening Economic Execution is implemented on a bounded feature branch and awaiting independent GPT-5.6 Sol acceptance.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-7 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
 
@@ -42,15 +42,19 @@
 | Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
 
 Slice 8 local evidence is Release `0 warnings / 0 errors`; the sanctioned
-disposable-LocalDB backend runner is `1,402/1,402` with `0` failures and `0`
-skips; focused Migration coverage is `172/172`; Angular is `316/316`; and
-Chromium is `51/51`. All eight EF contexts report no pending
-migrations/model drift; solution-wide NuGet scanning is clear; the
-production npm audit retains the known `4` moderate baseline and the full
-audit retains the known `7` moderate baseline; and the production build
-retains the existing `514.26 kB` initial-budget warning. Current live runtime
-listeners are not present after the canonical launcher stopped, so no current
-runtime acceptance is claimed. `frontend/assets` remains untouched.
+disposable-LocalDB backend runner is `1,413/1,413` with `0` failures and `0`
+skips; the focused Slice 8/related Migration correction set is `66/66` (the
+previous broader Migration baseline remains `172/172`); Angular is `316/316`;
+and Chromium remains `51/51` from the unchanged frontend baseline. The
+provider-safe SQLite read correction was exercised through the actual runtime:
+API health/OpenAPI, frontend root/main.js, development bypass, context switch,
+and authenticated execution read all returned HTTP 200. Synthetic isolated run
+`5972c1db-8b05-45e1-aacf-e8cdd1347950` returned one serialized
+`cashBankEconomicReconciliations` row. This is runtime/serialization evidence
+only, not owner acceptance or production execution. The known EF, NuGet, npm
+audit, and `514.26 kB` production-budget baselines remain unchanged;
+`frontend/assets` remains untouched. The isolated runtime uses
+`.runtime\s8-r7-runtime-20260919` and is left running for inspection.
 
 Slice 8 is bounded to Finance-owned functional-currency Cash/Bank opening
 recognition for an already configured CashAccount, exact Company/Tenant and

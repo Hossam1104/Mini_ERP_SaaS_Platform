@@ -1,4 +1,4 @@
-## MESP-141 Slice 8 - Cash/Bank Opening Economic Execution implementation handoff (19 September 2026)
+## MESP-141 Slice 8 - Cash/Bank Opening Economic Execution implementation handoff (20 September 2026)
 
 Slice 8 was activated by Issue #229 comment `5743854355` from verified
 `origin/main` baseline `1ff11550e2f491bc01cdbac357c37fe373322f50`. The bounded
@@ -22,13 +22,17 @@ migration/cutover, MESP-142, and any future Slice remain out of scope and
 unauthorized.
 
 Local evidence is Release `0 warnings / 0 errors`; official disposable-
-LocalDB backend `1,402/1,402` with `0` failures and `0` skips; focused
-Migration `172/172`; Angular `316/316`; Chromium `51/51`; eight EF contexts
-with no pending migrations/model drift; NuGet scan clear; known npm audit
-baseline `4` moderate production / `7` full tree; and production build
-`514.26 kB` initial bundle with the existing budget warning. Current runtime
-listeners are not present after the canonical launcher stopped, so no live
-runtime acceptance is claimed. `frontend/assets` is untouched. Metrics remain
+LocalDB backend `1,413/1,413` with `0` failures and `0` skips; focused Slice 8
+and related Migration correction set `66/66`; Angular `316/316`; Chromium
+`51/51` from the unchanged frontend baseline; eight EF contexts with no
+pending migrations/model drift; NuGet scan clear; known npm audit baseline
+`4` moderate production / `7` full tree; and production build `514.26 kB`
+initial bundle with the existing budget warning. The isolated runtime on API
+`5300` and frontend `4300` returned HTTP 200 for health, OpenAPI, frontend,
+development bypass, context switch, and an authenticated synthetic execution
+read; the response serialized one `cashBankEconomicReconciliations` row.
+This is runtime/serialization evidence only, not owner acceptance or
+production execution. `frontend/assets` is untouched. Metrics remain
 **24 / 26 = 92.3%**, approximately **47% overall** and **41% Procurement/P2P**.
 
 Stop after pushing the bounded Draft PR, verifying exact-head hosted CI, and
