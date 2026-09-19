@@ -17,12 +17,29 @@ write Finance tables or build journal lines. GL opening, Cash/Bank opening,
 multi-currency, production/cutover, reconciliation/sign-off completion,
 MESP-142, Jira mutation, and owner acceptance remain out of scope.
 
-Validation completed locally: Release solution build `0 warnings / 0 errors`,
-full disposable-LocalDB backend `1,394/1,394` with `0` failures and `0` skips,
-AP SQL safety `1/1`, focused migration/AP regression `46/46`, and
-`git diff --check` clean. Metrics remain **24 / 26 = 92.3%** accepted
+Acceptance remediation evidence completed locally: Release solution build `0
+warnings / 0 errors`; the sanctioned disposable-LocalDB backend is
+`1,402/1,402` with `0` failures and `0` skips; focused migration/AP coverage
+is `56/56`; the Slice 7 SQL Server remediation set is `16/16`; the broader
+SQL Server safety suite is `119/119`; Angular is `316/316`; Chromium is
+`51/51`; solution-wide NuGet scanning is clear; all eight EF contexts report
+no pending migrations/model drift; and runtime health/OpenAPI/module/
+frontend/Finance-route probes returned HTTP 200 on API `5300` and frontend
+`4300`. The production npm audit retains the known `4` moderate baseline and
+the complete audit retains the known `7` moderate baseline; the production
+build succeeds with the existing `514.26 kB` initial-budget warning.
+`frontend/assets` is untouched. Metrics remain **24 / 26 = 92.3%** accepted
 fast-track capability completion and approximately **47% overall / 41%
-Procurement/P2P** production readiness. `frontend/assets` is untouched.
+Procurement/P2P** production readiness.
+
+The bounded remediation adds provider-realistic AP cross-run concurrency,
+lost-response/read-back and incomplete-evidence proofs; the Inventory + AR +
+AP mixed package and zero-effect AP preflight-failure proof; historical,
+Inventory v1, AR v2, and AP fingerprint compatibility assertions; the AP
+due-date/payment-term, Supplier/Company authority, fiscal-period, posting
+rule/account/dimension, supplier-payment allocation, approval, and control
+overlap matrix; and ordinary supplier-payment full settlement/reversal proof.
+No production-code change was required.
 
 Stop after the authorized Draft PR, exact-head CI, and deterministic Issue #229
 handoff evidence. No Ready transition, merge, rebase, force-push, Jira write,

@@ -38,6 +38,21 @@
 | Golden E2E | **NOT STARTED** |
 | Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
 
+The bounded acceptance remediation closes the provider-realistic Slice 7 proof
+gaps for AP uncertainty/concurrency, mixed Inventory + AR + AP execution,
+fingerprint compatibility, AP Finance preflight, and complete ordinary
+supplier-payment settlement. It added focused evidence only; no production
+code correction was required. Local evidence is Release `0 warnings / 0
+errors`; the sanctioned disposable-LocalDB backend runner is `1,402/1,402`
+with `0` failures and `0` skips; focused migration/AP coverage is `56/56`,
+the Slice 7 SQL Server remediation set is `16/16`, the SQL Server safety suite
+is `119/119`, Angular is `316/316`, and Chromium is `51/51`. The production
+npm audit retains the known `4` moderate baseline and the full audit retains
+the known `7` moderate baseline; solution-wide NuGet scanning is clear and
+the eight EF contexts report no pending migrations/model drift. The exact
+feature head and hosted checks remain live GitHub authority after the normal
+feature-branch push. `frontend/assets` remains untouched.
+
 Slice 7 is bounded to Finance-owned functional-currency AP opening recognition, canonical supplier/document/opening/due-date or payment-term validation, deterministic Tenant+Company+Supplier+normalized SourceReference identity, atomic open-item/journal/source-effect lineage, settlement compatibility with `supplier-payment.v1`, overlap/integrity fail-closed checks, durable AP representations, and read-only AP reconciliation evidence. Migration owns canonical payload, validation, staging, execution lineage, and representations; it does not write Finance tables or build journal lines. GL opening, Cash/Bank opening, multi-currency opening expansion, applicable Finance control-account classification prerequisites, correction/reversal orchestration beyond existing bounded behavior, OutcomeUnknown governed recovery tooling, migration reconciliation/sign-off completion, production migration/execution, minimal onboarding UI, cutover/repeatability evidence, MESP-142, and Golden E2E remain incomplete, unauthorized, or not started as applicable. The Draft PR and exact-head CI are mutable live GitHub authority; this file records the bounded handoff state only.
 
 ## HISTORICAL RECORD - earlier MESP-141 and project state

@@ -152,12 +152,24 @@ public sealed class MigrationApOpeningSqlServerSafetyTests(SqlServerSafetyFixtur
         var cash = await settlement.CreateCashAccountAsync(settlementContext, new FinanceCashAccountCommand(companyId, "AP-CASH", "AP cash", null, FinanceCashAccountKind.Bank, "SAR", cashAccount.Value.Id, null, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), null, "ap-cash", "ap-cash"));
         Assert.True(method.Succeeded, method.Code);
         Assert.True(cash.Succeeded, cash.Code);
-        var payment = await PostPaymentAsync(settlement, settlementContext, companyId, supplierId, cash.Value!.Id, method.Value!.Id, 40m, "AP-PAYMENT-1");
+        var payment = await PostPaymentAsync(settlement, settlementContext, companyId, supplierId, cash.Value!.Id, method.Value!.Id, 100m, "AP-PAYMENT-1");
         var allocation = await settlement.CreateAllocationAsync(settlementContext, new FinanceAllocationCommand(payment.Id, created.Value.Id, 40m, openingDate, "partial", Guid.NewGuid(), "ap-allocation-1", "ap-allocation-1"));
         Assert.True(allocation.Succeeded, allocation.Code);
         var partial = Assert.Single(await settlement.GetAgingAsync(readContext, new FinanceAgingQuery(companyId, new DateOnly(2026, 3, 1), FinanceOpenItemKind.Payable, supplierId)));
         Assert.Equal(FinanceOpenItemStatus.PartiallySettled, partial.Status);
         Assert.Equal(60m, partial.OutstandingAmount);
+
+        var remainder = await settlement.CreateAllocationAsync(settlementContext, new FinanceAllocationCommand(payment.Id, created.Value.Id, 60m, openingDate, "settle", Guid.NewGuid(), "ap-allocation-full", "ap-allocation-full"));
+        Assert.True(remainder.Succeeded, remainder.Code);
+        var settled = Assert.Single(await settlement.GetAgingAsync(readContext, new FinanceAgingQuery(companyId, new DateOnly(2026, 3, 1), FinanceOpenItemKind.Payable, supplierId)));
+        Assert.Equal(FinanceOpenItemStatus.Settled, settled.Status);
+        Assert.Equal(0m, settled.OutstandingAmount);
+
+        var reopenedByFullReversal = await settlement.ReverseAllocationAsync(settlementContext, new FinanceAllocationReversalCommand(remainder.Value!.Id, remainder.Value.Version, "reopen partial", Guid.NewGuid(), "ap-allocation-full-reverse", "ap-allocation-full-reverse"));
+        Assert.True(reopenedByFullReversal.Succeeded, reopenedByFullReversal.Code);
+        var partiallyReopened = Assert.Single(await settlement.GetAgingAsync(readContext, new FinanceAgingQuery(companyId, DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1), FinanceOpenItemKind.Payable, supplierId)));
+        Assert.Equal(FinanceOpenItemStatus.PartiallySettled, partiallyReopened.Status);
+        Assert.Equal(60m, partiallyReopened.OutstandingAmount);
 
         var reversed = await settlement.ReverseAllocationAsync(settlementContext, new FinanceAllocationReversalCommand(allocation.Value!.Id, allocation.Value.Version, "reverse", Guid.NewGuid(), "ap-allocation-reverse", "ap-allocation-reverse"));
         Assert.True(reversed.Succeeded, reversed.Code);
