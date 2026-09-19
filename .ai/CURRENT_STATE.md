@@ -20,7 +20,7 @@
 | Slice 8 branch | `feat/mesp-141-cash-bank-opening-economic-execution` |
 | Slice 8 baseline | `origin/main` `1ff11550e2f491bc01cdbac357c37fe373322f50` |
 | Slice 8 status | **IMPLEMENTED / DRAFT HANDOFF / UNMERGED / NOT ACCEPTED** |
-| Draft PR | To be created from the pushed bounded head; live GitHub PR/head/CI is mutable authority |
+| Draft PR | **#256 OPEN / DRAFT / UNMERGED / NOT READY**; live GitHub PR/head/CI is mutable authority |
 | Slices 1-7 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
 | Slices 1-7 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
 | Slice 6 | **AR OPENING ECONOMIC EXECUTION - IMPLEMENTED / ACCEPTED / MERGED / LIFECYCLE CLOSED** |
