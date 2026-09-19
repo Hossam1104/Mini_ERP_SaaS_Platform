@@ -84,25 +84,33 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
     [InlineData("source")]
     [InlineData("journal")]
     [InlineData("open-item")]
-    public async Task Sql_server_incomplete_ap_owner_evidence_never_reads_as_committed(string missing)
+    public async Task Sql_server_incomplete_ap_owner_evidence_during_confirmation_is_unknown_and_non_replayable(string missing)
     {
         await using var fixture = await ArSqlFixture.CreateAsync(safety);
-        var prepared = await fixture.PrepareApAsync($"AP-INCOMPLETE-{missing}", 100m);
-        var created = await fixture.NewApExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, $"ap-incomplete-{missing}", prepared.Run.Version);
-        Assert.True(created.Succeeded, created.Code);
-
-        await using (var db = new FinanceDbContext(fixture.FinanceOptions, fixture.Tenant))
+        var sourceReference = $"AP-INCOMPLETE-{missing}";
+        var proxy = new FaultingFinancePersistence(fixture.Settlement)
         {
-            if (missing == "source")
-                db.SourceEffects.RemoveRange(await db.SourceEffects.Where(item => item.CompanyId == fixture.CompanyId && item.SourceContract == "migration-ap-opening.v1").ToListAsync());
-            else if (missing == "journal")
-                db.Journals.RemoveRange(await db.Journals.Where(item => item.CompanyId == fixture.CompanyId && item.SourceContract == "migration-ap-opening.v1").ToListAsync());
-            else
-                db.OpenItems.RemoveRange(await db.OpenItems.Where(item => item.CompanyId == fixture.CompanyId && item.SourceContract == "migration-ap-opening.v1").ToListAsync());
-            await db.SaveChangesAsync();
-        }
+            AfterApCreate = _ => fixture.RemoveApEvidenceAsync(missing)
+        };
+        var prepared = await fixture.PrepareApAsync(sourceReference, 100m);
 
-        Assert.Null(await fixture.Settlement.ReadMigrationApOpeningAsync(fixture.FinanceContext, fixture.ApCommand($"AP-INCOMPLETE-{missing}", 100m)));
+        var first = await fixture.NewApExecution(proxy).ExecuteAsync(fixture.Request, prepared.Run.RunId, $"ap-incomplete-{missing}-a", prepared.Run.Version);
+        var sameKey = await fixture.NewApExecution(proxy).ExecuteAsync(fixture.Request, prepared.Run.RunId, $"ap-incomplete-{missing}-a", prepared.Run.Version);
+        var differentKey = await fixture.NewApExecution(proxy).ExecuteAsync(fixture.Request, prepared.Run.RunId, $"ap-incomplete-{missing}-b", prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.UnknownOutcome, first.Kind);
+        Assert.Equal("finance_ap_opening_evidence_unavailable", first.Code);
+        Assert.NotNull(first.Value);
+        Assert.Equal(MigrationRunStatus.OutcomeUnknown, first.Value!.RunStatus);
+        Assert.Equal(MigrationAttemptOutcome.UnknownOutcome, first.Value.AttemptOutcome);
+        Assert.Equal(MigrationExecutionEffectDisposition.Unknown, Assert.Single(first.Value.Effects).Disposition);
+        Assert.Equal("finance_ap_opening_evidence_unavailable", Assert.Single(first.Value.Effects).SafeCode);
+        Assert.Equal(MigrationResultKind.UnknownOutcome, sameKey.Kind);
+        Assert.Equal(MigrationResultKind.Rejected, differentKey.Kind);
+        Assert.Equal("migration_run_requires_reconciliation", differentKey.Code);
+        Assert.Equal(1, proxy.ApCreateCalls);
+        Assert.Equal(MigrationRunStatus.OutcomeUnknown, (await fixture.Migration.FindRunAsync(fixture.Tenant, prepared.Run.RunId))!.Status);
+        await fixture.AssertIncompleteApEvidenceAsync(missing);
     }
 
     [Fact]
@@ -431,20 +439,27 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
     }
 
     [Fact]
-    public async Task Sql_server_mixed_inventory_ar_and_ap_preflight_failure_has_zero_economic_effect()
+    public async Task Sql_server_mixed_inventory_ar_and_ap_ap_preflight_failure_has_zero_economic_effect()
     {
         await using var fixture = await ArSqlFixture.CreateAsync(safety);
-        await fixture.DisableArAccountAsync();
-        var prepared = await fixture.PrepareMixedAsync("AR-MIXED-BLOCKED", 100m);
+        const string sourceReference = "AR-MIXED-AP-BLOCKED";
+        await fixture.DisableApAccountAsync();
+        var inventoryPreflight = await fixture.Finance.PreflightInventoryOpeningAsync(fixture.FinanceContext, fixture.CompanyId, new DateOnly(2026, 1, 15));
+        var arPreflight = await fixture.Settlement.PreflightMigrationArOpeningAsync(fixture.FinanceContext, fixture.Command(sourceReference, 100m));
+        var apPreflight = await fixture.Settlement.PreflightMigrationApOpeningAsync(fixture.FinanceContext, fixture.ApCommand(sourceReference + "-AP", 100m));
+        Assert.True(inventoryPreflight.Ready, inventoryPreflight.Code);
+        Assert.True(arPreflight.Ready, arPreflight.Code);
+        Assert.False(apPreflight.Ready);
+        Assert.Equal("account_not_postable", apPreflight.Code);
+        var prepared = await fixture.PrepareMixedAsync(sourceReference, 100m);
 
         var result = await fixture.NewMixedExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, "mixed-preflight-failure", prepared.Run.Version);
 
         Assert.Equal(MigrationResultKind.KnownFailure, result.Kind);
         Assert.Equal("account_not_postable", result.Code);
         var run = (await fixture.Migration.FindRunAsync(fixture.Tenant, prepared.Run.RunId))!;
-        Assert.NotEqual(MigrationRunStatus.Executing, run.Status);
-        Assert.NotEqual(MigrationRunStatus.Completed, run.Status);
-        await fixture.AssertNoMixedEffectsAsync("AR-MIXED-BLOCKED");
+        Assert.Equal(MigrationRunStatus.Approved, run.Status);
+        await fixture.AssertNoMixedEffectsAsync(sourceReference);
     }
 
     internal sealed class ArSqlFixture : IAsyncDisposable
@@ -748,6 +763,32 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.Equal(amount, await db.OpenItems.Where(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ap-opening.v1" && item.Reference == sourceReference).Select(item => item.OriginalAmount).SingleAsync());
         }
 
+        internal async Task RemoveApEvidenceAsync(string missing)
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            if (missing == "source")
+                db.SourceEffects.RemoveRange(await db.SourceEffects.Where(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ap-opening.v1").ToListAsync());
+            else if (missing == "journal")
+                db.Journals.RemoveRange(await db.Journals.Where(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ap-opening.v1").ToListAsync());
+            else
+                db.OpenItems.RemoveRange(await db.OpenItems.Where(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ap-opening.v1").ToListAsync());
+            await db.SaveChangesAsync();
+        }
+
+        internal async Task AssertIncompleteApEvidenceAsync(string missing)
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            var sourceEffects = await db.SourceEffects.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ap-opening.v1");
+            var journals = await db.Journals.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ap-opening.v1");
+            var openItems = await db.OpenItems.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ap-opening.v1");
+            Assert.Equal(missing == "source" ? 0 : 1, sourceEffects);
+            Assert.Equal(missing == "journal" ? 0 : 1, journals);
+            Assert.Equal(missing == "open-item" ? 0 : 1, openItems);
+            Assert.InRange(sourceEffects, 0, 1);
+            Assert.InRange(journals, 0, 1);
+            Assert.InRange(openItems, 0, 1);
+        }
+
         internal async Task AssertNoMixedEffectsAsync(string sourceReference)
         {
             await using var inventoryDb = new InventoryDbContext(InventoryOptions, Tenant);
@@ -768,6 +809,14 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             var accounts = await ((FinancePersistence)Finance).ListAccountsAsync(FinanceContextFor("tenant.finance.account.manage"), CompanyId);
             var ar = accounts.Single(item => item.Id == ArAccountId);
             var disabled = await ((FinancePersistence)Finance).SetAccountLifecycleAsync(FinanceContextFor("tenant.finance.account.manage"), ar.Id, CompanyId, FinanceAccountLifecycle.Inactive, ar.Version, "s6-disable-ar", "s6-disable-ar");
+            Assert.True(disabled.Succeeded, disabled.Code);
+        }
+
+        internal async Task DisableApAccountAsync()
+        {
+            var accounts = await ((FinancePersistence)Finance).ListAccountsAsync(FinanceContextFor("tenant.finance.account.manage"), CompanyId);
+            var ap = accounts.Single(item => item.Id == ApAccountId);
+            var disabled = await ((FinancePersistence)Finance).SetAccountLifecycleAsync(FinanceContextFor("tenant.finance.account.manage"), ap.Id, CompanyId, FinanceAccountLifecycle.Inactive, ap.Version, "s7-disable-ap", "s7-disable-ap");
             Assert.True(disabled.Succeeded, disabled.Code);
         }
 
@@ -872,6 +921,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         internal int CreateCalls { get; private set; }
         internal bool ThrowAfterApCreate { get; set; }
         internal bool HideApReadback { get; set; }
+        internal Func<FinanceMigrationApOpeningCommand, Task>? AfterApCreate { get; set; }
         internal int ApCreateCalls { get; private set; }
         public Task<IReadOnlyList<FinancePaymentMethodRecord>> ListPaymentMethodsAsync(FinanceRequestContext c, Guid id, CancellationToken t = default) => inner.ListPaymentMethodsAsync(c, id, t);
         public Task<FinanceOperationResult<FinancePaymentMethodRecord>> CreatePaymentMethodAsync(FinanceRequestContext c, FinancePaymentMethodCommand x, CancellationToken t = default) => inner.CreatePaymentMethodAsync(c, x, t);
@@ -891,7 +941,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         public Task<FinanceApOpeningPreflightResult> PreflightMigrationApOpeningAsync(FinanceRequestContext c, FinanceMigrationApOpeningCommand x, CancellationToken t = default) => inner.PreflightMigrationApOpeningAsync(c, x, t);
         public async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default) { CreateCalls++; var result = await inner.CreateMigrationArOpeningAsync(c, x, t); if (ThrowAfterCreate) throw new InvalidOperationException("test lost response after commit"); return result; }
         public Task<FinanceMigrationArOpeningEvidence?> ReadMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default) => HideReadback ? Task.FromResult<FinanceMigrationArOpeningEvidence?>(null) : inner.ReadMigrationArOpeningAsync(c, x, t);
-        public async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationApOpeningAsync(FinanceRequestContext c, FinanceMigrationApOpeningCommand x, CancellationToken t = default) { ApCreateCalls++; var result = await inner.CreateMigrationApOpeningAsync(c, x, t); if (ThrowAfterApCreate) throw new InvalidOperationException("test AP lost response after commit"); return result; }
+        public async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationApOpeningAsync(FinanceRequestContext c, FinanceMigrationApOpeningCommand x, CancellationToken t = default) { ApCreateCalls++; var result = await inner.CreateMigrationApOpeningAsync(c, x, t); if (AfterApCreate is not null) await AfterApCreate(x); if (ThrowAfterApCreate) throw new InvalidOperationException("test AP lost response after commit"); return result; }
         public Task<FinanceMigrationApOpeningEvidence?> ReadMigrationApOpeningAsync(FinanceRequestContext c, FinanceMigrationApOpeningCommand x, CancellationToken t = default) => HideApReadback ? Task.FromResult<FinanceMigrationApOpeningEvidence?>(null) : inner.ReadMigrationApOpeningAsync(c, x, t);
         public Task<FinanceOperationResult<FinanceSalesInvoiceEligibilityRecord>> EvaluateSalesInvoiceAsync(FinanceRequestContext c, FinanceSalesInvoiceCommand x, CancellationToken t = default) => inner.EvaluateSalesInvoiceAsync(c, x, t);
         public Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateSalesInvoiceAsync(FinanceRequestContext c, FinanceSalesInvoiceCommand x, CancellationToken t = default) => inner.CreateSalesInvoiceAsync(c, x, t);
