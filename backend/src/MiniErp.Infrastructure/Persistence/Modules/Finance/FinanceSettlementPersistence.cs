@@ -18,7 +18,7 @@ using MiniErp.Contracts.Modules.Procurement;
 
 namespace MiniErp.Infrastructure.Persistence.Modules.Finance;
 
-internal sealed class FinanceSettlementPersistence(
+internal sealed partial class FinanceSettlementPersistence(
     DbContextOptions options,
     IFinanceCompanyProvider companies,
     IMasterDataExchangeRatePersistence exchangeRates,

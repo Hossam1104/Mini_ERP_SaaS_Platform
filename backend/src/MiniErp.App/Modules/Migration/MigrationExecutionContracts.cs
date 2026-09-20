@@ -95,7 +95,8 @@ public sealed record MigrationExecutionResult(
     IReadOnlyList<MigrationEconomicReconciliationRecord>? EconomicReconciliations = null,
     IReadOnlyList<MigrationArEconomicReconciliationRecord>? ArEconomicReconciliations = null,
     IReadOnlyList<MigrationApEconomicReconciliationRecord>? ApEconomicReconciliations = null,
-    IReadOnlyList<MigrationCashBankEconomicReconciliationRecord>? CashBankEconomicReconciliations = null);
+    IReadOnlyList<MigrationCashBankEconomicReconciliationRecord>? CashBankEconomicReconciliations = null,
+    IReadOnlyList<MigrationGlEconomicReconciliationRecord>? GlEconomicReconciliations = null);
 
 public sealed record MigrationEconomicRepresentationRecord(
     Guid Id,
@@ -183,6 +184,24 @@ public sealed record MigrationCashBankEconomicReconciliationRecord(
     decimal? PostedAmount,
     string CurrencyCode,
     DateOnly OpeningDate,
+    Guid? JournalId,
+    Guid? SourceEffectId,
+    DateTimeOffset ReconciledAt);
+
+public sealed record MigrationGlEconomicReconciliationRecord(
+    Guid EffectId,
+    int SourceSequence,
+    string Status,
+    string? SafeCode,
+    Guid CompanyId,
+    string CurrencyCode,
+    DateOnly OpeningDate,
+    decimal TargetDebit,
+    decimal TargetCredit,
+    decimal EstablishedDebit,
+    decimal EstablishedCredit,
+    decimal ResidualDebit,
+    decimal ResidualCredit,
     Guid? JournalId,
     Guid? SourceEffectId,
     DateTimeOffset ReconciledAt);

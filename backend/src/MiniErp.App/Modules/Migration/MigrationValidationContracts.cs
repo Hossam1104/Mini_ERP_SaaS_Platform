@@ -184,7 +184,8 @@ public sealed record MigrationGlOpeningPayload(
     decimal? Debit = null,
     decimal? Credit = null,
     string? CurrencyCode = null,
-    DateOnly? OpeningDate = null) : MigrationCanonicalPayload;
+    DateOnly? OpeningDate = null,
+    string? SourceLineReference = null) : MigrationCanonicalPayload;
 
 public sealed record MigrationApOpeningPayload(
     Guid? CompanyId = null,
@@ -682,8 +683,11 @@ public static class MigrationValidationRules
                 Required(findings, gl.Credit is null, "credit");
                 Required(findings, string.IsNullOrWhiteSpace(gl.CurrencyCode), "currencyCode");
                 Required(findings, gl.OpeningDate is null, "openingDate");
+                Required(findings, string.IsNullOrWhiteSpace(gl.SourceLineReference), "sourceLineReference");
                 if (gl.Debit < 0m || gl.Credit < 0m || gl.Debit > 0m && gl.Credit > 0m)
                     findings.Add((MigrationFindingCategory.FinancialBalance, "migration_debit_credit_invalid", "A GL opening line must contain one non-negative side."));
+                if (gl.Debit == 0m && gl.Credit == 0m)
+                    findings.Add((MigrationFindingCategory.FinancialBalance, "migration_gl_opening_zero_amount", "A GL opening line must contain a non-zero amount."));
                 break;
             case MigrationApOpeningPayload ap:
                 Required(findings, ap.CompanyId is null, "companyId");

@@ -1,5 +1,10 @@
 #pragma warning disable CS1591
 
+global using FinanceApp = MiniErp.App.Modules.Finance;
+global using FinanceContracts = MiniErp.Contracts.Modules.Finance;
+global using InventoryApp = MiniErp.App.Modules.Inventory;
+global using InventoryContracts = MiniErp.Contracts.Modules.Inventory;
+
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;

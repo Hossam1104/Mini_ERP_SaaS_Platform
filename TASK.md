@@ -1,3 +1,36 @@
+## MESP-141 Slice 9 - Residual GL Opening Economic Execution implementation handoff (20 September 2026)
+
+Slice 9 is authorized and active under Issue #229 activation comment
+`5750522414`, based on `origin/main` `f8c86d9a9ef2efd54c70a71eb7935f1e89d89855`,
+on branch `feat/mesp-141-residual-gl-opening-economic-execution`. The bounded
+implementation adds Finance-owned `migration-gl-opening.v1` / `recognition`
+delta-to-target execution grouped by Tenant, Company, functional currency, and
+opening date; one balanced residual Journal and SourceEffect per GL group;
+functional-currency enforcement; source-line/account uniqueness; control-zero
+blocking; same-run owner projections; replay/conflict/outcome-unknown safety;
+read-only GL reconciliation serialization; and fingerprint-v2 GL discrimination.
+
+Inventory valuation projections remain owner-authoritative through the Inventory
+valuation service; Migration does not calculate `Qty * Cost`. GL preflight is
+last after owner preflights, and GL execution is last after all other economic
+execution. `frontend/assets` is untouched. MESP-142, future slices, production
+execution, Jira mutation, Ready transition, merge, auto-merge, and owner
+acceptance are not authorized.
+
+Local evidence: Debug solution build `0 warnings / 0 errors`; focused migration,
+validation, authority, and API subsets `145/145`; `git diff --check` clean; and
+isolated Development runtime API `5312` returned HTTP 200 for health, module
+registration, OpenAPI, and development-auth bypass. The complete SQL Server
+safety harness is blocked in this environment because
+`MESP_SQLSERVER_SAFETY_CONNECTION_STRING` is not configured. Release build
+attempt was blocked by an existing repository API process locking Release
+assemblies; that process was preserved. Metrics remain **24 / 26 = 92.3%**,
+approximately **47% overall** and **41% Procurement/P2P**.
+
+The bounded handoff stops at Draft PR creation/update and exact CI observation,
+pending independent GPT-5.6 Sol review. The feature branch must remain
+Open/Draft/Unmerged/Not Ready.
+
 ## MESP-141 Slice 8 - Cash/Bank Opening Economic Execution post-merge lifecycle reconciliation (20 September 2026)
 
 Slice 8 was accepted by GPT-5.6 Sol at exact head

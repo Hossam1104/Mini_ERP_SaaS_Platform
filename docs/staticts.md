@@ -1,8 +1,39 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 20 September 2026 (MESP-141 Slice 8 accepted/merged; governance reconciliation)
+**Last Updated:** 20 September 2026 (MESP-141 Slice 9 implementation handoff; Draft PR boundary)
 
-## Current execution snapshot - 20 September 2026 (MESP-141 Slice 8 Cash/Bank Opening Economic Execution accepted/merged)
+## Current execution snapshot - 20 September 2026 (MESP-141 Slice 9 Residual GL Opening Economic Execution active)
+
+MESP-141 Slice 9 is authorized and active under Issue #229 comment `5750522414`
+and architecture authority `5750386434`, on
+`feat/mesp-141-residual-gl-opening-economic-execution` from verified
+`origin/main` `f8c86d9a9ef2efd54c70a71eb7935f1e89d89855`. The bounded
+implementation is at Draft handoff: Finance owns functional-currency
+`migration-gl-opening.v1` residual delta-to-target execution, one balanced
+Journal/SourceEffect per GL group, control-zero safety, same-run owner
+projections, replay/conflict/OutcomeUnknown handling, and read-only GL
+reconciliation serialization. No Ready transition, merge, Jira, production,
+MESP-142, future slice, or owner acceptance is authorized.
+
+Validation evidence is Debug solution build `0 warnings / 0 errors`; focused
+migration/validation/authority/API tests `145/145`; `git diff --check` clean;
+and isolated Development runtime health/module-registration/OpenAPI/auth bypass
+HTTP 200 on API port `5312`. The SQL Server safety harness is blocked here by
+missing `MESP_SQLSERVER_SAFETY_CONNECTION_STRING`; an existing repository API
+process locking Release assemblies was preserved. Metrics remain unchanged:
+accepted fast-track capability completion **24 / 26 = 92.3%**; production
+readiness approximately **47% overall / 41% Procurement/P2P**.
+
+### Progress history - 20 September 2026 (MESP-141 Slice 9 implementation handoff)
+
+Slice 9 implementation is complete to the authorized Draft PR boundary. The
+Inventory valuation owner remains authoritative for inventory projections;
+Migration does not calculate `Qty * Cost`. `frontend/assets` remains untouched.
+Independent GPT-5.6 Sol review, Ready transition, merge, lifecycle closure,
+production migration, and reconciliation/sign-off remain pending and
+unauthorized.
+
+## Historical execution snapshot - 20 September 2026 (MESP-141 Slice 8 Cash/Bank Opening Economic Execution accepted/merged)
 
 **MESP-141 Slice 8 - Cash/Bank Opening Economic Execution was accepted by GPT-5.6 Sol and merged through PR #256 using a normal merge commit.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-8 are accepted/merged/lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
 

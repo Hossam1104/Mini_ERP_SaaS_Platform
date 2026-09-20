@@ -384,6 +384,7 @@ public static class MigrationEndpoints
         value.ArEconomicReconciliations,
         value.ApEconomicReconciliations,
         value.CashBankEconomicReconciliations,
+        value.GlEconomicReconciliations,
         zeroEconomicEffects = value.Representations is null or { Count: 0 }
     };
 

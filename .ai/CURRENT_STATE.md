@@ -10,7 +10,35 @@
 
 ---
 
-## CURRENT AUTHORITY - 20 September 2026 (MESP-141 SLICE 8 CASH/BANK OPENING ECONOMIC EXECUTION MERGED; LIFECYCLE CLOSED)
+## CURRENT AUTHORITY - 20 September 2026 (MESP-141 SLICE 9 RESIDUAL GL OPENING ECONOMIC EXECUTION ACTIVE; DRAFT HANDOFF)
+
+**MESP-141 Slice 9 - Residual GL Opening Economic Execution is authorized and active for bounded implementation.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-8 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
+
+| Item | Value |
+|---|---|
+| Slice 9 activation | Issue #229 comment `5750522414` |
+| Architecture authority | Issue #229 comment `5750386434` |
+| Slice 9 branch | `feat/mesp-141-residual-gl-opening-economic-execution` |
+| Slice 9 baseline | `origin/main` `f8c86d9a9ef2efd54c70a71eb7935f1e89d89855` |
+| Slice 9 status | **IMPLEMENTED / DRAFT HANDOFF / UNMERGED / NOT ACCEPTED** |
+| Scope | Finance-owned functional-currency residual GL opening execution, same-run owner projections, replay/conflict/unknown safety, and read-only reconciliation |
+| Stop boundary | Draft PR and exact CI observation; no Ready transition, merge, auto-merge, Jira, production, or owner acceptance |
+| Slices 1-8 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
+| MESP-141 | **OPEN / ACTIVE / IN PROGRESS** |
+| MESP-142 | **OPEN / NOT ACTIVATED** |
+| Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
+
+Slice 9 local evidence is Debug solution build `0 warnings / 0 errors`, focused
+migration/validation/authority/API tests `145/145`, and isolated Development
+runtime HTTP 200 for health, module registration, OpenAPI, and enabled
+development-auth bypass on port `5312` (PID `46168`). The SQL Server safety
+harness is blocked because `MESP_SQLSERVER_SAFETY_CONNECTION_STRING` is not
+configured; an existing repository API process that locked Release binaries was
+preserved. `frontend/assets` remains untouched. The implementation uses the
+Inventory valuation owner projection seam and does not calculate `Qty * Cost` in
+Migration.
+
+## HISTORICAL RECORD - 20 September 2026 (MESP-141 SLICE 8 CASH/BANK OPENING ECONOMIC EXECUTION MERGED; LIFECYCLE CLOSED)
 
 **MESP-141 Slice 8 - Cash/Bank Opening Economic Execution was accepted by GPT-5.6 Sol and integrated through PR #256 using a normal merge commit.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-8 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
 
