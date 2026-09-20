@@ -21,13 +21,14 @@ multi-currency expansion, reconciliation/sign-off completion, production
 migration/cutover, MESP-142, and any future Slice remain out of scope and
 unauthorized.
 
-Local evidence is Release `0 warnings / 0 errors`; official disposable-
-LocalDB backend `1,413/1,413` with `0` failures and `0` skips; focused Slice 8
-and related Migration correction set `66/66`; Angular `316/316`; Chromium
-`51/51` from the unchanged frontend baseline; eight EF contexts with no
-pending migrations/model drift; NuGet scan clear; known npm audit baseline
-`4` moderate production / `7` full tree; and production build `514.26 kB`
-initial bundle with the existing budget warning. The isolated runtime on API
+Local evidence for this correction is Release `0 warnings / 0 errors`; official
+disposable-LocalDB backend `1,417/1,417` with `0` failures and `0` skips;
+Cash/Bank provider-realistic focused safety coverage `13/13`; complete SQL
+Server safety coverage `134/134`; Angular `316/316`; Chromium `51/51` from the
+unchanged frontend baseline; eight EF contexts with no pending migrations/model
+drift; NuGet scan clear; known npm audit baseline `4` moderate production /
+`7` full tree; and production build `514.26 kB` initial bundle with the
+existing budget warning. The isolated runtime on API
 `5300` and frontend `4300` returned HTTP 200 for health, OpenAPI, frontend,
 development bypass, context switch, and an authenticated synthetic execution
 read; the response serialized one `cashBankEconomicReconciliations` row.

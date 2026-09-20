@@ -41,10 +41,10 @@
 | Golden E2E | **NOT STARTED** |
 | Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
 
-Slice 8 local evidence is Release `0 warnings / 0 errors`; the sanctioned
-disposable-LocalDB backend runner is `1,413/1,413` with `0` failures and `0`
-skips; the focused Slice 8/related Migration correction set is `66/66` (the
-previous broader Migration baseline remains `172/172`); Angular is `316/316`;
+Slice 8 correction local evidence is Release `0 warnings / 0 errors`; the
+sanctioned disposable-LocalDB backend runner is `1,417/1,417` with `0` failures
+and `0` skips; Cash/Bank provider-realistic focused safety coverage is `13/13`
+and complete SQL Server safety coverage is `134/134`; Angular is `316/316`;
 and Chromium remains `51/51` from the unchanged frontend baseline. The
 provider-safe SQLite read correction was exercised through the actual runtime:
 API health/OpenAPI, frontend root/main.js, development bypass, context switch,

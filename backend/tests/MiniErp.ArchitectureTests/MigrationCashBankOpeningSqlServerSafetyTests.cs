@@ -26,6 +26,14 @@ namespace MiniErp.ArchitectureTests;
 [Collection(SqlServerSafetyCollection.Name)]
 public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafetyFixture safety)
 {
+    internal enum OffsetVariant
+    {
+        NonPosting,
+        Inactive,
+        Future,
+        Expired
+    }
+
     [Fact]
     public async Task Sql_server_cash_bank_opening_is_finance_owned_replay_safe_and_settleable()
     {
@@ -75,6 +83,21 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
         var foundation = new MigrationFoundationService(migration, new NoopAuditSink());
         var scopes = new TenantWideScopeResolver();
         var references = new CashReferenceAuthority();
+        var cashBeforeValidation = Assert.Single(await settlement.ListCashAccountsAsync(migrationContext, companyId), item => item.Id == cash.Value!.Id);
+        async Task AssertValidationHasNoFinanceEffectsAsync()
+        {
+            await using var preflightDb = new FinanceDbContext(options, tenant);
+            Assert.Equal(0, await preflightDb.Journals.CountAsync(item => item.CompanyId == companyId && item.SourceContract == "migration-cash-bank-opening.v1"));
+            Assert.Equal(0, await preflightDb.SourceEffects.CountAsync(item => item.CompanyId == companyId && item.SourceContract == "migration-cash-bank-opening.v1"));
+            Assert.Equal(0, await preflightDb.SettlementDocuments.CountAsync(item => item.CompanyId == companyId));
+            var currentCash = Assert.Single(await settlement.ListCashAccountsAsync(migrationContext, companyId), item => item.Id == cash.Value.Id);
+            Assert.Equal(cashBeforeValidation.Id, currentCash.Id);
+            Assert.Equal(cashBeforeValidation.LinkedAccountId, currentCash.LinkedAccountId);
+            Assert.Equal(cashBeforeValidation.Lifecycle, currentCash.Lifecycle);
+            Assert.Equal(cashBeforeValidation.EffectiveFrom, currentCash.EffectiveFrom);
+            Assert.Equal(cashBeforeValidation.EffectiveTo, currentCash.EffectiveTo);
+            Assert.Equal(cashBeforeValidation.Version, currentCash.Version);
+        }
         var objectId = Guid.NewGuid();
         var sourceHash = new string('B', 64);
         var package = JsonSerializer.SerializeToUtf8Bytes(new
@@ -108,9 +131,11 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
         var validation = await validationService.ValidateAsync(migrationFoundationContext, runId, "cash-validation");
         Assert.True(validation.Succeeded, validation.Code);
         Assert.Equal(1, validation.Value!.AcceptedCount);
+        await AssertValidationHasNoFinanceEffectsAsync();
         var dryRun = await validationService.DryRunAsync(migrationFoundationContext, runId, "cash-dry-run");
         Assert.True(dryRun.Succeeded, dryRun.Code);
         Assert.Equal(MigrationPlannedAction.Create, Assert.Single(dryRun.Value!.Rows).PlannedAction);
+        await AssertValidationHasNoFinanceEffectsAsync();
         var approved = await foundation.TransitionRunAsync(migrationFoundationContext, runId, MigrationRunStatus.Approved, (await migration.FindRunAsync(tenant, runId))!.Version);
         Assert.True(approved.Succeeded, approved.Code);
 
@@ -157,6 +182,8 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
         Assert.True(method.Succeeded, method.Code);
         var beforeSettlement = await settlement.ListCashAccountsAsync(migrationContext, companyId);
         Assert.Single(beforeSettlement, item => item.Id == cash.Value.Id && item.LinkedAccountId == cashGl.Value.Id);
+        await using (var beforeSettlementDb = new FinanceDbContext(options, tenant))
+            Assert.Equal(0, await beforeSettlementDb.SettlementDocuments.CountAsync(item => item.CompanyId == companyId));
         var receipt = await settlement.CreateSettlementDocumentAsync(settlementContext, new FinanceSettlementDocumentCommand(FinancePaymentMethodDirection.Receipt, companyId, null, customerId, cash.Value.Id, method.Value!.Id, openingDate, "SAR", 10m, null, null, null, null, null, "cash-receipt", "ordinary receipt", Guid.NewGuid(), "cash-receipt-create", "cash-receipt-create"));
         Assert.True(receipt.Succeeded, receipt.Code);
         var submitted = await settlement.TransitionSettlementDocumentAsync(settlementContext, new FinanceSettlementActionCommand(receipt.Value!.Id, receipt.Value.Version, null, "cash-receipt-submit", "cash-receipt-submit", FinancePaymentMethodDirection.Receipt), FinanceSettlementDocumentStatus.Submitted);
@@ -168,6 +195,7 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
         Assert.Equal(2, await db.SourceEffects.CountAsync(item => item.CompanyId == companyId && item.SourceContract == "migration-cash-bank-opening.v1"));
         Assert.Equal(2, await db.Journals.CountAsync(item => item.CompanyId == companyId && item.SourceContract == "migration-cash-bank-opening.v1" && item.Status == FinanceJournalStatus.Posted));
         Assert.Equal(1, await db.Journals.CountAsync(item => item.CompanyId == companyId && item.Description == "Cash/Bank opening CASH-RACE"));
+        Assert.Equal(1, await db.SettlementDocuments.CountAsync(item => item.CompanyId == companyId));
         Assert.Equal(1, await db.SettlementDocuments.CountAsync(item => item.Id == posted.Value!.Id));
 
         var readBack = await execution.ReadAsync(migrationFoundationContext, runId);
@@ -287,12 +315,17 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
 
         var first = await fixture.NewExecution(proxy).ExecuteAsync(fixture.Request, prepared.Run.RunId, "s8-mismatch-a", prepared.Run.Version);
         var retry = await fixture.NewExecution(proxy).ExecuteAsync(fixture.Request, prepared.Run.RunId, "s8-mismatch-a", prepared.Run.Version);
+        var differentKey = await fixture.NewExecution(proxy).ExecuteAsync(fixture.Request, prepared.Run.RunId, "s8-mismatch-b", prepared.Run.Version);
 
         Assert.Equal(MigrationResultKind.UnknownOutcome, first.Kind);
         Assert.Equal(MigrationResultKind.UnknownOutcome, retry.Kind);
+        Assert.Equal(MigrationResultKind.Rejected, differentKey.Kind);
+        Assert.Equal("migration_run_requires_reconciliation", differentKey.Code);
         Assert.Equal(MigrationExecutionEffectDisposition.Unknown, Assert.Single(first.Value!.Effects).Disposition);
         Assert.Equal(1, proxy.CashCreateCalls);
         Assert.Equal(MigrationRunStatus.OutcomeUnknown, (await fixture.Migration.FindRunAsync(fixture.Tenant, prepared.Run.RunId))!.Status);
+        Assert.Equal(1, await fixture.CountCashEffectsAsync("S8-OWNER-MISMATCH"));
+        Assert.Equal(1, await fixture.CountCashJournalsAsync("S8-OWNER-MISMATCH"));
     }
 
     [Fact]
@@ -337,6 +370,91 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
         Assert.Equal("approval_policy_not_configured", unconfigured.Code);
     }
 
+    [Fact]
+    public async Task Sql_server_cash_bank_preflight_covers_finance_lifecycle_rule_period_offset_dimension_and_overlap_matrix()
+    {
+        async Task<string> CheckAsync(
+            string sourceReference,
+            Func<CashSqlFixture, Task>? arrange = null,
+            Func<FinanceMigrationCashBankOpeningCommand, FinanceMigrationCashBankOpeningCommand>? alter = null)
+        {
+            await using var fixture = await CashSqlFixture.CreateAsync(safety);
+            if (arrange is not null) await arrange(fixture);
+            var command = alter?.Invoke(fixture.Command(sourceReference, 100m)) ?? fixture.Command(sourceReference, 100m);
+            var result = await fixture.Settlement.PreflightMigrationCashBankOpeningAsync(fixture.FinanceContext, command);
+            Assert.False(result.Ready);
+            await fixture.AssertNoCashOpeningEffectsAsync();
+            return result.Code;
+        }
+
+        Assert.Equal("cash_account_inactive", await CheckAsync("S8-R4-INACTIVE-CASH", fixture => fixture.DisableCashAccountAsync()));
+        Assert.Equal("cash_account_not_effective", await CheckAsync("S8-R4-FUTURE-CASH", fixture => fixture.SetCashAccountEffectiveAsync(new DateOnly(2026, 1, 16), null)));
+        Assert.Equal("cash_account_not_effective", await CheckAsync("S8-R4-EXPIRED-CASH", fixture => fixture.SetCashAccountEffectiveAsync(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 14))));
+
+        Assert.Equal("cash_account_link_missing", await CheckAsync("S8-R4-MISSING-LINK", fixture => fixture.RemoveLinkedAccountAsync()));
+        Assert.Equal("cash_account_link_not_postable", await CheckAsync("S8-R4-NONPOSTING-LINK", fixture => fixture.SetLinkedAccountPostingAsync(false)));
+        Assert.Equal("cash_account_link_not_postable", await CheckAsync("S8-R4-INACTIVE-LINK", fixture => fixture.DisableLinkedAccountAsync()));
+        Assert.Equal("cash_account_link_not_effective", await CheckAsync("S8-R4-FUTURE-LINK", fixture => fixture.SetLinkedAccountEffectiveAsync(new DateOnly(2026, 1, 16), null)));
+        Assert.Equal("cash_account_link_not_effective", await CheckAsync("S8-R4-EXPIRED-LINK", fixture => fixture.SetLinkedAccountEffectiveAsync(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 14))));
+
+        Assert.Equal("period_not_configured", await CheckAsync("S8-R4-NO-PERIOD", alter: command => command with { OpeningDate = new DateOnly(2027, 1, 15) }));
+        Assert.Equal("period_ambiguous", await CheckAsync("S8-R4-AMBIGUOUS-PERIOD", fixture => fixture.AddOverlappingPeriodAsync()));
+        Assert.Equal("period_soft_closed", await CheckAsync("S8-R4-SOFT-CLOSED", fixture => fixture.SetPeriodStateAsync(FinanceFiscalPeriodState.SoftClosed)));
+        Assert.Equal("period_closed", await CheckAsync("S8-R4-CLOSED", fixture => fixture.SetPeriodStateAsync(FinanceFiscalPeriodState.Closed)));
+
+        Assert.Equal("pending_mapping", await CheckAsync("S8-R4-MISSING-RULE", fixture => fixture.DisableOpeningRuleAsync()));
+        Assert.Equal("ambiguous_mapping", await CheckAsync("S8-R4-AMBIGUOUS-RULE", fixture => fixture.AddAmbiguousOpeningRuleAsync()));
+        Assert.Equal("posting_rule_accounts_invalid", await CheckAsync("S8-R4-DEBIT-CREDIT-SAME", fixture => fixture.AddOpeningRuleAsync(fixture.CashLinkedAccountId, fixture.CashLinkedAccountId)));
+        Assert.Equal("cash_bank_posting_rule_cash_side_mismatch", await CheckAsync("S8-R4-CASH-SIDE-MISMATCH", fixture => fixture.AddOpeningRuleAsync(fixture.OffsetAccountId, fixture.CashLinkedAccountId)));
+
+        Assert.Equal("cash_bank_opening_offset_not_postable", await CheckAsync("S8-R4-MISSING-OFFSET", fixture => fixture.AddOpeningRuleAsync(fixture.CashLinkedAccountId, Guid.NewGuid())));
+        Assert.Equal("cash_bank_opening_offset_not_postable", await CheckAsync("S8-R4-NONPOSTING-OFFSET", fixture => fixture.UseOffsetVariantAsync(OffsetVariant.NonPosting)));
+        Assert.Equal("cash_bank_opening_offset_not_postable", await CheckAsync("S8-R4-INACTIVE-OFFSET", fixture => fixture.UseOffsetVariantAsync(OffsetVariant.Inactive)));
+        Assert.Equal("cash_bank_opening_offset_not_postable", await CheckAsync("S8-R4-FUTURE-OFFSET", fixture => fixture.UseOffsetVariantAsync(OffsetVariant.Future)));
+        Assert.Equal("cash_bank_opening_offset_not_postable", await CheckAsync("S8-R4-EXPIRED-OFFSET", fixture => fixture.UseOffsetVariantAsync(OffsetVariant.Expired)));
+        Assert.Equal("dimension_required", await CheckAsync("S8-R4-DIMENSION", fixture => fixture.AddOpeningRuleAsync(fixture.CashLinkedAccountId, fixture.OffsetAccountId, true)));
+
+        Assert.Equal("cash_bank_account_overlaps_inventory_control", await CheckAsync("S8-R4-INVENTORY-OVERLAP", fixture => fixture.AddOverlapRuleAsync("inventory-valuation-finance.v1", "OpeningBalance:Inbound", fixture.CashLinkedAccountId, fixture.OffsetAccountId)));
+        Assert.Equal("cash_bank_account_overlaps_ar_control", await CheckAsync("S8-R4-AR-OVERLAP", fixture => fixture.AddOverlapRuleAsync("migration-ar-opening.v1", "recognition", fixture.CashLinkedAccountId, fixture.OffsetAccountId)));
+        Assert.Equal("cash_bank_account_overlaps_ap_control", await CheckAsync("S8-R4-AP-OVERLAP", fixture => fixture.AddOverlapRuleAsync("migration-ap-opening.v1", "recognition", fixture.OffsetAccountId, fixture.CashLinkedAccountId)));
+    }
+
+    [Theory]
+    [InlineData("journal")]
+    [InlineData("source")]
+    public async Task Sql_server_cash_bank_negative_reconciliation_is_read_only(string missing)
+    {
+        await using var fixture = await CashSqlFixture.CreateAsync(safety);
+        var prepared = await fixture.PrepareAsync($"S8-R6-MISSING-{missing}", 100m);
+        var executed = await fixture.NewExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, $"s8-r6-{missing}", prepared.Run.Version);
+        Assert.True(executed.Succeeded, executed.Code);
+
+        await fixture.RemoveCashEvidenceAsync(missing);
+        var beforeRead = await fixture.ReadCashEvidenceCountsAsync();
+        var read = await fixture.NewExecution().ReadAsync(fixture.Request, prepared.Run.RunId);
+        var reconciliation = Assert.Single(read!.CashBankEconomicReconciliations!);
+        Assert.NotEqual("reconciled", reconciliation.Status);
+        Assert.Equal("finance_cash_bank_opening_evidence_not_reconciled", reconciliation.SafeCode);
+        Assert.Equal(beforeRead, await fixture.ReadCashEvidenceCountsAsync());
+    }
+
+    [Fact]
+    public async Task Sql_server_cash_bank_owner_mismatch_reconciliation_is_read_only()
+    {
+        await using var fixture = await CashSqlFixture.CreateAsync(safety);
+        var prepared = await fixture.PrepareAsync("S8-R6-OWNER-MISMATCH", 100m);
+        var executed = await fixture.NewExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, "s8-r6-owner-mismatch", prepared.Run.Version);
+        Assert.True(executed.Succeeded, executed.Code);
+
+        await fixture.ChangeCashLinkAsync();
+        var beforeRead = await fixture.ReadCashEvidenceCountsAsync();
+        var read = await fixture.NewExecution().ReadAsync(fixture.Request, prepared.Run.RunId);
+        var reconciliation = Assert.Single(read!.CashBankEconomicReconciliations!);
+        Assert.NotEqual("reconciled", reconciliation.Status);
+        Assert.Equal("finance_cash_bank_opening_evidence_not_reconciled", reconciliation.SafeCode);
+        Assert.Equal(beforeRead, await fixture.ReadCashEvidenceCountsAsync());
+    }
+
     internal sealed class CashSqlFixture : IAsyncDisposable
     {
         private readonly Microsoft.Data.SqlClient.SqlConnection connection;
@@ -361,6 +479,9 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
             Guid cashLinkedAccountId,
             Guid offsetAccountId,
             Guid periodId,
+            Guid fiscalYearId,
+            Guid openingRuleId,
+            byte[] openingRuleVersion,
             MutableApprovalPolicy approval)
         {
             this.connection = connection;
@@ -377,6 +498,9 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
             CashLinkedAccountId = cashLinkedAccountId;
             OffsetAccountId = offsetAccountId;
             PeriodId = periodId;
+            FiscalYearId = fiscalYearId;
+            OpeningRuleId = openingRuleId;
+            OpeningRuleVersion = openingRuleVersion;
             Approval = approval;
         }
 
@@ -388,6 +512,9 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
         internal Guid CashLinkedAccountId { get; }
         internal Guid OffsetAccountId { get; }
         internal Guid PeriodId { get; }
+        internal Guid FiscalYearId { get; }
+        internal Guid OpeningRuleId { get; }
+        internal byte[] OpeningRuleVersion { get; }
         internal MutableApprovalPolicy Approval { get; }
         internal FinanceSettlementPersistence Settlement { get; }
         internal MigrationPersistence Migration { get; }
@@ -426,7 +553,7 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
             var rule = await setup.CreatePostingRuleAsync(ruleContext, new FinancePostingRuleCommand(companyId, "migration-cash-bank-opening.v1", "recognition", linked.Value.Id, offset.Value!.Id, false, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), "s8-rule", "s8-rule"));
             Assert.True(rule.Succeeded, rule.Code);
             var request = FoundationContext(tenant, tenant.ActorId!.Value, "tenant.migration.execute");
-            return new CashSqlFixture(connection, financeOptions, migrationOptions, tenant, companyId, setup, settlement, new MigrationPersistence(migrationOptions), request, cash.Value!.Id, linked.Value.Id, offset.Value.Id, period.Value.Id, approval);
+            return new CashSqlFixture(connection, financeOptions, migrationOptions, tenant, companyId, setup, settlement, new MigrationPersistence(migrationOptions), request, cash.Value!.Id, linked.Value.Id, offset.Value.Id, period.Value.Id, year.Value!.Id, rule.Value!.Id, rule.Value.Version, approval);
         }
 
         internal async Task<FinanceCashAccountRecord> CreateVariantAsync(FinanceCashAccountKind kind, string currency = "SAR")
@@ -437,6 +564,150 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
                 new FinanceCashAccountCommand(CompanyId, $"S8-{suffix}-CASH", $"S8 {kind} {suffix}", null, kind, currency, CashLinkedAccountId, null, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), null, $"s8-{suffix}", $"s8-{suffix}"));
             Assert.True(created.Succeeded, created.Code);
             return created.Value!;
+        }
+
+        internal async Task DisableCashAccountAsync()
+        {
+            var cash = Assert.Single(await Settlement.ListCashAccountsAsync(Context(Tenant, Tenant.ActorId!.Value, "tenant.finance.settlement.manage"), CompanyId), item => item.Id == CashAccountId);
+            var disabled = await Settlement.SetCashAccountLifecycleAsync(Context(Tenant, Tenant.ActorId.Value, "tenant.finance.settlement.manage"), cash.Id, CompanyId, FinancePaymentMethodLifecycle.Inactive, cash.Version, "s8-cash-inactive", "s8-cash-inactive");
+            Assert.True(disabled.Succeeded, disabled.Code);
+        }
+
+        internal async Task SetCashAccountEffectiveAsync(DateOnly effectiveFrom, DateOnly? effectiveTo)
+        {
+            var context = Context(Tenant, Tenant.ActorId!.Value, "tenant.finance.settlement.manage");
+            var cash = Assert.Single(await Settlement.ListCashAccountsAsync(context, CompanyId), item => item.Id == CashAccountId);
+            var edited = await Settlement.EditCashAccountAsync(context, new FinanceCashAccountCommand(CompanyId, cash.Code, cash.EnglishName, cash.ArabicName, cash.Kind, cash.CurrencyCode, cash.LinkedAccountId, cash.BankReference, effectiveFrom, effectiveTo, cash.Id, cash.Version, "s8-cash-effective", "s8-cash-effective"), cash.Version);
+            Assert.True(edited.Succeeded, edited.Code);
+        }
+
+        internal async Task RemoveLinkedAccountAsync()
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            await db.Database.ExecuteSqlRawAsync("ALTER TABLE [finance].[CashAccounts] DROP CONSTRAINT [FK_CashAccounts_Accounts_TenantId_CompanyId_LinkedAccountId]");
+            var missing = Guid.NewGuid();
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE [finance].[CashAccounts] SET [LinkedAccountId] = {missing} WHERE [TenantId] = {Tenant.TenantId.Value} AND [CompanyId] = {CompanyId} AND [Id] = {CashAccountId}");
+        }
+
+        internal async Task SetLinkedAccountPostingAsync(bool isPosting)
+        {
+            var account = await LinkedAccountAsync();
+            var edited = await setup.EditAccountAsync(AccountContext(), new FinanceAccountCommand(account.CompanyId, account.Code, account.EnglishName, account.ArabicName, account.ParentAccountId, account.AccountType, isPosting, account.CurrencyBehavior, account.EffectiveFrom, account.EffectiveTo, account.Id, account.Version, "s8-linked-posting", "s8-linked-posting"));
+            Assert.True(edited.Succeeded, edited.Code);
+        }
+
+        internal async Task DisableLinkedAccountAsync()
+        {
+            var account = await LinkedAccountAsync();
+            var disabled = await setup.SetAccountLifecycleAsync(AccountContext(), account.Id, CompanyId, FinanceAccountLifecycle.Inactive, account.Version, "s8-linked-inactive", "s8-linked-inactive");
+            Assert.True(disabled.Succeeded, disabled.Code);
+        }
+
+        internal async Task SetLinkedAccountEffectiveAsync(DateOnly effectiveFrom, DateOnly? effectiveTo)
+        {
+            var account = await LinkedAccountAsync();
+            var edited = await setup.EditAccountAsync(AccountContext(), new FinanceAccountCommand(account.CompanyId, account.Code, account.EnglishName, account.ArabicName, account.ParentAccountId, account.AccountType, account.IsPostingAccount, account.CurrencyBehavior, effectiveFrom, effectiveTo, account.Id, account.Version, "s8-linked-effective", "s8-linked-effective"));
+            Assert.True(edited.Succeeded, edited.Code);
+        }
+
+        internal async Task AddOverlappingPeriodAsync()
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            db.FiscalPeriods.Add(new FinanceFiscalPeriodEntity(Tenant.TenantId, Guid.NewGuid(), new FinanceFiscalPeriodCommand(FiscalYearId, 2, "S8-2026-OVERLAP", "Overlap", null, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), Guid.NewGuid(), "s8-period-overlap", "s8-period-overlap"), CompanyId));
+            await db.SaveChangesAsync();
+            var overlap = await db.FiscalPeriods.SingleAsync(item => item.Code == "S8-2026-OVERLAP");
+            overlap.SetState(FinanceFiscalPeriodState.Open);
+            await db.SaveChangesAsync();
+        }
+
+        internal async Task SetPeriodStateAsync(FinanceFiscalPeriodState state)
+        {
+            var periods = await setup.ListPeriodsAsync(CalendarContext(), FiscalYearId);
+            var period = Assert.Single(periods, item => item.Id == PeriodId);
+            var changed = await setup.SetPeriodStateAsync(CalendarContext(), new FinancePeriodStateCommand(period.Id, state, "s8-period-state", period.Version, $"s8-period-{state}", $"s8-period-{state}"));
+            Assert.True(changed.Succeeded, changed.Code);
+        }
+
+        internal async Task DisableOpeningRuleAsync()
+        {
+            var disabled = await setup.SetPostingRuleLifecycleAsync(RuleContext(), OpeningRuleId, CompanyId, FinancePostingRuleLifecycle.Disabled, OpeningRuleVersion, "s8-opening-rule-disable", "s8-opening-rule-disable");
+            Assert.True(disabled.Succeeded, disabled.Code);
+        }
+
+        internal async Task AddOpeningRuleAsync(Guid debitAccountId, Guid creditAccountId, bool costCenterRequired = false)
+        {
+            await DisableOpeningRuleAsync();
+            await AddPostingRuleDirectAsync("migration-cash-bank-opening.v1", "recognition", debitAccountId, creditAccountId, costCenterRequired);
+        }
+
+        internal Task AddAmbiguousOpeningRuleAsync() => AddPostingRuleDirectAsync(
+            "migration-cash-bank-opening.v1",
+            "recognition",
+            CashLinkedAccountId,
+            OffsetAccountId,
+            false);
+
+        internal async Task AddOverlapRuleAsync(string sourceContract, string sourceEvent, Guid debitAccountId, Guid creditAccountId)
+        {
+            var rule = await setup.CreatePostingRuleAsync(RuleContext(), new FinancePostingRuleCommand(CompanyId, sourceContract, sourceEvent, debitAccountId, creditAccountId, false, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), $"s8-overlap-{sourceContract}", $"s8-overlap-{sourceContract}"));
+            Assert.True(rule.Succeeded, rule.Code);
+        }
+
+        internal async Task UseOffsetVariantAsync(OffsetVariant variant)
+        {
+            var created = await setup.CreateAccountAsync(AccountContext(), Account(CompanyId, $"S8-OFFSET-{Guid.NewGuid():N}"[..16], FinanceAccountType.Equity));
+            Assert.True(created.Succeeded, created.Code);
+            var account = created.Value!;
+            switch (variant)
+            {
+                case OffsetVariant.NonPosting:
+                    account = await EditAccountAsync(account, false, account.EffectiveFrom, account.EffectiveTo, "s8-offset-nonposting");
+                    break;
+                case OffsetVariant.Inactive:
+                    var disabled = await setup.SetAccountLifecycleAsync(AccountContext(), account.Id, CompanyId, FinanceAccountLifecycle.Inactive, account.Version, "s8-offset-inactive", "s8-offset-inactive");
+                    Assert.True(disabled.Succeeded, disabled.Code);
+                    break;
+                case OffsetVariant.Future:
+                    account = await EditAccountAsync(account, account.IsPostingAccount, new DateOnly(2026, 1, 16), null, "s8-offset-future");
+                    break;
+                case OffsetVariant.Expired:
+                    account = await EditAccountAsync(account, account.IsPostingAccount, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 14), "s8-offset-expired");
+                    break;
+            }
+            await AddOpeningRuleAsync(CashLinkedAccountId, account.Id);
+        }
+
+        internal async Task AssertNoCashOpeningEffectsAsync()
+        {
+            var counts = await ReadCashEvidenceCountsAsync();
+            Assert.Equal(0, counts.Journals);
+            Assert.Equal(0, counts.SourceEffects);
+            Assert.Equal(0, counts.SettlementDocuments);
+        }
+
+        internal sealed record CashEvidenceCounts(int Journals, int SourceEffects, int SettlementDocuments);
+
+        private FinanceRequestContext AccountContext() => Context(Tenant, Tenant.ActorId!.Value, "tenant.finance.account.manage");
+        private FinanceRequestContext CalendarContext() => Context(Tenant, Tenant.ActorId!.Value, "tenant.finance.calendar.manage");
+        private FinanceRequestContext RuleContext() => Context(Tenant, Tenant.ActorId!.Value, "tenant.finance.posting-rule.manage");
+
+        private async Task<FinanceAccountRecord> LinkedAccountAsync() => Assert.Single(await setup.ListAccountsAsync(AccountContext(), CompanyId), item => item.Id == CashLinkedAccountId);
+
+        private async Task<FinanceAccountRecord> EditAccountAsync(FinanceAccountRecord account, bool isPostingAccount, DateOnly effectiveFrom, DateOnly? effectiveTo, string key)
+        {
+            var edited = await setup.EditAccountAsync(AccountContext(), new FinanceAccountCommand(account.CompanyId, account.Code, account.EnglishName, account.ArabicName, account.ParentAccountId, account.AccountType, isPostingAccount, account.CurrencyBehavior, effectiveFrom, effectiveTo, account.Id, account.Version, key, key));
+            Assert.True(edited.Succeeded, edited.Code);
+            return edited.Value!;
+        }
+
+        private async Task AddPostingRuleDirectAsync(string sourceContract, string sourceEvent, Guid debitAccountId, Guid creditAccountId, bool costCenterRequired)
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            var debit = await db.Accounts.AsNoTracking().SingleOrDefaultAsync(item => item.Id == debitAccountId && item.CompanyId == CompanyId);
+            var credit = await db.Accounts.AsNoTracking().SingleOrDefaultAsync(item => item.Id == creditAccountId && item.CompanyId == CompanyId);
+            var command = new FinancePostingRuleCommand(CompanyId, sourceContract, sourceEvent, debitAccountId, creditAccountId, costCenterRequired, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), $"s8-direct-{Guid.NewGuid():N}", $"s8-direct-{Guid.NewGuid():N}");
+            db.PostingRules.Add(new FinancePostingRuleEntity(Tenant.TenantId, command.Id, command, 2, debit?.Code ?? "MISSING-DEBIT", credit?.Code ?? "MISSING-CREDIT"));
+            await db.SaveChangesAsync();
         }
 
         internal MigrationExecutionService NewExecution(IFinanceSettlementPersistence? finance = null)
@@ -483,6 +754,15 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
             if (missing == "source") db.SourceEffects.RemoveRange(await db.SourceEffects.Where(item => item.CompanyId == CompanyId && item.SourceContract == "migration-cash-bank-opening.v1").ToListAsync());
             else db.Journals.RemoveRange(await db.Journals.Where(item => item.CompanyId == CompanyId && item.SourceContract == "migration-cash-bank-opening.v1").ToListAsync());
             await db.SaveChangesAsync();
+        }
+
+        internal async Task<CashEvidenceCounts> ReadCashEvidenceCountsAsync()
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            return new(
+                await db.Journals.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-cash-bank-opening.v1"),
+                await db.SourceEffects.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-cash-bank-opening.v1"),
+                await db.SettlementDocuments.CountAsync(item => item.CompanyId == CompanyId));
         }
 
         internal async Task ChangeCashLinkAsync()
