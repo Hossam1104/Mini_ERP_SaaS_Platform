@@ -181,10 +181,10 @@ internal sealed partial class MigrationPersistence
         CancellationToken cancellationToken = default)
     {
         await using var db = CreateContext(tenantContext);
-        var entity = await db.ValidationResults
+        var entities = await db.ValidationResults
             .Where(item => item.RunId == runId)
-            .OrderByDescending(item => item.CompletedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+            .ToArrayAsync(cancellationToken);
+        var entity = entities.OrderByDescending(item => item.CompletedAt).FirstOrDefault();
         return entity is null ? null : await ReadValidationAsync(db, entity, cancellationToken);
     }
 
@@ -293,7 +293,8 @@ internal sealed partial class MigrationPersistence
     public async Task<MigrationDryRunPreview?> FindLatestDryRunAsync(TenantContext tenantContext, Guid runId, CancellationToken cancellationToken = default)
     {
         await using var db = CreateContext(tenantContext);
-        var entity = await db.DryRunPreviews.Where(item => item.RunId == runId).OrderByDescending(item => item.CompletedAt).FirstOrDefaultAsync(cancellationToken);
+        var entities = await db.DryRunPreviews.Where(item => item.RunId == runId).ToArrayAsync(cancellationToken);
+        var entity = entities.OrderByDescending(item => item.CompletedAt).FirstOrDefault();
         return entity is null ? null : await ReadDryRunAsync(db, entity, cancellationToken);
     }
 

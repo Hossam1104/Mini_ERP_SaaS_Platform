@@ -85,6 +85,17 @@ public sealed record FinanceMigrationApOpeningCommand(
     string IdempotencyKey,
     string RequestFingerprint);
 
+public sealed record FinanceMigrationCashBankOpeningCommand(
+    Guid CompanyId,
+    Guid CashAccountId,
+    string SourceReference,
+    DateOnly OpeningDate,
+    decimal Amount,
+    string CurrencyCode,
+    string SourcePayloadFingerprint,
+    string IdempotencyKey,
+    string RequestFingerprint);
+
 public sealed record FinanceArOpeningPreflightResult(
     bool Ready,
     string Code,
@@ -118,6 +129,20 @@ public sealed record FinanceApOpeningPreflightResult(
 
 public sealed record FinanceMigrationApOpeningEvidence(
     FinanceOpenItemRecord OpenItem,
+    FinanceJournalRecord RecognitionJournal,
+    FinanceSourceEffectRecord SourceEffect);
+
+public sealed record FinanceCashBankOpeningPreflightResult(
+    bool Ready,
+    string Code,
+    string FunctionalCurrencyCode,
+    FinanceApprovalRequirement ApprovalRequirement,
+    FinanceCashAccountRecord? CashAccount,
+    FinanceAccountRecord? LinkedAccount);
+
+public sealed record FinanceMigrationCashBankOpeningEvidence(
+    FinanceCashAccountRecord CashAccount,
+    FinanceAccountRecord LinkedAccount,
     FinanceJournalRecord RecognitionJournal,
     FinanceSourceEffectRecord SourceEffect);
 
@@ -367,6 +392,9 @@ public interface IFinanceSettlementPersistence
     Task<FinanceApOpeningPreflightResult> PreflightMigrationApOpeningAsync(FinanceRequestContext context, FinanceMigrationApOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(new FinanceApOpeningPreflightResult(false, "finance_ap_opening_unavailable", string.Empty, FinanceApprovalRequirement.NotConfigured, null, null));
     Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationApOpeningAsync(FinanceRequestContext context, FinanceMigrationApOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(FinanceOperationResult<FinanceOpenItemRecord>.Failure("finance_ap_opening_unavailable"));
     Task<FinanceMigrationApOpeningEvidence?> ReadMigrationApOpeningAsync(FinanceRequestContext context, FinanceMigrationApOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult<FinanceMigrationApOpeningEvidence?>(null);
+    Task<FinanceCashBankOpeningPreflightResult> PreflightMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(new FinanceCashBankOpeningPreflightResult(false, "finance_cash_bank_opening_unavailable", string.Empty, FinanceApprovalRequirement.NotConfigured, null, null));
+    Task<FinanceOperationResult<FinanceJournalRecord>> CreateMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(FinanceOperationResult<FinanceJournalRecord>.Failure("finance_cash_bank_opening_unavailable"));
+    Task<FinanceMigrationCashBankOpeningEvidence?> ReadMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult<FinanceMigrationCashBankOpeningEvidence?>(null);
     Task<FinanceOperationResult<FinanceSalesInvoiceEligibilityRecord>> EvaluateSalesInvoiceAsync(FinanceRequestContext context, FinanceSalesInvoiceCommand command, CancellationToken cancellationToken = default);
     Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateSalesInvoiceAsync(FinanceRequestContext context, FinanceSalesInvoiceCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<FinanceSettlementDocumentRecord>> ListSettlementDocumentsAsync(FinanceRequestContext context, FinanceSettlementQuery query, CancellationToken cancellationToken = default);
@@ -410,6 +438,9 @@ public sealed class UnavailableFinanceSettlementPersistence : IFinanceSettlement
     public Task<FinanceApOpeningPreflightResult> PreflightMigrationApOpeningAsync(FinanceRequestContext context, FinanceMigrationApOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(new FinanceApOpeningPreflightResult(false, "finance_unavailable", string.Empty, FinanceApprovalRequirement.NotConfigured, null, null));
     public Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationApOpeningAsync(FinanceRequestContext context, FinanceMigrationApOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(Failure<FinanceOpenItemRecord>());
     public Task<FinanceMigrationApOpeningEvidence?> ReadMigrationApOpeningAsync(FinanceRequestContext context, FinanceMigrationApOpeningCommand command, CancellationToken cancellationToken = default) => Empty<FinanceMigrationApOpeningEvidence?>();
+    public Task<FinanceCashBankOpeningPreflightResult> PreflightMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(new FinanceCashBankOpeningPreflightResult(false, "finance_unavailable", string.Empty, FinanceApprovalRequirement.NotConfigured, null, null));
+    public Task<FinanceOperationResult<FinanceJournalRecord>> CreateMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(Failure<FinanceJournalRecord>());
+    public Task<FinanceMigrationCashBankOpeningEvidence?> ReadMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Empty<FinanceMigrationCashBankOpeningEvidence?>();
     public Task<FinanceOperationResult<FinanceSalesInvoiceEligibilityRecord>> EvaluateSalesInvoiceAsync(FinanceRequestContext context, FinanceSalesInvoiceCommand command, CancellationToken cancellationToken = default) => Task.FromResult(Failure<FinanceSalesInvoiceEligibilityRecord>());
     public Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateSalesInvoiceAsync(FinanceRequestContext context, FinanceSalesInvoiceCommand command, CancellationToken cancellationToken = default) => Task.FromResult(Failure<FinanceOpenItemRecord>());
     public Task<IReadOnlyList<FinanceSettlementDocumentRecord>> ListSettlementDocumentsAsync(FinanceRequestContext context, FinanceSettlementQuery query, CancellationToken cancellationToken = default) => EmptyList<FinanceSettlementDocumentRecord>();

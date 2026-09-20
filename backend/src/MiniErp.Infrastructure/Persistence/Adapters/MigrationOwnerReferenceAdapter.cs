@@ -28,6 +28,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
     private readonly IFinancePersistence finance;
     private readonly IInventoryProductProvider inventoryProducts;
     private readonly IInventoryWarehouseProvider warehouses;
+    private readonly IFinanceSettlementPersistence? settlements;
 
     public MigrationOwnerReferenceAdapter(
         IProductIdentityPersistence products,
@@ -40,7 +41,8 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         IFinanceCompanyProvider companies,
         IFinancePersistence finance,
         IInventoryProductProvider inventoryProducts,
-        IInventoryWarehouseProvider warehouses)
+        IInventoryWarehouseProvider warehouses,
+        IFinanceSettlementPersistence? settlements = null)
     {
         this.products = products;
         this.suppliers = suppliers;
@@ -53,6 +55,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         this.finance = finance;
         this.inventoryProducts = inventoryProducts;
         this.warehouses = warehouses;
+        this.settlements = settlements;
     }
 
     public async Task<IReadOnlyList<MigrationReferenceCheck>> ValidateAsync(FoundationRequestContext requestContext, MigrationParsedCanonicalRow row, CancellationToken cancellationToken = default)
@@ -71,7 +74,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
                 MigrationApOpeningPayload ap => await PartyAsync(tenant, ap.SupplierId, null, suppliers, "supplier", cancellationToken),
                 MigrationArOpeningPayload ar => await PartyAsync(tenant, ar.CustomerId, null, customers, "customer", cancellationToken),
                 MigrationGlOpeningPayload gl => [],
-                MigrationCashBankOpeningPayload cash => [],
+                MigrationCashBankOpeningPayload cash => await CashBankAsync(requestContext, cash, cancellationToken),
                 MigrationReferencePayload reference => await ReferenceAsync(tenant, row.RecordType, reference, cancellationToken),
                 _ => []
             });
@@ -144,6 +147,16 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
                         SupplierId = supplierId,
                         SourceReference = ap.SourceReference.Trim(),
                         Contract = "migration-ap-opening.v1"
+                    })),
+                MigrationCashBankOpeningPayload cash when cash.CompanyId is { } companyId
+                    && cash.CashAccountId is { } cashAccountId
+                    && !string.IsNullOrWhiteSpace(cash.SourceReference)
+                    => MigrationBusinessIdentityResolution.Valid("cash-bank-opening:" + JsonSerializer.Serialize(new
+                    {
+                        CompanyId = companyId,
+                        CashAccountId = cashAccountId,
+                        SourceReference = cash.SourceReference.Trim(),
+                        Contract = "migration-cash-bank-opening.v1"
                     })),
                 MigrationProductPayload or MigrationSupplierPayload or MigrationCustomerPayload
                     => MigrationBusinessIdentityResolution.NotApplicable(),
@@ -284,7 +297,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
             MigrationGlOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, new[] { item.AccountId }),
             MigrationApOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, Array.Empty<Guid?>()),
             MigrationArOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, Array.Empty<Guid?>()),
-            MigrationCashBankOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, new[] { item.CashAccountId, item.ControlAccountId }),
+            MigrationCashBankOpeningPayload item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, Array.Empty<Guid?>()),
             _ => (null, null, null, Array.Empty<Guid?>())
         };
         if (companyId is not { } company || !FinanceRequestContext.TryCreate(requestContext, out var context))
@@ -296,10 +309,10 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         if (companyOption is not { IsActive: true })
             return findings;
 
-        if (payload is MigrationInventoryOpeningPayload or MigrationArOpeningPayload or MigrationApOpeningPayload
+        if (payload is MigrationInventoryOpeningPayload or MigrationArOpeningPayload or MigrationApOpeningPayload or MigrationCashBankOpeningPayload
             && !string.Equals(currency?.Trim(), companyOption.FunctionalCurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase))
             findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.Currency,
-                payload is MigrationArOpeningPayload ? "migration_ar_opening_currency_not_functional" : payload is MigrationApOpeningPayload ? "migration_ap_opening_currency_not_functional" : "migration_inventory_opening_currency_not_functional",
+                payload is MigrationArOpeningPayload ? "migration_ar_opening_currency_not_functional" : payload is MigrationApOpeningPayload ? "migration_ap_opening_currency_not_functional" : payload is MigrationCashBankOpeningPayload ? "migration_cash_bank_opening_currency_not_functional" : "migration_inventory_opening_currency_not_functional",
                 "Economic opening currency must equal the Company's Finance functional currency."));
 
         foreach (var accountId in accountIds.Where(item => item is not null).Select(item => item!.Value).Distinct())
@@ -307,8 +320,31 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
 
         if (openingDate is { } date)
             findings.Add(await PeriodAsync(context!, company, date, cancellationToken));
-        if (payload is not MigrationArOpeningPayload and not MigrationApOpeningPayload && companyOption is not null && !string.IsNullOrWhiteSpace(currency))
+        if (payload is not MigrationArOpeningPayload and not MigrationApOpeningPayload and not MigrationCashBankOpeningPayload && companyOption is not null && !string.IsNullOrWhiteSpace(currency))
             findings.AddRange(await ExchangeRateAsync(requestContext.TenantContext!, currency, companyOption.FunctionalCurrencyCode, date: openingDate, cancellationToken));
+        return findings;
+    }
+
+    private async Task<IReadOnlyList<MigrationReferenceCheck>> CashBankAsync(FoundationRequestContext requestContext, MigrationCashBankOpeningPayload payload, CancellationToken cancellationToken)
+    {
+        var findings = new List<MigrationReferenceCheck>();
+        if (payload.ControlAccountId is not null)
+            findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.Unsupported, "migration_cash_bank_control_account_not_allowed", "Cash/Bank opening uses the Finance Cash Account linked GL account; caller control-account selection is not allowed."));
+        if (payload.CompanyId is null) findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.MandatoryData, "migration_company_required", "CompanyId is required."));
+        if (payload.CashAccountId is null) findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.MandatoryData, "migration_cash_account_required", "CashAccountId is required."));
+        if (string.IsNullOrWhiteSpace(payload.SourceReference)) findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.MandatoryData, "migration_cash_bank_source_reference_required", "SourceReference is required."));
+        if (payload.Amount is null) findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.MandatoryData, "migration_cash_bank_amount_required", "Amount is required."));
+        else if (payload.Amount < 0m) findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.MandatoryData, "migration_cash_bank_opening_amount_negative", "Cash/Bank opening amount cannot be negative."));
+        else if (payload.Amount == 0m) findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.MandatoryData, "migration_cash_bank_opening_zero_amount", "Cash/Bank opening amount must be positive; zero does not create an economic effect."));
+        if (string.IsNullOrWhiteSpace(payload.CurrencyCode)) findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.MandatoryData, "migration_currency_required", "CurrencyCode is required."));
+        if (payload.OpeningDate is null) findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.MandatoryData, "migration_opening_date_required", "OpeningDate is required."));
+        if (settlements is null || requestContext.TenantContext is not { } tenant || payload.CompanyId is not { } companyId || payload.CashAccountId is not { } cashAccountId) return findings;
+        var financeContext = FinanceRequestContext.TryCreate(requestContext, out var context) ? context : null;
+        if (financeContext is null) return [.. findings, Unavailable("migration_cash_bank_authority_unavailable")];
+        var account = (await settlements.ListCashAccountsAsync(financeContext, companyId, cancellationToken)).SingleOrDefault(item => item.Id == cashAccountId);
+        findings.Add(account is null ? Missing("cash-account", cashAccountId) : Lifecycle(account.Lifecycle == FinancePaymentMethodLifecycle.Active, "cash-account", cashAccountId));
+        if (account is not null && payload.OpeningDate is { } date && (date < account.EffectiveFrom || account.EffectiveTo is { } end && date > end))
+            findings.Add(Invalid("cash-account", $"{cashAccountId:N}:not-effective"));
         return findings;
     }
 

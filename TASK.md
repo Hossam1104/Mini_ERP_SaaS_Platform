@@ -1,3 +1,46 @@
+## MESP-141 Slice 8 - Cash/Bank Opening Economic Execution implementation handoff (20 September 2026)
+
+Slice 8 was activated by Issue #229 comment `5743854355` from verified
+`origin/main` baseline `1ff11550e2f491bc01cdbac357c37fe373322f50`. The bounded
+branch is `feat/mesp-141-cash-bank-opening-economic-execution`; its feature PR
+must remain **OPEN / DRAFT / UNMERGED / NOT READY** pending independent
+GPT-5.6 Sol acceptance. Slices 1-7 are **ACCEPTED / MERGED / LIFECYCLE
+CLOSED**. Issue #229 remains **OPEN / ACTIVE / IN PROGRESS** and Issue #230
+remains **OPEN / NOT ACTIVATED**.
+
+The bounded capability adds Finance-owned functional-currency Cash/Bank
+opening recognition for an already configured Finance CashAccount, exact
+Tenant/Company and lifecycle/effective-date/period/posting-rule authority,
+deterministic Tenant+Company+CashAccount+normalized SourceReference identity,
+one balanced opening journal/source effect, exact replay/conflict and
+OutcomeUnknown fail-closed behavior, durable Finance evidence, ordinary
+settlement compatibility, and mixed economic-package preflight-before-effect.
+Migration validates and stages the canonical row and owns execution lineage;
+it does not write Finance tables or build journal lines. Residual GL opening,
+multi-currency expansion, reconciliation/sign-off completion, production
+migration/cutover, MESP-142, and any future Slice remain out of scope and
+unauthorized.
+
+Local evidence for this correction is Release `0 warnings / 0 errors`; official
+disposable-LocalDB backend `1,417/1,417` with `0` failures and `0` skips;
+Cash/Bank provider-realistic focused safety coverage `13/13`; complete SQL
+Server safety coverage `134/134`; Angular `316/316`; Chromium `51/51` from the
+unchanged frontend baseline; eight EF contexts with no pending migrations/model
+drift; NuGet scan clear; known npm audit baseline `4` moderate production /
+`7` full tree; and production build `514.26 kB` initial bundle with the
+existing budget warning. The isolated runtime on API
+`5300` and frontend `4300` returned HTTP 200 for health, OpenAPI, frontend,
+development bypass, context switch, and an authenticated synthetic execution
+read; the response serialized one `cashBankEconomicReconciliations` row.
+This is runtime/serialization evidence only, not owner acceptance or
+production execution. `frontend/assets` is untouched. Metrics remain
+**24 / 26 = 92.3%**, approximately **47% overall** and **41% Procurement/P2P**.
+
+Stop after pushing the bounded Draft PR, verifying exact-head hosted CI, and
+posting the Issue #229 handoff. Do not mark Ready, merge, enable auto-merge,
+write Jira, activate Issue #230, begin residual GL/reconciliation/production
+work, or start any future Slice.
+
 ## MESP-141 Slice 7 - AP Opening Economic Execution post-merge lifecycle reconciliation (19 September 2026)
 
 Slice 7 was accepted by GPT-5.6 Sol at exact head

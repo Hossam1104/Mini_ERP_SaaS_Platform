@@ -31,6 +31,7 @@ internal sealed class FinanceSettlementPersistence(
     private const string ManualArContract = "manual-ar.v1";
     internal const string MigrationArContract = "migration-ar-opening.v1";
     internal const string MigrationApContract = "migration-ap-opening.v1";
+    internal const string MigrationCashBankContract = "migration-cash-bank-opening.v1";
     private const string ApContract = "procurement-supplier-invoice.v1";
     private const string SalesInvoiceContract = "sales-invoice.v1";
     private const string InventoryValuationContract = "inventory-valuation-finance.v1";
@@ -226,6 +227,41 @@ internal sealed class FinanceSettlementPersistence(
             return evidence is not null
                 ? FinanceOperationResult<FinanceOpenItemRecord>.Success(evidence.OpenItem)
                 : Failure<FinanceOpenItemRecord>(await ResolveMigrationApCreateFailureCodeAsync(context, command));
+        }
+    }
+
+    public async Task<FinanceCashBankOpeningPreflightResult> PreflightMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default)
+    {
+        await using var db = CreateContext(context);
+        return (await ValidateMigrationCashBankOpeningAsync(db, context, command, cancellationToken)).Result;
+    }
+
+    public async Task<FinanceMigrationCashBankOpeningEvidence?> ReadMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default)
+    {
+        if (Company(context, command.CompanyId) is null) return null;
+        await using var db = CreateContext(context);
+        return await ReadMigrationCashBankOpeningEvidenceAsync(db, context, command, cancellationToken);
+    }
+
+    public async Task<FinanceOperationResult<FinanceJournalRecord>> CreateMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await CreateMigrationCashBankOpeningCoreAsync(context, command, cancellationToken);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                var evidence = await ReadMigrationCashBankOpeningAsync(context, command, CancellationToken.None);
+                return evidence is not null
+                    ? FinanceOperationResult<FinanceJournalRecord>.Success(evidence.RecognitionJournal)
+                    : Failure<FinanceJournalRecord>(await ResolveMigrationCashBankCreateFailureCodeAsync(context, command));
+            }
+            catch
+            {
+                return Failure<FinanceJournalRecord>("migration_cash_bank_opening_outcome_unknown");
+            }
         }
     }
 
@@ -828,6 +864,181 @@ internal sealed class FinanceSettlementPersistence(
         return (true, "succeeded", ToJournal(journal));
     }
 
+    private sealed record MigrationCashBankPreflight(FinanceCashBankOpeningPreflightResult Result, FinancePostingRuleEntity? Rule);
+
+    private async Task<MigrationCashBankPreflight> ValidateMigrationCashBankOpeningAsync(
+        FinanceDbContext db,
+        FinanceRequestContext context,
+        FinanceMigrationCashBankOpeningCommand command,
+        CancellationToken cancellationToken)
+    {
+        static MigrationCashBankPreflight Block(string code, string currency = "", FinanceCashAccountRecord? cash = null, FinanceAccountRecord? linked = null) =>
+            new(new(false, code, currency, FinanceApprovalRequirement.NotConfigured, cash, linked), null);
+
+        if (!InventoryResourceAuthorizationService.IsMigrationExecutionContext(context.FoundationContext)) return Block("forbidden");
+        var company = Company(context, command.CompanyId);
+        if (company is null) return Block("company_scope_denied");
+        var currency = NormalizeCode(command.CurrencyCode);
+        if (command.CashAccountId == Guid.Empty || command.OpeningDate == default || string.IsNullOrWhiteSpace(command.SourceReference) || command.SourceReference.Trim().Length > 256 || currency is null)
+            return Block("invalid_cash_bank_opening", company.FunctionalCurrencyCode);
+        if (command.Amount < 0m) return Block("migration_cash_bank_opening_amount_negative", company.FunctionalCurrencyCode);
+        if (command.Amount == 0m) return Block("migration_cash_bank_opening_zero_amount", company.FunctionalCurrencyCode);
+        if (!string.Equals(currency, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase))
+            return Block("migration_cash_bank_opening_currency_not_functional", company.FunctionalCurrencyCode);
+
+        var cashEntity = await db.CashAccounts.SingleOrDefaultAsync(item => item.Id == command.CashAccountId && item.CompanyId == command.CompanyId, cancellationToken);
+        if (cashEntity is null) return Block("cash_account_missing", company.FunctionalCurrencyCode);
+        var cash = ToCash(cashEntity);
+        if (cash.Lifecycle != FinancePaymentMethodLifecycle.Active) return Block("cash_account_inactive", company.FunctionalCurrencyCode, cash);
+        if (cash.EffectiveFrom > command.OpeningDate || cash.EffectiveTo < command.OpeningDate) return Block("cash_account_not_effective", company.FunctionalCurrencyCode, cash);
+        if (!string.Equals(cash.CurrencyCode, currency, StringComparison.OrdinalIgnoreCase)) return Block("cash_account_currency_mismatch", company.FunctionalCurrencyCode, cash);
+
+        var linkedEntity = await db.Accounts.SingleOrDefaultAsync(item => item.Id == cash.LinkedAccountId && item.CompanyId == command.CompanyId, cancellationToken);
+        if (linkedEntity is null) return Block("cash_account_link_missing", company.FunctionalCurrencyCode, cash);
+        var linked = ToAccount(linkedEntity);
+        if (linked.Lifecycle != FinanceAccountLifecycle.Active || !linked.IsPostingAccount) return Block("cash_account_link_not_postable", company.FunctionalCurrencyCode, cash, linked);
+        if (linked.EffectiveFrom > command.OpeningDate || linked.EffectiveTo < command.OpeningDate) return Block("cash_account_link_not_effective", company.FunctionalCurrencyCode, cash, linked);
+
+        var evidenceId = MigrationCashBankSourceEvidenceId(context, command);
+        var existingEffect = await db.SourceEffects.AsNoTracking().SingleOrDefaultAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationCashBankContract && item.SourceEvidenceId == evidenceId && item.SourceEvidenceVersion == 1, cancellationToken);
+        if (existingEffect is not null)
+        {
+            var evidence = await ReadMigrationCashBankOpeningEvidenceAsync(db, context, command, cancellationToken);
+            return evidence is not null
+                ? new(new(true, "replay", company.FunctionalCurrencyCode, FinanceApprovalRequirement.NotRequired, evidence.CashAccount, evidence.LinkedAccount), null)
+                : await ExistingMigrationCashBankConflictAsync(db, existingEffect, command, cancellationToken)
+                    ? Block("migration_cash_bank_source_conflict", company.FunctionalCurrencyCode, cash, linked)
+                : Block("migration_cash_bank_opening_outcome_unknown", company.FunctionalCurrencyCode, cash, linked);
+        }
+        if (await db.Journals.AsNoTracking().AnyAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationCashBankContract && item.SourceEvidenceId == evidenceId && item.SourceEvidenceVersion == 1, cancellationToken))
+            return Block("migration_cash_bank_opening_outcome_unknown", company.FunctionalCurrencyCode, cash, linked);
+
+        var periods = await db.FiscalPeriods.Where(item => item.CompanyId == command.CompanyId && item.StartDate <= command.OpeningDate && item.EndDate >= command.OpeningDate).ToListAsync(cancellationToken);
+        if (periods.Count == 0) return Block("period_not_configured", company.FunctionalCurrencyCode, cash, linked);
+        if (periods.Count != 1) return Block("period_ambiguous", company.FunctionalCurrencyCode, cash, linked);
+        if (periods[0].State != FinanceFiscalPeriodState.Open) return Block(periods[0].State == FinanceFiscalPeriodState.SoftClosed ? "period_soft_closed" : "period_closed", company.FunctionalCurrencyCode, cash, linked);
+
+        var rule = await FindRuleAsync(db, command.CompanyId, MigrationCashBankContract, "recognition", command.OpeningDate, cancellationToken);
+        if (rule.Code != "eligible" || rule.Value is null) return Block(rule.Code, company.FunctionalCurrencyCode, cash, linked);
+        if (rule.Value.DebitAccountId == rule.Value.CreditAccountId) return Block("posting_rule_accounts_invalid", company.FunctionalCurrencyCode, cash, linked);
+        if (rule.Value.DebitAccountId != cash.LinkedAccountId) return Block("cash_bank_posting_rule_cash_side_mismatch", company.FunctionalCurrencyCode, cash, linked);
+        var offset = await db.Accounts.SingleOrDefaultAsync(item => item.Id == rule.Value.CreditAccountId && item.CompanyId == command.CompanyId, cancellationToken);
+        if (offset is null || !offset.IsPostingAccount || offset.Lifecycle != FinanceAccountLifecycle.Active || offset.EffectiveFrom > command.OpeningDate || offset.EffectiveTo < command.OpeningDate)
+            return Block("cash_bank_opening_offset_not_postable", company.FunctionalCurrencyCode, cash, linked);
+        if (rule.Value.CostCenterRequired) return Block("dimension_required", company.FunctionalCurrencyCode, cash, linked);
+
+        var inventoryEvent = FinanceInventoryPostingClassifier.Classify(InventoryMovementSourceType.OpeningBalance, InventoryMovementDirection.Inbound);
+        if (await db.PostingRules.AnyAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == InventoryValuationContract && item.SourceEvent == inventoryEvent && item.Lifecycle == FinancePostingRuleLifecycle.Enabled && item.EffectiveFrom <= command.OpeningDate && (item.EffectiveTo == null || item.EffectiveTo >= command.OpeningDate) && item.DebitAccountId == cash.LinkedAccountId, cancellationToken))
+            return Block("cash_bank_account_overlaps_inventory_control", company.FunctionalCurrencyCode, cash, linked);
+        if (await db.PostingRules.AnyAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationArContract && item.SourceEvent == "recognition" && item.Lifecycle == FinancePostingRuleLifecycle.Enabled && item.EffectiveFrom <= command.OpeningDate && (item.EffectiveTo == null || item.EffectiveTo >= command.OpeningDate) && item.DebitAccountId == cash.LinkedAccountId, cancellationToken))
+            return Block("cash_bank_account_overlaps_ar_control", company.FunctionalCurrencyCode, cash, linked);
+        if (await db.PostingRules.AnyAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationApContract && item.SourceEvent == "recognition" && item.Lifecycle == FinancePostingRuleLifecycle.Enabled && item.EffectiveFrom <= command.OpeningDate && (item.EffectiveTo == null || item.EffectiveTo >= command.OpeningDate) && item.CreditAccountId == cash.LinkedAccountId, cancellationToken))
+            return Block("cash_bank_account_overlaps_ap_control", company.FunctionalCurrencyCode, cash, linked);
+
+        var approval = SourceApprovalPolicy.Resolve(MigrationCashBankContract, "recognition");
+        if (approval != FinanceApprovalRequirement.NotRequired)
+            return Block(approval == FinanceApprovalRequirement.Required ? "approval_required" : "approval_policy_not_configured", company.FunctionalCurrencyCode, cash, linked);
+        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, cash, linked), rule.Value);
+    }
+
+    private async Task<FinanceOperationResult<FinanceJournalRecord>> CreateMigrationCashBankOpeningCoreAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken)
+    {
+        await using var db = CreateContext(context);
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        var replay = await ReadReplayAsync<FinanceJournalRecord>(db, context, "finance.cash-bank.migration-opening", command.IdempotencyKey, command.RequestFingerprint, cancellationToken);
+        if (replay is not null) return replay;
+        var evidenceId = MigrationCashBankSourceEvidenceId(context, command);
+        var existing = await db.SourceEffects.SingleOrDefaultAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationCashBankContract && item.SourceEvidenceId == evidenceId && item.SourceEvidenceVersion == 1, cancellationToken);
+        if (existing is not null)
+        {
+            var evidence = await ReadMigrationCashBankOpeningEvidenceAsync(db, context, command, cancellationToken);
+            return evidence is not null
+                ? FinanceOperationResult<FinanceJournalRecord>.Success(evidence.RecognitionJournal)
+                : await ExistingMigrationCashBankConflictAsync(db, existing, command, cancellationToken)
+                    ? Failure<FinanceJournalRecord>("migration_cash_bank_source_conflict")
+                    : Failure<FinanceJournalRecord>("migration_cash_bank_opening_outcome_unknown");
+        }
+        var preflight = await ValidateMigrationCashBankOpeningAsync(db, context, command, cancellationToken);
+        if (!preflight.Result.Ready || preflight.Result.CashAccount is null || preflight.Result.LinkedAccount is null) return Failure<FinanceJournalRecord>(preflight.Result.Code);
+        var company = Company(context, command.CompanyId)!;
+        var rule = preflight.Rule!;
+        var period = await db.FiscalPeriods.SingleAsync(item => item.CompanyId == command.CompanyId && item.StartDate <= command.OpeningDate && item.EndDate >= command.OpeningDate, cancellationToken);
+        var accounts = await db.Accounts.Where(item => item.CompanyId == command.CompanyId && (item.Id == rule.DebitAccountId || item.Id == rule.CreditAccountId)).ToDictionaryAsync(item => item.Id, cancellationToken);
+        var journalCommand = new FinanceJournalCommand(command.CompanyId, command.OpeningDate, command.OpeningDate, company.FunctionalCurrencyCode, 1m, null, null, null, MigrationCashBankContract, "recognition", evidenceId, 1, rule.Id, $"Cash/Bank opening {command.SourceReference.Trim()}", [
+            new FinanceJournalLineCommand(rule.DebitAccountId, command.Amount, 0m, command.Amount, company.FunctionalCurrencyCode, null, "Cash/Bank opening recognition"),
+            new FinanceJournalLineCommand(rule.CreditAccountId, 0m, command.Amount, command.Amount, company.FunctionalCurrencyCode, null, "Cash/Bank opening recognition")
+        ], MigrationCashBankJournalId(context, command), Guid.NewGuid().ToString("N"), command.RequestFingerprint, FinanceJournalAmountAuthority.ManualTransactionCurrency, FinanceApprovalRequirement.NotRequired);
+        var journal = new FinanceJournalEntity(context.TenantId, journalCommand.Id, journalCommand, (await db.Journals.Where(item => item.CompanyId == command.CompanyId).Select(item => (long?)item.JournalSequence).MaxAsync(cancellationToken) ?? 0L) + 1L, company.FunctionalCurrencyCode, context.ActorId, DateTimeOffset.UtcNow);
+        journal.SetCorrelation(context.CorrelationId); journal.SetPeriod(period.FiscalYearId, period.Id); journal.SetRule(rule.Id, rule.VersionNumber); journal.SetStatus(FinanceJournalStatus.Posted, context.ActorId, DateTimeOffset.UtcNow);
+        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, StableId("cash-bank-line", evidenceId.ToString("D"), "debit"), journal.Id, 1, accounts[rule.DebitAccountId], journalCommand.Lines[0], null, command.Amount, 0m, FinanceJournalAmountAuthority.ManualTransactionCurrency));
+        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, StableId("cash-bank-line", evidenceId.ToString("D"), "credit"), journal.Id, 2, accounts[rule.CreditAccountId], journalCommand.Lines[1], null, 0m, command.Amount, FinanceJournalAmountAuthority.ManualTransactionCurrency));
+        var monetary = await FinanceJournalMonetaryEvidenceFactory.BuildAsync(db, context.TenantContext, exchangeRates, command.CompanyId, command.OpeningDate, company.FunctionalCurrencyCode, command.Amount, company.FunctionalCurrencyCode, command.Amount, 1m, null, null, null, cancellationToken);
+        if (!monetary.Succeeded) return Failure<FinanceJournalRecord>(monetary.Code);
+        db.Journals.Add(journal);
+        if (monetary.Evidence is not null) db.JournalMonetaryEvidence.Add(new FinanceJournalMonetaryEvidenceEntity(context.TenantId, Guid.NewGuid(), journal.Id, command.CompanyId, null, monetary.Evidence, DateTimeOffset.UtcNow));
+        db.SourceEffects.Add(new FinanceSourceEffectEntity(context.TenantId, StableId("cash-bank-source-effect", evidenceId.ToString("D")), command.CompanyId, MigrationCashBankContract, evidenceId, 1, journal.Id, DateTimeOffset.UtcNow));
+        var now = DateTimeOffset.UtcNow;
+        AddAudit(db, context, "finance.cash-bank.migration-opening", "cash-bank-opening", journal.Id, "Succeeded", command.SourceReference.Trim(), command.IdempotencyKey, now);
+        await db.SaveChangesAsync(cancellationToken);
+        var result = FinanceOperationResult<FinanceJournalRecord>.Success(ToJournal(journal));
+        AddReplay(db, context, "finance.cash-bank.migration-opening", command.IdempotencyKey, command.RequestFingerprint, "cash-bank-opening", journal.Id, result.Value!, now);
+        await db.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
+        return result;
+    }
+
+    private async Task<string> ResolveMigrationCashBankCreateFailureCodeAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command)
+    {
+        if (Company(context, command.CompanyId) is null) return "migration_cash_bank_opening_outcome_unknown";
+        await using var db = CreateContext(context);
+        var evidence = await ReadMigrationCashBankOpeningEvidenceAsync(db, context, command, CancellationToken.None);
+        return evidence is null ? "migration_cash_bank_opening_outcome_unknown" : "migration_cash_bank_source_conflict";
+    }
+
+    private async Task<FinanceMigrationCashBankOpeningEvidence?> ReadMigrationCashBankOpeningEvidenceAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken)
+    {
+        var company = Company(context, command.CompanyId);
+        if (company is null) return null;
+        var cashEntity = await db.CashAccounts.AsNoTracking().SingleOrDefaultAsync(item => item.Id == command.CashAccountId && item.CompanyId == command.CompanyId, cancellationToken);
+        if (cashEntity is null) return null;
+        var linkedEntity = await db.Accounts.AsNoTracking().SingleOrDefaultAsync(item => item.Id == cashEntity.LinkedAccountId && item.CompanyId == command.CompanyId, cancellationToken);
+        if (linkedEntity is null) return null;
+        var evidenceId = MigrationCashBankSourceEvidenceId(context, command);
+        var journal = await db.Journals.AsNoTracking().Include(item => item.Lines).SingleOrDefaultAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationCashBankContract && item.SourceEvent == "recognition" && item.SourceEvidenceId == evidenceId && item.SourceEvidenceVersion == 1 && item.Status == FinanceJournalStatus.Posted, cancellationToken);
+        if (journal is null || journal.JournalDate != command.OpeningDate || journal.PostingDate != command.OpeningDate || !string.Equals(journal.TransactionCurrencyCode, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase) || journal.ExchangeRate != 1m || journal.AmountAuthority != FinanceJournalAmountAuthority.ManualTransactionCurrency || journal.ApprovalRequirement != FinanceApprovalRequirement.NotRequired)
+            return null;
+        if (journal.PostingRuleId is not { } ruleId || journal.PostingRuleVersionNumber is not { } ruleVersion) return null;
+        var rule = await db.PostingRules.AsNoTracking().SingleOrDefaultAsync(item => item.Id == ruleId && item.CompanyId == command.CompanyId && item.SourceContract == MigrationCashBankContract && item.SourceEvent == "recognition" && item.VersionNumber == ruleVersion, cancellationToken);
+        if (rule is null || !JournalMatchesMigrationCashBankOpening(journal, rule, command, cashEntity.LinkedAccountId, company.FunctionalCurrencyCode)) return null;
+        var effects = await db.SourceEffects.AsNoTracking().Where(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationCashBankContract && item.SourceEvidenceId == evidenceId && item.SourceEvidenceVersion == 1).ToListAsync(cancellationToken);
+        if (effects.Count != 1 || effects[0].JournalId != journal.Id) return null;
+        var cash = ToCash(cashEntity);
+        return new FinanceMigrationCashBankOpeningEvidence(cash, ToAccount(linkedEntity), ToJournal(journal), ToSourceEffect(effects[0]));
+    }
+
+    private static async Task<bool> ExistingMigrationCashBankConflictAsync(FinanceDbContext db, FinanceSourceEffectEntity existing, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken)
+    {
+        var journal = await db.Journals.AsNoTracking().Include(item => item.Lines).SingleOrDefaultAsync(item => item.Id == existing.JournalId, cancellationToken);
+        return journal is not null && (!string.Equals(journal.Description, $"Cash/Bank opening {command.SourceReference.Trim()}", StringComparison.Ordinal)
+            || journal.JournalDate != command.OpeningDate
+            || journal.PostingDate != command.OpeningDate
+            || !string.Equals(journal.TransactionCurrencyCode, NormalizeCode(command.CurrencyCode), StringComparison.OrdinalIgnoreCase)
+            || journal.Lines.OrderBy(item => item.LineNumber).FirstOrDefault()?.FunctionalDebit != command.Amount);
+    }
+
+    private static bool JournalMatchesMigrationCashBankOpening(FinanceJournalEntity journal, FinancePostingRuleEntity rule, FinanceMigrationCashBankOpeningCommand command, Guid linkedAccountId, string functionalCurrencyCode)
+    {
+        var lines = journal.Lines.OrderBy(item => item.LineNumber).ToArray();
+        return rule.DebitAccountId == linkedAccountId
+            && lines.Length == 2
+            && string.Equals(journal.Description, $"Cash/Bank opening {command.SourceReference.Trim()}", StringComparison.Ordinal)
+            && lines[0].AccountId == linkedAccountId && lines[0].Debit == command.Amount && lines[0].Credit == 0m && lines[0].FunctionalDebit == command.Amount && lines[0].FunctionalCredit == 0m && lines[0].TransactionAmount == command.Amount && string.Equals(lines[0].TransactionCurrencyCode, functionalCurrencyCode, StringComparison.OrdinalIgnoreCase)
+            && lines[1].AccountId == rule.CreditAccountId && lines[1].Debit == 0m && lines[1].Credit == command.Amount && lines[1].FunctionalDebit == 0m && lines[1].FunctionalCredit == command.Amount && lines[1].TransactionAmount == command.Amount && string.Equals(lines[1].TransactionCurrencyCode, functionalCurrencyCode, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static Guid MigrationCashBankSourceEvidenceId(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command) => StableId("migration-cash-bank-source", context.TenantId.Value.ToString("D"), command.CompanyId.ToString("D"), command.CashAccountId.ToString("D"), command.SourceReference.Trim(), MigrationCashBankContract);
+    private static Guid MigrationCashBankJournalId(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command) => StableId("migration-cash-bank-journal", context.TenantId.Value.ToString("D"), command.CompanyId.ToString("D"), command.CashAccountId.ToString("D"), command.SourceReference.Trim(), MigrationCashBankContract);
+
     private sealed record MigrationApPreflight(FinanceApOpeningPreflightResult Result, FinancePostingRuleEntity? Rule);
 
     private async Task<MigrationApPreflight> ValidateMigrationApOpeningAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationApOpeningCommand command, CancellationToken cancellationToken)
@@ -1192,6 +1403,7 @@ internal sealed class FinanceSettlementPersistence(
     private async Task<IReadOnlyList<FinanceSettlementDocumentRecord>> ToDocumentsAsync(FinanceDbContext db, IEnumerable<FinanceSettlementDocumentEntity> entities, CancellationToken cancellationToken) { var result = new List<FinanceSettlementDocumentRecord>(); foreach (var entity in entities) result.Add(await ToDocumentAsync(db, entity, cancellationToken)); return result; }
     private async Task<FinanceSettlementDocumentRecord> ToDocumentAsync(FinanceDbContext db, FinanceSettlementDocumentEntity entity, CancellationToken cancellationToken) { var allocated = await ActiveAllocations(db).Where(item => item.SettlementDocumentId == entity.Id).SumAsync(item => (decimal?)item.Amount, cancellationToken) ?? 0m; return new(entity.Id, entity.TenantId.Value, entity.CompanyId, entity.Status, entity.Direction, entity.SupplierId, entity.CustomerId, entity.CashAccountId, entity.PaymentMethodId, entity.DocumentDate, entity.CurrencyCode, entity.Amount, entity.FunctionalCurrencyCode, entity.FunctionalAmount, entity.ExchangeRate, entity.ExchangeRateId, entity.ExchangeRateVersionId, entity.ExchangeRateVersionNumber, entity.ExternalReference, entity.Description, entity.CreatedBy, entity.SubmittedBy, entity.ApprovedBy, entity.PostedBy, entity.ReversedBy, entity.PostedJournalId, entity.ReversalJournalId, allocated, Math.Max(0m, entity.Amount - allocated), entity.Version, SourceApprovalPolicy.Resolve(ContractFor(entity.Direction), "on-account")); }
     private static FinancePaymentMethodRecord ToMethod(FinancePaymentMethodEntity item) => new(item.Id, item.TenantId.Value, item.CompanyId, item.Code, item.EnglishName, item.ArabicName, item.Direction, item.Lifecycle, item.IsManual, item.RequiresReference, item.EffectiveFrom, item.EffectiveTo, item.Version);
+    private static FinanceAccountRecord ToAccount(FinanceAccountEntity item) => new(item.Id, item.TenantId.Value, item.CompanyId, item.Code, item.EnglishName, item.ArabicName, item.ParentAccountId, item.AccountType, item.IsPostingAccount, item.Lifecycle, item.CurrencyBehavior, item.EffectiveFrom, item.EffectiveTo, item.Version);
     private static FinanceCashAccountRecord ToCash(FinanceCashAccountEntity item) => new(item.Id, item.TenantId.Value, item.CompanyId, item.Code, item.EnglishName, item.ArabicName, item.Kind, item.CurrencyCode, item.LinkedAccountId, item.LinkedAccountCode, item.BankReference, item.Lifecycle, item.EffectiveFrom, item.EffectiveTo, item.Version);
     private static FinanceAllocationRecord ToAllocation(FinanceAllocationEntity item) => new(item.Id, item.TenantId.Value, item.CompanyId, item.SettlementDocumentId, item.OpenItemId, item.Amount, item.CurrencyCode, item.FunctionalAmount, item.AllocationDate, item.Status, item.ReversalOfAllocationId, item.JournalId, item.CreatedBy, item.Reason, item.Version, item.HistoricalFunctionalAmount, item.SettlementFunctionalAmount, item.RealizedFxAmount, item.RealizedFxDirection, item.RealizedFxJournalId, item.RealizedFxRuleId, item.RealizedFxRuleVersionNumber);
     private static FinanceSourceEffectRecord ToSourceEffect(FinanceSourceEffectEntity item) => new(item.Id, item.TenantId.Value, item.CompanyId, item.SourceContract, item.SourceEvidenceId, item.SourceEvidenceVersion, item.JournalId, item.CreatedAt);

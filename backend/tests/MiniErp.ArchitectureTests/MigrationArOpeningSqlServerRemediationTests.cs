@@ -462,6 +462,49 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         await fixture.AssertNoMixedEffectsAsync(sourceReference);
     }
 
+    [Fact]
+    public async Task Sql_server_mixed_inventory_ar_ap_and_cash_bank_execution_has_one_effect_per_row()
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        var prepared = await fixture.PrepareMixedAsync("S8-MIXED", 100m, includeCash: true);
+
+        var result = await fixture.NewMixedExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, "s8-mixed-success", prepared.Run.Version);
+
+        Assert.True(result.Succeeded, result.Code);
+        Assert.Equal(MigrationRunStatus.Completed, result.Value!.RunStatus);
+        Assert.Equal(4, result.Value.Effects.Count);
+        Assert.All(result.Value.Effects, item => Assert.Equal(MigrationExecutionEffectDisposition.Committed, item.Disposition));
+        Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.InventoryOpening));
+        Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.ArOpening));
+        Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.ApOpening));
+        Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.CashBankOpening));
+        Assert.Equal(13, result.Value.Representations!.Count);
+        await fixture.AssertMixedEffectsAsync("S8-MIXED", 100m);
+        await fixture.AssertOneCashEffectAsync("S8-MIXED-CASH", 100m);
+    }
+
+    [Fact]
+    public async Task Sql_server_cash_bank_mixed_preflight_failure_has_zero_new_owner_effects()
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        await fixture.DisableCashAccountAsync();
+        const string sourceReference = "S8-MIXED-CASH-BLOCKED";
+        Assert.True((await fixture.Finance.PreflightInventoryOpeningAsync(fixture.FinanceContext, fixture.CompanyId, new DateOnly(2026, 1, 15))).Ready);
+        Assert.True((await fixture.Settlement.PreflightMigrationArOpeningAsync(fixture.FinanceContext, fixture.Command(sourceReference, 100m))).Ready);
+        Assert.True((await fixture.Settlement.PreflightMigrationApOpeningAsync(fixture.FinanceContext, fixture.ApCommand(sourceReference + "-AP", 100m))).Ready);
+        var cash = await fixture.Settlement.PreflightMigrationCashBankOpeningAsync(fixture.FinanceContext, fixture.CashCommand(sourceReference + "-CASH", 100m));
+        Assert.False(cash.Ready);
+        Assert.Equal("cash_account_inactive", cash.Code);
+
+        var prepared = await fixture.PrepareMixedAsync(sourceReference, 100m, includeCash: true);
+        var result = await fixture.NewMixedExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, "s8-mixed-cash-blocked", prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.KnownFailure, result.Kind);
+        Assert.Equal("cash_account_inactive", result.Code);
+        Assert.Equal(MigrationRunStatus.Approved, (await fixture.Migration.FindRunAsync(fixture.Tenant, prepared.Run.RunId))!.Status);
+        await fixture.AssertNoMixedEffectsAsync(sourceReference);
+    }
+
     internal sealed class ArSqlFixture : IAsyncDisposable
     {
         private readonly Microsoft.Data.SqlClient.SqlConnection connection;
@@ -556,6 +599,10 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         internal Guid PeriodId { get; private set; }
         internal Guid ApRuleId { get; private set; }
         internal byte[] ApRuleVersion { get; private set; } = [];
+        internal Guid CashAccountId { get; private set; }
+        internal Guid CashLinkedAccountId { get; private set; }
+        internal Guid CashRuleId { get; private set; }
+        internal byte[] CashRuleVersion { get; private set; } = [];
         internal MigrationPersistence Migration { get; }
         internal FoundationRequestContext Request { get; }
         internal FinanceRequestContext FinanceContext => FinanceRequestContext.TryCreate(Request, out var context) ? context! : throw new InvalidOperationException();
@@ -629,6 +676,14 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.True(inventoryRule.Succeeded, inventoryRule.Code);
             Assert.True(apRule.Succeeded, apRule.Code);
             Assert.True(apAllocationRule.Succeeded, apAllocationRule.Code);
+            var cashAccount = await setup.CreateAccountAsync(accountContext, Account(companyId, "S8-CASH", FinanceAccountType.Asset));
+            var cashOffset = await setup.CreateAccountAsync(accountContext, Account(companyId, "S8-CASH-OFFSET", FinanceAccountType.Equity));
+            Assert.True(cashAccount.Succeeded, cashAccount.Code);
+            Assert.True(cashOffset.Succeeded, cashOffset.Code);
+            var configuredCash = await settlement.CreateCashAccountAsync(fixture.FinanceContextFor("tenant.finance.settlement.manage"), new FinanceCashAccountCommand(companyId, "S8-BANK", "Slice 8 bank", null, FinanceCashAccountKind.Bank, "SAR", cashAccount.Value!.Id, null, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), null, "s8-cash-account", "s8-cash-account"));
+            Assert.True(configuredCash.Succeeded, configuredCash.Code);
+            var cashRule = await setup.CreatePostingRuleAsync(ruleContext, new FinancePostingRuleCommand(companyId, "migration-cash-bank-opening.v1", "recognition", cashAccount.Value.Id, cashOffset.Value!.Id, false, new DateOnly(2026, 1, 15), null, Guid.NewGuid(), "s8-cash-rule", "s8-cash-rule"));
+            Assert.True(cashRule.Succeeded, cashRule.Code);
             fixture.ArAccountId = arAccount.Value.Id;
             fixture.ApAccountId = apAccount.Value.Id;
             fixture.ApOffsetAccountId = apOffset.Value.Id;
@@ -640,6 +695,10 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             fixture.PeriodId = period.Value.Id;
             fixture.ApRuleId = apRule.Value!.Id;
             fixture.ApRuleVersion = apRule.Value.Version;
+            fixture.CashAccountId = configuredCash.Value!.Id;
+            fixture.CashLinkedAccountId = cashAccount.Value.Id;
+            fixture.CashRuleId = cashRule.Value!.Id;
+            fixture.CashRuleVersion = cashRule.Value.Version;
             return fixture;
         }
 
@@ -726,12 +785,15 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             var ar = new MigrationArOpeningExecutionCoordinator(Migration, references, Settlement);
             var inventory = new MigrationInventoryOpeningExecutionCoordinator(Migration, references, InventoryService, Valuation, Finance);
             var ap = new MigrationApOpeningExecutionCoordinator(Migration, references, Settlement);
-            return new MigrationExecutionService(foundation, Migration, Migration, Migration, scopes, scopes, new UnusedOwnerGateway(), references, inventory, ar, ap);
+            var cash = new MigrationCashBankOpeningExecutionCoordinator(Migration, references, Settlement);
+            return new MigrationExecutionService(foundation, Migration, Migration, Migration, scopes, scopes, new UnusedOwnerGateway(), references, inventory, ar, ap, null, cash);
         }
 
         internal FinanceMigrationArOpeningCommand Command(string sourceReference, decimal amount) => new(CompanyId, CustomerId, sourceReference, new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 15), amount, "SAR", new DateOnly(2026, 2, 14), null, "payload", $"command-{sourceReference}", "payload");
 
         internal FinanceMigrationApOpeningCommand ApCommand(string sourceReference, decimal amount) => new(CompanyId, SupplierId, sourceReference, new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 15), amount, "SAR", new DateOnly(2026, 2, 14), null, "payload", $"ap-command-{sourceReference}", "payload");
+
+        internal FinanceMigrationCashBankOpeningCommand CashCommand(string sourceReference, decimal amount) => new(CompanyId, CashAccountId, sourceReference, new DateOnly(2026, 1, 15), amount, "SAR", "payload", $"cash-command-{sourceReference}", "payload");
 
         internal async Task AssertOneEffectAsync(string sourceReference, decimal amount)
         {
@@ -802,6 +864,9 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.Equal(0, await financeDb.Journals.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ap-opening.v1"));
             Assert.Equal(0, await financeDb.OpenItems.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ap-opening.v1"));
             Assert.Equal(0, await financeDb.SourceEffects.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ap-opening.v1"));
+            Assert.Equal(0, await financeDb.Journals.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-cash-bank-opening.v1"));
+            Assert.Equal(0, await financeDb.SourceEffects.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-cash-bank-opening.v1"));
+            Assert.Equal(0, await financeDb.SettlementDocuments.CountAsync(item => item.CompanyId == CompanyId));
         }
 
         internal async Task DisableArAccountAsync()
@@ -820,7 +885,24 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.True(disabled.Succeeded, disabled.Code);
         }
 
-        internal async Task<PreparedRun> PrepareMixedAsync(string sourceReference, decimal amount)
+        internal async Task DisableCashAccountAsync()
+        {
+            var cash = (await Settlement.ListCashAccountsAsync(FinanceContextFor("tenant.finance.settlement.manage"), CompanyId)).Single(item => item.Id == CashAccountId);
+            var disabled = await Settlement.SetCashAccountLifecycleAsync(FinanceContextFor("tenant.finance.settlement.manage"), cash.Id, CompanyId, FinancePaymentMethodLifecycle.Inactive, cash.Version, "s8-disable-cash", "s8-disable-cash");
+            Assert.True(disabled.Succeeded, disabled.Code);
+        }
+
+        internal async Task AssertOneCashEffectAsync(string sourceReference, decimal amount)
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            Assert.Equal(1, await db.Journals.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-cash-bank-opening.v1" && item.Status == FinanceJournalStatus.Posted && item.Description == $"Cash/Bank opening {sourceReference}"));
+            Assert.Equal(1, await db.SourceEffects.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-cash-bank-opening.v1"));
+            var journal = await db.Journals.Include(item => item.Lines).SingleAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-cash-bank-opening.v1" && item.Description == $"Cash/Bank opening {sourceReference}");
+            Assert.Equal(amount, journal.Lines.Single(item => item.LineNumber == 1).FunctionalDebit);
+            Assert.Equal(amount, journal.Lines.Single(item => item.LineNumber == 2).FunctionalCredit);
+        }
+
+        internal async Task<PreparedRun> PrepareMixedAsync(string sourceReference, decimal amount, bool includeCash = false)
         {
             var objectId = Guid.NewGuid();
             var run = MigrationRun.Create(Tenant, new MigrationDefinitionReference("tenant-onboarding.foundation", "1"), new MigrationSourceProfileReference("neutral-source-profile", "1"));
@@ -834,25 +916,30 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             var inventoryJson = JsonSerializer.Serialize(inventoryPayload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
             var arJson = JsonSerializer.Serialize(new { companyId = CompanyId, customerId = CustomerId, sourceReference, documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount, currencyCode = "SAR", dueDate = new DateOnly(2026, 2, 14) });
             var apJson = JsonSerializer.Serialize(new { companyId = CompanyId, supplierId = SupplierId, sourceReference = sourceReference + "-AP", documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount, currencyCode = "SAR", dueDate = new DateOnly(2026, 2, 14) });
-            var staged = new[]
+            var staged = new List<MigrationStagedRecord>
             {
                 new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 1, "S6-MIXED-INVENTORY", MigrationCanonicalRecordType.InventoryOpening, inventoryJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(inventoryJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow),
                 new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 2, sourceReference, MigrationCanonicalRecordType.ArOpening, arJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(arJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow),
                 new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 3, sourceReference + "-AP", MigrationCanonicalRecordType.ApOpening, apJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(apJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow)
             };
+            if (includeCash)
+            {
+                var cashJson = JsonSerializer.Serialize(new { companyId = CompanyId, cashAccountId = CashAccountId, sourceReference = sourceReference + "-CASH", amount, currencyCode = "SAR", openingDate = new DateOnly(2026, 1, 15) });
+                staged.Add(new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 4, sourceReference + "-CASH", MigrationCanonicalRecordType.CashBankOpening, cashJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(cashJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow));
+            }
             Assert.True((await Migration.StagePackageAsync(Tenant, new StageMigrationPackageCommand(persisted.RunId, objectId, sourceHash, packageHash, MigrationCanonicalPackageParser.Version, DateTimeOffset.UtcNow, staged))).Succeeded);
             var current = await TransitionAsync(persisted, MigrationRunStatus.Prepared);
             current = await TransitionAsync(current, MigrationRunStatus.Validating);
             var validationAttempt = await StartAttemptAsync(current, MigrationOperationKind.Validation, $"s6-mixed-validation-{Guid.NewGuid():N}", "s6-mixed-validation-fingerprint");
             var validationRows = staged.Select(item => new MigrationValidationRecordResult(item.StagedRecordId, item.SourceSequence, item.RecordType, MigrationRecordDisposition.Accepted, [])).ToArray();
-            var validation = new MigrationValidationSummary(Guid.NewGuid(), Tenant.TenantId, current.RunId, validationAttempt.AttemptId, packageHash, sourceHash, 3, 3, 0, 0, new Dictionary<string, int>(), validationRows, DateTimeOffset.UtcNow);
+            var validation = new MigrationValidationSummary(Guid.NewGuid(), Tenant.TenantId, current.RunId, validationAttempt.AttemptId, packageHash, sourceHash, staged.Count, staged.Count, 0, 0, new Dictionary<string, int>(), validationRows, DateTimeOffset.UtcNow);
             Assert.True((await Migration.SaveValidationAsync(Tenant, new SaveMigrationValidationCommand(validation, []))).Succeeded);
             Assert.True((await foundation.RecordAttemptOutcomeAsync(Request, current.RunId, validationAttempt.AttemptId, MigrationAttemptOutcome.Succeeded, "validation_completed", validationAttempt.Version)).Succeeded);
             current = (await Migration.FindRunAsync(Tenant, current.RunId))!;
             current = await TransitionAsync(current, MigrationRunStatus.Validated);
             var dryAttempt = await StartAttemptAsync(current, MigrationOperationKind.DryRun, $"s6-mixed-dry-{Guid.NewGuid():N}", "s6-mixed-dry-fingerprint");
             var previewRows = staged.Select(item => new MigrationPreviewRow(item.StagedRecordId, item.SourceSequence, item.RecordType, MigrationRecordDisposition.Accepted, MigrationPlannedAction.Create, "provider-realistic mixed test")).ToArray();
-            var dryRun = new MigrationDryRunPreview(Guid.NewGuid(), Tenant.TenantId, current.RunId, dryAttempt.AttemptId, validationAttempt.AttemptId, packageHash, sourceHash, 3, 3, 0, 0, new Dictionary<string, int>(), new Dictionary<string, decimal>(), 0, 0, previewRows, DateTime.UtcNow);
+            var dryRun = new MigrationDryRunPreview(Guid.NewGuid(), Tenant.TenantId, current.RunId, dryAttempt.AttemptId, validationAttempt.AttemptId, packageHash, sourceHash, staged.Count, staged.Count, 0, 0, new Dictionary<string, int>(), new Dictionary<string, decimal>(), 0, 0, previewRows, DateTime.UtcNow);
             Assert.True((await Migration.SaveDryRunAsync(Tenant, new SaveMigrationDryRunCommand(dryRun))).Succeeded);
             Assert.True((await foundation.RecordAttemptOutcomeAsync(Request, current.RunId, dryAttempt.AttemptId, MigrationAttemptOutcome.Succeeded, "dry_run_completed", dryAttempt.Version)).Succeeded);
             current = (await Migration.FindRunAsync(Tenant, current.RunId))!;
@@ -923,6 +1010,11 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         internal bool HideApReadback { get; set; }
         internal Func<FinanceMigrationApOpeningCommand, Task>? AfterApCreate { get; set; }
         internal int ApCreateCalls { get; private set; }
+        internal bool ThrowAfterCashCreate { get; set; }
+        internal bool HideCashReadback { get; set; }
+        internal Func<FinanceMigrationCashBankOpeningCommand, Task>? AfterCashCreate { get; set; }
+        internal int CashCreateCalls { get; private set; }
+        internal int CashReadCalls { get; private set; }
         public Task<IReadOnlyList<FinancePaymentMethodRecord>> ListPaymentMethodsAsync(FinanceRequestContext c, Guid id, CancellationToken t = default) => inner.ListPaymentMethodsAsync(c, id, t);
         public Task<FinanceOperationResult<FinancePaymentMethodRecord>> CreatePaymentMethodAsync(FinanceRequestContext c, FinancePaymentMethodCommand x, CancellationToken t = default) => inner.CreatePaymentMethodAsync(c, x, t);
         public Task<FinanceOperationResult<FinancePaymentMethodRecord>> EditPaymentMethodAsync(FinanceRequestContext c, FinancePaymentMethodCommand x, CancellationToken t = default) => inner.EditPaymentMethodAsync(c, x, t);
@@ -939,10 +1031,13 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         public Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateManualReceivableAsync(FinanceRequestContext c, FinanceManualReceivableCommand x, CancellationToken t = default) => inner.CreateManualReceivableAsync(c, x, t);
         public Task<FinanceArOpeningPreflightResult> PreflightMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default) => inner.PreflightMigrationArOpeningAsync(c, x, t);
         public Task<FinanceApOpeningPreflightResult> PreflightMigrationApOpeningAsync(FinanceRequestContext c, FinanceMigrationApOpeningCommand x, CancellationToken t = default) => inner.PreflightMigrationApOpeningAsync(c, x, t);
+        public Task<FinanceCashBankOpeningPreflightResult> PreflightMigrationCashBankOpeningAsync(FinanceRequestContext c, FinanceMigrationCashBankOpeningCommand x, CancellationToken t = default) => inner.PreflightMigrationCashBankOpeningAsync(c, x, t);
         public async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default) { CreateCalls++; var result = await inner.CreateMigrationArOpeningAsync(c, x, t); if (ThrowAfterCreate) throw new InvalidOperationException("test lost response after commit"); return result; }
         public Task<FinanceMigrationArOpeningEvidence?> ReadMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default) => HideReadback ? Task.FromResult<FinanceMigrationArOpeningEvidence?>(null) : inner.ReadMigrationArOpeningAsync(c, x, t);
         public async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationApOpeningAsync(FinanceRequestContext c, FinanceMigrationApOpeningCommand x, CancellationToken t = default) { ApCreateCalls++; var result = await inner.CreateMigrationApOpeningAsync(c, x, t); if (AfterApCreate is not null) await AfterApCreate(x); if (ThrowAfterApCreate) throw new InvalidOperationException("test AP lost response after commit"); return result; }
         public Task<FinanceMigrationApOpeningEvidence?> ReadMigrationApOpeningAsync(FinanceRequestContext c, FinanceMigrationApOpeningCommand x, CancellationToken t = default) => HideApReadback ? Task.FromResult<FinanceMigrationApOpeningEvidence?>(null) : inner.ReadMigrationApOpeningAsync(c, x, t);
+        public async Task<FinanceOperationResult<FinanceJournalRecord>> CreateMigrationCashBankOpeningAsync(FinanceRequestContext c, FinanceMigrationCashBankOpeningCommand x, CancellationToken t = default) { CashCreateCalls++; var result = await inner.CreateMigrationCashBankOpeningAsync(c, x, t); if (AfterCashCreate is not null) await AfterCashCreate(x); if (ThrowAfterCashCreate) throw new InvalidOperationException("test cash lost response after commit"); return result; }
+        public Task<FinanceMigrationCashBankOpeningEvidence?> ReadMigrationCashBankOpeningAsync(FinanceRequestContext c, FinanceMigrationCashBankOpeningCommand x, CancellationToken t = default) { CashReadCalls++; return HideCashReadback ? Task.FromResult<FinanceMigrationCashBankOpeningEvidence?>(null) : inner.ReadMigrationCashBankOpeningAsync(c, x, t); }
         public Task<FinanceOperationResult<FinanceSalesInvoiceEligibilityRecord>> EvaluateSalesInvoiceAsync(FinanceRequestContext c, FinanceSalesInvoiceCommand x, CancellationToken t = default) => inner.EvaluateSalesInvoiceAsync(c, x, t);
         public Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateSalesInvoiceAsync(FinanceRequestContext c, FinanceSalesInvoiceCommand x, CancellationToken t = default) => inner.CreateSalesInvoiceAsync(c, x, t);
         public Task<IReadOnlyList<FinanceSettlementDocumentRecord>> ListSettlementDocumentsAsync(FinanceRequestContext c, FinanceSettlementQuery q, CancellationToken t = default) => inner.ListSettlementDocumentsAsync(c, q, t);
@@ -979,6 +1074,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         {
             MigrationArOpeningPayload ar when ar.CompanyId is { } company && ar.CustomerId is { } customer && !string.IsNullOrWhiteSpace(ar.SourceReference) => MigrationBusinessIdentityResolution.Valid($"ar-opening:{company:D}:{customer:D}:{ar.SourceReference.Trim()}"),
             MigrationApOpeningPayload ap when ap.CompanyId is { } company && ap.SupplierId is { } supplier && !string.IsNullOrWhiteSpace(ap.SourceReference) => MigrationBusinessIdentityResolution.Valid($"ap-opening:{company:D}:{supplier:D}:{ap.SourceReference.Trim()}"),
+            MigrationCashBankOpeningPayload cash when cash.CompanyId is { } company && cash.CashAccountId is { } account && !string.IsNullOrWhiteSpace(cash.SourceReference) => MigrationBusinessIdentityResolution.Valid($"cash-bank-opening:{company:D}:{account:D}:{cash.SourceReference.Trim()}"),
             _ => MigrationBusinessIdentityResolution.NotApplicable()
         };
     }

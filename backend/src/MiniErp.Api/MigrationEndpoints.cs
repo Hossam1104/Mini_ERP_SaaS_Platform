@@ -383,6 +383,7 @@ public static class MigrationEndpoints
         value.EconomicReconciliations,
         value.ArEconomicReconciliations,
         value.ApEconomicReconciliations,
+        value.CashBankEconomicReconciliations,
         zeroEconomicEffects = value.Representations is null or { Count: 0 }
     };
 

@@ -79,7 +79,7 @@ public sealed class MigrationOwnerReferenceAdapterTests
     }
 
     [Fact]
-    public async Task Finance_opening_requires_owner_control_accounts_and_open_period()
+    public async Task Cash_bank_opening_rejects_legacy_control_account_and_requires_open_period()
     {
         var (tenant, request) = Context();
         var companyId = Guid.NewGuid();
@@ -94,10 +94,11 @@ public sealed class MigrationOwnerReferenceAdapterTests
                 1,
                 "cash-control-period",
                 MigrationCanonicalRecordType.CashBankOpening,
-                new MigrationCashBankOpeningPayload(companyId, Guid.NewGuid(), Guid.NewGuid(), 10m, "SAR", new DateOnly(2026, 1, 1)),
+                new MigrationCashBankOpeningPayload(companyId, Guid.NewGuid(), "CASH-OPEN-1", 10m, "SAR", new DateOnly(2026, 1, 1)) { ControlAccountId = Guid.NewGuid() },
                 "{}"));
 
-        Assert.Equal(2, findings.Count(item => item.Code == "migration_account_missing"));
+        Assert.Contains(findings, item => item.Code == "migration_cash_bank_control_account_not_allowed");
+        Assert.DoesNotContain(findings, item => item.Code == "migration_account_missing");
         Assert.Contains(findings, item => item.Code == "migration_fiscal_period_invalid");
     }
 
@@ -179,7 +180,7 @@ public sealed class MigrationOwnerReferenceAdapterTests
             new MigrationParsedCanonicalRow(4, "ar", MigrationCanonicalRecordType.ArOpening,
                 new MigrationArOpeningPayload(companyId, null, "AR-OPENING", date, date, 10m, "SAR", date, null), "{}"),
             new MigrationParsedCanonicalRow(5, "cash", MigrationCanonicalRecordType.CashBankOpening,
-                new MigrationCashBankOpeningPayload(companyId, Guid.NewGuid(), Guid.NewGuid(), 10m, "SAR", date), "{}")
+                 new MigrationCashBankOpeningPayload(companyId, Guid.NewGuid(), "CASH-OPEN-1", 10m, "SAR", date), "{}")
         };
 
         foreach (var row in rows)
