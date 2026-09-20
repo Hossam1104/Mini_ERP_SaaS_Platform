@@ -1,22 +1,23 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 20 September 2026 (MESP-141 Slice 8 final acceptance-evidence correction; Draft handoff)
+**Last Updated:** 20 September 2026 (MESP-141 Slice 8 accepted/merged; governance reconciliation)
 
-## Current execution snapshot - 20 September 2026 (MESP-141 Slice 8 Cash/Bank Opening Economic Execution implemented; Draft handoff)
+## Current execution snapshot - 20 September 2026 (MESP-141 Slice 8 Cash/Bank Opening Economic Execution accepted/merged)
 
-**MESP-141 Slice 8 - Cash/Bank Opening Economic Execution is implemented on a bounded branch and awaiting independent GPT-5.6 Sol acceptance.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-7 are accepted/merged/lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
+**MESP-141 Slice 8 - Cash/Bank Opening Economic Execution was accepted by GPT-5.6 Sol and merged through PR #256 using a normal merge commit.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-8 are accepted/merged/lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
 
 MESP-141 internal progress:
 
-- 7 accepted / merged slices; Slice 8 implementation is in Draft handoff
-- Slice 8: Cash/Bank Opening Economic Execution implemented / awaiting Sol acceptance
+- 8 accepted / merged slices; Slice 8 lifecycle closed
+- Slice 8: Cash/Bank Opening Economic Execution implemented / accepted / merged / lifecycle closed
 - Current phase: Economic Openings
-- Completed economic opening types: InventoryOpening; ArOpening; ApOpening; Slice 8 is implemented but not accepted
+- Completed economic opening types: InventoryOpening; ArOpening; ApOpening; CashBankOpening
 - AP opening type: implemented / accepted / merged
+- CashBankOpening: implemented / accepted / merged
 - Residual GL opening, multi-currency, production migration, and reconciliation/sign-off: NOT AUTHORIZED
 - Validation: Release `0 warnings / 0 errors`; sanctioned disposable-LocalDB backend `1,417/1,417` with `0` failures / `0` skips; Cash/Bank provider-realistic focused safety coverage `13/13`; complete SQL Server safety coverage `134/134`; Angular `316/316`; Chromium `51/51` from the unchanged frontend baseline; eight EF contexts clear of pending migrations/model drift; solution-wide NuGet scan clear; existing `514.26 kB` initial-budget warning retained
 - Runtime proof: isolated API `5300` and frontend `4300` returned HTTP 200 for health, OpenAPI, frontend root/main.js, development bypass, context switch, and authenticated synthetic execution read; run `5972c1db-8b05-45e1-aacf-e8cdd1347950` serialized one `cashBankEconomicReconciliations` row. This is not owner acceptance or production execution.
-- Handoff authority: Issue #229 activation comment `5743854355`; branch `feat/mesp-141-cash-bank-opening-economic-execution`; baseline `origin/main` `1ff11550e2f491bc01cdbac357c37fe373322f50`; Draft PR #256 is the live GitHub head/CI authority
+- Merge evidence: accepted head `fb9eaaa038a556774916999730e4fd181451930d`; feature PR #256 merged as `2306428519d3e9a44b75d0d57b682dc7611031bc`; post-feature `main` CI run `35510054026` passed Repository Validation, Backend, and Frontend
 
 The bounded Slice 8 scope covers Finance-owned functional-currency
 Cash/Bank opening recognition for an already configured CashAccount, exact
@@ -30,7 +31,11 @@ owner-managed assets were used; `frontend/assets` is untouched.
 Metrics are unchanged: accepted fast-track capability completion **24 / 26 =
 92.3%**; production readiness approximately **47% overall / 41% Procurement/P2P**.
 
-### Progress history - 20 September 2026 (MESP-141 Slice 8 final acceptance-evidence correction handoff)
+### Progress history - 20 September 2026 (MESP-141 Slice 8 accepted/merged lifecycle)
+
+Slice 8 was accepted by GPT-5.6 Sol at exact head `fb9eaaa038a556774916999730e4fd181451930d`, merged normally through PR #256 as `2306428519d3e9a44b75d0d57b682dc7611031bc`, and verified by post-feature `main` CI run `35510054026`, which passed Repository Validation, Backend, and Frontend. The accepted implementation was unchanged after acceptance; only this governance reconciliation updates the tracked current-state files. No capability or readiness percentage changed. No next-slice work, Jira mutation, MESP-142 activation, production execution, or reconciliation/sign-off implementation is authorized.
+
+### Historical handoff evidence - 20 September 2026 (MESP-141 Slice 8 final acceptance-evidence correction)
 
 Slice 8 was implemented from verified `origin/main` `1ff11550e2f491bc01cdbac357c37fe373322f50` under Issue #229 activation comment `5743854355`. The final bounded evidence correction adds the provider-realistic Cash/Bank Finance preflight matrix, read-only negative reconciliation/no-fake-settlement proofs, and different-key owner-mismatch retry hard-stop coverage; production code remains unchanged. Release is `0 warnings / 0 errors`; the sanctioned disposable-LocalDB backend is `1,417/1,417` with `0` failures / `0` skips; Cash/Bank focused safety coverage is `13/13`; complete SQL Server safety coverage is `134/134`; Angular is `316/316`; Chromium is `51/51` from the unchanged frontend baseline; NuGet is clear; eight EF contexts have no pending migrations/model drift; and the production build retains the existing `514.26 kB` warning. The isolated runtime was not restarted because only tests changed; prior exact runtime/serialization evidence remains applicable to unchanged production code. No capability or readiness percentage changed. Draft PR #256 remains Open/Draft/Unmerged/Not Ready pending independent Sol acceptance; no Ready transition, merge, Jira mutation, MESP-142 activation, production execution, or reconciliation/sign-off implementation is authorized.
 

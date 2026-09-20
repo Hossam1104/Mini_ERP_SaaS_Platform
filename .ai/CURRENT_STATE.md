@@ -10,25 +10,30 @@
 
 ---
 
-## CURRENT AUTHORITY - 20 September 2026 (MESP-141 SLICE 8 CASH/BANK OPENING ECONOMIC EXECUTION IMPLEMENTED; DRAFT HANDOFF)
+## CURRENT AUTHORITY - 20 September 2026 (MESP-141 SLICE 8 CASH/BANK OPENING ECONOMIC EXECUTION MERGED; LIFECYCLE CLOSED)
 
-**MESP-141 Slice 8 - Cash/Bank Opening Economic Execution is implemented on a bounded feature branch and awaiting independent GPT-5.6 Sol acceptance.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-7 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
+**MESP-141 Slice 8 - Cash/Bank Opening Economic Execution was accepted by GPT-5.6 Sol and integrated through PR #256 using a normal merge commit.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-8 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
 
 | Item | Value |
 |---|---|
 | Slice 8 activation | Issue #229 comment `5743854355` |
 | Slice 8 branch | `feat/mesp-141-cash-bank-opening-economic-execution` |
 | Slice 8 baseline | `origin/main` `1ff11550e2f491bc01cdbac357c37fe373322f50` |
-| Slice 8 status | **IMPLEMENTED / DRAFT HANDOFF / UNMERGED / NOT ACCEPTED** |
-| Draft PR | **#256 OPEN / DRAFT / UNMERGED / NOT READY**; live GitHub PR/head/CI is mutable authority |
-| Slices 1-7 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
-| Slices 1-7 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
+| Slice 8 accepted head | `fb9eaaa038a556774916999730e4fd181451930d` |
+| GPT-5.6 Sol acceptance | PR comment `5749536474`; Issue #229 comment `5749536648` |
+| Feature PR | **#256 MERGED** by normal merge commit |
+| Feature merge commit | `2306428519d3e9a44b75d0d57b682dc7611031bc`; parents are pre-merge `main` `1ff11550e2f491bc01cdbac357c37fe373322f50` and accepted head above |
+| Accepted exact-head CI | Run `35503727176`: Repository Validation, Backend, and Frontend passed |
+| Post-feature main CI | Run `35510054026`: Repository Validation, Backend, and Frontend passed |
+| Slice 8 status | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
+| Slices 1-8 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
 | Slice 6 | **AR OPENING ECONOMIC EXECUTION - IMPLEMENTED / ACCEPTED / MERGED / LIFECYCLE CLOSED** |
 | Slice 7 | **AP OPENING ECONOMIC EXECUTION - IMPLEMENTED / ACCEPTED / MERGED / LIFECYCLE CLOSED** |
-| Slice 8 | **CASH/BANK OPENING ECONOMIC EXECUTION - IMPLEMENTED / AWAITING SOL ACCEPTANCE** |
+| Slice 8 | **CASH/BANK OPENING ECONOMIC EXECUTION - IMPLEMENTED / ACCEPTED / MERGED / LIFECYCLE CLOSED** |
 | InventoryOpening | **IMPLEMENTED / ACCEPTED / MERGED** |
 | ArOpening | **IMPLEMENTED / ACCEPTED / MERGED** |
 | ApOpening | **IMPLEMENTED / ACCEPTED / MERGED** |
+| CashBankOpening | **IMPLEMENTED / ACCEPTED / MERGED** |
 | MESP-141 | **OPEN / ACTIVE / IN PROGRESS** |
 | Current phase | **Economic Openings** |
 | Next Slice after Slice 8 | **NOT AUTHORIZED / NOT SELECTED** |
@@ -51,9 +56,12 @@ API health/OpenAPI, frontend root/main.js, development bypass, context switch,
 and authenticated execution read all returned HTTP 200. Synthetic isolated run
 `5972c1db-8b05-45e1-aacf-e8cdd1347950` returned one serialized
 `cashBankEconomicReconciliations` row. This is runtime/serialization evidence
-only, not owner acceptance or production execution. The known EF, NuGet, npm
-audit, and `514.26 kB` production-budget baselines remain unchanged;
-`frontend/assets` remains untouched. The isolated runtime uses
+only, not owner acceptance or production execution. The accepted exact head
+entered `main` unchanged through the normal feature merge, and post-feature
+`main` CI passed. Governance reconciliation is limited to the deterministic
+current-state files and a governance-only protected-main PR. The known EF,
+NuGet, npm audit, and `514.26 kB` production-budget baselines remain
+unchanged; `frontend/assets` remains untouched. The isolated runtime uses
 `.runtime\s8-r7-runtime-20260919` and is left running for inspection.
 
 Slice 8 is bounded to Finance-owned functional-currency Cash/Bank opening
@@ -63,11 +71,11 @@ journal/source effect, exact replay/conflict and OutcomeUnknown fail-closed
 semantics, durable evidence, ordinary settlement compatibility, and mixed
 economic-package preflight-before-effect. Migration owns canonical payload,
 validation, staging, execution lineage, and representations; it does not
-write Finance tables or build journal lines. Residual GL opening,
-multi-currency expansion, migration reconciliation/sign-off completion,
-production migration/execution, MESP-142, and any future Slice remain
-incomplete or unauthorized. The Draft PR must remain Open/Draft/Unmerged and
-not Ready pending independent GPT-5.6 Sol acceptance.
+write Finance tables or build journal lines. The feature lifecycle is closed;
+residual GL opening, multi-currency expansion, migration reconciliation/sign-off
+completion, production migration/execution, MESP-142, and any future Slice
+remain incomplete or unauthorized. Governance reconciliation is limited to
+the three tracked current-state files and does not authorize future work.
 
 ## HISTORICAL RECORD - earlier MESP-141 and project state
 
