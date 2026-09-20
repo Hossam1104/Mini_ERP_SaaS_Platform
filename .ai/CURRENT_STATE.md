@@ -20,7 +20,7 @@
 | Architecture authority | Issue #229 comment `5750386434` |
 | Slice 9 branch | `feat/mesp-141-residual-gl-opening-economic-execution` |
 | Slice 9 baseline | `origin/main` `f8c86d9a9ef2efd54c70a71eb7935f1e89d89855` |
-| Slice 9 status | **IMPLEMENTED / DRAFT HANDOFF / UNMERGED / NOT ACCEPTED** |
+| Slice 9 status | **CORRECTED IMPLEMENTATION / DRAFT HANDOFF / UNMERGED / NOT ACCEPTED** |
 | Scope | Finance-owned functional-currency residual GL opening execution, same-run owner projections, replay/conflict/unknown safety, and read-only reconciliation |
 | Stop boundary | Draft PR and exact CI observation; no Ready transition, merge, auto-merge, Jira, production, or owner acceptance |
 | Slices 1-8 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
@@ -28,15 +28,16 @@
 | MESP-142 | **OPEN / NOT ACTIVATED** |
 | Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
 
-Slice 9 local evidence is Debug solution build `0 warnings / 0 errors`, focused
-migration/validation/authority/API tests `145/145`, and isolated Development
-runtime HTTP 200 for health, module registration, OpenAPI, and enabled
-development-auth bypass on port `5312` (PID `46168`). The SQL Server safety
-harness is blocked because `MESP_SQLSERVER_SAFETY_CONNECTION_STRING` is not
-configured; an existing repository API process that locked Release binaries was
-preserved. `frontend/assets` remains untouched. The implementation uses the
-Inventory valuation owner projection seam and does not calculate `Qty * Cost` in
-Migration.
+Slice 9 correction local evidence is affected App and Infrastructure Debug
+build `0 warnings / 0 errors`, focused correction tests `4/4`, and the non-SQL
+backend suite `1,286/1,286`. The SQL Server safety harness is blocked because
+`MESP_SQLSERVER_SAFETY_CONNECTION_STRING` is not configured; an existing
+repository API process that locks shared assemblies was preserved. GL execution
+consumes committed owner effects as established evidence rather than
+re-projecting them, historical posting-rule identity is retained for control
+classification, derived offsets have explicit treatment, and the Inventory
+valuation owner remains authoritative without Migration calculating `Qty * Cost`.
+`frontend/assets` remains untouched.
 
 ## HISTORICAL RECORD - 20 September 2026 (MESP-141 SLICE 8 CASH/BANK OPENING ECONOMIC EXECUTION MERGED; LIFECYCLE CLOSED)
 

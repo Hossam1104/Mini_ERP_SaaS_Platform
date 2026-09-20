@@ -1,6 +1,6 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 20 September 2026 (MESP-141 Slice 9 implementation handoff; Draft PR boundary)
+**Last Updated:** 20 September 2026 (MESP-141 Slice 9 bounded correction; Draft PR boundary)
 
 ## Current execution snapshot - 20 September 2026 (MESP-141 Slice 9 Residual GL Opening Economic Execution active)
 
@@ -8,30 +8,35 @@ MESP-141 Slice 9 is authorized and active under Issue #229 comment `5750522414`
 and architecture authority `5750386434`, on
 `feat/mesp-141-residual-gl-opening-economic-execution` from verified
 `origin/main` `f8c86d9a9ef2efd54c70a71eb7935f1e89d89855`. The bounded
-implementation is at Draft handoff: Finance owns functional-currency
+implementation correction is at Draft handoff: Finance owns functional-currency
 `migration-gl-opening.v1` residual delta-to-target execution, one balanced
-Journal/SourceEffect per GL group, control-zero safety, same-run owner
-projections, replay/conflict/OutcomeUnknown handling, and read-only GL
-reconciliation serialization. No Ready transition, merge, Jira, production,
-MESP-142, future slice, or owner acceptance is authorized.
+Journal/SourceEffect per GL group, control-zero safety, committed-owner evidence
+consumption without same-run double counting, historical posting-rule lineage,
+order-independent durable GL fingerprints, derived-offset treatment, replay/
+conflict/OutcomeUnknown handling, and read-only GL line reconciliation. No Ready
+transition, merge, Jira, production, MESP-142, future slice, or owner acceptance
+is authorized.
 
-Validation evidence is Debug solution build `0 warnings / 0 errors`; focused
-migration/validation/authority/API tests `145/145`; `git diff --check` clean;
-and isolated Development runtime health/module-registration/OpenAPI/auth bypass
-HTTP 200 on API port `5312`. The SQL Server safety harness is blocked here by
+Validation evidence is affected App and Infrastructure Debug build `0 warnings /
+0 errors`; focused correction tests `4/4`; non-SQL backend suite `1,286/1,286`;
+and `git diff --check` clean. The SQL Server safety harness is blocked here by
 missing `MESP_SQLSERVER_SAFETY_CONNECTION_STRING`; an existing repository API
-process locking Release assemblies was preserved. Metrics remain unchanged:
+process locking shared assemblies was preserved. Metrics remain unchanged:
 accepted fast-track capability completion **24 / 26 = 92.3%**; production
 readiness approximately **47% overall / 41% Procurement/P2P**.
 
-### Progress history - 20 September 2026 (MESP-141 Slice 9 implementation handoff)
+### Progress history - 20 September 2026 (MESP-141 Slice 9 bounded correction)
 
-Slice 9 implementation is complete to the authorized Draft PR boundary. The
-Inventory valuation owner remains authoritative for inventory projections;
-Migration does not calculate `Qty * Cost`. `frontend/assets` remains untouched.
-Independent GPT-5.6 Sol review, Ready transition, merge, lifecycle closure,
-production migration, and reconciliation/sign-off remain pending and
-unauthorized.
+Slice 9 correction is complete to the authorized Draft PR boundary. GL
+execution now uses committed owner effects as established evidence, persists
+the canonical GL source fingerprint in the existing durable journal correlation
+field, preserves historical posting-rule control classification, and emits
+bounded source/target/established/residual line treatment for read-only
+reconciliation. The Inventory valuation owner remains authoritative for
+inventory projections; Migration does not calculate `Qty * Cost`.
+`frontend/assets` remains untouched. SQL-provider safety, independent GPT-5.6
+Sol review, Ready transition, merge, lifecycle closure, production migration,
+and reconciliation/sign-off remain pending and unauthorized.
 
 ## Historical execution snapshot - 20 September 2026 (MESP-141 Slice 8 Cash/Bank Opening Economic Execution accepted/merged)
 

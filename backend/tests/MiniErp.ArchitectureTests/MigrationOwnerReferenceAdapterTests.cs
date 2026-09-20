@@ -19,7 +19,7 @@ namespace MiniErp.ArchitectureTests;
 public sealed class MigrationOwnerReferenceAdapterTests
 {
     [Fact]
-    public async Task Foreign_currency_opening_requires_one_exact_active_exchange_rate()
+    public async Task Foreign_currency_opening_is_rejected_before_exchange_rate_lookup()
     {
         var (tenant, request) = Context();
         var companyId = Guid.NewGuid();
@@ -39,7 +39,7 @@ public sealed class MigrationOwnerReferenceAdapterTests
                 new MigrationGlOpeningPayload(companyId, Guid.NewGuid(), 10m, 0m, "USD", new DateOnly(2026, 1, 1)),
                 "{}"));
 
-        Assert.Contains(findings, item => item.Code == "migration_exchange_rate_missing");
+        Assert.Contains(findings, item => item.Code == "migration_gl_opening_currency_not_functional");
     }
 
     [Fact]

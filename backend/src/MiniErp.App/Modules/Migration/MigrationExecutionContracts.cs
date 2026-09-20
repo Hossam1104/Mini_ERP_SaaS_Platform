@@ -188,6 +188,18 @@ public sealed record MigrationCashBankEconomicReconciliationRecord(
     Guid? SourceEffectId,
     DateTimeOffset ReconciledAt);
 
+public sealed record MigrationGlEconomicReconciliationLineRecord(
+    Guid AccountId,
+    string? SourceLineReference,
+    string AccountingTreatment,
+    decimal TargetSignedAmount,
+    decimal EstablishedSignedAmount,
+    decimal ResidualDebit,
+    decimal ResidualCredit,
+    bool IsControlAccount,
+    Guid? JournalLineId,
+    string? JournalLineReference);
+
 public sealed record MigrationGlEconomicReconciliationRecord(
     Guid EffectId,
     int SourceSequence,
@@ -204,7 +216,8 @@ public sealed record MigrationGlEconomicReconciliationRecord(
     decimal ResidualCredit,
     Guid? JournalId,
     Guid? SourceEffectId,
-    DateTimeOffset ReconciledAt);
+    DateTimeOffset ReconciledAt,
+    IReadOnlyList<MigrationGlEconomicReconciliationLineRecord>? Lines = null);
 
 public sealed record CreateMigrationEconomicRepresentationCommand(MigrationEconomicRepresentationRecord Representation);
 

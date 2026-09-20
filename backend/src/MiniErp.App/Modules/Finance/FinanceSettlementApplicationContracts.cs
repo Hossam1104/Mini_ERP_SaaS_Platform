@@ -166,7 +166,8 @@ public sealed record FinanceMigrationGlOpeningCommand(
     IReadOnlyList<FinanceMigrationOpeningProjection> Projections,
     string SourcePayloadFingerprint,
     string IdempotencyKey,
-    string RequestFingerprint);
+    string RequestFingerprint,
+    string? SourceGroupFingerprint = null);
 
 public sealed record FinanceMigrationGlOpeningResidualLine(
     Guid AccountId,
@@ -174,7 +175,9 @@ public sealed record FinanceMigrationGlOpeningResidualLine(
     decimal EstablishedSignedAmount,
     decimal Debit,
     decimal Credit,
-    bool IsControlAccount);
+    bool IsControlAccount,
+    string? SourceLineReference = null,
+    string AccountingTreatment = "residual");
 
 public sealed record FinanceGlOpeningPreflightResult(
     bool Ready,
