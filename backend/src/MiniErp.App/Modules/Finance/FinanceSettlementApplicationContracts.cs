@@ -102,7 +102,11 @@ public sealed record FinanceArOpeningPreflightResult(
     string FunctionalCurrencyCode,
     FinanceApprovalRequirement ApprovalRequirement,
     DateOnly? DueDate,
-    FinancePaymentTermSnapshotRecord? PaymentTerm);
+    FinancePaymentTermSnapshotRecord? PaymentTerm,
+    Guid? PostingRuleId = null,
+    int? PostingRuleVersionNumber = null,
+    Guid? ControlAccountId = null,
+    Guid? OffsetAccountId = null);
 
 public sealed record FinanceSourceEffectRecord(
     Guid Id,
@@ -125,7 +129,11 @@ public sealed record FinanceApOpeningPreflightResult(
     string FunctionalCurrencyCode,
     FinanceApprovalRequirement ApprovalRequirement,
     DateOnly? DueDate,
-    FinancePaymentTermSnapshotRecord? PaymentTerm);
+    FinancePaymentTermSnapshotRecord? PaymentTerm,
+    Guid? PostingRuleId = null,
+    int? PostingRuleVersionNumber = null,
+    Guid? ControlAccountId = null,
+    Guid? OffsetAccountId = null);
 
 public sealed record FinanceMigrationApOpeningEvidence(
     FinanceOpenItemRecord OpenItem,
@@ -138,7 +146,11 @@ public sealed record FinanceCashBankOpeningPreflightResult(
     string FunctionalCurrencyCode,
     FinanceApprovalRequirement ApprovalRequirement,
     FinanceCashAccountRecord? CashAccount,
-    FinanceAccountRecord? LinkedAccount);
+    FinanceAccountRecord? LinkedAccount,
+    Guid? PostingRuleId = null,
+    int? PostingRuleVersionNumber = null,
+    Guid? ControlAccountId = null,
+    Guid? OffsetAccountId = null);
 
 public sealed record FinanceMigrationCashBankOpeningEvidence(
     FinanceCashAccountRecord CashAccount,
@@ -156,7 +168,32 @@ public sealed record FinanceMigrationOpeningProjection(
     string SourceContract,
     string SourceEvent,
     decimal Amount,
-    bool AlreadyEstablishedExact = false);
+    bool AlreadyEstablishedExact = false,
+    Guid SourceRecordId = default,
+    Guid? OwnerSourceId = null,
+    string? OwnerReference = null,
+    Guid? PostingRuleId = null,
+    int? PostingRuleVersionNumber = null,
+    Guid? ControlAccountId = null,
+    Guid? OffsetAccountId = null,
+    bool? Reversal = null,
+    Guid? SourceEvidenceId = null,
+    int? SourceEvidenceVersion = null);
+
+public sealed record FinanceMigrationOpeningExpectation(
+    Guid SourceRecordId,
+    string SourceContract,
+    string SourceEvent,
+    decimal FunctionalAmount,
+    Guid PostingRuleId,
+    int PostingRuleVersionNumber,
+    Guid ControlAccountId,
+    Guid OffsetAccountId,
+    bool Reversal,
+    Guid? SourceEvidenceId = null,
+    int? SourceEvidenceVersion = null,
+    Guid? OwnerSourceId = null,
+    string? OwnerReference = null);
 
 public sealed record FinanceMigrationGlOpeningCommand(
     Guid CompanyId,
@@ -186,7 +223,8 @@ public sealed record FinanceGlOpeningPreflightResult(
     FinanceApprovalRequirement ApprovalRequirement,
     bool NonEffect,
     Guid SourceEvidenceId,
-    IReadOnlyList<FinanceMigrationGlOpeningResidualLine> ResidualLines);
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine> ResidualLines,
+    IReadOnlyList<FinanceMigrationOpeningExpectation>? Expectations = null);
 
 public sealed record FinanceMigrationGlOpeningEvidence(
     FinanceJournalRecord? Journal,

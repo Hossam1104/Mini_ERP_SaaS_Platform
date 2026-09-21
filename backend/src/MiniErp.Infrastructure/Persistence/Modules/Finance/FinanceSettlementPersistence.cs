@@ -820,7 +820,7 @@ internal sealed partial class FinanceSettlementPersistence(
         var approval = SourceApprovalPolicy.Resolve(MigrationArContract, "recognition");
         if (approval != FinanceApprovalRequirement.NotRequired)
             return Block(approval == FinanceApprovalRequirement.Required ? "approval_required" : "approval_policy_not_configured", company.FunctionalCurrencyCode, term.Value.Value.DueDate, term.Value.Value.Snapshot);
-        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, term.Value.Value.DueDate, term.Value.Value.Snapshot), rule.Value);
+        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, term.Value.Value.DueDate, term.Value.Value.Snapshot, rule.Value.Id, rule.Value.VersionNumber, rule.Value.DebitAccountId, rule.Value.CreditAccountId), rule.Value);
     }
 
     private async Task<(bool Succeeded, string Code, (DateOnly DueDate, FinancePaymentTermSnapshotRecord? Snapshot)? Value)> ResolveMigrationArPaymentTermAsync(FinanceRequestContext context, Guid? paymentTermId, DateOnly? dueDate, DateOnly documentDate, CancellationToken cancellationToken)
@@ -938,7 +938,7 @@ internal sealed partial class FinanceSettlementPersistence(
         var approval = SourceApprovalPolicy.Resolve(MigrationCashBankContract, "recognition");
         if (approval != FinanceApprovalRequirement.NotRequired)
             return Block(approval == FinanceApprovalRequirement.Required ? "approval_required" : "approval_policy_not_configured", company.FunctionalCurrencyCode, cash, linked);
-        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, cash, linked), rule.Value);
+        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, cash, linked, rule.Value.Id, rule.Value.VersionNumber, rule.Value.DebitAccountId, rule.Value.CreditAccountId), rule.Value);
     }
 
     private async Task<FinanceOperationResult<FinanceJournalRecord>> CreateMigrationCashBankOpeningCoreAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken)
@@ -1091,7 +1091,7 @@ internal sealed partial class FinanceSettlementPersistence(
         var approval = SourceApprovalPolicy.Resolve(MigrationApContract, "recognition");
         if (approval != FinanceApprovalRequirement.NotRequired)
             return Block(approval == FinanceApprovalRequirement.Required ? "approval_required" : "approval_policy_not_configured", company.FunctionalCurrencyCode, term.Value.Value.DueDate, term.Value.Value.Snapshot);
-        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, term.Value.Value.DueDate, term.Value.Value.Snapshot), rule.Value);
+        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, term.Value.Value.DueDate, term.Value.Value.Snapshot, rule.Value.Id, rule.Value.VersionNumber, rule.Value.CreditAccountId, rule.Value.DebitAccountId), rule.Value);
     }
 
     private async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationApOpeningCoreAsync(FinanceRequestContext context, FinanceMigrationApOpeningCommand command, CancellationToken cancellationToken)

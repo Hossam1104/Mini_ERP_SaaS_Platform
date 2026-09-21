@@ -42,12 +42,14 @@ internal sealed class MigrationGlOpeningExecutionCoordinator
             var failed = checks.FirstOrDefault(item => item.State is not (MigrationReferenceState.NotApplicable or MigrationReferenceState.Active));
             if (failed is not null) return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(failed.Code);
         }
+        var preparedGroups = new List<(IReadOnlyList<MigrationExecutionPlanRow> Rows, FinanceApp.FinanceMigrationGlOpeningCommand Command, FinanceApp.FinanceGlOpeningPreflightResult Preflight)>();
         foreach (var group in Groups(glRows))
         {
-            var command = await CommandAsync(requestContext, tenant, run, group.ToArray(), economicRows, cancellationToken, requireOwnerEvidence: false, ownerEffects: null, includeProjections: true);
+            var command = await CommandAsync(requestContext, tenant, run, group.ToArray(), economicRows, cancellationToken, requireOwnerEvidence: false, ownerEffects: null, representations: null, includeProjections: true);
             if (command is null) return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure("migration_gl_opening_payload_invalid");
             var ready = await finance.PreflightMigrationGlOpeningAsync(financeContext, command, cancellationToken);
             if (!ready.Ready) return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(ready.Code);
+            preparedGroups.Add((group.ToArray(), command, ready));
         }
         var batchId = StableId($"migration-gl-opening-batch:{attempt.AttemptId:D}");
         var fingerprint = Fingerprint(glRows.Select(item => (MigrationGlOpeningPayload)item.Parsed.Payload));
@@ -60,6 +62,19 @@ internal sealed class MigrationGlOpeningExecutionCoordinator
             var effect = new MigrationExecutionEffectRecord(StableId($"migration-gl-opening-effect:{attempt.AttemptId:D}:{row.Staged.StagedRecordId:D}"), tenant.TenantId, run.RunId, attempt.AttemptId, row.Staged.StagedRecordId, row.Staged.SourceSequence, MigrationCanonicalRecordType.GlOpening, batchId, null, null, payload.SourceLineReference?.Trim(), MigrationExecutionEffectDisposition.Prepared, null, clock.GetUtcNow(), null, null, run.CorrelationId.Value, Guid.NewGuid().ToByteArray());
             var savedEffect = await migration.CreateEffectAsync(tenant, new CreateMigrationExecutionEffectCommand(effect), cancellationToken);
             if (!savedEffect.Succeeded) return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(savedEffect.Code);
+        }
+        var effects = await migration.ListEffectsAsync(tenant, run.RunId, attempt.AttemptId, cancellationToken);
+        foreach (var prepared in preparedGroups)
+        {
+            foreach (var projection in prepared.Command.Projections)
+            {
+                if (projection.SourceRecordId == Guid.Empty) continue;
+                var expected = prepared.Preflight.Expectations?.SingleOrDefault(item => item.SourceRecordId == projection.SourceRecordId);
+                var effect = effects.SingleOrDefault(item => item.StagedRecordId == projection.SourceRecordId);
+                if (expected is null || effect is null) return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure("migration_gl_opening_economic_expectation_incomplete");
+                var saved = await migration.CreateRepresentationAsync(tenant, new CreateMigrationEconomicRepresentationCommand(ExpectedRepresentation(tenant, attempt, effect, expected, projection.AlreadyEstablishedExact)), cancellationToken);
+                if (!saved.Succeeded) return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(saved.Code);
+            }
         }
         return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Successful();
     }
@@ -82,7 +97,8 @@ internal sealed class MigrationGlOpeningExecutionCoordinator
         {
             var groupEffects = effects.Where(item => group.Any(row => row.Staged.StagedRecordId == item.StagedRecordId)).ToArray();
             var ownerEffects = effects.ToDictionary(item => item.StagedRecordId);
-            var command = await CommandAsync(requestContext, tenant, run, group.ToArray(), economicRows, cancellationToken, requireOwnerEvidence: true, ownerEffects, includeProjections: true);
+            var representations = await migration.ListRepresentationsAsync(tenant, run.RunId, attempt.AttemptId, cancellationToken);
+            var command = await CommandAsync(requestContext, tenant, run, group.ToArray(), economicRows, cancellationToken, requireOwnerEvidence: true, ownerEffects, representations, includeProjections: true);
             if (command is null) return await FailBatchAsync(tenant, batch, "migration_gl_opening_owner_evidence_unavailable", true, cancellationToken);
             if (groupEffects.Any(item => item.Disposition == MigrationExecutionEffectDisposition.Unknown)) return MigrationEconomicGroupResult.Failure("migration_execution_outcome_unknown", true);
             if (groupEffects.All(item => item.Disposition is MigrationExecutionEffectDisposition.Committed or MigrationExecutionEffectDisposition.NonEffect)) continue;
@@ -131,7 +147,7 @@ internal sealed class MigrationGlOpeningExecutionCoordinator
             var gl = parsed.FirstOrDefault(item => item.item.StagedRecordId == effect.StagedRecordId).Payload as MigrationGlOpeningPayload;
             if (gl is null || !ReadyPayload(gl)) { result.Add(new(effect.Id, effect.SourceSequence, "unavailable", "migration_gl_opening_payload_invalid", Guid.Empty, string.Empty, default, 0m, 0m, 0m, 0m, 0m, 0m, null, null, clock.GetUtcNow())); continue; }
             var group = parsed.Where(item => SameGroup(item.Payload!, gl)).ToArray();
-            var command = await CommandAsync(requestContext, tenant, Guid.Empty, group.Select(item => new PlanItem(item.Payload!, string.Empty, item.item.SourceSequence, item.item.StagedRecordId)).ToArray(), cancellationToken, requireOwnerEvidence: false, ownerEffects: null, includeProjections: false);
+            var command = await CommandAsync(requestContext, tenant, Guid.Empty, group.Select(item => new PlanItem(item.Payload!, string.Empty, item.item.SourceSequence, item.item.StagedRecordId)).ToArray(), cancellationToken, requireOwnerEvidence: false, ownerEffects: null, representations: null, includeProjections: false);
             if (command is null) { result.Add(new(effect.Id, effect.SourceSequence, "unavailable", "migration_gl_opening_command_invalid", gl.CompanyId!.Value, gl.CurrencyCode!.Trim().ToUpperInvariant(), gl.OpeningDate!.Value, gl.Debit ?? 0m, gl.Credit ?? 0m, 0m, 0m, 0m, 0m, null, null, clock.GetUtcNow())); continue; }
             var evidence = await finance.ReadMigrationGlOpeningAsync(financeContext, command, cancellationToken);
             if (evidence is null) { result.Add(new(effect.Id, effect.SourceSequence, "partial", "migration_gl_opening_evidence_not_reconciled", gl.CompanyId!.Value, command.CurrencyCode, command.OpeningDate, command.Lines.Sum(item => item.Debit), command.Lines.Sum(item => item.Credit), 0m, 0m, 0m, 0m, null, null, clock.GetUtcNow())); continue; }
@@ -140,13 +156,13 @@ internal sealed class MigrationGlOpeningExecutionCoordinator
         return result;
     }
 
-    private async Task<FinanceApp.FinanceMigrationGlOpeningCommand?> CommandAsync(FoundationRequestContext requestContext, TenantContext tenant, MigrationRunRecord run, IReadOnlyList<MigrationExecutionPlanRow> glRows, IReadOnlyList<MigrationExecutionPlanRow> economicRows, CancellationToken cancellationToken, bool requireOwnerEvidence, IReadOnlyDictionary<Guid, MigrationExecutionEffectRecord>? ownerEffects, bool includeProjections)
+    private async Task<FinanceApp.FinanceMigrationGlOpeningCommand?> CommandAsync(FoundationRequestContext requestContext, TenantContext tenant, MigrationRunRecord run, IReadOnlyList<MigrationExecutionPlanRow> glRows, IReadOnlyList<MigrationExecutionPlanRow> economicRows, CancellationToken cancellationToken, bool requireOwnerEvidence, IReadOnlyDictionary<Guid, MigrationExecutionEffectRecord>? ownerEffects, IReadOnlyList<MigrationEconomicRepresentationRecord>? representations, bool includeProjections)
     {
         var items = glRows.Select(item => new PlanItem(item.Parsed.Payload, item.Staged.PayloadHash, item.Staged.SourceSequence, item.Staged.StagedRecordId)).Concat(economicRows.Where(item => item.Staged.RecordType != MigrationCanonicalRecordType.GlOpening).Select(item => new PlanItem(item.Parsed.Payload, item.Staged.PayloadHash, item.Staged.SourceSequence, item.Staged.StagedRecordId))).ToArray();
-        return await CommandAsync(requestContext, tenant, run.RunId, items, cancellationToken, requireOwnerEvidence, ownerEffects, includeProjections);
+        return await CommandAsync(requestContext, tenant, run.RunId, items, cancellationToken, requireOwnerEvidence, ownerEffects, representations, includeProjections);
     }
 
-    private async Task<FinanceApp.FinanceMigrationGlOpeningCommand?> CommandAsync(FoundationRequestContext requestContext, TenantContext tenant, Guid runId, IReadOnlyList<PlanItem> items, CancellationToken cancellationToken, bool requireOwnerEvidence, IReadOnlyDictionary<Guid, MigrationExecutionEffectRecord>? ownerEffects, bool includeProjections)
+    private async Task<FinanceApp.FinanceMigrationGlOpeningCommand?> CommandAsync(FoundationRequestContext requestContext, TenantContext tenant, Guid runId, IReadOnlyList<PlanItem> items, CancellationToken cancellationToken, bool requireOwnerEvidence, IReadOnlyDictionary<Guid, MigrationExecutionEffectRecord>? ownerEffects, IReadOnlyList<MigrationEconomicRepresentationRecord>? representations, bool includeProjections)
     {
         var gl = items.Where(item => item.Payload is MigrationGlOpeningPayload).Select(item => (item, Payload: (MigrationGlOpeningPayload)item.Payload)).ToArray();
         if (gl.Length == 0 || gl.Any(item => !ReadyPayload(item.Payload))) return null;
@@ -157,26 +173,83 @@ internal sealed class MigrationGlOpeningExecutionCoordinator
         foreach (var item in items.Where(item => item.Payload is not MigrationGlOpeningPayload))
         {
             if (!SameGroup(item.Payload, first)) continue;
-            var ownerEstablished = ownerEffects?.TryGetValue(item.StagedRecordId, out var ownerEffect) == true && ownerEffect.Disposition == MigrationExecutionEffectDisposition.Committed;
-            if (requireOwnerEvidence && !ownerEstablished) return null;
+            var projection = await ResolveProjectionAsync(requestContext, item, ownerEffects, representations, cancellationToken);
+            if (projection is null || requireOwnerEvidence && !projection.AlreadyEstablishedExact) return null;
             if (!includeProjections) continue;
-            switch (item.Payload)
-            {
-                case MigrationArOpeningPayload ar when ar.CompanyId == first.CompanyId && ar.OpeningDate == first.OpeningDate && SameCurrency(ar.CurrencyCode, first.CurrencyCode) && ar.Amount is > 0m:
-                    projections.Add(new("migration-ar-opening.v1", Event, ar.Amount.Value, ownerEstablished)); break;
-                case MigrationApOpeningPayload ap when ap.CompanyId == first.CompanyId && ap.OpeningDate == first.OpeningDate && SameCurrency(ap.CurrencyCode, first.CurrencyCode) && ap.Amount is > 0m:
-                    projections.Add(new("migration-ap-opening.v1", Event, ap.Amount.Value, ownerEstablished)); break;
-                case MigrationCashBankOpeningPayload cash when cash.CompanyId == first.CompanyId && cash.OpeningDate == first.OpeningDate && SameCurrency(cash.CurrencyCode, first.CurrencyCode) && cash.Amount is > 0m:
-                    projections.Add(new("migration-cash-bank-opening.v1", Event, cash.Amount.Value, ownerEstablished)); break;
-                case MigrationInventoryOpeningPayload inventory when inventory.CompanyId == first.CompanyId && inventory.OpeningDate == first.OpeningDate && SameCurrency(inventory.CurrencyCode, first.CurrencyCode) && inventory.BranchId is { } branch && inventory.WarehouseId is { } warehouse && inventory.Quantity is { } quantity && inventory.UnitCost is { } unitCost:
-                    var projected = await valuation.ProjectOpeningForMigrationAsync(requestContext, new InventoryApp.InventoryScope(tenant.TenantId.Value, inventory.CompanyId!.Value, branch, warehouse), inventory.OpeningDate!.Value, quantity, unitCost, cancellationToken);
-                    if (!projected.Succeeded || projected.Value is not { } value) return null;
-                    projections.Add(new("inventory-valuation-finance.v1", FinanceApp.FinanceInventoryPostingClassifier.Classify(InventoryContracts.InventoryMovementSourceType.OpeningBalance, InventoryContracts.InventoryMovementDirection.Inbound), value.FunctionalAmount, ownerEstablished)); break;
-            }
+            projections.Add(projection);
         }
         var hash = Fingerprint(gl.Select(item => item.Payload));
         return new FinanceApp.FinanceMigrationGlOpeningCommand(first.CompanyId!.Value, first.OpeningDate!.Value, first.CurrencyCode!.Trim(), lines, projections, hash, $"migration-gl-opening:{runId:N}:{first.CompanyId.Value:D}:{first.OpeningDate:yyyy-MM-dd}:{first.CurrencyCode.Trim().ToUpperInvariant()}", hash, GroupFingerprint(gl.Select(item => item.Payload)));
     }
+
+    private async Task<FinanceApp.FinanceMigrationOpeningProjection?> ResolveProjectionAsync(FoundationRequestContext requestContext, PlanItem item, IReadOnlyDictionary<Guid, MigrationExecutionEffectRecord>? effects, IReadOnlyList<MigrationEconomicRepresentationRecord>? representations, CancellationToken cancellationToken)
+    {
+        if (!FinanceApp.FinanceRequestContext.TryCreate(requestContext, out var context) || context is null) return null;
+        switch (item.Payload)
+        {
+            case MigrationArOpeningPayload ar when ar.CompanyId is { } company && ar.CustomerId is { } customer && ar.DocumentDate is { } documentDate && ar.OpeningDate is { } openingDate && ar.Amount is { } amount && !string.IsNullOrWhiteSpace(ar.SourceReference) && !string.IsNullOrWhiteSpace(ar.CurrencyCode):
+            {
+                var command = new FinanceApp.FinanceMigrationArOpeningCommand(company, customer, ar.SourceReference.Trim(), documentDate, openingDate, amount, ar.CurrencyCode.Trim(), ar.DueDate, ar.PaymentTermId, item.PayloadHash, $"migration-ar-opening:{item.StagedRecordId:N}", item.PayloadHash);
+                var evidence = await finance.ReadMigrationArOpeningAsync(context, command, cancellationToken);
+                var projection = new FinanceApp.FinanceMigrationOpeningProjection("migration-ar-opening.v1", Event, amount, false, item.StagedRecordId, customer, ar.SourceReference.Trim());
+                if (evidence is null) return projection;
+                if (!ArMatches(evidence, command)) return null;
+                return MatchActual(projection, Actual(evidence.RecognitionJournal, evidence.SourceEffect, false, evidence.OpenItem.CustomerId!.Value), effects, representations, item.StagedRecordId);
+            }
+            case MigrationApOpeningPayload ap when ap.CompanyId is { } company && ap.SupplierId is { } supplier && ap.DocumentDate is { } documentDate && ap.OpeningDate is { } openingDate && ap.Amount is { } amount && !string.IsNullOrWhiteSpace(ap.SourceReference) && !string.IsNullOrWhiteSpace(ap.CurrencyCode):
+            {
+                var command = new FinanceApp.FinanceMigrationApOpeningCommand(company, supplier, ap.SourceReference.Trim(), documentDate, openingDate, amount, ap.CurrencyCode.Trim(), ap.DueDate, ap.PaymentTermId, item.PayloadHash, $"migration-ap-opening:{item.StagedRecordId:N}", item.PayloadHash);
+                var evidence = await finance.ReadMigrationApOpeningAsync(context, command, cancellationToken);
+                var projection = new FinanceApp.FinanceMigrationOpeningProjection("migration-ap-opening.v1", Event, amount, false, item.StagedRecordId, supplier, ap.SourceReference.Trim());
+                if (evidence is null) return projection;
+                if (!ApMatches(evidence, command)) return null;
+                return MatchActual(projection, Actual(evidence.RecognitionJournal, evidence.SourceEffect, true, evidence.OpenItem.SupplierId!.Value), effects, representations, item.StagedRecordId);
+            }
+            case MigrationCashBankOpeningPayload cash when cash.CompanyId is { } company && cash.CashAccountId is { } cashAccount && cash.OpeningDate is { } openingDate && cash.Amount is { } amount && !string.IsNullOrWhiteSpace(cash.SourceReference) && !string.IsNullOrWhiteSpace(cash.CurrencyCode):
+            {
+                var command = new FinanceApp.FinanceMigrationCashBankOpeningCommand(company, cashAccount, cash.SourceReference.Trim(), openingDate, amount, cash.CurrencyCode.Trim(), item.PayloadHash, $"migration-cash-bank-opening:{item.StagedRecordId:N}", item.PayloadHash);
+                var evidence = await finance.ReadMigrationCashBankOpeningAsync(context, command, cancellationToken);
+                var projection = new FinanceApp.FinanceMigrationOpeningProjection("migration-cash-bank-opening.v1", Event, amount, false, item.StagedRecordId, cashAccount, cash.SourceReference.Trim());
+                if (evidence is null) return projection;
+                if (!CashMatches(evidence, command)) return null;
+                return MatchActual(projection, Actual(evidence.RecognitionJournal, evidence.SourceEffect, false, evidence.CashAccount.Id, evidence.LinkedAccount.Id), effects, representations, item.StagedRecordId);
+            }
+            case MigrationInventoryOpeningPayload inventory when inventory.CompanyId is { } company && inventory.BranchId is { } branch && inventory.WarehouseId is { } warehouse && inventory.OpeningDate is { } openingDate && inventory.Quantity is { } quantity && inventory.UnitCost is { } unitCost && !string.IsNullOrWhiteSpace(inventory.CurrencyCode):
+            {
+                var projected = await valuation.ProjectOpeningForMigrationAsync(requestContext, new InventoryApp.InventoryScope(context.TenantId.Value, company, branch, warehouse), openingDate, quantity, unitCost, cancellationToken);
+                if (!projected.Succeeded || projected.Value is not { } value) return null;
+                var projection = new FinanceApp.FinanceMigrationOpeningProjection("inventory-valuation-finance.v1", FinanceApp.FinanceInventoryPostingClassifier.Classify(InventoryContracts.InventoryMovementSourceType.OpeningBalance, InventoryContracts.InventoryMovementDirection.Inbound), value.FunctionalAmount, false, item.StagedRecordId, warehouse, inventory.SourceLineReference?.Trim());
+                if (effects is null || !effects.TryGetValue(item.StagedRecordId, out var effect)) return projection;
+                var journal = representations?.SingleOrDefault(record => record.EffectId == effect.Id && record.Kind == MigrationEconomicRepresentationKind.FinanceJournal && record.EvidenceConfirmed);
+                if (journal is null || journal.PostingRuleId is null || journal.PostingRuleVersionNumber is null || journal.ControlAccountId is null || journal.OffsetAccountId is null || journal.FunctionalAmount is null || journal.SourceContract is null || journal.SourceEvent is null) return projection;
+                if (journal.OwnerSourceId is not { } ownerSourceId || ownerSourceId != projection.OwnerSourceId) return projection;
+                return MatchActual(projection, projection with { AlreadyEstablishedExact = true, OwnerSourceId = ownerSourceId, PostingRuleId = journal.PostingRuleId, PostingRuleVersionNumber = journal.PostingRuleVersionNumber, ControlAccountId = journal.ControlAccountId, OffsetAccountId = journal.OffsetAccountId, Reversal = journal.Reversal, SourceEvidenceId = journal.SourceEvidenceId, SourceEvidenceVersion = journal.SourceEvidenceVersion }, effects, representations, item.StagedRecordId);
+            }
+            default:
+                return null;
+        }
+    }
+
+    private static bool ArMatches(FinanceApp.FinanceMigrationArOpeningEvidence evidence, FinanceApp.FinanceMigrationArOpeningCommand command) => evidence.OpenItem.Kind == FinanceContracts.FinanceOpenItemKind.Receivable && evidence.OpenItem.CompanyId == command.CompanyId && evidence.OpenItem.CustomerId == command.CustomerId && evidence.OpenItem.SourceContract == "migration-ar-opening.v1" && evidence.OpenItem.Reference == command.SourceReference && evidence.OpenItem.DocumentDate == command.DocumentDate && evidence.OpenItem.OriginalAmount == command.Amount && SameCurrency(evidence.OpenItem.CurrencyCode, command.CurrencyCode) && evidence.OpenItem.RecognitionJournalId == evidence.RecognitionJournal.Id && PostedEvidence(evidence.RecognitionJournal, evidence.SourceEffect, command.CompanyId, "migration-ar-opening.v1", command.OpeningDate);
+    private static bool ApMatches(FinanceApp.FinanceMigrationApOpeningEvidence evidence, FinanceApp.FinanceMigrationApOpeningCommand command) => evidence.OpenItem.Kind == FinanceContracts.FinanceOpenItemKind.Payable && evidence.OpenItem.CompanyId == command.CompanyId && evidence.OpenItem.SupplierId == command.SupplierId && evidence.OpenItem.SourceContract == "migration-ap-opening.v1" && evidence.OpenItem.Reference == command.SourceReference && evidence.OpenItem.DocumentDate == command.DocumentDate && evidence.OpenItem.OriginalAmount == command.Amount && SameCurrency(evidence.OpenItem.CurrencyCode, command.CurrencyCode) && evidence.OpenItem.RecognitionJournalId == evidence.RecognitionJournal.Id && PostedEvidence(evidence.RecognitionJournal, evidence.SourceEffect, command.CompanyId, "migration-ap-opening.v1", command.OpeningDate);
+    private static bool CashMatches(FinanceApp.FinanceMigrationCashBankOpeningEvidence evidence, FinanceApp.FinanceMigrationCashBankOpeningCommand command) => evidence.CashAccount.Id == command.CashAccountId && evidence.CashAccount.CompanyId == command.CompanyId && evidence.LinkedAccount.Id == evidence.CashAccount.LinkedAccountId && SameCurrency(evidence.CashAccount.CurrencyCode, command.CurrencyCode) && evidence.RecognitionJournal.Lines.Sum(item => item.FunctionalDebit) == command.Amount && PostedEvidence(evidence.RecognitionJournal, evidence.SourceEffect, command.CompanyId, "migration-cash-bank-opening.v1", command.OpeningDate);
+    private static FinanceApp.FinanceMigrationOpeningProjection Actual(FinanceContracts.FinanceJournalRecord journal, FinanceApp.FinanceSourceEffectRecord source, bool reversal, Guid ownerSourceId, Guid? controlAccountId = null, Guid? offsetAccountId = null)
+    {
+        var lines = journal.Lines.Where(item => item.FunctionalDebit > 0m || item.FunctionalCredit > 0m).OrderBy(item => item.LineNumber).ToArray();
+        var control = controlAccountId ?? (reversal ? lines.SingleOrDefault(item => item.FunctionalCredit > 0m)?.AccountId : lines.SingleOrDefault(item => item.FunctionalDebit > 0m)?.AccountId);
+        var offset = offsetAccountId ?? (reversal ? lines.SingleOrDefault(item => item.FunctionalDebit > 0m)?.AccountId : lines.SingleOrDefault(item => item.FunctionalCredit > 0m)?.AccountId);
+        return new(journal.SourceContract, journal.SourceEvent, lines.Sum(item => item.FunctionalDebit), true, Guid.Empty, ownerSourceId, null, journal.PostingRuleId, journal.PostingRuleVersionNumber, control, offset, reversal, source.SourceEvidenceId, source.SourceEvidenceVersion);
+    }
+
+    private static FinanceApp.FinanceMigrationOpeningProjection MatchActual(FinanceApp.FinanceMigrationOpeningProjection expectedShape, FinanceApp.FinanceMigrationOpeningProjection actual, IReadOnlyDictionary<Guid, MigrationExecutionEffectRecord>? effects, IReadOnlyList<MigrationEconomicRepresentationRecord>? representations, Guid sourceRecordId)
+    {
+        var effect = effects?.TryGetValue(sourceRecordId, out var current) == true ? current : null;
+        var persisted = effect is null ? null : representations?.SingleOrDefault(item => item.EffectId == effect.Id && item.Kind == MigrationEconomicRepresentationKind.FinanceOpeningExpectation);
+        return persisted is null || !Matches(persisted, actual) ? expectedShape : actual with { SourceRecordId = sourceRecordId, OwnerReference = expectedShape.OwnerReference, AlreadyEstablishedExact = true };
+    }
+
+    private static bool Matches(MigrationEconomicRepresentationRecord expected, FinanceApp.FinanceMigrationOpeningProjection actual) => expected.SourceContract == actual.SourceContract && expected.SourceEvent == actual.SourceEvent && expected.FunctionalAmount == actual.Amount && expected.PostingRuleId == actual.PostingRuleId && expected.PostingRuleVersionNumber == actual.PostingRuleVersionNumber && expected.ControlAccountId == actual.ControlAccountId && expected.OffsetAccountId == actual.OffsetAccountId && expected.Reversal == actual.Reversal && (expected.SourceEvidenceId is null || expected.SourceEvidenceId == actual.SourceEvidenceId) && (expected.SourceEvidenceVersion is null || expected.SourceEvidenceVersion == actual.SourceEvidenceVersion) && expected.OwnerSourceId == actual.OwnerSourceId;
+    private static bool PostedEvidence(FinanceContracts.FinanceJournalRecord journal, FinanceApp.FinanceSourceEffectRecord source, Guid companyId, string contract, DateOnly openingDate) => journal.CompanyId == companyId && journal.Status == FinanceContracts.FinanceJournalStatus.Posted && journal.PostingDate == openingDate && journal.SourceContract == contract && journal.SourceEvidenceId == source.SourceEvidenceId && source.CompanyId == companyId && source.SourceContract == contract && source.JournalId == journal.Id;
 
     private static IEnumerable<IGrouping<(Guid, string, DateOnly), MigrationExecutionPlanRow>> Groups(IReadOnlyList<MigrationExecutionPlanRow> rows) => rows.GroupBy(item => { var payload = (MigrationGlOpeningPayload)item.Parsed.Payload; return (payload.CompanyId!.Value, payload.CurrencyCode!.Trim().ToUpperInvariant(), payload.OpeningDate!.Value); }).OrderBy(item => item.Key.Item3).ThenBy(item => item.Key.Item1);
     private static bool ReadyPayload(MigrationGlOpeningPayload payload) => payload.CompanyId is not null && payload.AccountId is not null && payload.AccountId != Guid.Empty && payload.Debit is >= 0m && payload.Credit is >= 0m && (payload.Debit > 0m ^ payload.Credit > 0m) && payload.OpeningDate is not null && !string.IsNullOrWhiteSpace(payload.CurrencyCode) && !string.IsNullOrWhiteSpace(payload.SourceLineReference);
@@ -199,6 +272,7 @@ internal sealed class MigrationGlOpeningExecutionCoordinator
         foreach (var value in values) if (!(await migration.CreateRepresentationAsync(tenant, new CreateMigrationEconomicRepresentationCommand(value), cancellationToken)).Succeeded) return false;
         return true;
     }
+    private MigrationEconomicRepresentationRecord ExpectedRepresentation(TenantContext tenant, MigrationAttemptRecord attempt, MigrationExecutionEffectRecord effect, FinanceApp.FinanceMigrationOpeningExpectation expected, bool established) => new(StableId($"migration-opening-expectation:{effect.Id:D}:{expected.SourceContract}:{expected.SourceEvent}"), tenant.TenantId, attempt.RunId, attempt.AttemptId, effect.Id, MigrationEconomicOwnerModule.Finance, MigrationEconomicRepresentationKind.FinanceOpeningExpectation, expected.SourceRecordId, expected.OwnerReference, established ? "established" : "prepared", "migration-economic-expectation-v1", clock.GetUtcNow(), clock.GetUtcNow(), true, Guid.NewGuid().ToByteArray(), expected.SourceContract, expected.SourceEvent, expected.FunctionalAmount, expected.PostingRuleId, expected.PostingRuleVersionNumber, expected.ControlAccountId, expected.OffsetAccountId, expected.Reversal, expected.SourceEvidenceId, expected.SourceEvidenceVersion, expected.OwnerSourceId);
     private MigrationEconomicRepresentationRecord Representation(TenantContext tenant, MigrationAttemptRecord attempt, MigrationExecutionEffectRecord effect, MigrationEconomicRepresentationKind kind, Guid ownerId, string? reference, string status, string version, DateTimeOffset occurredAt) => new(StableId($"migration-gl-representation:{effect.Id:D}:{kind}:{ownerId:D}:{version}"), tenant.TenantId, attempt.RunId, attempt.AttemptId, effect.Id, MigrationEconomicOwnerModule.Finance, kind, ownerId, reference, status, version, occurredAt, clock.GetUtcNow(), true, Guid.NewGuid().ToByteArray());
     private static Guid StableId(string value) => new(SHA256.HashData(Encoding.UTF8.GetBytes(value))[..16]);
     private static string Fingerprint(IEnumerable<MigrationGlOpeningPayload> rows) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("|", rows.Select(item => string.Join(";", item.CompanyId!.Value.ToString("D"), item.OpeningDate!.Value.ToString("yyyy-MM-dd"), item.CurrencyCode!.Trim().ToUpperInvariant(), item.AccountId!.Value.ToString("D"), item.Debit!.Value.ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture), item.Credit!.Value.ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture), item.SourceLineReference!.Trim())).OrderBy(item => item, StringComparer.Ordinal)))));

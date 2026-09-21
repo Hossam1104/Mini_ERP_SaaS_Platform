@@ -47,6 +47,24 @@ public sealed class MigrationGlOpeningEconomicTests
         Assert.True(projection.AlreadyEstablishedExact);
         Assert.Equal(100m, projection.Amount);
     }
+
+    [Fact]
+    public void Historical_projection_does_not_select_the_current_posting_rule()
+    {
+        var type = Assembly.Load("MiniErp.Infrastructure")
+            .GetType("MiniErp.Infrastructure.Persistence.Modules.Finance.FinanceSettlementPersistence")!;
+        var keys = (IReadOnlySet<string>)type
+            .GetMethod("CurrentProjectionRuleKeys", BindingFlags.Static | BindingFlags.NonPublic)!
+            .Invoke(null,
+            [new FinanceMigrationOpeningProjection[]
+            {
+                new("migration-ar-opening.v1", "recognition", 100m, true),
+                new("migration-ap-opening.v1", "recognition", 50m)
+            }])!;
+
+        Assert.DoesNotContain("migration-ar-opening.v1|recognition", keys);
+        Assert.Contains("migration-ap-opening.v1|recognition", keys);
+    }
 }
 
 #pragma warning restore CS1591

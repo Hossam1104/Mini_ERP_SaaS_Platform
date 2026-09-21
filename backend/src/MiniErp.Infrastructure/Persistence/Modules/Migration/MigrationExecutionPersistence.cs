@@ -282,7 +282,7 @@ internal sealed partial class MigrationPersistence
             && item.RunId == record.RunId
             && item.AttemptId == record.AttemptId
             && item.Id == record.EffectId
-            && (item.RecordType == MigrationCanonicalRecordType.InventoryOpening || item.RecordType == MigrationCanonicalRecordType.ArOpening || item.RecordType == MigrationCanonicalRecordType.ApOpening || item.RecordType == MigrationCanonicalRecordType.CashBankOpening), cancellationToken);
+            && (item.RecordType == MigrationCanonicalRecordType.InventoryOpening || item.RecordType == MigrationCanonicalRecordType.ArOpening || item.RecordType == MigrationCanonicalRecordType.ApOpening || item.RecordType == MigrationCanonicalRecordType.CashBankOpening || item.RecordType == MigrationCanonicalRecordType.GlOpening), cancellationToken);
         if (parent is null)
             return MigrationPersistenceResult<MigrationEconomicRepresentationRecord>.Denied(MigrationPersistenceOutcome.InvalidReference, "migration_economic_representation_parent_invalid");
 
@@ -362,7 +362,18 @@ internal sealed partial class MigrationPersistence
         && string.Equals(entity.OwnerReference, record.OwnerReference, StringComparison.Ordinal)
         && string.Equals(entity.Status, record.Status, StringComparison.Ordinal)
         && string.Equals(entity.EvidenceVersion, record.EvidenceVersion, StringComparison.Ordinal)
-        && entity.EvidenceConfirmed == record.EvidenceConfirmed;
+        && entity.EvidenceConfirmed == record.EvidenceConfirmed
+        && string.Equals(entity.SourceContract, record.SourceContract, StringComparison.Ordinal)
+        && string.Equals(entity.SourceEvent, record.SourceEvent, StringComparison.Ordinal)
+        && entity.FunctionalAmount == record.FunctionalAmount
+        && entity.PostingRuleId == record.PostingRuleId
+        && entity.PostingRuleVersionNumber == record.PostingRuleVersionNumber
+        && entity.ControlAccountId == record.ControlAccountId
+        && entity.OffsetAccountId == record.OffsetAccountId
+        && entity.Reversal == record.Reversal
+        && entity.SourceEvidenceId == record.SourceEvidenceId
+        && entity.SourceEvidenceVersion == record.SourceEvidenceVersion
+        && entity.OwnerSourceId == record.OwnerSourceId;
 
     private static MigrationExecutionBatchRecord ToRecord(MigrationExecutionBatchEntity entity) => new(
         entity.Id,
@@ -414,5 +425,16 @@ internal sealed partial class MigrationPersistence
         entity.OccurredAt,
         entity.RecordedAt,
         entity.EvidenceConfirmed,
-        entity.Version);
+        entity.Version,
+        entity.SourceContract,
+        entity.SourceEvent,
+        entity.FunctionalAmount,
+        entity.PostingRuleId,
+        entity.PostingRuleVersionNumber,
+        entity.ControlAccountId,
+        entity.OffsetAccountId,
+        entity.Reversal,
+        entity.SourceEvidenceId,
+        entity.SourceEvidenceVersion,
+        entity.OwnerSourceId);
 }

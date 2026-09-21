@@ -42,7 +42,8 @@ public enum MigrationEconomicRepresentationKind
     FinanceJournal = 6,
     FinanceOpenItem = 7,
     FinanceSourceEffect = 8,
-    FinanceCashAccount = 9
+    FinanceCashAccount = 9,
+    FinanceOpeningExpectation = 10
 }
 
 public sealed record MigrationExecutionBatchRecord(
@@ -113,7 +114,18 @@ public sealed record MigrationEconomicRepresentationRecord(
     DateTimeOffset OccurredAt,
     DateTimeOffset RecordedAt,
     bool EvidenceConfirmed,
-    byte[] Version);
+    byte[] Version,
+    string? SourceContract = null,
+    string? SourceEvent = null,
+    decimal? FunctionalAmount = null,
+    Guid? PostingRuleId = null,
+    int? PostingRuleVersionNumber = null,
+    Guid? ControlAccountId = null,
+    Guid? OffsetAccountId = null,
+    bool? Reversal = null,
+    Guid? SourceEvidenceId = null,
+    int? SourceEvidenceVersion = null,
+    Guid? OwnerSourceId = null);
 
 public sealed record MigrationEconomicReconciliationRecord(
     Guid EffectId,

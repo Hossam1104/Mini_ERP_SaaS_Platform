@@ -387,6 +387,17 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         representation.Property(item => item.OccurredAt).IsRequired();
         representation.Property(item => item.RecordedAt).IsRequired();
         representation.Property(item => item.EvidenceConfirmed).IsRequired();
+        representation.Property(item => item.SourceContract).HasMaxLength(128).IsRequired(false);
+        representation.Property(item => item.SourceEvent).HasMaxLength(128).IsRequired(false);
+        representation.Property(item => item.FunctionalAmount).HasPrecision(19, 8).IsRequired(false);
+        representation.Property(item => item.PostingRuleId).IsRequired(false);
+        representation.Property(item => item.PostingRuleVersionNumber).IsRequired(false);
+        representation.Property(item => item.ControlAccountId).IsRequired(false);
+        representation.Property(item => item.OffsetAccountId).IsRequired(false);
+        representation.Property(item => item.Reversal).IsRequired(false);
+        representation.Property(item => item.SourceEvidenceId).IsRequired(false);
+        representation.Property(item => item.SourceEvidenceVersion).IsRequired(false);
+        representation.Property(item => item.OwnerSourceId).IsRequired(false);
         ConfigureVersion(representation.Property(item => item.Version));
         representation.HasIndex(item => new { item.TenantId, item.RunId, item.AttemptId, item.EffectId, item.OwnerModule, item.Kind, item.OwnerId, item.EvidenceVersion }).IsUnique();
         representation.HasOne<MigrationExecutionEffectEntity>().WithMany()

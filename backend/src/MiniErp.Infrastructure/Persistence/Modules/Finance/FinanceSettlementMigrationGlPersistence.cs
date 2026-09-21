@@ -142,12 +142,31 @@ internal sealed partial class FinanceSettlementPersistence
             return new FinanceMigrationGlOpeningResidualLine(accountId, target.GetValueOrDefault(accountId), establishedByAccount.GetValueOrDefault(accountId), amount > 0m ? amount : 0m, amount < 0m ? -amount : 0m, allControlAccounts.Contains(accountId), source, treatment);
         }).Where(item => Math.Abs(item.Debit - item.Credit) > MigrationGlTolerance).OrderBy(item => item.AccountId).ToArray();
         if (!SameAmount(residual.Sum(item => item.Debit), residual.Sum(item => item.Credit))) return BlockGl("migration_gl_opening_imbalanced", company.FunctionalCurrencyCode);
-        foreach (var control in controls.ControlAccounts)
+        foreach (var control in allControlAccounts)
         {
             var line = residual.FirstOrDefault(item => item.AccountId == control);
             var expected = target.GetValueOrDefault(control);
             if (Math.Abs(expected - establishedByAccount.GetValueOrDefault(control)) > MigrationGlTolerance || (line is not null && line.Debit != 0m || line is not null && line.Credit != 0m)) return BlockGl("migration_gl_control_account_mismatch", company.FunctionalCurrencyCode);
         }
+        var expectations = command.Projections.Where(projection => projection.SourceRecordId != Guid.Empty).Select(projection =>
+        {
+            if (projection.AlreadyEstablishedExact)
+            {
+                return projection.PostingRuleId is { } ruleId
+                    && projection.PostingRuleVersionNumber is { } ruleVersion
+                    && projection.ControlAccountId is { } controlId
+                    && projection.OffsetAccountId is { } offsetId
+                    && projection.Reversal is { } reversal
+                    ? new FinanceMigrationOpeningExpectation(projection.SourceRecordId, projection.SourceContract, projection.SourceEvent, projection.Amount, ruleId, ruleVersion, controlId, offsetId, reversal, projection.SourceEvidenceId, projection.SourceEvidenceVersion, projection.OwnerSourceId, projection.OwnerReference)
+                    : null;
+            }
+
+            var spec = controls.Specs.SingleOrDefault(item => item.Contract == projection.SourceContract && item.Event == projection.SourceEvent);
+            return spec is null
+                ? null
+                : new FinanceMigrationOpeningExpectation(projection.SourceRecordId, projection.SourceContract, projection.SourceEvent, projection.Amount, spec.Rule.Id, spec.Rule.VersionNumber, spec.Reversal ? spec.Rule.CreditAccountId : spec.Rule.DebitAccountId, spec.Reversal ? spec.Rule.DebitAccountId : spec.Rule.CreditAccountId, spec.Reversal, projection.SourceEvidenceId, projection.SourceEvidenceVersion, projection.OwnerSourceId, projection.OwnerReference);
+        }).ToArray();
+        if (expectations.Any(item => item is null)) return BlockGl("migration_gl_opening_economic_expectation_incomplete", company.FunctionalCurrencyCode);
         var sourceEvidenceId = MigrationGlSourceEvidenceId(context, command);
         if (!string.IsNullOrWhiteSpace(command.SourceGroupFingerprint) && await db.Journals.AsNoTracking().AnyAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationGlContract && item.CorrelationId.EndsWith(command.SourceGroupFingerprint) && item.SourceEvidenceId != sourceEvidenceId, cancellationToken))
             return BlockGl("migration_gl_source_conflict", company.FunctionalCurrencyCode, approval, false, sourceEvidenceId, residual);
@@ -161,7 +180,7 @@ internal sealed partial class FinanceSettlementPersistence
             if (existing is null) return BlockGl("migration_gl_opening_outcome_unknown", company.FunctionalCurrencyCode, approval, false, sourceEvidenceId, residual);
             if (!ResidualMatches(existing.ResidualLines, residual)) return BlockGl("migration_gl_source_conflict", company.FunctionalCurrencyCode, approval, false, sourceEvidenceId, residual);
         }
-        return new(new(true, residual.Length == 0 ? "non_effect" : "ready", company.FunctionalCurrencyCode, approval, residual.Length == 0, sourceEvidenceId, residual), controls, projections.Values);
+        return new(new(true, residual.Length == 0 ? "non_effect" : "ready", company.FunctionalCurrencyCode, approval, residual.Length == 0, sourceEvidenceId, residual, expectations.OfType<FinanceMigrationOpeningExpectation>().ToArray()), controls, projections.Values);
     }
 
     private async Task<FinanceMigrationGlOpeningEvidence?> ReadMigrationGlOpeningEvidenceAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, IReadOnlyList<FinanceMigrationGlOpeningResidualLine> residual, CancellationToken cancellationToken)
@@ -190,11 +209,10 @@ internal sealed partial class FinanceSettlementPersistence
             (MigrationCashBankContract, "recognition", false)
         };
         var resolved = new List<ControlSpec>();
-        var required = command.Projections.Select(item => (item.SourceContract, item.SourceEvent)).ToHashSet();
-        foreach (var spec in specs)
+        var required = CurrentProjectionRuleKeys(command.Projections);
+        foreach (var spec in specs.Where(item => required.Contains($"{item.Contract}|{item.Event}")))
         {
             var matches = await db.PostingRules.Where(item => item.CompanyId == command.CompanyId && item.SourceContract == spec.Contract && item.SourceEvent == spec.Event && item.Lifecycle == FinancePostingRuleLifecycle.Enabled && item.EffectiveFrom <= command.OpeningDate && (item.EffectiveTo == null || item.EffectiveTo >= command.OpeningDate)).ToListAsync(cancellationToken);
-            if (matches.Count == 0 && !required.Contains((spec.Contract, spec.Event))) continue;
             if (matches.Count != 1) return new(false, matches.Count == 0 ? "posting_rule_not_configured" : "posting_rule_ambiguous", new HashSet<Guid>(), []);
             if (matches[0].CostCenterRequired || matches[0].DebitAccountId == matches[0].CreditAccountId) return new(false, "posting_rule_accounts_invalid", new HashSet<Guid>(), []);
             resolved.Add(new ControlSpec(spec.Contract, spec.Event, spec.Reversal, matches[0]));
@@ -204,6 +222,11 @@ internal sealed partial class FinanceSettlementPersistence
         if (controls.Overlaps(offsets)) return new(false, "migration_gl_control_offset_collision", new HashSet<Guid>(), []);
         return new(true, "ready", controls, resolved);
     }
+
+    internal static IReadOnlySet<string> CurrentProjectionRuleKeys(IReadOnlyList<FinanceMigrationOpeningProjection> projections) =>
+        projections.Where(item => !item.AlreadyEstablishedExact)
+            .Select(item => $"{item.SourceContract}|{item.SourceEvent}")
+            .ToHashSet(StringComparer.Ordinal);
 
     private async Task<EstablishedResult> EstablishedAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, IReadOnlySet<string> acceptedContracts, CancellationToken cancellationToken)
     {
@@ -250,7 +273,7 @@ internal sealed partial class FinanceSettlementPersistence
     };
 
 
-    private static MigrationGlPreflight BlockGl(string code, string currency = "", FinanceApprovalRequirement approval = FinanceApprovalRequirement.NotConfigured, bool nonEffect = false, Guid sourceEvidenceId = default, IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? residual = null) => new(new(false, code, currency, approval, nonEffect, sourceEvidenceId, residual ?? []), new(false, code, new HashSet<Guid>(), []), []);
+    private static MigrationGlPreflight BlockGl(string code, string currency = "", FinanceApprovalRequirement approval = FinanceApprovalRequirement.NotConfigured, bool nonEffect = false, Guid sourceEvidenceId = default, IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? residual = null) => new(new(false, code, currency, approval, nonEffect, sourceEvidenceId, residual ?? [], []), new(false, code, new HashSet<Guid>(), []), []);
     private static Guid MigrationGlSourceEvidenceId(FinanceRequestContext context, FinanceMigrationGlOpeningCommand command) => StableId($"migration-gl-group:{context.TenantId.Value:D}:{command.CompanyId:D}:{command.CurrencyCode.Trim().ToUpperInvariant()}:{command.OpeningDate:yyyy-MM-dd}");
     private static Guid StableId(string value) => new(SHA256.HashData(Encoding.UTF8.GetBytes(value))[..16]);
     private static string DurableFingerprint(FinanceMigrationGlOpeningCommand command) => command.SourcePayloadFingerprint + (command.SourceGroupFingerprint ?? string.Empty);
