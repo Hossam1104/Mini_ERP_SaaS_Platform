@@ -10,9 +10,9 @@
 
 ---
 
-## CURRENT AUTHORITY - 21 September 2026 (MESP-141 SLICE 9 RESIDUAL GL OPENING ECONOMIC EXECUTION ACTIVE; DRAFT HANDOFF)
+## CURRENT AUTHORITY - 22 September 2026 (MESP-141 SLICE 9 RESIDUAL GL OPENING ECONOMIC EXECUTION MERGED; LIFECYCLE CLOSED)
 
-**MESP-141 Slice 9 - Residual GL Opening Economic Execution is authorized and active for bounded implementation.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-8 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
+**MESP-141 Slice 9 - Residual GL Opening Economic Execution is accepted, merged, final-main verified, and lifecycle closed.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-9 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
 
 | Item | Value |
 |---|---|
@@ -20,28 +20,29 @@
 | Architecture authority | Issue #229 comment `5750386434` |
 | Slice 9 branch | `feat/mesp-141-residual-gl-opening-economic-execution` |
 | Slice 9 baseline | `origin/main` `f8c86d9a9ef2efd54c70a71eb7935f1e89d89855` |
-| Slice 9 status | **CORRECTED IMPLEMENTATION / DRAFT HANDOFF / UNMERGED / NOT ACCEPTED** |
+| Slice 9 accepted head | `d80cbb6368d6e6c94eda9975d99dc989ead7c4b3` |
+| GPT-5.6 Sol acceptance | Issue #229 comment `5778886208` |
+| Feature PR | **#258 MERGED** by normal merge commit |
+| Feature merge commit | `8cf69b11e02d3fc5382d0fd4d6e9833f856ee4b9`; parents are pre-merge `main` `f8c86d9a9ef2efd54c70a71eb7935f1e89d89855` and accepted head above |
+| Accepted exact-head CI | Run `35743493486`: Repository Validation, Backend, and Frontend passed |
+| Final-main CI | Run `35746830548`: Repository Validation, Backend, and Frontend passed |
+| Slice 9 status | **ACCEPTED / MERGED / FINAL-MAIN VERIFIED / LIFECYCLE CLOSED** |
 | Scope | Finance-owned functional-currency residual GL opening execution, same-run owner projections, replay/conflict/unknown safety, and read-only reconciliation |
-| Stop boundary | Draft PR and exact CI observation; no Ready transition, merge, auto-merge, Jira, production, or owner acceptance |
-| Slices 1-8 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
+| Remaining MESP-141 boundary | Multi-currency opening, reconciliation/sign-off, production migration, onboarding/cutover, and any future Slice remain unauthorized unless separately activated |
+| Slices 1-9 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
 | MESP-141 | **OPEN / ACTIVE / IN PROGRESS** |
 | MESP-142 | **OPEN / NOT ACTIVATED** |
 | Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
 
-Slice 9 local evidence is Release solution build `0 warnings / 0 errors`,
-focused correction tests `4/4`, provider SQL matrix `38/38`, complete SQL
-Server safety `172/172` with `0` failures / `0` skips, and non-SQL backend
-suite `1,287/1,287`. Angular is `316/316`, Chromium is `51/51`, EF model-drift
-is clean, and the solution-wide NuGet vulnerability scan is clear. The SQL
-coverage used disposable LocalDB catalogs through the sanctioned connection
-string and one serialized process. The production bundle retains the existing
-`514.26 kB` initial-budget warning; npm audits pass the high/critical CI
-threshold but report moderate advisories. No runtime was left running after the
-clean build. GL execution consumes committed owner effects as established
-evidence rather than re-projecting them, historical posting-rule identity is
-retained for control classification, derived offsets have explicit treatment,
-and the Inventory valuation owner remains authoritative without Migration
-calculating `Qty * Cost`. `frontend/assets` remains untouched.
+Final-main local evidence is Release solution build `0 warnings / 0 errors`;
+the sanctioned disposable-LocalDB backend/provider suite is `1,468/1,468`
+with `0` failures / `0` skips, including Migration provider integration and the
+Slice 9 SQL matrix. All eight EF contexts have no pending model changes. The
+production bundle retains the existing `514.26 kB` initial-budget warning; npm
+audits retain the known moderate advisories. No runtime was left running, and
+`frontend/assets` remains untouched. This closes Slice 9 only: it does not
+close MESP-141, activate MESP-142, authorize reconciliation/sign-off, or
+authorize Production migration.
 
 ## HISTORICAL RECORD - 20 September 2026 (MESP-141 SLICE 8 CASH/BANK OPENING ECONOMIC EXECUTION MERGED; LIFECYCLE CLOSED)
 
