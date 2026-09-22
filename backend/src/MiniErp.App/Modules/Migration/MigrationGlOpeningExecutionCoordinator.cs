@@ -102,8 +102,13 @@ internal sealed class MigrationGlOpeningExecutionCoordinator
             if (command is null) return await FailBatchAsync(tenant, batch, "migration_gl_opening_owner_evidence_unavailable", true, cancellationToken);
             if (groupEffects.Any(item => item.Disposition == MigrationExecutionEffectDisposition.Unknown)) return MigrationEconomicGroupResult.Failure("migration_execution_outcome_unknown", true);
             if (groupEffects.All(item => item.Disposition is MigrationExecutionEffectDisposition.Committed or MigrationExecutionEffectDisposition.NonEffect)) continue;
+            var startedEffects = new Dictionary<Guid, MigrationExecutionEffectRecord>();
             foreach (var effect in groupEffects.Where(item => item.Disposition == MigrationExecutionEffectDisposition.Prepared))
-                if (await ChangeEffectAsync(tenant, effect, MigrationExecutionEffectDisposition.Started, null, null, null, clock.GetUtcNow(), null, cancellationToken) is null) return MigrationEconomicGroupResult.Failure("migration_execution_effect_state_conflict", false);
+            {
+                var startedEffect = await ChangeEffectAsync(tenant, effect, MigrationExecutionEffectDisposition.Started, null, null, null, clock.GetUtcNow(), null, cancellationToken);
+                if (startedEffect is null) return MigrationEconomicGroupResult.Failure("migration_execution_effect_state_conflict", false);
+                startedEffects[effect.Id] = startedEffect;
+            }
             FinanceContracts.FinanceOperationResult<FinanceApp.FinanceMigrationGlOpeningEvidence> response;
             var responseUnknown = false;
             try { response = await finance.CreateMigrationGlOpeningAsync(financeContext, command, cancellationToken); }
@@ -120,7 +125,8 @@ internal sealed class MigrationGlOpeningExecutionCoordinator
             {
                 var disposition = evidence.Journal is null ? MigrationExecutionEffectDisposition.NonEffect : MigrationExecutionEffectDisposition.Committed;
                 if (evidence.Journal is not null && !await SaveRepresentationsAsync(tenant, attempt, effect, evidence, CancellationToken.None)) return await FailBatchAsync(tenant, batch, "migration_economic_evidence_persistence_unknown", true, CancellationToken.None);
-                if (await ChangeEffectAsync(tenant, effect, disposition, null, evidence.Journal?.Id, null, effect.EffectStartedAt, clock.GetUtcNow(), CancellationToken.None) is null) return MigrationEconomicGroupResult.Failure("migration_execution_effect_state_conflict", false);
+                var currentEffect = startedEffects.TryGetValue(effect.Id, out var startedEffect) ? startedEffect : effect;
+                if (await ChangeEffectAsync(tenant, currentEffect, disposition, null, evidence.Journal?.Id, null, currentEffect.EffectStartedAt, clock.GetUtcNow(), CancellationToken.None) is null) return MigrationEconomicGroupResult.Failure("migration_execution_effect_state_conflict", false);
             }
         }
         var final = (await migration.ListEffectsAsync(tenant, run.RunId, attempt.AttemptId, cancellationToken)).Where(item => item.RecordType == MigrationCanonicalRecordType.GlOpening).ToArray();

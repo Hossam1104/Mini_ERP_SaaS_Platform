@@ -1,8 +1,8 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 21 September 2026 (MESP-141 Slice 9 local recovery and SQL acceptance; Draft PR boundary)
+**Last Updated:** 22 September 2026 (MESP-141 Slice 9 provider-integration acceptance correction; Draft PR boundary)
 
-## Current execution snapshot - 21 September 2026 (MESP-141 Slice 9 Residual GL Opening Economic Execution active)
+## Current execution snapshot - 22 September 2026 (MESP-141 Slice 9 provider-integration acceptance correction active)
 
 MESP-141 Slice 9 is authorized and active under Issue #229 comment `5750522414`
 and architecture authority `5750386434`, on
@@ -17,28 +17,31 @@ conflict/OutcomeUnknown handling, and read-only GL line reconciliation. No Ready
 transition, merge, Jira, production, MESP-142, future slice, or owner acceptance
 is authorized.
 
-Validation evidence is Release solution build `0 warnings / 0 errors`; focused
-correction tests `4/4`; Slice 9 provider SQL matrix `38/38`; complete SQL
-Server safety coverage `172/172` with `0` failures / `0` skips; non-SQL backend
-suite `1,287/1,287`; Angular `316/316`; Chromium `51/51`; EF model-drift check
-clean; and solution-wide NuGet vulnerability scan clear. The SQL runs used
-disposable LocalDB catalogs through the sanctioned connection-string boundary
-and were serialized one process at a time. The production bundle retains the
-existing `514.26 kB` initial-budget warning; npm audits pass the CI high/critical
-threshold but currently report moderate advisories. No runtime was left
-running after the clean build. Metrics remain unchanged: accepted fast-track
-capability completion **24 / 26 = 92.3%**; production readiness approximately
-**47% overall / 41% Procurement/P2P**.
+Validation evidence is Release solution build `0 warnings / 0 errors`; new
+Migration provider integration coverage `16/16`; Slice 9 provider SQL matrix
+`38/38`; complete SQL Server safety coverage `181/181` with `0` failures / `0`
+skips; non-SQL backend suite `1,287/1,287`; Angular `316/316`; Chromium
+`51/51`; all eight EF contexts report no pending model changes; and the
+solution-wide NuGet vulnerability scan is clear. The SQL runs used disposable
+LocalDB catalogs through the sanctioned connection-string boundary and were
+serialized one process at a time. The production bundle retains the existing
+`514.26 kB` initial-budget warning; npm audits pass the CI high/critical
+threshold but currently report `4` moderate production and `7` moderate full
+tree advisories. No runtime was left running after the clean build. Metrics
+remain unchanged: accepted fast-track capability completion **24 / 26 = 92.3%**;
+production readiness approximately **47% overall / 41% Procurement/P2P**.
 
-### Progress history - 21 September 2026 (MESP-141 Slice 9 local recovery and SQL acceptance)
+### Progress history - 22 September 2026 (MESP-141 Slice 9 provider-integration acceptance correction)
 
-Slice 9 correction is complete to the authorized Draft PR boundary. GL
-execution now uses committed owner effects as established evidence, persists
-the canonical GL source fingerprint in the existing durable journal correlation
-field, preserves historical posting-rule control classification, and emits
-bounded source/target/established/residual line treatment for read-only
-reconciliation. The Inventory valuation owner remains authoritative for
-inventory projections; Migration does not calculate `Qty * Cost`.
+Slice 9 provider-integration acceptance correction is complete to the
+authorized Draft PR boundary. Real SQL-backed Migration orchestration now
+covers Prepare, durable expectations, all owner execution, GL-last execution,
+lost-response readback, mismatch fail-closed behavior, incomplete Finance
+evidence, and public read-only reconciliation. The provider run exposed and
+the minimal production fix corrected stale GL effect row-version reuse when
+multiple GL effects transition from Prepared to Started before commit. The
+Inventory valuation owner remains authoritative for inventory projections;
+Migration does not calculate `Qty * Cost`.
 `frontend/assets` remains untouched. The exact hosted CI observation, independent
 GPT-5.6 Sol review, Ready transition, merge, lifecycle closure, production
 migration, and reconciliation/sign-off remain pending and unauthorized.
