@@ -647,6 +647,8 @@ public sealed class MigrationExecutionService
                     MigrationCanonicalRecordType.CashBankOpening => "migration_cash_bank_control_account_not_allowed",
                     _ => "migration_ar_control_account_not_allowed"
                 });
+            if (parsed.HasForbiddenMonetaryInput)
+                return PlanGate.Failure("migration_opening_source_monetary_fields_not_allowed");
             if (preview.PlannedAction == MigrationPlannedAction.Create && parsed.Payload is not (MigrationProductPayload or MigrationSupplierPayload or MigrationCustomerPayload or MigrationInventoryOpeningPayload or MigrationGlOpeningPayload or MigrationArOpeningPayload or MigrationApOpeningPayload or MigrationCashBankOpeningPayload))
                 return PlanGate.Failure("migration_execution_owner_action_invalid");
             if (preview.PlannedAction is not (MigrationPlannedAction.Create or MigrationPlannedAction.MatchReference or MigrationPlannedAction.Skip))
@@ -771,7 +773,21 @@ public sealed class MigrationExecutionService
                 MigrationCanonicalRecordType.Currency or MigrationCanonicalRecordType.Tax or MigrationCanonicalRecordType.PaymentTerm or MigrationCanonicalRecordType.UnitOfMeasure => document.Deserialize<MigrationReferencePayload>(options),
                 _ => null
             };
-            parsed = payload is null ? null : new MigrationParsedCanonicalRow(staged.SourceSequence, staged.SourceRecordId, staged.RecordType, payload, staged.CanonicalPayload, staged.RecordType is (MigrationCanonicalRecordType.ArOpening or MigrationCanonicalRecordType.ApOpening or MigrationCanonicalRecordType.CashBankOpening) && document.RootElement.EnumerateObject().Any(item => string.Equals(item.Name, "controlAccountId", StringComparison.OrdinalIgnoreCase) && item.Value.ValueKind != JsonValueKind.Null));
+            var forbiddenMonetaryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "transactionCurrencyCode", "transactionAmount", "functionalCurrencyCode", "functionalAmount", "functionalCarryingValue",
+                "exchangeRate", "exchangeRateId", "exchangeRateVersionId", "exchangeRateVersionNumber", "transactionToFunctionalRate", "appliedRate",
+                "monetaryPolicyId", "monetaryPolicyVersionNumber", "reportingAmount", "reportingExchangeRateId", "reportingExchangeRateVersionId",
+                "reportingExchangeRateVersionNumber", "reportingAppliedRate"
+            };
+            parsed = payload is null ? null : new MigrationParsedCanonicalRow(
+                staged.SourceSequence,
+                staged.SourceRecordId,
+                staged.RecordType,
+                payload,
+                staged.CanonicalPayload,
+                staged.RecordType is (MigrationCanonicalRecordType.ArOpening or MigrationCanonicalRecordType.ApOpening or MigrationCanonicalRecordType.CashBankOpening) && document.RootElement.EnumerateObject().Any(item => string.Equals(item.Name, "controlAccountId", StringComparison.OrdinalIgnoreCase) && item.Value.ValueKind != JsonValueKind.Null),
+                document.RootElement.EnumerateObject().Any(item => forbiddenMonetaryNames.Contains(item.Name) && item.Value.ValueKind != JsonValueKind.Null));
             return parsed is not null;
         }
         catch (JsonException)

@@ -44,6 +44,7 @@ internal sealed class MigrationApOpeningExecutionCoordinator
         if (!FinanceRequestContext.TryCreate(requestContext, out var financeContext) || financeContext is null)
             return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure("finance_request_context_unavailable");
 
+        var expectations = new Dictionary<Guid, FinanceMigrationOpeningExpectation>();
         foreach (var row in rows.OrderBy(item => item.Staged.SourceSequence))
         {
             if (row.Parsed.Payload is not MigrationApOpeningPayload payload
@@ -62,10 +63,12 @@ internal sealed class MigrationApOpeningExecutionCoordinator
             if (failedCheck is not null)
                 return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(failedCheck.Code);
 
-            var command = Command(payload, amount, companyId, supplierId, documentDate, openingDate, row.Staged.PayloadHash, OwnerKey(run.RunId, row.Staged.StagedRecordId, "finance"));
+            var command = Command(payload, amount, companyId, supplierId, documentDate, openingDate, row.Staged.PayloadHash, OwnerKey(run.RunId, row.Staged.StagedRecordId, "finance"), row.Staged.StagedRecordId);
             var ready = await finance.PreflightMigrationApOpeningAsync(financeContext, command, cancellationToken);
             if (!ready.Ready)
                 return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(ready.Code);
+            if (ready.Expectation is { } expectation && MigrationOpeningMonetaryMatching.HasMonetaryEvidence(expectation))
+                expectations[row.Staged.StagedRecordId] = expectation;
         }
 
         var batchId = StableId($"migration-ap-opening-batch:{attempt.AttemptId:D}");
@@ -112,6 +115,12 @@ internal sealed class MigrationApOpeningExecutionCoordinator
             var savedEffect = await migration.CreateEffectAsync(tenant, new CreateMigrationExecutionEffectCommand(effect), cancellationToken);
             if (!savedEffect.Succeeded)
                 return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(savedEffect.Code);
+            if (expectations.TryGetValue(row.Staged.StagedRecordId, out var expectation))
+            {
+                var savedExpectation = await migration.CreateRepresentationAsync(tenant, new CreateMigrationEconomicRepresentationCommand(ExpectedRepresentation(tenant, attempt, effect, expectation)), cancellationToken);
+                if (!savedExpectation.Succeeded)
+                    return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure("migration_economic_expectation_persistence_unknown");
+            }
         }
 
         return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Successful();
@@ -136,6 +145,7 @@ internal sealed class MigrationApOpeningExecutionCoordinator
         if (!FinanceRequestContext.TryCreate(requestContext, out var financeContext) || financeContext is null)
             return MigrationEconomicGroupResult.Failure("finance_request_context_unavailable", false);
 
+        var representations = await migration.ListRepresentationsAsync(tenant, run.RunId, attempt.AttemptId, cancellationToken) ?? [];
         foreach (var row in rows.OrderBy(item => item.Staged.SourceSequence))
         {
             var effect = (await migration.ListEffectsAsync(tenant, run.RunId, attempt.AttemptId, cancellationToken)).SingleOrDefault(item => item.StagedRecordId == row.Staged.StagedRecordId);
@@ -146,7 +156,9 @@ internal sealed class MigrationApOpeningExecutionCoordinator
             if (row.Parsed.Payload is not MigrationApOpeningPayload payload || !ReadyPayload(payload))
                 return await FailEffectAsync(tenant, batch, effect, "migration_execution_payload_invalid", false, cancellationToken);
 
-            var command = Command(payload, payload.Amount!.Value, payload.CompanyId!.Value, payload.SupplierId!.Value, payload.DocumentDate!.Value, payload.OpeningDate!.Value, row.Staged.PayloadHash, OwnerKey(run.RunId, row.Staged.StagedRecordId, "finance"));
+            var expectedRepresentation = representations.FirstOrDefault(item => item.EffectId == effect.Id && item.Kind == MigrationEconomicRepresentationKind.FinanceOpeningExpectation);
+            var expected = MigrationOpeningMonetaryMatching.HasMonetaryEvidence(expectedRepresentation) ? MigrationOpeningMonetaryMatching.FromRepresentation(expectedRepresentation!) : null;
+            var command = Command(payload, payload.Amount!.Value, payload.CompanyId!.Value, payload.SupplierId!.Value, payload.DocumentDate!.Value, payload.OpeningDate!.Value, row.Staged.PayloadHash, OwnerKey(run.RunId, row.Staged.StagedRecordId, "finance"), row.Staged.StagedRecordId, expected);
             effect = await ChangeEffectAsync(tenant, effect, MigrationExecutionEffectDisposition.Started, null, null, null, clock.GetUtcNow(), null, cancellationToken);
             if (effect is null) return MigrationEconomicGroupResult.Failure("migration_execution_effect_state_conflict", false);
 
@@ -232,8 +244,8 @@ internal sealed class MigrationApOpeningExecutionCoordinator
             FinanceMigrationApOpeningEvidence? evidence = null;
             try { evidence = await finance.ReadMigrationApOpeningAsync(financeContext, command, cancellationToken); }
             catch { }
-            var journalAmount = evidence?.RecognitionJournal.Lines.Sum(item => item.FunctionalCredit);
-            var exact = evidence is not null && EvidenceMatches(evidence, command) && journalAmount == amount;
+            var journalAmount = evidence?.OpenItem.OriginalFunctionalAmount;
+            var exact = evidence is not null && EvidenceMatches(evidence, command) && journalAmount is not null;
             result.Add(new(effect.Id, effect.SourceSequence, exact ? "reconciled" : "partial", exact ? null : "finance_ap_opening_evidence_not_reconciled", companyId, supplierId, payload.SourceReference.Trim(), amount, evidence?.OpenItem.OriginalAmount, evidence?.OpenItem.OutstandingAmount, journalAmount, evidence?.OpenItem.AllocatedAmount, payload.CurrencyCode.Trim().ToUpperInvariant(), evidence?.OpenItem.Id, evidence?.RecognitionJournal.Id, clock.GetUtcNow()));
         }
         return result;
@@ -268,9 +280,10 @@ internal sealed class MigrationApOpeningExecutionCoordinator
         await migration.UpdateBatchAsync(tenant, new UpdateMigrationExecutionBatchCommand(batch.Id, state, batch.StartedAt, state is MigrationExecutionBatchState.Completed or MigrationExecutionBatchState.Failed or MigrationExecutionBatchState.Unknown ? clock.GetUtcNow() : null, batch.Version), cancellationToken);
     }
 
-    private static FinanceMigrationApOpeningCommand Command(MigrationApOpeningPayload payload, decimal amount, Guid companyId, Guid supplierId, DateOnly documentDate, DateOnly openingDate, string fingerprint, string idempotencyKey) => new(companyId, supplierId, payload.SourceReference!.Trim(), documentDate, openingDate, amount, payload.CurrencyCode!.Trim(), payload.DueDate, payload.PaymentTermId, fingerprint, idempotencyKey, fingerprint);
+    private static FinanceMigrationApOpeningCommand Command(MigrationApOpeningPayload payload, decimal amount, Guid companyId, Guid supplierId, DateOnly documentDate, DateOnly openingDate, string fingerprint, string idempotencyKey, Guid sourceRecordId = default, FinanceMigrationOpeningExpectation? expected = null) => new(companyId, supplierId, payload.SourceReference!.Trim(), documentDate, openingDate, amount, payload.CurrencyCode!.Trim(), payload.DueDate, payload.PaymentTermId, fingerprint, idempotencyKey, fingerprint, sourceRecordId, expected);
     private static bool ReadyPayload(MigrationApOpeningPayload payload) => payload.CompanyId is not null && payload.SupplierId is not null && !string.IsNullOrWhiteSpace(payload.SourceReference) && payload.DocumentDate is not null && payload.OpeningDate is not null && payload.Amount is > 0m && !string.IsNullOrWhiteSpace(payload.CurrencyCode) && (payload.DueDate is not null || payload.PaymentTermId is not null);
-    private static bool EvidenceMatches(FinanceMigrationApOpeningEvidence evidence, FinanceMigrationApOpeningCommand command) => evidence.OpenItem.Kind == FinanceOpenItemKind.Payable && evidence.OpenItem.CompanyId == command.CompanyId && evidence.OpenItem.SupplierId == command.SupplierId && evidence.OpenItem.SourceContract == "migration-ap-opening.v1" && evidence.OpenItem.Reference == command.SourceReference.Trim() && evidence.OpenItem.DocumentDate == command.DocumentDate && (command.DueDate is { } explicitDue ? evidence.OpenItem.DueDate == explicitDue : evidence.OpenItem.PaymentTerm?.DueDate == evidence.OpenItem.DueDate) && evidence.OpenItem.OriginalAmount == command.Amount && string.Equals(evidence.OpenItem.CurrencyCode, command.CurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase) && evidence.OpenItem.RecognitionState == FinanceOpenItemRecognitionState.Recognized && evidence.OpenItem.RecognitionJournalId == evidence.RecognitionJournal.Id && evidence.RecognitionJournal.CompanyId == command.CompanyId && evidence.RecognitionJournal.Status == FinanceJournalStatus.Posted && evidence.RecognitionJournal.PostingDate == command.OpeningDate && evidence.RecognitionJournal.SourceContract == "migration-ap-opening.v1" && evidence.RecognitionJournal.SourceEvidenceId == evidence.OpenItem.SourceEvidenceId && evidence.RecognitionJournal.SourceEvidenceVersion == evidence.OpenItem.SourceEvidenceVersion && evidence.SourceEffect.CompanyId == command.CompanyId && evidence.SourceEffect.SourceContract == "migration-ap-opening.v1" && evidence.SourceEffect.SourceEvidenceId == evidence.OpenItem.SourceEvidenceId && evidence.SourceEffect.SourceEvidenceVersion == evidence.OpenItem.SourceEvidenceVersion && evidence.SourceEffect.JournalId == evidence.RecognitionJournal.Id;
+    private static bool EvidenceMatches(FinanceMigrationApOpeningEvidence evidence, FinanceMigrationApOpeningCommand command) => evidence.OpenItem.Kind == FinanceOpenItemKind.Payable && evidence.OpenItem.CompanyId == command.CompanyId && evidence.OpenItem.SupplierId == command.SupplierId && evidence.OpenItem.SourceContract == "migration-ap-opening.v1" && evidence.OpenItem.Reference == command.SourceReference.Trim() && evidence.OpenItem.DocumentDate == command.DocumentDate && (command.DueDate is { } explicitDue ? evidence.OpenItem.DueDate == explicitDue : evidence.OpenItem.PaymentTerm?.DueDate == evidence.OpenItem.DueDate) && evidence.OpenItem.OriginalAmount == command.Amount && string.Equals(evidence.OpenItem.CurrencyCode, command.CurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase) && evidence.OpenItem.RecognitionState == FinanceOpenItemRecognitionState.Recognized && evidence.OpenItem.RecognitionJournalId == evidence.RecognitionJournal.Id && evidence.RecognitionJournal.CompanyId == command.CompanyId && evidence.RecognitionJournal.Status == FinanceJournalStatus.Posted && evidence.RecognitionJournal.PostingDate == command.OpeningDate && string.Equals(evidence.RecognitionJournal.TransactionCurrencyCode, command.CurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase) && evidence.RecognitionJournal.SourceContract == "migration-ap-opening.v1" && evidence.RecognitionJournal.SourceEvidenceId == evidence.OpenItem.SourceEvidenceId && evidence.RecognitionJournal.SourceEvidenceVersion == evidence.OpenItem.SourceEvidenceVersion && evidence.SourceEffect.CompanyId == command.CompanyId && evidence.SourceEffect.SourceContract == "migration-ap-opening.v1" && evidence.SourceEffect.SourceEvidenceId == evidence.OpenItem.SourceEvidenceId && evidence.SourceEffect.SourceEvidenceVersion == evidence.OpenItem.SourceEvidenceVersion && evidence.SourceEffect.JournalId == evidence.RecognitionJournal.Id && MigrationOpeningMonetaryMatching.Matches(command.ExpectedExpectation, evidence.MonetaryEvidence, command.CurrencyCode, command.Amount, evidence.OpenItem.FunctionalCurrencyCode, command.OpeningDate);
+    private MigrationEconomicRepresentationRecord ExpectedRepresentation(TenantContext tenant, MigrationAttemptRecord attempt, MigrationExecutionEffectRecord effect, FinanceMigrationOpeningExpectation expected) => new(StableId($"migration-ap-opening-expectation:{effect.Id:D}"), tenant.TenantId, attempt.RunId, attempt.AttemptId, effect.Id, MigrationEconomicOwnerModule.Finance, MigrationEconomicRepresentationKind.FinanceOpeningExpectation, expected.SourceRecordId, expected.OwnerReference, "prepared", "migration-economic-expectation-v1", clock.GetUtcNow(), clock.GetUtcNow(), true, Guid.NewGuid().ToByteArray(), expected.SourceContract, expected.SourceEvent, expected.FunctionalAmount, expected.PostingRuleId, expected.PostingRuleVersionNumber, expected.ControlAccountId, expected.OffsetAccountId, expected.Reversal, expected.SourceEvidenceId, expected.SourceEvidenceVersion, expected.OwnerSourceId, expected.TransactionCurrencyCode, expected.TransactionAmount, expected.ExpectedFunctionalCurrencyCode, expected.RateDate, expected.ExchangeRateId, expected.ExchangeRateVersionId, expected.ExchangeRateVersionNumber, expected.AppliedRate, expected.MonetaryPolicyId, expected.MonetaryPolicyVersionNumber, expected.RoundingScale, expected.RoundingMode, expected.ReportingCurrencyCode, expected.ReportingExchangeRateId, expected.ReportingExchangeRateVersionId, expected.ReportingExchangeRateVersionNumber, expected.ReportingAppliedRate);
     private MigrationEconomicRepresentationRecord Representation(TenantContext tenant, MigrationAttemptRecord attempt, MigrationExecutionEffectRecord effect, MigrationEconomicOwnerModule module, MigrationEconomicRepresentationKind kind, Guid ownerId, string? reference, string status, string version, DateTimeOffset occurredAt) => new(StableId($"migration-ap-representation:{effect.Id:D}:{module}:{kind}:{ownerId:D}:{version}"), tenant.TenantId, attempt.RunId, attempt.AttemptId, effect.Id, module, kind, ownerId, reference, status, version, occurredAt, clock.GetUtcNow(), true, Guid.NewGuid().ToByteArray());
     private static Guid StableId(string value) => new(SHA256.HashData(Encoding.UTF8.GetBytes(value))[..16]);
     private static string OwnerKey(Guid runId, Guid stagedRecordId, string step) => $"migration-ap-opening:{runId:N}:{stagedRecordId:N}:{step}";

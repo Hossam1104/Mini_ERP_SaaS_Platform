@@ -125,7 +125,24 @@ public sealed record MigrationEconomicRepresentationRecord(
     bool? Reversal = null,
     Guid? SourceEvidenceId = null,
     int? SourceEvidenceVersion = null,
-    Guid? OwnerSourceId = null);
+    Guid? OwnerSourceId = null,
+    string? TransactionCurrencyCode = null,
+    decimal? TransactionAmount = null,
+    string? ExpectedFunctionalCurrencyCode = null,
+    DateOnly? RateDate = null,
+    Guid? ExchangeRateId = null,
+    Guid? ExchangeRateVersionId = null,
+    int? ExchangeRateVersionNumber = null,
+    decimal? AppliedRate = null,
+    Guid? MonetaryPolicyId = null,
+    int? MonetaryPolicyVersionNumber = null,
+    int? RoundingScale = null,
+    string? RoundingMode = null,
+    string? ReportingCurrencyCode = null,
+    Guid? ReportingExchangeRateId = null,
+    Guid? ReportingExchangeRateVersionId = null,
+    int? ReportingExchangeRateVersionNumber = null,
+    decimal? ReportingAppliedRate = null);
 
 public sealed record MigrationEconomicReconciliationRecord(
     Guid EffectId,

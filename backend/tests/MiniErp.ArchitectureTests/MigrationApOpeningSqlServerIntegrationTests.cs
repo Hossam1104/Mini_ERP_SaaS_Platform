@@ -146,7 +146,7 @@ public sealed class MigrationApOpeningSqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.Equal("migration_ap_source_conflict", changed.Code);
         var foreign = await settlement.PreflightMigrationApOpeningAsync(migrationContext, command with { CurrencyCode = "USD", SourceReference = "AP-FOREIGN" });
         Assert.False(foreign.Ready);
-        Assert.Equal("currency_not_functional", foreign.Code);
+        Assert.Equal("migration_opening_monetary_policy_required", foreign.Code);
 
         var method = await settlement.CreatePaymentMethodAsync(settlementContext, new FinancePaymentMethodCommand(companyId, "AP-PAYMENT", "AP payment", null, FinancePaymentMethodDirection.Payment, true, false, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), null, "ap-method", "ap-method"));
         var cash = await settlement.CreateCashAccountAsync(settlementContext, new FinanceCashAccountCommand(companyId, "AP-CASH", "AP cash", null, FinanceCashAccountKind.Bank, "SAR", cashAccount.Value.Id, null, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), null, "ap-cash", "ap-cash"));

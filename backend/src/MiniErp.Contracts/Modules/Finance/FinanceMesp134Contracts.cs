@@ -64,7 +64,9 @@ public sealed record FinanceMonetaryEvidence(
     string RoundingMode,
     decimal FunctionalRoundingDifference,
     decimal? ReportingRoundingDifference,
-    FinanceEvidenceStatus ReportingEvidenceStatus);
+    FinanceEvidenceStatus ReportingEvidenceStatus,
+    Guid? MonetaryPolicyId = null,
+    int? MonetaryPolicyVersionNumber = null);
 
 public sealed record FinanceMonetaryPolicyRecord(
     Guid Id,

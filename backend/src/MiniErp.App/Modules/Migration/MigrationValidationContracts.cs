@@ -233,7 +233,8 @@ public sealed record MigrationParsedCanonicalRow(
     MigrationCanonicalRecordType RecordType,
     MigrationCanonicalPayload Payload,
     string PayloadJson,
-    bool HasForbiddenControlAccountId = false);
+    bool HasForbiddenControlAccountId = false,
+    bool HasForbiddenMonetaryInput = false);
 
 /// <summary>Length-prefixed SHA-256 encoding shared by Migration operations.</summary>
 internal static class MigrationFingerprintEncoder
@@ -641,6 +642,9 @@ public static class MigrationValidationRules
         static void Required(List<(MigrationFindingCategory, string, string)> target, bool missing, string field) {
             if (missing) target.Add((MigrationFindingCategory.MandatoryData, "migration_required_field_missing", $"A required field is missing: {field}."));
         }
+
+        if (row.HasForbiddenMonetaryInput && row.Payload is MigrationInventoryOpeningPayload or MigrationArOpeningPayload or MigrationApOpeningPayload or MigrationCashBankOpeningPayload or MigrationGlOpeningPayload)
+            findings.Add((MigrationFindingCategory.FinancialBalance, "migration_opening_source_monetary_fields_not_allowed", "Opening FX identity, rate, or functional carrying values are resolved and owned by Finance; source-supplied monetary evidence is not accepted."));
 
         switch (row.Payload)
         {

@@ -68,6 +68,22 @@ public sealed class MigrationValidationTests
     }
 
     [Fact]
+    public void Rules_reject_source_supplied_opening_monetary_evidence()
+    {
+        var row = new MigrationParsedCanonicalRow(
+            1,
+            "ar-source-fx",
+            MigrationCanonicalRecordType.ArOpening,
+            new MigrationArOpeningPayload(Guid.NewGuid(), Guid.NewGuid(), "AR-FX", new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 15), 100m, "USD", new DateOnly(2026, 2, 14)),
+            "{}",
+            HasForbiddenMonetaryInput: true);
+
+        var findings = MigrationValidationRules.Validate(row);
+
+        Assert.Contains(findings, item => item.Code == "migration_opening_source_monetary_fields_not_allowed");
+    }
+
+    [Fact]
     public void Dry_run_actions_are_explicitly_non_effectful()
     {
         Assert.Equal("Create", MigrationPlannedAction.Create.ToString());

@@ -398,6 +398,23 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         representation.Property(item => item.SourceEvidenceId).IsRequired(false);
         representation.Property(item => item.SourceEvidenceVersion).IsRequired(false);
         representation.Property(item => item.OwnerSourceId).IsRequired(false);
+        representation.Property(item => item.TransactionCurrencyCode).HasMaxLength(16).IsRequired(false);
+        representation.Property(item => item.TransactionAmount).HasPrecision(28, 8).IsRequired(false);
+        representation.Property(item => item.ExpectedFunctionalCurrencyCode).HasMaxLength(16).IsRequired(false);
+        representation.Property(item => item.RateDate).IsRequired(false);
+        representation.Property(item => item.ExchangeRateId).IsRequired(false);
+        representation.Property(item => item.ExchangeRateVersionId).IsRequired(false);
+        representation.Property(item => item.ExchangeRateVersionNumber).IsRequired(false);
+        representation.Property(item => item.AppliedRate).HasPrecision(28, 12).IsRequired(false);
+        representation.Property(item => item.MonetaryPolicyId).IsRequired(false);
+        representation.Property(item => item.MonetaryPolicyVersionNumber).IsRequired(false);
+        representation.Property(item => item.RoundingScale).IsRequired(false);
+        representation.Property(item => item.RoundingMode).HasMaxLength(32).IsRequired(false);
+        representation.Property(item => item.ReportingCurrencyCode).HasMaxLength(16).IsRequired(false);
+        representation.Property(item => item.ReportingExchangeRateId).IsRequired(false);
+        representation.Property(item => item.ReportingExchangeRateVersionId).IsRequired(false);
+        representation.Property(item => item.ReportingExchangeRateVersionNumber).IsRequired(false);
+        representation.Property(item => item.ReportingAppliedRate).HasPrecision(28, 12).IsRequired(false);
         ConfigureVersion(representation.Property(item => item.Version));
         representation.HasIndex(item => new { item.TenantId, item.RunId, item.AttemptId, item.EffectId, item.OwnerModule, item.Kind, item.OwnerId, item.EvidenceVersion }).IsUnique();
         representation.HasOne<MigrationExecutionEffectEntity>().WithMany()
