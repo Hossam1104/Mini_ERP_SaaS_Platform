@@ -18,8 +18,9 @@ transition, merge, Jira, production, MESP-142, future slice, or owner acceptance
 is authorized.
 
 Validation evidence is Release solution build `0 warnings / 0 errors`; new
-Migration provider integration coverage `16/16`; Slice 9 provider SQL matrix
-`38/38`; complete SQL Server safety coverage `181/181` with `0` failures / `0`
+Migration provider integration coverage `9/9` (MIG-S9-09/10 are one coherent
+test); Slice 9 provider SQL matrix `38/38`; complete SQL Server safety coverage
+`181/181` with `0` failures / `0`
 skips; non-SQL backend suite `1,287/1,287`; Angular `316/316`; Chromium
 `51/51`; all eight EF contexts report no pending model changes; and the
 solution-wide NuGet vulnerability scan is clear. The SQL runs used disposable
