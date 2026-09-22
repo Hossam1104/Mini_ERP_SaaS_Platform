@@ -202,6 +202,7 @@ public sealed class MigrationGlOpeningSqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.True(preflight.Ready, preflight.Code);
         Assert.True(preflight.NonEffect);
         Assert.Empty(preflight.ResidualLines);
+        Assert.Contains(preflight.RepresentedControlLines ?? [], item => item.AccountId == f.CashLinkedAccountId && item.AccountingTreatment == "represented_by_cash_bank" && item.IsControlAccount && item.Debit == 0m && item.Credit == 0m && item.SourceLineReference == "cash" && item.TargetSignedAmount == 100m && item.EstablishedSignedAmount == 100m);
     }
 
     private static async Task HistoricalAndNewRuleUpgradeAsync(MigrationCashBankOpeningSqlServerSafetyTests.CashSqlFixture f)

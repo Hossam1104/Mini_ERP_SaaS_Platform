@@ -631,7 +631,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
     }
 
     [Fact]
-    public async Task Sql_server_migration_public_gl_reconciliation_is_read_only_and_exposes_residual_control_and_derived_offset()
+    public async Task Sql_server_migration_public_gl_reconciliation_exposes_residual_derived_offset_and_all_represented_controls()
     {
         await using var fixture = await ArSqlFixture.CreateAsync(safety);
         var prepared = await fixture.PrepareMixedAsync("MIG-S9-09", 100m, includeCash: true, includeGl: true, derivedOffsets: true);
@@ -643,13 +643,37 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         var read = await execution.ReadAsync(fixture.Request, prepared.Run.RunId);
         var after = await fixture.ReadEconomicCountsAsync(prepared.Run.RunId, completed.Value.AttemptId);
 
+        // Read-only proof: the public reconciliation read must not create, mutate, or duplicate any
+        // durable Finance/Inventory/Migration economic evidence.
         Assert.Equal(before, after);
+        var repeatRead = await execution.ReadAsync(fixture.Request, prepared.Run.RunId);
+        var afterRepeat = await fixture.ReadEconomicCountsAsync(prepared.Run.RunId, completed.Value.AttemptId);
+        Assert.Equal(before, afterRepeat);
         Assert.NotEmpty(read!.GlEconomicReconciliations!);
+        Assert.NotEmpty(repeatRead!.GlEconomicReconciliations!);
+
         var reconciliationLines = read.GlEconomicReconciliations!.SelectMany(item => item.Lines!).ToArray();
-        Assert.Contains(reconciliationLines, item => item.AccountId == fixture.GlDebitAccountId && item.SourceLineReference is not null && item.AccountingTreatment == "source_residual" && item.JournalLineId is not null);
+
+        // Residual/offset proof: existing source-residual and derived-offset-clearing lines remain intact.
+        Assert.Contains(reconciliationLines, item => item.AccountId == fixture.GlDebitAccountId && item.SourceLineReference is not null && item.AccountingTreatment == "source_residual" && item.JournalLineId is not null && item.ResidualDebit == 50m && item.ResidualCredit == 0m);
         Assert.Contains(read.GlEconomicReconciliations!, item => item.EstablishedDebit > 0m && item.EstablishedCredit > 0m);
-        Assert.DoesNotContain(reconciliationLines, item => item.AccountId == fixture.ArAccountId);
         Assert.Contains(reconciliationLines, item => item.SourceLineReference is null && item.AccountingTreatment == "derived_offset_clearing" && item.JournalLineId is not null);
+
+        // Represented control proof: all four fully-represented subsidiary control domains are now
+        // explicit, zero-residual, source-preserved, and never carry a fabricated Journal line.
+        Assert.Contains(reconciliationLines, item => item.AccountId == fixture.ArAccountId && item.AccountingTreatment == "represented_by_ar" && item.IsControlAccount && item.ResidualDebit == 0m && item.ResidualCredit == 0m && item.TargetSignedAmount == 100m && item.EstablishedSignedAmount == 100m && item.SourceLineReference == "MIG-GL-AR-CONTROL" && item.JournalLineId is null);
+        Assert.Contains(reconciliationLines, item => item.AccountId == fixture.ApAccountId && item.AccountingTreatment == "represented_by_ap" && item.IsControlAccount && item.ResidualDebit == 0m && item.ResidualCredit == 0m && item.TargetSignedAmount == -100m && item.EstablishedSignedAmount == -100m && item.SourceLineReference == "MIG-GL-AP-CONTROL" && item.JournalLineId is null);
+        Assert.Contains(reconciliationLines, item => item.AccountId == fixture.CashLinkedAccountId && item.AccountingTreatment == "represented_by_cash_bank" && item.IsControlAccount && item.ResidualDebit == 0m && item.ResidualCredit == 0m && item.TargetSignedAmount == 100m && item.EstablishedSignedAmount == 100m && item.SourceLineReference == "MIG-GL-CASH-CONTROL" && item.JournalLineId is null);
+        Assert.Contains(reconciliationLines, item => item.AccountId == fixture.InventoryControlAccountId && item.AccountingTreatment == "represented_by_inventory" && item.IsControlAccount && item.ResidualDebit == 0m && item.ResidualCredit == 0m && item.TargetSignedAmount == 100m && item.EstablishedSignedAmount == 100m && item.SourceLineReference == "MIG-GL-INVENTORY-CONTROL" && item.JournalLineId is null);
+
+        // Aggregate totals must remain correct with no double counting: sum of every line's residual
+        // debit/credit reconciles to the reconciliation's own reported totals.
+        foreach (var reconciliation in read.GlEconomicReconciliations!)
+        {
+            Assert.Equal(reconciliation.ResidualDebit, reconciliation.Lines!.Sum(item => item.ResidualDebit));
+            Assert.Equal(reconciliation.ResidualCredit, reconciliation.Lines!.Sum(item => item.ResidualCredit));
+        }
+
         await using (var financeDb = new FinanceDbContext(fixture.FinanceOptions, fixture.Tenant))
         {
             Assert.Equal(1, await financeDb.Journals.CountAsync(item => item.CompanyId == fixture.CompanyId && item.SourceContract == "migration-ar-opening.v1" && item.Status == FinanceJournalStatus.Posted));

@@ -29,9 +29,9 @@ internal sealed partial class FinanceSettlementPersistence
         if (Company(context, command.CompanyId) is null) return null;
         await using var db = CreateContext(context);
         var validation = await ValidateMigrationGlOpeningAsync(db, context, command, cancellationToken);
-        var evidence = await ReadMigrationGlOpeningEvidenceAsync(db, context, command, validation.Result.ResidualLines, cancellationToken);
+        var evidence = await ReadMigrationGlOpeningEvidenceAsync(db, context, command, validation.Result.ResidualLines, cancellationToken, validation.Result.RepresentedControlLines);
         return evidence ?? (validation.Result.Ready && validation.Result.NonEffect
-            ? new FinanceMigrationGlOpeningEvidence(null, null, validation.Result.SourceEvidenceId, validation.Result.ResidualLines)
+            ? new FinanceMigrationGlOpeningEvidence(null, null, validation.Result.SourceEvidenceId, validation.Result.ResidualLines, validation.Result.RepresentedControlLines)
             : null);
     }
 
@@ -43,11 +43,11 @@ internal sealed partial class FinanceSettlementPersistence
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
             var validation = await ValidateMigrationGlOpeningAsync(db, context, command, cancellationToken);
             if (!validation.Result.Ready) return FinanceOperationResult<FinanceMigrationGlOpeningEvidence>.Failure(validation.Result.Code);
-            var existing = await ReadMigrationGlOpeningEvidenceAsync(db, context, command, validation.Result.ResidualLines, cancellationToken);
+            var existing = await ReadMigrationGlOpeningEvidenceAsync(db, context, command, validation.Result.ResidualLines, cancellationToken, validation.Result.RepresentedControlLines);
             if (existing is not null) return FinanceOperationResult<FinanceMigrationGlOpeningEvidence>.Success(existing);
             if (validation.Result.NonEffect)
             {
-                var empty = new FinanceMigrationGlOpeningEvidence(null, null, validation.Result.SourceEvidenceId, validation.Result.ResidualLines);
+                var empty = new FinanceMigrationGlOpeningEvidence(null, null, validation.Result.SourceEvidenceId, validation.Result.ResidualLines, validation.Result.RepresentedControlLines);
                 await tx.CommitAsync(cancellationToken);
                 return FinanceOperationResult<FinanceMigrationGlOpeningEvidence>.Success(empty);
             }
@@ -87,7 +87,7 @@ internal sealed partial class FinanceSettlementPersistence
             await tx.CommitAsync(cancellationToken);
             var journalRecord = ToJournal(journal);
             var sourceEffect = ToSourceEffect(new FinanceSourceEffectEntity(context.TenantId, sourceEffectId, command.CompanyId, MigrationGlContract, validation.Result.SourceEvidenceId, 1, journalId, now));
-            return FinanceOperationResult<FinanceMigrationGlOpeningEvidence>.Success(new(journalRecord, sourceEffect, validation.Result.SourceEvidenceId, validation.Result.ResidualLines));
+            return FinanceOperationResult<FinanceMigrationGlOpeningEvidence>.Success(new(journalRecord, sourceEffect, validation.Result.SourceEvidenceId, validation.Result.ResidualLines, validation.Result.RepresentedControlLines));
         }
         catch (DbUpdateException)
         {
@@ -134,13 +134,21 @@ internal sealed partial class FinanceSettlementPersistence
         var establishedByAccount = established.Values.GroupBy(item => item.AccountId).ToDictionary(group => group.Key, group => group.Sum(item => item.SignedAmount));
         foreach (var item in projections.Values) establishedByAccount[item.AccountId] = establishedByAccount.GetValueOrDefault(item.AccountId) + item.Amount;
         var target = command.Lines.ToDictionary(item => item.AccountId, item => item.Debit - item.Credit);
-        var residual = target.Keys.Concat(establishedByAccount.Keys).Distinct().Select(accountId =>
+        var controlDomainByAccount = new Dictionary<Guid, string>();
+        foreach (var pair in established.ControlAccountContracts ?? new Dictionary<Guid, string>()) controlDomainByAccount[pair.Key] = pair.Value;
+        foreach (var spec in controls.Specs) controlDomainByAccount[spec.Reversal ? spec.Rule.CreditAccountId : spec.Rule.DebitAccountId] = spec.Contract;
+        var allLines = target.Keys.Concat(establishedByAccount.Keys).Distinct().Select(accountId =>
         {
             var amount = target.GetValueOrDefault(accountId) - establishedByAccount.GetValueOrDefault(accountId);
             var source = command.Lines.SingleOrDefault(item => item.AccountId == accountId)?.SourceLineReference?.Trim();
-            var treatment = source is null ? "derived_offset_clearing" : allControlAccounts.Contains(accountId) ? "control_account" : "source_residual";
-            return new FinanceMigrationGlOpeningResidualLine(accountId, target.GetValueOrDefault(accountId), establishedByAccount.GetValueOrDefault(accountId), amount > 0m ? amount : 0m, amount < 0m ? -amount : 0m, allControlAccounts.Contains(accountId), source, treatment);
-        }).Where(item => Math.Abs(item.Debit - item.Credit) > MigrationGlTolerance).OrderBy(item => item.AccountId).ToArray();
+            var isControl = allControlAccounts.Contains(accountId);
+            var treatment = isControl && controlDomainByAccount.TryGetValue(accountId, out var domainContract)
+                ? RepresentedTreatment(domainContract)
+                : source is null ? "derived_offset_clearing" : isControl ? "control_account" : "source_residual";
+            return new FinanceMigrationGlOpeningResidualLine(accountId, target.GetValueOrDefault(accountId), establishedByAccount.GetValueOrDefault(accountId), amount > 0m ? amount : 0m, amount < 0m ? -amount : 0m, isControl, source, treatment);
+        }).OrderBy(item => item.AccountId).ToArray();
+        var residual = allLines.Where(item => Math.Abs(item.Debit - item.Credit) > MigrationGlTolerance).ToArray();
+        var representedControlLines = allLines.Where(item => item.IsControlAccount && Math.Abs(item.Debit - item.Credit) <= MigrationGlTolerance).ToArray();
         if (!SameAmount(residual.Sum(item => item.Debit), residual.Sum(item => item.Credit))) return BlockGl("migration_gl_opening_imbalanced", company.FunctionalCurrencyCode);
         foreach (var control in allControlAccounts)
         {
@@ -180,10 +188,19 @@ internal sealed partial class FinanceSettlementPersistence
             if (existing is null) return BlockGl("migration_gl_opening_outcome_unknown", company.FunctionalCurrencyCode, approval, false, sourceEvidenceId, residual);
             if (!ResidualMatches(existing.ResidualLines, residual)) return BlockGl("migration_gl_source_conflict", company.FunctionalCurrencyCode, approval, false, sourceEvidenceId, residual);
         }
-        return new(new(true, residual.Length == 0 ? "non_effect" : "ready", company.FunctionalCurrencyCode, approval, residual.Length == 0, sourceEvidenceId, residual, expectations.OfType<FinanceMigrationOpeningExpectation>().ToArray()), controls, projections.Values);
+        return new(new(true, residual.Length == 0 ? "non_effect" : "ready", company.FunctionalCurrencyCode, approval, residual.Length == 0, sourceEvidenceId, residual, expectations.OfType<FinanceMigrationOpeningExpectation>().ToArray(), representedControlLines), controls, projections.Values);
     }
 
-    private async Task<FinanceMigrationGlOpeningEvidence?> ReadMigrationGlOpeningEvidenceAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, IReadOnlyList<FinanceMigrationGlOpeningResidualLine> residual, CancellationToken cancellationToken)
+    private static string RepresentedTreatment(string contract) => contract switch
+    {
+        InventoryValuationContract => "represented_by_inventory",
+        MigrationArContract => "represented_by_ar",
+        MigrationApContract => "represented_by_ap",
+        MigrationCashBankContract => "represented_by_cash_bank",
+        _ => "control_account"
+    };
+
+    private async Task<FinanceMigrationGlOpeningEvidence?> ReadMigrationGlOpeningEvidenceAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, IReadOnlyList<FinanceMigrationGlOpeningResidualLine> residual, CancellationToken cancellationToken, IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? representedControlLines = null)
     {
         var sourceEvidenceId = MigrationGlSourceEvidenceId(context, command);
         var effect = await db.SourceEffects.AsNoTracking().SingleOrDefaultAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationGlContract && item.SourceEvidenceId == sourceEvidenceId && item.SourceEvidenceVersion == 1, cancellationToken);
@@ -195,7 +212,7 @@ internal sealed partial class FinanceSettlementPersistence
         var recorded = journalRecord.Lines.Select(item => new { item.AccountId, item.Debit, item.Credit }).OrderBy(item => item.AccountId).ToArray();
         var expected = residual.Select(item => new { item.AccountId, item.Debit, item.Credit }).OrderBy(item => item.AccountId).ToArray();
         return recorded.Length == expected.Length && recorded.Zip(expected).All(item => item.First.AccountId == item.Second.AccountId && SameAmount(item.First.Debit, item.Second.Debit) && SameAmount(item.First.Credit, item.Second.Credit))
-            ? new(journalRecord, source, sourceEvidenceId, residual)
+            ? new(journalRecord, source, sourceEvidenceId, residual, representedControlLines)
             : null;
     }
 
@@ -233,6 +250,7 @@ internal sealed partial class FinanceSettlementPersistence
         var journals = await db.Journals.AsNoTracking().Include(item => item.Lines).Where(item => item.CompanyId == command.CompanyId && item.Status == FinanceJournalStatus.Posted && item.PostingDate == command.OpeningDate && acceptedContracts.Contains(item.SourceContract) && !(item.SourceContract == MigrationGlContract && item.SourceEvidenceId == MigrationGlSourceEvidenceId(context, command))).ToListAsync(cancellationToken);
         var result = new List<EstablishedAmount>();
         var historicalControls = new HashSet<Guid>();
+        var historicalControlContracts = new Dictionary<Guid, string>();
         foreach (var journal in journals)
         {
             if (journal.SourceEvidenceId is not { } evidenceId || journal.SourceEvidenceVersion is not { } evidenceVersion) return new(false, "migration_gl_subsidiary_evidence_incomplete", [], new HashSet<Guid>());
@@ -245,11 +263,13 @@ internal sealed partial class FinanceSettlementPersistence
                 if (journal.PostingRuleId is not { } ruleId || journal.PostingRuleVersionNumber is not { } ruleVersion) return new(false, "migration_gl_subsidiary_evidence_incomplete", [], new HashSet<Guid>());
                 var rule = await db.PostingRules.AsNoTracking().SingleOrDefaultAsync(item => item.CompanyId == command.CompanyId && item.Id == ruleId && item.VersionNumber == ruleVersion && item.SourceContract == journal.SourceContract && item.SourceEvent == journal.SourceEvent, cancellationToken);
                 if (rule is null) return new(false, "migration_gl_subsidiary_evidence_incomplete", [], new HashSet<Guid>());
-                historicalControls.Add(journal.SourceContract == MigrationApContract ? rule.CreditAccountId : rule.DebitAccountId);
+                var controlAccountId = journal.SourceContract == MigrationApContract ? rule.CreditAccountId : rule.DebitAccountId;
+                historicalControls.Add(controlAccountId);
+                historicalControlContracts[controlAccountId] = journal.SourceContract;
             }
             result.AddRange(journal.Lines.Select(line => new EstablishedAmount(line.AccountId, line.FunctionalDebit - line.FunctionalCredit)));
         }
-        return new(true, "ready", result, historicalControls);
+        return new(true, "ready", result, historicalControls, historicalControlContracts);
     }
 
     private static async Task<ProjectedAmounts> ProjectedAsync(FinanceDbContext db, FinanceMigrationGlOpeningCommand command, GlControls controls, CancellationToken cancellationToken)
@@ -285,7 +305,7 @@ internal sealed partial class FinanceSettlementPersistence
     private sealed record GlControls(bool Ready, string Code, IReadOnlySet<Guid> ControlAccounts, IReadOnlyList<ControlSpec> Specs);
     private sealed record ControlSpec(string Contract, string Event, bool Reversal, FinancePostingRuleEntity Rule);
     private sealed record EstablishedAmount(Guid AccountId, decimal SignedAmount);
-    private sealed record EstablishedResult(bool Ready, string Code, IReadOnlyList<EstablishedAmount> Values, IReadOnlySet<Guid> ControlAccounts);
+    private sealed record EstablishedResult(bool Ready, string Code, IReadOnlyList<EstablishedAmount> Values, IReadOnlySet<Guid> ControlAccounts, IReadOnlyDictionary<Guid, string>? ControlAccountContracts = null);
     private sealed record ProjectedAmount(Guid AccountId, decimal Amount);
     private sealed record ProjectedAmounts(bool Ready, string Code, IReadOnlyList<ProjectedAmount> Values);
 }

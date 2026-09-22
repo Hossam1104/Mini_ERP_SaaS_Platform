@@ -224,13 +224,15 @@ public sealed record FinanceGlOpeningPreflightResult(
     bool NonEffect,
     Guid SourceEvidenceId,
     IReadOnlyList<FinanceMigrationGlOpeningResidualLine> ResidualLines,
-    IReadOnlyList<FinanceMigrationOpeningExpectation>? Expectations = null);
+    IReadOnlyList<FinanceMigrationOpeningExpectation>? Expectations = null,
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? RepresentedControlLines = null);
 
 public sealed record FinanceMigrationGlOpeningEvidence(
     FinanceJournalRecord? Journal,
     FinanceSourceEffectRecord? SourceEffect,
     Guid SourceEvidenceId,
-    IReadOnlyList<FinanceMigrationGlOpeningResidualLine> ResidualLines);
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine> ResidualLines,
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? RepresentedControlLines = null);
 
 public sealed record FinanceSalesInvoiceCommand(
     Guid CompanyId,
