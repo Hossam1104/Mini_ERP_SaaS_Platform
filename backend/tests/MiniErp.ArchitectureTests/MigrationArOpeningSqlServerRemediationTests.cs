@@ -505,6 +505,201 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         await fixture.AssertNoMixedEffectsAsync(sourceReference);
     }
 
+    [Fact]
+    public async Task Sql_server_migration_all_five_executes_owners_once_and_gl_last()
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        var prepared = await fixture.PrepareMixedAsync("MIG-S9-01", 100m, includeCash: true, includeGl: true);
+        var proxy = new FaultingFinancePersistence(fixture.Settlement)
+        {
+            BeforeGlCreate = _ => fixture.AssertOwnerEffectsReadyBeforeGlAsync()
+        };
+
+        var result = await fixture.NewMixedExecution(proxy).ExecuteAsync(fixture.Request, prepared.Run.RunId, "mig-s9-01", prepared.Run.Version);
+
+        Assert.True(result.Succeeded, result.Code);
+        Assert.Equal(MigrationRunStatus.Completed, result.Value!.RunStatus);
+        Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.InventoryOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed));
+        Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.ArOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed));
+        Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.ApOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed));
+        Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.CashBankOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed));
+        Assert.Equal(10, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.GlOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed));
+        var expectations = result.Value.Representations!.Where(item => item.Kind == MigrationEconomicRepresentationKind.FinanceOpeningExpectation).ToArray();
+        Assert.Equal(4, expectations.Length);
+        Assert.All(expectations, item =>
+        {
+            Assert.Equal(MigrationEconomicOwnerModule.Finance, item.OwnerModule);
+            Assert.Equal("migration-economic-expectation-v1", item.EvidenceVersion);
+            Assert.True(item.EvidenceConfirmed);
+            Assert.NotEqual(Guid.Empty, item.OwnerId);
+            Assert.NotNull(item.SourceContract);
+            Assert.NotNull(item.SourceEvent);
+            Assert.NotNull(item.FunctionalAmount);
+            Assert.NotNull(item.PostingRuleId);
+            Assert.NotNull(item.PostingRuleVersionNumber);
+            Assert.NotNull(item.ControlAccountId);
+            Assert.NotNull(item.OffsetAccountId);
+            Assert.NotNull(item.OwnerSourceId);
+        });
+        Assert.Equal(1, proxy.GlCreateCalls);
+        await fixture.AssertOneCashEffectAsync("MIG-S9-01-CASH", 100m);
+        await fixture.AssertMixedEffectsAsync("MIG-S9-01", 100m);
+        await fixture.AssertLedgerMatchesTargetAsync(100m, derivedOffsets: false);
+    }
+
+    [Fact]
+    public async Task Sql_server_migration_gl_prepare_failure_leaves_all_five_effects_at_zero()
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        var prepared = await fixture.PrepareMixedAsync("MIG-S9-02", 100m, includeCash: true, includeGl: true, invalidGl: true);
+
+        var result = await fixture.NewMixedExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, "mig-s9-02", prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.KnownFailure, result.Kind);
+        Assert.Equal("migration_gl_opening_imbalanced", result.Code);
+        Assert.Equal(MigrationRunStatus.Approved, (await fixture.Migration.FindRunAsync(fixture.Tenant, prepared.Run.RunId))!.Status);
+        await fixture.AssertNoAllFiveEffectsAsync();
+    }
+
+    [Fact]
+    public async Task Sql_server_migration_inventory_approval_required_stops_all_five_before_owner_effects()
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        fixture.Approval.Requirement = FinanceApprovalRequirement.Required;
+        var prepared = await fixture.PrepareMixedAsync("MIG-S9-03", 100m, includeCash: true, includeGl: true);
+
+        var result = await fixture.NewMixedExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, "mig-s9-03", prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.KnownFailure, result.Kind);
+        Assert.Equal("approval_required", result.Code);
+        Assert.Equal(MigrationRunStatus.Approved, (await fixture.Migration.FindRunAsync(fixture.Tenant, prepared.Run.RunId))!.Status);
+        await fixture.AssertNoAllFiveEffectsAsync();
+    }
+
+    [Fact]
+    public async Task Sql_server_migration_gl_lost_response_recovers_committed_effect_without_duplicate()
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        var prepared = await fixture.PrepareMixedAsync("MIG-S9-04", 100m, includeCash: true, includeGl: true);
+        var proxy = new FaultingFinancePersistence(fixture.Settlement) { ThrowAfterGlCreate = true };
+
+        var result = await fixture.NewMixedExecution(proxy).ExecuteAsync(fixture.Request, prepared.Run.RunId, "mig-s9-04", prepared.Run.Version);
+
+        Assert.True(result.Succeeded, result.Code);
+        Assert.Equal(1, proxy.GlCreateCalls);
+        Assert.True(proxy.GlReadCalls >= 1);
+        Assert.Equal(1, await fixture.CountFinanceRowsAsync("migration-gl-opening.v1", journals: true));
+        Assert.Equal(1, await fixture.CountFinanceRowsAsync("migration-gl-opening.v1", journals: false));
+        await fixture.AssertLedgerMatchesTargetAsync(100m, derivedOffsets: false);
+    }
+
+    [Fact]
+    public async Task Sql_server_migration_prepared_amount_mismatch_fails_closed_before_gl_effect()
+    {
+        await AssertPreparedActualMismatchAsync(safety, "MIG-S9-05", (fixture, _) => fixture.MutateArJournalAmountAsync(101m));
+    }
+
+    [Fact]
+    public async Task Sql_server_migration_prepared_rule_mismatch_fails_closed_before_gl_effect()
+    {
+        await AssertPreparedActualMismatchAsync(safety, "MIG-S9-06", (fixture, _) => fixture.MutateArJournalRuleAsync());
+    }
+
+    [Fact]
+    public async Task Sql_server_migration_prepared_control_offset_mismatch_fails_closed_before_gl_effect()
+    {
+        await AssertPreparedActualMismatchAsync(safety, "MIG-S9-07", (fixture, _) => fixture.MutateArJournalMappingAsync());
+    }
+
+    [Fact]
+    public async Task Sql_server_migration_committed_owner_without_finance_evidence_fails_closed()
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        var prepared = await fixture.PrepareMixedAsync("MIG-S9-08", 100m, includeCash: true, includeGl: true);
+        var proxy = new FaultingFinancePersistence(fixture.Settlement)
+        {
+            BeforeSecondArRead = fixture.RemoveArSourceEffectAsync
+        };
+
+        var result = await fixture.NewMixedExecution(proxy).ExecuteAsync(fixture.Request, prepared.Run.RunId, "mig-s9-08", prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.UnknownOutcome, result.Kind);
+        Assert.Equal(MigrationExecutionEffectDisposition.Committed, Assert.Single(result.Value!.Effects, item => item.RecordType == MigrationCanonicalRecordType.ArOpening).Disposition);
+        Assert.Equal(MigrationRunStatus.OutcomeUnknown, result.Value.RunStatus);
+        Assert.Equal(0, await fixture.CountFinanceRowsAsync("migration-gl-opening.v1", journals: true));
+        Assert.Equal(0, await fixture.CountFinanceRowsAsync("migration-gl-opening.v1", journals: false));
+    }
+
+    [Fact]
+    public async Task Sql_server_migration_public_gl_reconciliation_exposes_residual_derived_offset_and_all_represented_controls()
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        var prepared = await fixture.PrepareMixedAsync("MIG-S9-09", 100m, includeCash: true, includeGl: true, derivedOffsets: true);
+        var execution = fixture.NewMixedExecution();
+        var completed = await execution.ExecuteAsync(fixture.Request, prepared.Run.RunId, "mig-s9-09", prepared.Run.Version);
+        Assert.True(completed.Succeeded, completed.Code);
+
+        var before = await fixture.ReadEconomicCountsAsync(prepared.Run.RunId, completed.Value!.AttemptId);
+        var read = await execution.ReadAsync(fixture.Request, prepared.Run.RunId);
+        var after = await fixture.ReadEconomicCountsAsync(prepared.Run.RunId, completed.Value.AttemptId);
+
+        // Read-only proof: the public reconciliation read must not create, mutate, or duplicate any
+        // durable Finance/Inventory/Migration economic evidence.
+        Assert.Equal(before, after);
+        var repeatRead = await execution.ReadAsync(fixture.Request, prepared.Run.RunId);
+        var afterRepeat = await fixture.ReadEconomicCountsAsync(prepared.Run.RunId, completed.Value.AttemptId);
+        Assert.Equal(before, afterRepeat);
+        Assert.NotEmpty(read!.GlEconomicReconciliations!);
+        Assert.NotEmpty(repeatRead!.GlEconomicReconciliations!);
+
+        var reconciliationLines = read.GlEconomicReconciliations!.SelectMany(item => item.Lines!).ToArray();
+
+        // Residual/offset proof: existing source-residual and derived-offset-clearing lines remain intact.
+        Assert.Contains(reconciliationLines, item => item.AccountId == fixture.GlDebitAccountId && item.SourceLineReference is not null && item.AccountingTreatment == "source_residual" && item.JournalLineId is not null && item.ResidualDebit == 50m && item.ResidualCredit == 0m);
+        Assert.Contains(read.GlEconomicReconciliations!, item => item.EstablishedDebit > 0m && item.EstablishedCredit > 0m);
+        Assert.Contains(reconciliationLines, item => item.SourceLineReference is null && item.AccountingTreatment == "derived_offset_clearing" && item.JournalLineId is not null);
+
+        // Represented control proof: all four fully-represented subsidiary control domains are now
+        // explicit, zero-residual, source-preserved, and never carry a fabricated Journal line.
+        Assert.Contains(reconciliationLines, item => item.AccountId == fixture.ArAccountId && item.AccountingTreatment == "represented_by_ar" && item.IsControlAccount && item.ResidualDebit == 0m && item.ResidualCredit == 0m && item.TargetSignedAmount == 100m && item.EstablishedSignedAmount == 100m && item.SourceLineReference == "MIG-GL-AR-CONTROL" && item.JournalLineId is null);
+        Assert.Contains(reconciliationLines, item => item.AccountId == fixture.ApAccountId && item.AccountingTreatment == "represented_by_ap" && item.IsControlAccount && item.ResidualDebit == 0m && item.ResidualCredit == 0m && item.TargetSignedAmount == -100m && item.EstablishedSignedAmount == -100m && item.SourceLineReference == "MIG-GL-AP-CONTROL" && item.JournalLineId is null);
+        Assert.Contains(reconciliationLines, item => item.AccountId == fixture.CashLinkedAccountId && item.AccountingTreatment == "represented_by_cash_bank" && item.IsControlAccount && item.ResidualDebit == 0m && item.ResidualCredit == 0m && item.TargetSignedAmount == 100m && item.EstablishedSignedAmount == 100m && item.SourceLineReference == "MIG-GL-CASH-CONTROL" && item.JournalLineId is null);
+        Assert.Contains(reconciliationLines, item => item.AccountId == fixture.InventoryControlAccountId && item.AccountingTreatment == "represented_by_inventory" && item.IsControlAccount && item.ResidualDebit == 0m && item.ResidualCredit == 0m && item.TargetSignedAmount == 100m && item.EstablishedSignedAmount == 100m && item.SourceLineReference == "MIG-GL-INVENTORY-CONTROL" && item.JournalLineId is null);
+
+        // Aggregate totals must remain correct with no double counting: sum of every line's residual
+        // debit/credit reconciles to the reconciliation's own reported totals.
+        foreach (var reconciliation in read.GlEconomicReconciliations!)
+        {
+            Assert.Equal(reconciliation.ResidualDebit, reconciliation.Lines!.Sum(item => item.ResidualDebit));
+            Assert.Equal(reconciliation.ResidualCredit, reconciliation.Lines!.Sum(item => item.ResidualCredit));
+        }
+
+        await using (var financeDb = new FinanceDbContext(fixture.FinanceOptions, fixture.Tenant))
+        {
+            Assert.Equal(1, await financeDb.Journals.CountAsync(item => item.CompanyId == fixture.CompanyId && item.SourceContract == "migration-ar-opening.v1" && item.Status == FinanceJournalStatus.Posted));
+            Assert.Equal(1, await financeDb.SourceEffects.CountAsync(item => item.CompanyId == fixture.CompanyId && item.SourceContract == "migration-ar-opening.v1"));
+        }
+        await fixture.AssertLedgerMatchesTargetAsync(100m, derivedOffsets: true);
+    }
+
+    private static async Task AssertPreparedActualMismatchAsync(SqlServerSafetyFixture safety, string sourceReference, Func<ArSqlFixture, string, Task> mutate)
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        var prepared = await fixture.PrepareMixedAsync(sourceReference, 100m, includeCash: true, includeGl: true);
+        var proxy = new FaultingFinancePersistence(fixture.Settlement)
+        {
+            BeforeSecondArRead = () => mutate(fixture, sourceReference)
+        };
+
+        var result = await fixture.NewMixedExecution(proxy).ExecuteAsync(fixture.Request, prepared.Run.RunId, sourceReference.ToLowerInvariant(), prepared.Run.Version);
+
+        Assert.Equal(MigrationResultKind.UnknownOutcome, result.Kind);
+        Assert.Equal(MigrationRunStatus.OutcomeUnknown, result.Value!.RunStatus);
+        Assert.Equal(MigrationExecutionEffectDisposition.Committed, Assert.Single(result.Value.Effects, item => item.RecordType == MigrationCanonicalRecordType.ArOpening).Disposition);
+        Assert.Equal(0, await fixture.CountFinanceRowsAsync("migration-gl-opening.v1", journals: true));
+        Assert.Equal(0, await fixture.CountFinanceRowsAsync("migration-gl-opening.v1", journals: false));
+    }
+
     internal sealed class ArSqlFixture : IAsyncDisposable
     {
         private readonly Microsoft.Data.SqlClient.SqlConnection connection;
@@ -589,11 +784,14 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         internal Guid CurrencyId { get; }
         internal Guid PaymentTermId { get; }
         internal Guid ArAccountId { get; private set; }
+        internal Guid ArOffsetAccountId { get; private set; }
         internal Guid ApAccountId { get; private set; }
         internal Guid ApOffsetAccountId { get; private set; }
         internal Guid AllocationRuleId { get; private set; }
         internal byte[] AllocationRuleVersion { get; private set; } = [];
         internal Guid InventoryRuleId { get; private set; }
+        internal Guid InventoryControlAccountId { get; private set; }
+        internal Guid InventoryOffsetAccountId { get; private set; }
         internal byte[] InventoryRuleVersion { get; private set; } = [];
         internal Guid FiscalYearId { get; private set; }
         internal Guid PeriodId { get; private set; }
@@ -601,8 +799,11 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         internal byte[] ApRuleVersion { get; private set; } = [];
         internal Guid CashAccountId { get; private set; }
         internal Guid CashLinkedAccountId { get; private set; }
+        internal Guid CashOffsetAccountId { get; private set; }
         internal Guid CashRuleId { get; private set; }
         internal byte[] CashRuleVersion { get; private set; } = [];
+        internal Guid GlDebitAccountId { get; private set; }
+        internal Guid GlCreditAccountId { get; private set; }
         internal MigrationPersistence Migration { get; }
         internal FoundationRequestContext Request { get; }
         internal FinanceRequestContext FinanceContext => FinanceRequestContext.TryCreate(Request, out var context) ? context! : throw new InvalidOperationException();
@@ -684,12 +885,19 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.True(configuredCash.Succeeded, configuredCash.Code);
             var cashRule = await setup.CreatePostingRuleAsync(ruleContext, new FinancePostingRuleCommand(companyId, "migration-cash-bank-opening.v1", "recognition", cashAccount.Value.Id, cashOffset.Value!.Id, false, new DateOnly(2026, 1, 15), null, Guid.NewGuid(), "s8-cash-rule", "s8-cash-rule"));
             Assert.True(cashRule.Succeeded, cashRule.Code);
+            var glDebit = await setup.CreateAccountAsync(accountContext, Account(companyId, "S9-GL-DEBIT", FinanceAccountType.Asset));
+            var glCredit = await setup.CreateAccountAsync(accountContext, Account(companyId, "S9-GL-CREDIT", FinanceAccountType.Equity));
+            Assert.True(glDebit.Succeeded, glDebit.Code);
+            Assert.True(glCredit.Succeeded, glCredit.Code);
             fixture.ArAccountId = arAccount.Value.Id;
+            fixture.ArOffsetAccountId = offsetAccount.Value.Id;
             fixture.ApAccountId = apAccount.Value.Id;
             fixture.ApOffsetAccountId = apOffset.Value.Id;
             fixture.AllocationRuleId = apAllocationRule.Value!.Id;
             fixture.AllocationRuleVersion = apAllocationRule.Value.Version;
             fixture.InventoryRuleId = inventoryRule.Value!.Id;
+            fixture.InventoryControlAccountId = inventoryDebit.Value!.Id;
+            fixture.InventoryOffsetAccountId = inventoryCredit.Value!.Id;
             fixture.InventoryRuleVersion = inventoryRule.Value.Version;
             fixture.FiscalYearId = year.Value.Id;
             fixture.PeriodId = period.Value.Id;
@@ -697,8 +905,11 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             fixture.ApRuleVersion = apRule.Value.Version;
             fixture.CashAccountId = configuredCash.Value!.Id;
             fixture.CashLinkedAccountId = cashAccount.Value.Id;
+            fixture.CashOffsetAccountId = cashOffset.Value.Id;
             fixture.CashRuleId = cashRule.Value!.Id;
             fixture.CashRuleVersion = cashRule.Value.Version;
+            fixture.GlDebitAccountId = glDebit.Value!.Id;
+            fixture.GlCreditAccountId = glCredit.Value!.Id;
             return fixture;
         }
 
@@ -780,13 +991,15 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             return new MigrationExecutionService(foundation, Migration, Migration, Migration, scopes, scopes, new UnusedOwnerGateway(), references, null, null, ap);
         }
 
-        internal MigrationExecutionService NewMixedExecution()
+        internal MigrationExecutionService NewMixedExecution(IFinanceSettlementPersistence? finance = null)
         {
-            var ar = new MigrationArOpeningExecutionCoordinator(Migration, references, Settlement);
+            var settlement = finance ?? Settlement;
+            var ar = new MigrationArOpeningExecutionCoordinator(Migration, references, settlement);
             var inventory = new MigrationInventoryOpeningExecutionCoordinator(Migration, references, InventoryService, Valuation, Finance);
-            var ap = new MigrationApOpeningExecutionCoordinator(Migration, references, Settlement);
-            var cash = new MigrationCashBankOpeningExecutionCoordinator(Migration, references, Settlement);
-            return new MigrationExecutionService(foundation, Migration, Migration, Migration, scopes, scopes, new UnusedOwnerGateway(), references, inventory, ar, ap, null, cash);
+            var ap = new MigrationApOpeningExecutionCoordinator(Migration, references, settlement);
+            var cash = new MigrationCashBankOpeningExecutionCoordinator(Migration, references, settlement);
+            var gl = new MigrationGlOpeningExecutionCoordinator(Migration, references, settlement, Valuation);
+            return new MigrationExecutionService(foundation, Migration, Migration, Migration, scopes, scopes, new UnusedOwnerGateway(), references, inventory, ar, ap, null, cash, gl);
         }
 
         internal FinanceMigrationArOpeningCommand Command(string sourceReference, decimal amount) => new(CompanyId, CustomerId, sourceReference, new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 15), amount, "SAR", new DateOnly(2026, 2, 14), null, "payload", $"command-{sourceReference}", "payload");
@@ -902,7 +1115,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.Equal(amount, journal.Lines.Single(item => item.LineNumber == 2).FunctionalCredit);
         }
 
-        internal async Task<PreparedRun> PrepareMixedAsync(string sourceReference, decimal amount, bool includeCash = false)
+        internal async Task<PreparedRun> PrepareMixedAsync(string sourceReference, decimal amount, bool includeCash = false, bool includeGl = false, bool derivedOffsets = false, bool invalidGl = false)
         {
             var objectId = Guid.NewGuid();
             var run = MigrationRun.Create(Tenant, new MigrationDefinitionReference("tenant-onboarding.foundation", "1"), new MigrationSourceProfileReference("neutral-source-profile", "1"));
@@ -927,6 +1140,15 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
                 var cashJson = JsonSerializer.Serialize(new { companyId = CompanyId, cashAccountId = CashAccountId, sourceReference = sourceReference + "-CASH", amount, currencyCode = "SAR", openingDate = new DateOnly(2026, 1, 15) });
                 staged.Add(new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 4, sourceReference + "-CASH", MigrationCanonicalRecordType.CashBankOpening, cashJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(cashJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow));
             }
+            if (includeGl)
+            {
+                var sequence = staged.Count + 1;
+                foreach (var line in GlTargetLines(amount, derivedOffsets, invalidGl))
+                {
+                    var glJson = JsonSerializer.Serialize(new MigrationGlOpeningPayload(CompanyId, line.AccountId, line.Debit, line.Credit, "SAR", new DateOnly(2026, 1, 15), line.SourceLineReference), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    staged.Add(new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, sequence++, line.SourceLineReference, MigrationCanonicalRecordType.GlOpening, glJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(glJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow));
+                }
+            }
             Assert.True((await Migration.StagePackageAsync(Tenant, new StageMigrationPackageCommand(persisted.RunId, objectId, sourceHash, packageHash, MigrationCanonicalPackageParser.Version, DateTimeOffset.UtcNow, staged))).Succeeded);
             var current = await TransitionAsync(persisted, MigrationRunStatus.Prepared);
             current = await TransitionAsync(current, MigrationRunStatus.Validating);
@@ -946,6 +1168,120 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             current = await TransitionAsync(current, MigrationRunStatus.Approved);
             return new PreparedRun(current, staged);
         }
+
+        internal async Task AssertOwnerEffectsReadyBeforeGlAsync()
+        {
+            await using var financeDb = new FinanceDbContext(FinanceOptions, Tenant);
+            foreach (var contract in new[] { "inventory-valuation-finance.v1", "migration-ar-opening.v1", "migration-ap-opening.v1", "migration-cash-bank-opening.v1" })
+            {
+                Assert.Equal(1, await financeDb.Journals.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == contract && item.Status == FinanceJournalStatus.Posted));
+                Assert.Equal(1, await financeDb.SourceEffects.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == contract));
+            }
+            Assert.Equal(0, await financeDb.Journals.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-gl-opening.v1"));
+            Assert.Equal(0, await financeDb.SourceEffects.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == "migration-gl-opening.v1"));
+            await using var inventoryDb = new InventoryDbContext(InventoryOptions, Tenant);
+            Assert.Equal(1, await inventoryDb.StockMovements.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId));
+            Assert.Equal(1, await inventoryDb.MovementValuationEvents.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId && item.Status == InventoryValuationEventStatus.Applied));
+            Assert.Equal(1, await inventoryDb.FinanceValuationHandoffs.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId));
+        }
+
+        internal async Task AssertNoAllFiveEffectsAsync()
+        {
+            await using var financeDb = new FinanceDbContext(FinanceOptions, Tenant);
+            foreach (var contract in new[] { "inventory-valuation-finance.v1", "migration-ar-opening.v1", "migration-ap-opening.v1", "migration-cash-bank-opening.v1", "migration-gl-opening.v1" })
+            {
+                Assert.Equal(0, await financeDb.Journals.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == contract));
+                Assert.Equal(0, await financeDb.SourceEffects.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == contract));
+            }
+            await using var inventoryDb = new InventoryDbContext(InventoryOptions, Tenant);
+            Assert.Equal(0, await inventoryDb.StockMovements.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId));
+            Assert.Equal(0, await inventoryDb.MovementValuationEvents.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId));
+            Assert.Equal(0, await inventoryDb.FinanceValuationHandoffs.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId));
+        }
+
+        internal async Task<int> CountFinanceRowsAsync(string contract, bool journals)
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            return journals
+                ? await db.Journals.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == contract)
+                : await db.SourceEffects.CountAsync(item => item.CompanyId == CompanyId && item.SourceContract == contract);
+        }
+
+        internal async Task MutateArJournalAmountAsync(decimal amount)
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            var journalId = await db.Journals.Where(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ar-opening.v1").Select(item => item.Id).SingleAsync();
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE [finance].[JournalLines] SET [FunctionalDebit] = {amount}, [Debit] = {amount} WHERE [TenantId] = {Tenant.TenantId.Value} AND [JournalId] = {journalId} AND [LineNumber] = 1");
+        }
+
+        internal async Task MutateArJournalRuleAsync()
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            var journalId = await db.Journals.Where(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ar-opening.v1").Select(item => item.Id).SingleAsync();
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE [finance].[Journals] SET [PostingRuleId] = {Guid.NewGuid()}, [PostingRuleVersionNumber] = {99} WHERE [TenantId] = {Tenant.TenantId.Value} AND [Id] = {journalId}");
+        }
+
+        internal async Task MutateArJournalMappingAsync()
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            var journalId = await db.Journals.Where(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ar-opening.v1").Select(item => item.Id).SingleAsync();
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE [finance].[JournalLines] SET [AccountId] = {GlDebitAccountId} WHERE [TenantId] = {Tenant.TenantId.Value} AND [JournalId] = {journalId} AND [LineNumber] = 1");
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE [finance].[JournalLines] SET [AccountId] = {GlCreditAccountId} WHERE [TenantId] = {Tenant.TenantId.Value} AND [JournalId] = {journalId} AND [LineNumber] = 2");
+        }
+
+        internal async Task RemoveArSourceEffectAsync()
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            db.SourceEffects.RemoveRange(await db.SourceEffects.Where(item => item.CompanyId == CompanyId && item.SourceContract == "migration-ar-opening.v1").ToListAsync());
+            await db.SaveChangesAsync();
+        }
+
+        internal async Task AssertLedgerMatchesTargetAsync(decimal amount, bool derivedOffsets)
+        {
+            await using var db = new FinanceDbContext(FinanceOptions, Tenant);
+            var actual = await db.Journals.Where(item => item.CompanyId == CompanyId && item.Status == FinanceJournalStatus.Posted).SelectMany(item => item.Lines).GroupBy(item => item.AccountId).ToDictionaryAsync(group => group.Key, group => group.Sum(item => item.FunctionalDebit - item.FunctionalCredit));
+            var target = GlTargetLines(amount, derivedOffsets, invalidGl: false).GroupBy(item => item.AccountId).ToDictionary(group => group.Key, group => group.Sum(item => item.Debit - item.Credit));
+            var accounts = actual.Keys.Concat(target.Keys).Distinct().OrderBy(item => item).ToArray();
+            Assert.All(accounts, account => Assert.Equal(target.GetValueOrDefault(account), actual.GetValueOrDefault(account)));
+        }
+
+        internal async Task<(int Journals, int SourceEffects, int StockMovements, int ValuationEvents, int Handoffs, int Batches, int Effects, int Representations)> ReadEconomicCountsAsync(Guid runId, Guid attemptId)
+        {
+            var contracts = new[] { "inventory-valuation-finance.v1", "migration-ar-opening.v1", "migration-ap-opening.v1", "migration-cash-bank-opening.v1", "migration-gl-opening.v1" };
+            await using var financeDb = new FinanceDbContext(FinanceOptions, Tenant);
+            await using var inventoryDb = new InventoryDbContext(InventoryOptions, Tenant);
+            return (
+                await financeDb.Journals.CountAsync(item => item.CompanyId == CompanyId && contracts.Contains(item.SourceContract)),
+                await financeDb.SourceEffects.CountAsync(item => item.CompanyId == CompanyId && contracts.Contains(item.SourceContract)),
+                await inventoryDb.StockMovements.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId),
+                await inventoryDb.MovementValuationEvents.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId),
+                await inventoryDb.FinanceValuationHandoffs.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId),
+                (await Migration.ListBatchesAsync(Tenant, runId, attemptId)).Count,
+                (await Migration.ListEffectsAsync(Tenant, runId, attemptId)).Count,
+                (await Migration.ListRepresentationsAsync(Tenant, runId, attemptId)).Count);
+        }
+
+        private IReadOnlyList<GlTargetLine> GlTargetLines(decimal amount, bool derivedOffsets, bool invalidGl)
+        {
+            var lines = new List<GlTargetLine>
+            {
+                new(ArAccountId, amount, 0m, "MIG-GL-AR-CONTROL"),
+                new(ApAccountId, 0m, amount, "MIG-GL-AP-CONTROL"),
+                new(CashLinkedAccountId, amount, 0m, "MIG-GL-CASH-CONTROL"),
+                new(InventoryControlAccountId, amount, 0m, "MIG-GL-INVENTORY-CONTROL")
+            };
+            if (!derivedOffsets)
+            {
+                lines.Add(new(ArOffsetAccountId, 0m, amount, "MIG-GL-AR-OFFSET"));
+                lines.Add(new(ApOffsetAccountId, amount, 0m, "MIG-GL-AP-OFFSET"));
+                lines.Add(new(InventoryOffsetAccountId, 0m, amount, "MIG-GL-INVENTORY-OFFSET"));
+                lines.Add(new(CashOffsetAccountId, 0m, amount, "MIG-GL-CASH-OFFSET"));
+            }
+            lines.Add(new(GlDebitAccountId, 50m, 0m, "MIG-GL-SOURCE-DEBIT"));
+            lines.Add(new(GlCreditAccountId, 0m, derivedOffsets ? 2m * amount + 50m : invalidGl ? 49m : 50m, "MIG-GL-SOURCE-CREDIT"));
+            return lines;
+        }
+
 
         private async Task<MigrationRunRecord> TransitionAsync(MigrationRunRecord run, MigrationRunStatus target)
         {
@@ -1015,6 +1351,13 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         internal Func<FinanceMigrationCashBankOpeningCommand, Task>? AfterCashCreate { get; set; }
         internal int CashCreateCalls { get; private set; }
         internal int CashReadCalls { get; private set; }
+        internal Func<FinanceMigrationGlOpeningCommand, Task>? BeforeGlCreate { get; set; }
+        internal bool ThrowAfterGlCreate { get; set; }
+        internal bool HideGlReadback { get; set; }
+        internal int GlCreateCalls { get; private set; }
+        internal int GlReadCalls { get; private set; }
+        internal Func<Task>? BeforeSecondArRead { get; set; }
+        internal int ArReadCalls { get; private set; }
         public Task<IReadOnlyList<FinancePaymentMethodRecord>> ListPaymentMethodsAsync(FinanceRequestContext c, Guid id, CancellationToken t = default) => inner.ListPaymentMethodsAsync(c, id, t);
         public Task<FinanceOperationResult<FinancePaymentMethodRecord>> CreatePaymentMethodAsync(FinanceRequestContext c, FinancePaymentMethodCommand x, CancellationToken t = default) => inner.CreatePaymentMethodAsync(c, x, t);
         public Task<FinanceOperationResult<FinancePaymentMethodRecord>> EditPaymentMethodAsync(FinanceRequestContext c, FinancePaymentMethodCommand x, CancellationToken t = default) => inner.EditPaymentMethodAsync(c, x, t);
@@ -1033,11 +1376,30 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         public Task<FinanceApOpeningPreflightResult> PreflightMigrationApOpeningAsync(FinanceRequestContext c, FinanceMigrationApOpeningCommand x, CancellationToken t = default) => inner.PreflightMigrationApOpeningAsync(c, x, t);
         public Task<FinanceCashBankOpeningPreflightResult> PreflightMigrationCashBankOpeningAsync(FinanceRequestContext c, FinanceMigrationCashBankOpeningCommand x, CancellationToken t = default) => inner.PreflightMigrationCashBankOpeningAsync(c, x, t);
         public async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default) { CreateCalls++; var result = await inner.CreateMigrationArOpeningAsync(c, x, t); if (ThrowAfterCreate) throw new InvalidOperationException("test lost response after commit"); return result; }
-        public Task<FinanceMigrationArOpeningEvidence?> ReadMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default) => HideReadback ? Task.FromResult<FinanceMigrationArOpeningEvidence?>(null) : inner.ReadMigrationArOpeningAsync(c, x, t);
+        public async Task<FinanceMigrationArOpeningEvidence?> ReadMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default)
+        {
+            ArReadCalls++;
+            if (ArReadCalls == 3 && BeforeSecondArRead is not null) await BeforeSecondArRead();
+            return HideReadback ? null : await inner.ReadMigrationArOpeningAsync(c, x, t);
+        }
         public async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationApOpeningAsync(FinanceRequestContext c, FinanceMigrationApOpeningCommand x, CancellationToken t = default) { ApCreateCalls++; var result = await inner.CreateMigrationApOpeningAsync(c, x, t); if (AfterApCreate is not null) await AfterApCreate(x); if (ThrowAfterApCreate) throw new InvalidOperationException("test AP lost response after commit"); return result; }
         public Task<FinanceMigrationApOpeningEvidence?> ReadMigrationApOpeningAsync(FinanceRequestContext c, FinanceMigrationApOpeningCommand x, CancellationToken t = default) => HideApReadback ? Task.FromResult<FinanceMigrationApOpeningEvidence?>(null) : inner.ReadMigrationApOpeningAsync(c, x, t);
         public async Task<FinanceOperationResult<FinanceJournalRecord>> CreateMigrationCashBankOpeningAsync(FinanceRequestContext c, FinanceMigrationCashBankOpeningCommand x, CancellationToken t = default) { CashCreateCalls++; var result = await inner.CreateMigrationCashBankOpeningAsync(c, x, t); if (AfterCashCreate is not null) await AfterCashCreate(x); if (ThrowAfterCashCreate) throw new InvalidOperationException("test cash lost response after commit"); return result; }
         public Task<FinanceMigrationCashBankOpeningEvidence?> ReadMigrationCashBankOpeningAsync(FinanceRequestContext c, FinanceMigrationCashBankOpeningCommand x, CancellationToken t = default) { CashReadCalls++; return HideCashReadback ? Task.FromResult<FinanceMigrationCashBankOpeningEvidence?>(null) : inner.ReadMigrationCashBankOpeningAsync(c, x, t); }
+        public Task<FinanceGlOpeningPreflightResult> PreflightMigrationGlOpeningAsync(FinanceRequestContext c, FinanceMigrationGlOpeningCommand x, CancellationToken t = default) => inner.PreflightMigrationGlOpeningAsync(c, x, t);
+        public async Task<FinanceOperationResult<FinanceMigrationGlOpeningEvidence>> CreateMigrationGlOpeningAsync(FinanceRequestContext c, FinanceMigrationGlOpeningCommand x, CancellationToken t = default)
+        {
+            GlCreateCalls++;
+            if (BeforeGlCreate is not null) await BeforeGlCreate(x);
+            var result = await inner.CreateMigrationGlOpeningAsync(c, x, t);
+            if (ThrowAfterGlCreate) throw new InvalidOperationException("test GL lost response after commit");
+            return result;
+        }
+        public async Task<FinanceMigrationGlOpeningEvidence?> ReadMigrationGlOpeningAsync(FinanceRequestContext c, FinanceMigrationGlOpeningCommand x, CancellationToken t = default)
+        {
+            GlReadCalls++;
+            return HideGlReadback ? null : await inner.ReadMigrationGlOpeningAsync(c, x, t);
+        }
         public Task<FinanceOperationResult<FinanceSalesInvoiceEligibilityRecord>> EvaluateSalesInvoiceAsync(FinanceRequestContext c, FinanceSalesInvoiceCommand x, CancellationToken t = default) => inner.EvaluateSalesInvoiceAsync(c, x, t);
         public Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateSalesInvoiceAsync(FinanceRequestContext c, FinanceSalesInvoiceCommand x, CancellationToken t = default) => inner.CreateSalesInvoiceAsync(c, x, t);
         public Task<IReadOnlyList<FinanceSettlementDocumentRecord>> ListSettlementDocumentsAsync(FinanceRequestContext c, FinanceSettlementQuery q, CancellationToken t = default) => inner.ListSettlementDocumentsAsync(c, q, t);
@@ -1114,6 +1476,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
     }
 
     internal sealed record PreparedRun(MigrationRunRecord Run, IReadOnlyList<MigrationStagedRecord> Staged);
+    private sealed record GlTargetLine(Guid AccountId, decimal Debit, decimal Credit, string SourceLineReference);
 
     private static FoundationRequestContext FoundationContext(TenantContext tenant, string permission) => FoundationRequestContext.ForTenant(tenant.ActorId!.Value, Guid.NewGuid(), tenant, permission);
     private static FinanceAccountCommand Account(Guid companyId, string code, FinanceAccountType type) => new(companyId, code, code, null, null, type, true, FinanceCurrencyBehavior.TransactionCurrencyAllowed, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), null, code + "-create", code + "-create");

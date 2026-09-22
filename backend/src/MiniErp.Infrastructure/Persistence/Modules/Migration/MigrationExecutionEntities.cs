@@ -169,6 +169,17 @@ internal sealed class MigrationEconomicRepresentationEntity : ITenantOwned
         OccurredAt = record.OccurredAt;
         RecordedAt = record.RecordedAt;
         EvidenceConfirmed = record.EvidenceConfirmed;
+        SourceContract = record.SourceContract;
+        SourceEvent = record.SourceEvent;
+        FunctionalAmount = record.FunctionalAmount;
+        PostingRuleId = record.PostingRuleId;
+        PostingRuleVersionNumber = record.PostingRuleVersionNumber;
+        ControlAccountId = record.ControlAccountId;
+        OffsetAccountId = record.OffsetAccountId;
+        Reversal = record.Reversal;
+        SourceEvidenceId = record.SourceEvidenceId;
+        SourceEvidenceVersion = record.SourceEvidenceVersion;
+        OwnerSourceId = record.OwnerSourceId;
         Version = record.Version;
     }
 
@@ -186,5 +197,16 @@ internal sealed class MigrationEconomicRepresentationEntity : ITenantOwned
     internal DateTimeOffset OccurredAt { get; private set; }
     internal DateTimeOffset RecordedAt { get; private set; }
     internal bool EvidenceConfirmed { get; private set; }
+    internal string? SourceContract { get; private set; }
+    internal string? SourceEvent { get; private set; }
+    internal decimal? FunctionalAmount { get; private set; }
+    internal Guid? PostingRuleId { get; private set; }
+    internal int? PostingRuleVersionNumber { get; private set; }
+    internal Guid? ControlAccountId { get; private set; }
+    internal Guid? OffsetAccountId { get; private set; }
+    internal bool? Reversal { get; private set; }
+    internal Guid? SourceEvidenceId { get; private set; }
+    internal int? SourceEvidenceVersion { get; private set; }
+    internal Guid? OwnerSourceId { get; private set; }
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
 }

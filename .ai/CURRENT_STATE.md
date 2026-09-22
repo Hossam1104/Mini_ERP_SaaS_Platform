@@ -10,7 +10,40 @@
 
 ---
 
-## CURRENT AUTHORITY - 20 September 2026 (MESP-141 SLICE 8 CASH/BANK OPENING ECONOMIC EXECUTION MERGED; LIFECYCLE CLOSED)
+## CURRENT AUTHORITY - 21 September 2026 (MESP-141 SLICE 9 RESIDUAL GL OPENING ECONOMIC EXECUTION ACTIVE; DRAFT HANDOFF)
+
+**MESP-141 Slice 9 - Residual GL Opening Economic Execution is authorized and active for bounded implementation.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-8 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
+
+| Item | Value |
+|---|---|
+| Slice 9 activation | Issue #229 comment `5750522414` |
+| Architecture authority | Issue #229 comment `5750386434` |
+| Slice 9 branch | `feat/mesp-141-residual-gl-opening-economic-execution` |
+| Slice 9 baseline | `origin/main` `f8c86d9a9ef2efd54c70a71eb7935f1e89d89855` |
+| Slice 9 status | **CORRECTED IMPLEMENTATION / DRAFT HANDOFF / UNMERGED / NOT ACCEPTED** |
+| Scope | Finance-owned functional-currency residual GL opening execution, same-run owner projections, replay/conflict/unknown safety, and read-only reconciliation |
+| Stop boundary | Draft PR and exact CI observation; no Ready transition, merge, auto-merge, Jira, production, or owner acceptance |
+| Slices 1-8 | **ACCEPTED / MERGED / LIFECYCLE CLOSED** |
+| MESP-141 | **OPEN / ACTIVE / IN PROGRESS** |
+| MESP-142 | **OPEN / NOT ACTIVATED** |
+| Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
+
+Slice 9 local evidence is Release solution build `0 warnings / 0 errors`,
+focused correction tests `4/4`, provider SQL matrix `38/38`, complete SQL
+Server safety `172/172` with `0` failures / `0` skips, and non-SQL backend
+suite `1,287/1,287`. Angular is `316/316`, Chromium is `51/51`, EF model-drift
+is clean, and the solution-wide NuGet vulnerability scan is clear. The SQL
+coverage used disposable LocalDB catalogs through the sanctioned connection
+string and one serialized process. The production bundle retains the existing
+`514.26 kB` initial-budget warning; npm audits pass the high/critical CI
+threshold but report moderate advisories. No runtime was left running after the
+clean build. GL execution consumes committed owner effects as established
+evidence rather than re-projecting them, historical posting-rule identity is
+retained for control classification, derived offsets have explicit treatment,
+and the Inventory valuation owner remains authoritative without Migration
+calculating `Qty * Cost`. `frontend/assets` remains untouched.
+
+## HISTORICAL RECORD - 20 September 2026 (MESP-141 SLICE 8 CASH/BANK OPENING ECONOMIC EXECUTION MERGED; LIFECYCLE CLOSED)
 
 **MESP-141 Slice 8 - Cash/Bank Opening Economic Execution was accepted by GPT-5.6 Sol and integrated through PR #256 using a normal merge commit.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-8 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
 

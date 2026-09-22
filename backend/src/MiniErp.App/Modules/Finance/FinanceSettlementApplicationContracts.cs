@@ -102,7 +102,11 @@ public sealed record FinanceArOpeningPreflightResult(
     string FunctionalCurrencyCode,
     FinanceApprovalRequirement ApprovalRequirement,
     DateOnly? DueDate,
-    FinancePaymentTermSnapshotRecord? PaymentTerm);
+    FinancePaymentTermSnapshotRecord? PaymentTerm,
+    Guid? PostingRuleId = null,
+    int? PostingRuleVersionNumber = null,
+    Guid? ControlAccountId = null,
+    Guid? OffsetAccountId = null);
 
 public sealed record FinanceSourceEffectRecord(
     Guid Id,
@@ -125,7 +129,11 @@ public sealed record FinanceApOpeningPreflightResult(
     string FunctionalCurrencyCode,
     FinanceApprovalRequirement ApprovalRequirement,
     DateOnly? DueDate,
-    FinancePaymentTermSnapshotRecord? PaymentTerm);
+    FinancePaymentTermSnapshotRecord? PaymentTerm,
+    Guid? PostingRuleId = null,
+    int? PostingRuleVersionNumber = null,
+    Guid? ControlAccountId = null,
+    Guid? OffsetAccountId = null);
 
 public sealed record FinanceMigrationApOpeningEvidence(
     FinanceOpenItemRecord OpenItem,
@@ -138,13 +146,93 @@ public sealed record FinanceCashBankOpeningPreflightResult(
     string FunctionalCurrencyCode,
     FinanceApprovalRequirement ApprovalRequirement,
     FinanceCashAccountRecord? CashAccount,
-    FinanceAccountRecord? LinkedAccount);
+    FinanceAccountRecord? LinkedAccount,
+    Guid? PostingRuleId = null,
+    int? PostingRuleVersionNumber = null,
+    Guid? ControlAccountId = null,
+    Guid? OffsetAccountId = null);
 
 public sealed record FinanceMigrationCashBankOpeningEvidence(
     FinanceCashAccountRecord CashAccount,
     FinanceAccountRecord LinkedAccount,
     FinanceJournalRecord RecognitionJournal,
     FinanceSourceEffectRecord SourceEffect);
+
+public sealed record FinanceMigrationGlOpeningLine(
+    Guid AccountId,
+    string SourceLineReference,
+    decimal Debit,
+    decimal Credit);
+
+public sealed record FinanceMigrationOpeningProjection(
+    string SourceContract,
+    string SourceEvent,
+    decimal Amount,
+    bool AlreadyEstablishedExact = false,
+    Guid SourceRecordId = default,
+    Guid? OwnerSourceId = null,
+    string? OwnerReference = null,
+    Guid? PostingRuleId = null,
+    int? PostingRuleVersionNumber = null,
+    Guid? ControlAccountId = null,
+    Guid? OffsetAccountId = null,
+    bool? Reversal = null,
+    Guid? SourceEvidenceId = null,
+    int? SourceEvidenceVersion = null);
+
+public sealed record FinanceMigrationOpeningExpectation(
+    Guid SourceRecordId,
+    string SourceContract,
+    string SourceEvent,
+    decimal FunctionalAmount,
+    Guid PostingRuleId,
+    int PostingRuleVersionNumber,
+    Guid ControlAccountId,
+    Guid OffsetAccountId,
+    bool Reversal,
+    Guid? SourceEvidenceId = null,
+    int? SourceEvidenceVersion = null,
+    Guid? OwnerSourceId = null,
+    string? OwnerReference = null);
+
+public sealed record FinanceMigrationGlOpeningCommand(
+    Guid CompanyId,
+    DateOnly OpeningDate,
+    string CurrencyCode,
+    IReadOnlyList<FinanceMigrationGlOpeningLine> Lines,
+    IReadOnlyList<FinanceMigrationOpeningProjection> Projections,
+    string SourcePayloadFingerprint,
+    string IdempotencyKey,
+    string RequestFingerprint,
+    string? SourceGroupFingerprint = null);
+
+public sealed record FinanceMigrationGlOpeningResidualLine(
+    Guid AccountId,
+    decimal TargetSignedAmount,
+    decimal EstablishedSignedAmount,
+    decimal Debit,
+    decimal Credit,
+    bool IsControlAccount,
+    string? SourceLineReference = null,
+    string AccountingTreatment = "residual");
+
+public sealed record FinanceGlOpeningPreflightResult(
+    bool Ready,
+    string Code,
+    string FunctionalCurrencyCode,
+    FinanceApprovalRequirement ApprovalRequirement,
+    bool NonEffect,
+    Guid SourceEvidenceId,
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine> ResidualLines,
+    IReadOnlyList<FinanceMigrationOpeningExpectation>? Expectations = null,
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? RepresentedControlLines = null);
+
+public sealed record FinanceMigrationGlOpeningEvidence(
+    FinanceJournalRecord? Journal,
+    FinanceSourceEffectRecord? SourceEffect,
+    Guid SourceEvidenceId,
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine> ResidualLines,
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? RepresentedControlLines = null);
 
 public sealed record FinanceSalesInvoiceCommand(
     Guid CompanyId,
@@ -395,6 +483,9 @@ public interface IFinanceSettlementPersistence
     Task<FinanceCashBankOpeningPreflightResult> PreflightMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(new FinanceCashBankOpeningPreflightResult(false, "finance_cash_bank_opening_unavailable", string.Empty, FinanceApprovalRequirement.NotConfigured, null, null));
     Task<FinanceOperationResult<FinanceJournalRecord>> CreateMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(FinanceOperationResult<FinanceJournalRecord>.Failure("finance_cash_bank_opening_unavailable"));
     Task<FinanceMigrationCashBankOpeningEvidence?> ReadMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult<FinanceMigrationCashBankOpeningEvidence?>(null);
+    Task<FinanceGlOpeningPreflightResult> PreflightMigrationGlOpeningAsync(FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(new FinanceGlOpeningPreflightResult(false, "finance_gl_opening_unavailable", string.Empty, FinanceApprovalRequirement.NotConfigured, false, Guid.Empty, []));
+    Task<FinanceOperationResult<FinanceMigrationGlOpeningEvidence>> CreateMigrationGlOpeningAsync(FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(FinanceOperationResult<FinanceMigrationGlOpeningEvidence>.Failure("finance_gl_opening_unavailable"));
+    Task<FinanceMigrationGlOpeningEvidence?> ReadMigrationGlOpeningAsync(FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult<FinanceMigrationGlOpeningEvidence?>(null);
     Task<FinanceOperationResult<FinanceSalesInvoiceEligibilityRecord>> EvaluateSalesInvoiceAsync(FinanceRequestContext context, FinanceSalesInvoiceCommand command, CancellationToken cancellationToken = default);
     Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateSalesInvoiceAsync(FinanceRequestContext context, FinanceSalesInvoiceCommand command, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<FinanceSettlementDocumentRecord>> ListSettlementDocumentsAsync(FinanceRequestContext context, FinanceSettlementQuery query, CancellationToken cancellationToken = default);
@@ -441,6 +532,9 @@ public sealed class UnavailableFinanceSettlementPersistence : IFinanceSettlement
     public Task<FinanceCashBankOpeningPreflightResult> PreflightMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(new FinanceCashBankOpeningPreflightResult(false, "finance_unavailable", string.Empty, FinanceApprovalRequirement.NotConfigured, null, null));
     public Task<FinanceOperationResult<FinanceJournalRecord>> CreateMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(Failure<FinanceJournalRecord>());
     public Task<FinanceMigrationCashBankOpeningEvidence?> ReadMigrationCashBankOpeningAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken = default) => Empty<FinanceMigrationCashBankOpeningEvidence?>();
+    public Task<FinanceGlOpeningPreflightResult> PreflightMigrationGlOpeningAsync(FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(new FinanceGlOpeningPreflightResult(false, "finance_unavailable", string.Empty, FinanceApprovalRequirement.NotConfigured, false, Guid.Empty, []));
+    public Task<FinanceOperationResult<FinanceMigrationGlOpeningEvidence>> CreateMigrationGlOpeningAsync(FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, CancellationToken cancellationToken = default) => Task.FromResult(Failure<FinanceMigrationGlOpeningEvidence>());
+    public Task<FinanceMigrationGlOpeningEvidence?> ReadMigrationGlOpeningAsync(FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, CancellationToken cancellationToken = default) => Empty<FinanceMigrationGlOpeningEvidence?>();
     public Task<FinanceOperationResult<FinanceSalesInvoiceEligibilityRecord>> EvaluateSalesInvoiceAsync(FinanceRequestContext context, FinanceSalesInvoiceCommand command, CancellationToken cancellationToken = default) => Task.FromResult(Failure<FinanceSalesInvoiceEligibilityRecord>());
     public Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateSalesInvoiceAsync(FinanceRequestContext context, FinanceSalesInvoiceCommand command, CancellationToken cancellationToken = default) => Task.FromResult(Failure<FinanceOpenItemRecord>());
     public Task<IReadOnlyList<FinanceSettlementDocumentRecord>> ListSettlementDocumentsAsync(FinanceRequestContext context, FinanceSettlementQuery query, CancellationToken cancellationToken = default) => EmptyList<FinanceSettlementDocumentRecord>();

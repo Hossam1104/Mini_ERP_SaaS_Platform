@@ -120,6 +120,43 @@ internal static class MigrationValidationResultPolicy
                 DateTimeOffset.UtcNow));
         }
     }
+
+    public static void AddGlDuplicateFindings(
+        IReadOnlyList<MigrationParsedCanonicalRow> rows,
+        IReadOnlyList<MigrationStagedRecord> staged,
+        MigrationAttemptRecord attempt,
+        IDictionary<int, (MigrationRecordDisposition Disposition, List<string> Codes)> results,
+        ICollection<MigrationValidationFinding> findings)
+    {
+        var groups = rows
+            .Where(item => item.Payload is MigrationGlOpeningPayload gl
+                && gl.CompanyId is not null && gl.AccountId is not null
+                && gl.CurrencyCode is not null && gl.OpeningDate is not null)
+            .GroupBy(item =>
+            {
+                var gl = (MigrationGlOpeningPayload)item.Payload;
+                return (gl.CompanyId!.Value, Currency: gl.CurrencyCode!.Trim().ToUpperInvariant(), gl.OpeningDate!.Value);
+            });
+
+        foreach (var group in groups)
+        {
+            AddDuplicate(group.GroupBy(item => ((MigrationGlOpeningPayload)item.Payload).AccountId), "migration_gl_opening_duplicate_account", "A GL opening group cannot contain more than one active source line for an account.");
+            AddDuplicate(group.GroupBy(item => ((MigrationGlOpeningPayload)item.Payload).SourceLineReference?.Trim(), StringComparer.Ordinal), "migration_gl_opening_duplicate_source_line_reference", "A GL opening group cannot contain an ambiguous source-line reference.");
+
+            void AddDuplicate<T>(IEnumerable<IGrouping<T, MigrationParsedCanonicalRow>> candidates, string code, string message)
+            {
+                foreach (var duplicate in candidates.Where(candidate => candidate.Count() > 1))
+                {
+                    foreach (var row in duplicate)
+                    {
+                        results[row.SourceSequence] = (MigrationRecordDisposition.Rejected, [.. results[row.SourceSequence].Codes, code]);
+                        var stagedRow = staged.Single(item => item.SourceSequence == row.SourceSequence);
+                        findings.Add(new(Guid.NewGuid(), stagedRow.TenantId, stagedRow.RunId, attempt.AttemptId, stagedRow.StagedRecordId, MigrationFindingCategory.Duplicate, MigrationFindingSeverity.Error, true, code, message, null, DateTimeOffset.UtcNow));
+                    }
+                }
+            }
+        }
+    }
 }
 
 internal static class MigrationDryRunPreviewPolicy
@@ -206,7 +243,7 @@ internal static class MigrationDryRunPreviewPolicy
     }
 
     private static MigrationPlannedAction PlannedAction(MigrationCanonicalRecordType type) =>
-        type is MigrationCanonicalRecordType.Product or MigrationCanonicalRecordType.Supplier or MigrationCanonicalRecordType.Customer or MigrationCanonicalRecordType.InventoryOpening or MigrationCanonicalRecordType.ArOpening or MigrationCanonicalRecordType.ApOpening or MigrationCanonicalRecordType.CashBankOpening
+        type is MigrationCanonicalRecordType.Product or MigrationCanonicalRecordType.Supplier or MigrationCanonicalRecordType.Customer or MigrationCanonicalRecordType.InventoryOpening or MigrationCanonicalRecordType.GlOpening or MigrationCanonicalRecordType.ArOpening or MigrationCanonicalRecordType.ApOpening or MigrationCanonicalRecordType.CashBankOpening
             ? MigrationPlannedAction.Create
             : MigrationPlannedAction.MatchReference;
 }

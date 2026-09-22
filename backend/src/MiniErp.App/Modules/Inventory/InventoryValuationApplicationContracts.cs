@@ -177,6 +177,13 @@ public sealed record MovingWeightedAverageCorrectionInput(
     decimal? FormulaReversalValue = null,
     decimal? RoundingAdjustmentAmount = null);
 
+public sealed record InventoryMigrationOpeningProjection(
+    decimal FunctionalAmount,
+    string FunctionalCurrencyCode,
+    int UnitCostScale,
+    int AmountScale,
+    InventoryValuationRoundingMode RoundingMode);
+
 public static class MovingWeightedAverageCalculator
 {
     public static bool TryApply(MovingWeightedAverageInput input, out MovingWeightedAverageOutput output, out string error)

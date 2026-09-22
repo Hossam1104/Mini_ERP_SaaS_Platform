@@ -323,6 +323,7 @@ public sealed class MigrationValidationService
         }
 
         MigrationValidationResultPolicy.AddGlBalanceFindings(parsed.Rows, stagedPackage.Records, attempt, resultBySequence, findings);
+        MigrationValidationResultPolicy.AddGlDuplicateFindings(parsed.Rows, stagedPackage.Records, attempt, resultBySequence, findings);
         var summary = MigrationValidationResultPolicy.BuildSummary(
             tenant!,
             runId,

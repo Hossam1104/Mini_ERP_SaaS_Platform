@@ -42,7 +42,8 @@ public enum MigrationEconomicRepresentationKind
     FinanceJournal = 6,
     FinanceOpenItem = 7,
     FinanceSourceEffect = 8,
-    FinanceCashAccount = 9
+    FinanceCashAccount = 9,
+    FinanceOpeningExpectation = 10
 }
 
 public sealed record MigrationExecutionBatchRecord(
@@ -95,7 +96,8 @@ public sealed record MigrationExecutionResult(
     IReadOnlyList<MigrationEconomicReconciliationRecord>? EconomicReconciliations = null,
     IReadOnlyList<MigrationArEconomicReconciliationRecord>? ArEconomicReconciliations = null,
     IReadOnlyList<MigrationApEconomicReconciliationRecord>? ApEconomicReconciliations = null,
-    IReadOnlyList<MigrationCashBankEconomicReconciliationRecord>? CashBankEconomicReconciliations = null);
+    IReadOnlyList<MigrationCashBankEconomicReconciliationRecord>? CashBankEconomicReconciliations = null,
+    IReadOnlyList<MigrationGlEconomicReconciliationRecord>? GlEconomicReconciliations = null);
 
 public sealed record MigrationEconomicRepresentationRecord(
     Guid Id,
@@ -112,7 +114,18 @@ public sealed record MigrationEconomicRepresentationRecord(
     DateTimeOffset OccurredAt,
     DateTimeOffset RecordedAt,
     bool EvidenceConfirmed,
-    byte[] Version);
+    byte[] Version,
+    string? SourceContract = null,
+    string? SourceEvent = null,
+    decimal? FunctionalAmount = null,
+    Guid? PostingRuleId = null,
+    int? PostingRuleVersionNumber = null,
+    Guid? ControlAccountId = null,
+    Guid? OffsetAccountId = null,
+    bool? Reversal = null,
+    Guid? SourceEvidenceId = null,
+    int? SourceEvidenceVersion = null,
+    Guid? OwnerSourceId = null);
 
 public sealed record MigrationEconomicReconciliationRecord(
     Guid EffectId,
@@ -186,6 +199,37 @@ public sealed record MigrationCashBankEconomicReconciliationRecord(
     Guid? JournalId,
     Guid? SourceEffectId,
     DateTimeOffset ReconciledAt);
+
+public sealed record MigrationGlEconomicReconciliationLineRecord(
+    Guid AccountId,
+    string? SourceLineReference,
+    string AccountingTreatment,
+    decimal TargetSignedAmount,
+    decimal EstablishedSignedAmount,
+    decimal ResidualDebit,
+    decimal ResidualCredit,
+    bool IsControlAccount,
+    Guid? JournalLineId,
+    string? JournalLineReference);
+
+public sealed record MigrationGlEconomicReconciliationRecord(
+    Guid EffectId,
+    int SourceSequence,
+    string Status,
+    string? SafeCode,
+    Guid CompanyId,
+    string CurrencyCode,
+    DateOnly OpeningDate,
+    decimal TargetDebit,
+    decimal TargetCredit,
+    decimal EstablishedDebit,
+    decimal EstablishedCredit,
+    decimal ResidualDebit,
+    decimal ResidualCredit,
+    Guid? JournalId,
+    Guid? SourceEffectId,
+    DateTimeOffset ReconciledAt,
+    IReadOnlyList<MigrationGlEconomicReconciliationLineRecord>? Lines = null);
 
 public sealed record CreateMigrationEconomicRepresentationCommand(MigrationEconomicRepresentationRecord Representation);
 

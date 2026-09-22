@@ -20,6 +20,7 @@ public static class MigrationServiceCollectionExtensions
         services.AddSingleton<MigrationArOpeningExecutionCoordinator>();
         services.AddSingleton<MigrationApOpeningExecutionCoordinator>();
         services.AddSingleton<MigrationCashBankOpeningExecutionCoordinator>();
+        services.AddSingleton<MigrationGlOpeningExecutionCoordinator>();
         services.AddSingleton<MigrationExecutionService>(provider => new MigrationExecutionService(
             provider.GetRequiredService<MigrationFoundationService>(),
             provider.GetRequiredService<IMigrationFoundationPersistence>(),
@@ -33,7 +34,8 @@ public static class MigrationServiceCollectionExtensions
             provider.GetRequiredService<MigrationArOpeningExecutionCoordinator>(),
             provider.GetRequiredService<MigrationApOpeningExecutionCoordinator>(),
             provider.GetService<TimeProvider>(),
-            provider.GetRequiredService<MigrationCashBankOpeningExecutionCoordinator>()));
+            provider.GetRequiredService<MigrationCashBankOpeningExecutionCoordinator>(),
+            provider.GetRequiredService<MigrationGlOpeningExecutionCoordinator>()));
         services.AddSingleton<IMigrationReferenceAuthority, UnavailableMigrationReferenceAuthority>();
         return services;
     }

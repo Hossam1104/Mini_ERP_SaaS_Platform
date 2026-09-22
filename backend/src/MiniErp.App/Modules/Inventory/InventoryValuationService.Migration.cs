@@ -40,6 +40,24 @@ public sealed partial class InventoryValuationService
         }
     }
 
+    internal async Task<InventoryOperationResult<InventoryMigrationOpeningProjection>> ProjectOpeningForMigrationAsync(
+        FoundationRequestContext foundationContext,
+        InventoryScope scope,
+        DateOnly effectiveDate,
+        decimal quantity,
+        decimal unitCost,
+        CancellationToken cancellationToken = default)
+    {
+        if (quantity <= 0m || unitCost < 0m)
+            return InventoryOperationResult<InventoryMigrationOpeningProjection>.Failure("inventory_opening_valuation_input_invalid");
+        var policy = await CheckOpeningPolicyForMigrationAsync(foundationContext, scope, effectiveDate, cancellationToken);
+        if (!policy.Succeeded || policy.Value is not { } value)
+            return InventoryOperationResult<InventoryMigrationOpeningProjection>.Failure(policy.Code);
+        var roundedUnitCost = MovingWeightedAverageCalculator.Round(unitCost, value.UnitCostScale, value.RoundingMode);
+        var amount = MovingWeightedAverageCalculator.Round(quantity * roundedUnitCost, value.AmountScale, value.RoundingMode);
+        return InventoryOperationResult<InventoryMigrationOpeningProjection>.Success(new(amount, value.FunctionalCurrencyCode, value.UnitCostScale, value.AmountScale, value.RoundingMode));
+    }
+
     internal async Task<InventoryOperationResult<InventoryValuationProcessResult>> ProcessOpeningMovementsForMigrationAsync(
         FoundationRequestContext foundationContext,
         InventoryScope scope,

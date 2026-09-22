@@ -1,8 +1,53 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 20 September 2026 (MESP-141 Slice 8 accepted/merged; governance reconciliation)
+**Last Updated:** 22 September 2026 (MESP-141 Slice 9 provider-integration acceptance correction; Draft PR boundary)
 
-## Current execution snapshot - 20 September 2026 (MESP-141 Slice 8 Cash/Bank Opening Economic Execution accepted/merged)
+## Current execution snapshot - 22 September 2026 (MESP-141 Slice 9 provider-integration acceptance correction active)
+
+MESP-141 Slice 9 is authorized and active under Issue #229 comment `5750522414`
+and architecture authority `5750386434`, on
+`feat/mesp-141-residual-gl-opening-economic-execution` from verified
+`origin/main` `f8c86d9a9ef2efd54c70a71eb7935f1e89d89855`. The bounded
+implementation correction is at Draft handoff: Finance owns functional-currency
+`migration-gl-opening.v1` residual delta-to-target execution, one balanced
+Journal/SourceEffect per GL group, control-zero safety, committed-owner evidence
+consumption without same-run double counting, historical posting-rule lineage,
+order-independent durable GL fingerprints, derived-offset treatment, replay/
+conflict/OutcomeUnknown handling, and read-only GL line reconciliation. No Ready
+transition, merge, Jira, production, MESP-142, future slice, or owner acceptance
+is authorized.
+
+Validation evidence is Release solution build `0 warnings / 0 errors`; new
+Migration provider integration coverage `9/9` (MIG-S9-09/10 are one coherent
+test); Slice 9 provider SQL matrix `38/38`; complete SQL Server safety coverage
+`181/181` with `0` failures / `0`
+skips; non-SQL backend suite `1,287/1,287`; Angular `316/316`; Chromium
+`51/51`; all eight EF contexts report no pending model changes; and the
+solution-wide NuGet vulnerability scan is clear. The SQL runs used disposable
+LocalDB catalogs through the sanctioned connection-string boundary and were
+serialized one process at a time. The production bundle retains the existing
+`514.26 kB` initial-budget warning; npm audits pass the CI high/critical
+threshold but currently report `4` moderate production and `7` moderate full
+tree advisories. No runtime was left running after the clean build. Metrics
+remain unchanged: accepted fast-track capability completion **24 / 26 = 92.3%**;
+production readiness approximately **47% overall / 41% Procurement/P2P**.
+
+### Progress history - 22 September 2026 (MESP-141 Slice 9 provider-integration acceptance correction)
+
+Slice 9 provider-integration acceptance correction is complete to the
+authorized Draft PR boundary. Real SQL-backed Migration orchestration now
+covers Prepare, durable expectations, all owner execution, GL-last execution,
+lost-response readback, mismatch fail-closed behavior, incomplete Finance
+evidence, and public read-only reconciliation. The provider run exposed and
+the minimal production fix corrected stale GL effect row-version reuse when
+multiple GL effects transition from Prepared to Started before commit. The
+Inventory valuation owner remains authoritative for inventory projections;
+Migration does not calculate `Qty * Cost`.
+`frontend/assets` remains untouched. The exact hosted CI observation, independent
+GPT-5.6 Sol review, Ready transition, merge, lifecycle closure, production
+migration, and reconciliation/sign-off remain pending and unauthorized.
+
+## Historical execution snapshot - 20 September 2026 (MESP-141 Slice 8 Cash/Bank Opening Economic Execution accepted/merged)
 
 **MESP-141 Slice 8 - Cash/Bank Opening Economic Execution was accepted by GPT-5.6 Sol and merged through PR #256 using a normal merge commit.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-8 are accepted/merged/lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
 

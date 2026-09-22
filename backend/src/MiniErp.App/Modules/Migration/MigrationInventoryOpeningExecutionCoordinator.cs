@@ -760,7 +760,23 @@ internal sealed class MigrationInventoryOpeningExecutionCoordinator
         records.AddRange(events.Select(item => Representation(tenant, attempt, effect, MigrationEconomicOwnerModule.Inventory, MigrationEconomicRepresentationKind.InventoryValuationEvent, item.Id, item.MovementId.ToString("D"), item.Status.ToString(), Version(item.Version), item.OccurredAt)));
         records.AddRange(handoffs.Select(item => Representation(tenant, attempt, effect, MigrationEconomicOwnerModule.Inventory, MigrationEconomicRepresentationKind.InventoryFinanceHandoff, item.Id, item.ValuationEvidenceId.ToString("D"), item.Status.ToString(), Version(item.Version), item.AsOf)));
         if (journal is not null)
-            records.Add(Representation(tenant, attempt, effect, MigrationEconomicOwnerModule.Finance, MigrationEconomicRepresentationKind.FinanceJournal, journal.Id, journal.JournalNumber, journal.Status.ToString(), Version(journal.Version), journal.PostedAt ?? journal.CreatedAt));
+        {
+            var lines = journal.Lines.Where(item => item.FunctionalDebit > 0m || item.FunctionalCredit > 0m).ToArray();
+            records.Add(Representation(tenant, attempt, effect, MigrationEconomicOwnerModule.Finance, MigrationEconomicRepresentationKind.FinanceJournal, journal.Id, journal.JournalNumber, journal.Status.ToString(), Version(journal.Version), journal.PostedAt ?? journal.CreatedAt) with
+            {
+                SourceContract = journal.SourceContract,
+                SourceEvent = journal.SourceEvent,
+                FunctionalAmount = lines.Sum(item => item.FunctionalDebit),
+                PostingRuleId = journal.PostingRuleId,
+                PostingRuleVersionNumber = journal.PostingRuleVersionNumber,
+                ControlAccountId = lines.SingleOrDefault(item => item.FunctionalDebit > 0m)?.AccountId,
+                OffsetAccountId = lines.SingleOrDefault(item => item.FunctionalCredit > 0m)?.AccountId,
+                Reversal = false,
+                SourceEvidenceId = journal.SourceEvidenceId,
+                SourceEvidenceVersion = journal.SourceEvidenceVersion,
+                OwnerSourceId = opening.WarehouseId
+            });
+        }
 
         foreach (var record in records)
         {
