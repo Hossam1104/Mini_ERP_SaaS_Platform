@@ -437,6 +437,118 @@ public sealed class MigrationValidationSqlServerSafetyTests
     }
 
     [Fact]
+    public async Task S10_p20_sql_server_validation_rejects_source_fx_inputs_at_the_canonical_intake_boundary()
+    {
+        await using var connection = await fixture.OpenConnectionAsync();
+        var options = SqlServerMigrationConfiguration.Configure(
+            connection.ConnectionString,
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = TenantContext.ForOrdinaryMembership(
+            new TenantId(Guid.NewGuid()),
+            new MembershipReference(Guid.NewGuid()),
+            correlationId: new CorrelationId("sql-s10-p20"),
+            actorId: Guid.NewGuid());
+        var request = FoundationRequestContext.ForTenant(
+            tenant.ActorId!.Value,
+            Guid.NewGuid(),
+            tenant,
+            "tenant.migration.run.create");
+        var persistence = new MigrationPersistence(options);
+        var audit = new NoopAuditSink();
+        var foundation = new MigrationFoundationService(persistence, audit);
+        var definition = new MigrationDefinitionReference("tenant-onboarding.foundation", "1");
+        var profile = new MigrationSourceProfileReference("neutral-source-profile", "1");
+        var objectId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var length = 0;
+        byte[] content = [];
+        var serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        for (var i = 0; i < 5; i++)
+        {
+            content = JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                PackageVersion = MigrationCanonicalPackageParser.Version,
+                DefinitionId = definition.DefinitionId,
+                DefinitionVersion = definition.Version,
+                SourceProfileId = profile.ProfileId,
+                SourceProfileVersion = profile.ProfileVersion,
+                LogicalDataset = "S10-P20",
+                SourceSnapshot = new { ObjectId = objectId, Sha256 = new string('A', 64), Length = length, ConcurrencyVersion = 1 },
+                Records = new[]
+                {
+                    new
+                    {
+                        SourceSequence = 1,
+                        SourceRecordId = "S10-P20-AR",
+                        RecordType = "ArOpening",
+                        Payload = new
+                        {
+                            CompanyId = companyId,
+                            CustomerId = customerId,
+                            SourceReference = "S10-P20-AR",
+                            DocumentDate = new DateOnly(2026, 1, 10),
+                            OpeningDate = new DateOnly(2026, 1, 15),
+                            Amount = 100m,
+                            CurrencyCode = "USD",
+                            DueDate = new DateOnly(2026, 2, 14),
+                            ExchangeRate = 3.75m,
+                            ExchangeRateId = Guid.NewGuid(),
+                            RateVersion = 2,
+                            FunctionalAmount = 375m,
+                            HistoricalCarryingValue = 375m
+                        }
+                    }
+                }
+            }, serializerOptions);
+            if (content.Length == length)
+                break;
+            length = content.Length;
+        }
+        Assert.Equal(length, content.Length);
+
+        var source = new MigrationSourceArtifactSnapshot(objectId, tenant.TenantId, null, null, null, new string('A', 64), content.Length, 1);
+        var storage = new StaticPrivateObjectStorage(tenant, objectId, content, source);
+        var intake = await new MigrationIntakeService(
+            persistence,
+            storage,
+            new TenantWideScopeResolver(),
+            audit).RegisterAsync(
+                request,
+                new MigrationIntakeRegistrationRequest(definition, profile, MigrationOperationKind.Validation, objectId),
+                $"s10-p20-intake-{Guid.NewGuid():N}");
+        Assert.True(intake.Succeeded, intake.Code);
+        var runId = intake.Value!.Run.RunId;
+        var currentRun = await persistence.FindRunAsync(tenant, runId);
+        Assert.NotNull(currentRun);
+        var prepared = await foundation.TransitionRunAsync(request, runId, MigrationRunStatus.Prepared, currentRun!.Version);
+        Assert.True(prepared.Succeeded, prepared.Code);
+        var validating = await foundation.TransitionRunAsync(request, runId, MigrationRunStatus.Validating, prepared.Value!.Version);
+        Assert.True(validating.Succeeded, validating.Code);
+
+        var service = new MigrationValidationService(
+            foundation,
+            persistence,
+            storage,
+            new TenantWideScopeResolver(),
+            new NoopReferenceAuthority(),
+            new TenantWideScopeResolver());
+        var validation = await service.ValidateAsync(request, runId, "s10-p20-validation");
+
+        Assert.Equal(MigrationResultKind.Rejected, validation.Kind);
+        Assert.Equal("migration_validation_failed", validation.Code);
+        var summary = await persistence.FindLatestValidationAsync(tenant, runId);
+        Assert.NotNull(summary);
+        Assert.Equal(1, summary!.RejectedCount);
+        Assert.Single(summary.Records, item => item.Disposition == MigrationRecordDisposition.Rejected);
+        Assert.Contains(
+            await service.ReadFindingsAsync(tenant, runId, 0, 100),
+            item => item.Code == "migration_opening_source_monetary_fields_not_allowed");
+        var attempt = Assert.Single(await persistence.ListAttemptsAsync(tenant, runId), item => item.Operation == MigrationOperationKind.Validation);
+        Assert.Equal(MigrationAttemptOutcome.KnownFailure, attempt.Outcome);
+    }
+
+    [Fact]
     public async Task MESP141_sql_server_run_scope_gates_mutations_and_all_read_surfaces()
     {
         await using var connection = await fixture.OpenConnectionAsync();

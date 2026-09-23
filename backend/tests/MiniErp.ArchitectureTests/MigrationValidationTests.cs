@@ -83,6 +83,23 @@ public sealed class MigrationValidationTests
         Assert.Contains(findings, item => item.Code == "migration_opening_source_monetary_fields_not_allowed");
     }
 
+    [Theory]
+    [InlineData("exchangeRate", "3.75")]
+    [InlineData("exchangeRateId", "\"11111111-1111-1111-1111-111111111111\"")]
+    [InlineData("rateVersion", "2")]
+    [InlineData("functionalAmount", "375")]
+    [InlineData("historicalCarryingValue", "375")]
+    public void S10_p20_canonical_source_fx_fields_are_rejected_at_the_package_boundary(string field, string value)
+    {
+        var result = MigrationCanonicalPackageParser.Parse(Encoding.UTF8.GetBytes(Package(
+            $"{{\"sourceSequence\":1,\"recordType\":\"ArOpening\",\"payload\":{{\"companyId\":\"11111111-1111-1111-1111-111111111111\",\"customerId\":\"22222222-2222-2222-2222-222222222222\",\"sourceReference\":\"P20\",\"documentDate\":\"2026-01-10\",\"openingDate\":\"2026-01-15\",\"amount\":100,\"currencyCode\":\"USD\",\"dueDate\":\"2026-02-14\",\"{field}\":{value}}}}}")));
+
+        Assert.True(result.Succeeded, result.ErrorCode);
+        var row = Assert.Single(result.Rows);
+        Assert.True(row.HasForbiddenMonetaryInput);
+        Assert.Contains(MigrationValidationRules.Validate(row), item => item.Code == "migration_opening_source_monetary_fields_not_allowed");
+    }
+
     [Fact]
     public void Dry_run_actions_are_explicitly_non_effectful()
     {

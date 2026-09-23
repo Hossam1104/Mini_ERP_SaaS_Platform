@@ -306,6 +306,16 @@ public static class MigrationCanonicalPackageParser
 {
     public const string Version = "migration-package-v1";
 
+    private static readonly HashSet<string> ForbiddenSourceMonetaryFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "controlAccountId", "exchangeRate", "exchangeRateId", "rateVersion", "exchangeRateVersion",
+        "exchangeRateVersionId", "exchangeRateVersionNumber", "transactionToFunctionalRate", "appliedRate",
+        "functionalAmount", "functionalCurrencyCode", "functionalCarryingAmount", "historicalFunctionalAmount",
+        "historicalCarryingAmount", "historicalCarryingValue", "reportingCurrencyCode", "reportingAmount",
+        "reportingExchangeRateId", "reportingExchangeRateVersionId", "reportingExchangeRateVersionNumber",
+        "reportingAppliedRate"
+    };
+
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true,
@@ -360,14 +370,19 @@ public static class MigrationCanonicalPackageParser
                         "A canonical record payload is invalid.");
                 }
 
+                var isOpening = type is (MigrationCanonicalRecordType.InventoryOpening or MigrationCanonicalRecordType.ArOpening or MigrationCanonicalRecordType.ApOpening or MigrationCanonicalRecordType.CashBankOpening or MigrationCanonicalRecordType.GlOpening);
+                var hasForbiddenControlAccountId = isOpening && row.Payload.EnumerateObject().Any(item =>
+                    string.Equals(item.Name, "controlAccountId", StringComparison.OrdinalIgnoreCase) && item.Value.ValueKind != JsonValueKind.Null);
+                var hasForbiddenMonetaryInput = isOpening && row.Payload.EnumerateObject().Any(item =>
+                    ForbiddenSourceMonetaryFields.Contains(item.Name) && item.Value.ValueKind != JsonValueKind.Null);
                 rows.Add(new(
                     row.SourceSequence,
                     row.SourceRecordId,
                     type,
                     payload,
                     JsonSerializer.Serialize(payload, payload.GetType(), Options),
-                    type is (MigrationCanonicalRecordType.ArOpening or MigrationCanonicalRecordType.ApOpening or MigrationCanonicalRecordType.CashBankOpening)
-                        && row.Payload.EnumerateObject().Any(item => string.Equals(item.Name, "controlAccountId", StringComparison.OrdinalIgnoreCase) && item.Value.ValueKind != JsonValueKind.Null)));
+                    HasForbiddenControlAccountId: hasForbiddenControlAccountId,
+                    HasForbiddenMonetaryInput: hasForbiddenMonetaryInput));
             }
 
             return new(package, rows, null, null);

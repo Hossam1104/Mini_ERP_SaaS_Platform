@@ -1222,9 +1222,9 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             return new PreparedRun(current, [staged]);
         }
 
-        internal MigrationExecutionService NewExecution(IFinanceSettlementPersistence? finance = null)
+        internal MigrationExecutionService NewExecution(IFinanceSettlementPersistence? finance = null, IMigrationReferenceAuthority? referenceAuthority = null)
         {
-            var ar = new MigrationArOpeningExecutionCoordinator(Migration, references, finance ?? Settlement);
+            var ar = new MigrationArOpeningExecutionCoordinator(Migration, referenceAuthority ?? references, finance ?? Settlement);
             return new MigrationExecutionService(foundation, Migration, Migration, Migration, scopes, scopes, new UnusedOwnerGateway(), references, null, ar);
         }
 
@@ -1251,10 +1251,10 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
 
         internal FinanceMigrationCashBankOpeningCommand CashCommand(string sourceReference, decimal amount) => new(CompanyId, CashAccountId, sourceReference, new DateOnly(2026, 1, 15), amount, "SAR", "payload", $"cash-command-{sourceReference}", "payload");
 
-        internal async Task EnableMonetaryPolicyAsync(int scale = 2, string mode = "AwayFromZero")
+        internal async Task EnableMonetaryPolicyAsync(int scale = 2, string mode = "AwayFromZero", Guid? reportingCurrencyId = null, bool revaluationEnabled = false, string? reportingCurrencyCode = null)
         {
             await using var db = new FinanceDbContext(FinanceOptions, Tenant);
-            db.MonetaryPolicies.Add(new FinanceMonetaryPolicyEntity(Tenant.TenantId, new FinanceMonetaryPolicyCommand(CompanyId, null, scale, mode, false, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), $"s10-policy-{Guid.NewGuid():N}", $"s10-policy-{Guid.NewGuid():N}"), "SAR", null, 1));
+            db.MonetaryPolicies.Add(new FinanceMonetaryPolicyEntity(Tenant.TenantId, new FinanceMonetaryPolicyCommand(CompanyId, reportingCurrencyId, scale, mode, revaluationEnabled, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), $"s10-policy-{Guid.NewGuid():N}", $"s10-policy-{Guid.NewGuid():N}"), "SAR", reportingCurrencyCode, 1));
             await db.SaveChangesAsync();
         }
 
@@ -1371,7 +1371,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.Equal(amount, journal.Lines.Single(item => item.LineNumber == 2).FunctionalCredit);
         }
 
-        internal async Task<PreparedRun> PrepareMixedAsync(string sourceReference, decimal amount, bool includeCash = false, bool includeGl = false, bool derivedOffsets = false, bool invalidGl = false, decimal? cashAmount = null, string cashCurrencyCode = "SAR", Guid? cashAccountIdOverride = null, decimal? arAmount = null, string arCurrencyCode = "SAR")
+        internal async Task<PreparedRun> PrepareMixedAsync(string sourceReference, decimal amount, bool includeCash = false, bool includeGl = false, bool derivedOffsets = false, bool invalidGl = false, decimal? cashAmount = null, string cashCurrencyCode = "SAR", Guid? cashAccountIdOverride = null, decimal? arAmount = null, string arCurrencyCode = "SAR", IReadOnlyList<(string SourceReference, decimal Amount, string CurrencyCode)>? additionalArOpenings = null, string glCurrencyCode = "SAR", decimal? apAmount = null, string apCurrencyCode = "SAR")
         {
             var objectId = Guid.NewGuid();
             var run = MigrationRun.Create(Tenant, new MigrationDefinitionReference("tenant-onboarding.foundation", "1"), new MigrationSourceProfileReference("neutral-source-profile", "1"));
@@ -1384,24 +1384,29 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             var inventoryPayload = new MigrationInventoryOpeningPayload(CompanyId, BranchId, WarehouseId, ProductId, UnitId, 2m, amount / 2m, "SAR", new DateOnly(2026, 1, 15), TrackingIdentity: "S6-MIXED-LOT", SourceLineReference: "S6-MIXED-LINE");
             var inventoryJson = JsonSerializer.Serialize(inventoryPayload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
             var arJson = JsonSerializer.Serialize(new { companyId = CompanyId, customerId = CustomerId, sourceReference, documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount = arAmount ?? amount, currencyCode = arCurrencyCode, dueDate = new DateOnly(2026, 2, 14) });
-            var apJson = JsonSerializer.Serialize(new { companyId = CompanyId, supplierId = SupplierId, sourceReference = sourceReference + "-AP", documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount, currencyCode = "SAR", dueDate = new DateOnly(2026, 2, 14) });
             var staged = new List<MigrationStagedRecord>
             {
                 new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 1, "S6-MIXED-INVENTORY", MigrationCanonicalRecordType.InventoryOpening, inventoryJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(inventoryJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow),
-                new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 2, sourceReference, MigrationCanonicalRecordType.ArOpening, arJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(arJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow),
-                new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 3, sourceReference + "-AP", MigrationCanonicalRecordType.ApOpening, apJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(apJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow)
+                new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 2, sourceReference, MigrationCanonicalRecordType.ArOpening, arJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(arJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow)
             };
+            foreach (var opening in additionalArOpenings ?? [])
+            {
+                var additionalJson = JsonSerializer.Serialize(new { companyId = CompanyId, customerId = CustomerId, sourceReference = opening.SourceReference, documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount = opening.Amount, currencyCode = opening.CurrencyCode, dueDate = new DateOnly(2026, 2, 14) });
+                staged.Add(new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, staged.Count + 1, opening.SourceReference, MigrationCanonicalRecordType.ArOpening, additionalJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(additionalJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow));
+            }
+            var apJson = JsonSerializer.Serialize(new { companyId = CompanyId, supplierId = SupplierId, sourceReference = sourceReference + "-AP", documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount = apAmount ?? amount, currencyCode = apCurrencyCode, dueDate = new DateOnly(2026, 2, 14) });
+            staged.Add(new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, staged.Count + 1, sourceReference + "-AP", MigrationCanonicalRecordType.ApOpening, apJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(apJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow));
             if (includeCash)
             {
                 var cashJson = JsonSerializer.Serialize(new { companyId = CompanyId, cashAccountId = cashAccountIdOverride ?? CashAccountId, sourceReference = sourceReference + "-CASH", amount = cashAmount ?? amount, currencyCode = cashCurrencyCode, openingDate = new DateOnly(2026, 1, 15) });
-                staged.Add(new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 4, sourceReference + "-CASH", MigrationCanonicalRecordType.CashBankOpening, cashJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(cashJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow));
+                staged.Add(new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, staged.Count + 1, sourceReference + "-CASH", MigrationCanonicalRecordType.CashBankOpening, cashJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(cashJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow));
             }
             if (includeGl)
             {
                 var sequence = staged.Count + 1;
                 foreach (var line in GlTargetLines(amount, derivedOffsets, invalidGl))
                 {
-                    var glJson = JsonSerializer.Serialize(new MigrationGlOpeningPayload(CompanyId, line.AccountId, line.Debit, line.Credit, "SAR", new DateOnly(2026, 1, 15), line.SourceLineReference), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    var glJson = JsonSerializer.Serialize(new MigrationGlOpeningPayload(CompanyId, line.AccountId, line.Debit, line.Credit, glCurrencyCode, new DateOnly(2026, 1, 15), line.SourceLineReference), new JsonSerializerOptions(JsonSerializerDefaults.Web));
                     staged.Add(new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, sequence++, line.SourceLineReference, MigrationCanonicalRecordType.GlOpening, glJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(glJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow));
                 }
             }
@@ -1565,6 +1570,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
     internal sealed class TestCurrencyPaymentTermPersistence(MasterDataCurrencyRecord currency, Guid paymentTermId) : IMasterDataCurrencyPaymentTermPersistence
     {
         private readonly UnavailableMasterDataCurrencyPaymentTermPersistence fallback = new();
+        private readonly List<MasterDataCurrencyRecord> currencies = [currency];
         private readonly MasterDataPaymentTermRecord paymentTerm = new(
             paymentTermId,
             currency.TenantId,
@@ -1578,9 +1584,15 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         internal Guid PaymentTermId => paymentTerm.Id;
         internal MasterDataLifecycleState LifecycleState { get; set; } = MasterDataLifecycleState.Active;
         internal bool EffectiveVersionAvailable { get; set; } = true;
+        internal Guid AddCurrency(string code, MasterDataLifecycleState state = MasterDataLifecycleState.Active)
+        {
+            var additional = new MasterDataCurrencyRecord(Guid.NewGuid(), currency.TenantId, code, new LocalizedName(code), state, 1, [1]);
+            currencies.Add(additional);
+            return additional.Id;
+        }
 
-        public Task<IReadOnlyList<MasterDataCurrencyRecord>> ListCurrenciesAsync(TenantContext tenantContext, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MasterDataCurrencyRecord>>([currency]);
-        public Task<MasterDataCurrencyRecord?> FindCurrencyAsync(TenantContext tenantContext, Guid currencyId, CancellationToken cancellationToken = default) => Task.FromResult<MasterDataCurrencyRecord?>(currency.Id == currencyId ? currency : null);
+        public Task<IReadOnlyList<MasterDataCurrencyRecord>> ListCurrenciesAsync(TenantContext tenantContext, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MasterDataCurrencyRecord>>(tenantContext.TenantId == currency.TenantId ? currencies : []);
+        public Task<MasterDataCurrencyRecord?> FindCurrencyAsync(TenantContext tenantContext, Guid currencyId, CancellationToken cancellationToken = default) => Task.FromResult(tenantContext.TenantId == currency.TenantId ? currencies.FirstOrDefault(item => item.Id == currencyId) : null);
         public Task<MasterDataPersistenceResult<MasterDataCurrencyRecord>> CreateCurrencyAsync(TenantContext tenantContext, Guid currencyId, CreateMasterDataCurrencyCommand command, MasterDataAuditEvidence evidence, CancellationToken cancellationToken = default) => fallback.CreateCurrencyAsync(tenantContext, currencyId, command, evidence, cancellationToken);
         public Task<MasterDataPersistenceResult<MasterDataCurrencyRecord>> EditCurrencyAsync(TenantContext tenantContext, EditMasterDataCurrencyCommand command, MasterDataAuditEvidence evidence, CancellationToken cancellationToken = default) => fallback.EditCurrencyAsync(tenantContext, command, evidence, cancellationToken);
         public Task<MasterDataPersistenceResult<MasterDataCurrencyRecord>> SetCurrencyLifecycleAsync(TenantContext tenantContext, Guid currencyId, MasterDataLifecycleState lifecycleState, byte[] expectedVersion, MasterDataAuditEvidence evidence, CancellationToken cancellationToken = default) => fallback.SetCurrencyLifecycleAsync(tenantContext, currencyId, lifecycleState, expectedVersion, evidence, cancellationToken);
@@ -1595,6 +1607,9 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
 
     internal sealed class FaultingFinancePersistence(IFinanceSettlementPersistence inner) : IFinanceSettlementPersistence
     {
+        internal Func<FinanceArOpeningPreflightResult, FinanceArOpeningPreflightResult>? TransformArPreflight { get; set; }
+        internal Func<FinanceArOpeningPreflightResult, Task>? AfterArPreflight { get; set; }
+        internal Func<FinanceMigrationArOpeningCommand, Task>? AfterArCreate { get; set; }
         internal bool ThrowAfterCreate { get; set; }
         internal bool HideReadback { get; set; }
         internal int CreateCalls { get; private set; }
@@ -1628,10 +1643,16 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         public Task<IReadOnlyList<FinanceApSourceReadyRecord>> ListApSourceReadyAsync(FinanceRequestContext c, Guid? id = null, CancellationToken t = default) => inner.ListApSourceReadyAsync(c, id, t);
         public Task<FinanceOperationResult<FinanceOpenItemRecord>> RecognizeSupplierInvoiceAsync(FinanceRequestContext c, FinanceSupplierInvoiceRecognitionCommand x, CancellationToken t = default) => inner.RecognizeSupplierInvoiceAsync(c, x, t);
         public Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateManualReceivableAsync(FinanceRequestContext c, FinanceManualReceivableCommand x, CancellationToken t = default) => inner.CreateManualReceivableAsync(c, x, t);
-        public Task<FinanceArOpeningPreflightResult> PreflightMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default) => inner.PreflightMigrationArOpeningAsync(c, x, t);
+        public async Task<FinanceArOpeningPreflightResult> PreflightMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default)
+        {
+            var result = await inner.PreflightMigrationArOpeningAsync(c, x, t);
+            if (TransformArPreflight is not null) result = TransformArPreflight(result);
+            if (AfterArPreflight is not null) await AfterArPreflight(result);
+            return result;
+        }
         public Task<FinanceApOpeningPreflightResult> PreflightMigrationApOpeningAsync(FinanceRequestContext c, FinanceMigrationApOpeningCommand x, CancellationToken t = default) => inner.PreflightMigrationApOpeningAsync(c, x, t);
         public Task<FinanceCashBankOpeningPreflightResult> PreflightMigrationCashBankOpeningAsync(FinanceRequestContext c, FinanceMigrationCashBankOpeningCommand x, CancellationToken t = default) => inner.PreflightMigrationCashBankOpeningAsync(c, x, t);
-        public async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default) { CreateCalls++; var result = await inner.CreateMigrationArOpeningAsync(c, x, t); if (ThrowAfterCreate) throw new InvalidOperationException("test lost response after commit"); return result; }
+        public async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default) { CreateCalls++; var result = await inner.CreateMigrationArOpeningAsync(c, x, t); if (AfterArCreate is not null) await AfterArCreate(x); if (ThrowAfterCreate) throw new InvalidOperationException("test lost response after commit"); return result; }
         public async Task<FinanceMigrationArOpeningEvidence?> ReadMigrationArOpeningAsync(FinanceRequestContext c, FinanceMigrationArOpeningCommand x, CancellationToken t = default)
         {
             ArReadCalls++;
@@ -1681,15 +1702,48 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
 
     internal sealed class MutableExchangeRates(TenantId tenantId) : IMasterDataExchangeRatePersistence
     {
+        private readonly List<MasterDataExchangeRateRecord> additionalRates = [];
+        private readonly TenantId ownerTenant = tenantId;
         internal Guid RateId { get; } = Guid.NewGuid();
         internal Guid VersionId { get; } = Guid.NewGuid();
         internal decimal Rate { get; set; } = 3.75m;
         internal bool Available { get; set; } = true;
+        internal bool BaseAvailable { get; set; } = true;
+        internal TenantId BaseTenantId { get; set; } = tenantId;
+        internal MasterDataLifecycleState BaseState { get; set; } = MasterDataLifecycleState.Active;
+        internal DateOnly BaseEffectiveFrom { get; set; } = new(2026, 1, 1);
+        internal DateOnly? BaseEffectiveTo { get; set; }
 
-        public Task<IReadOnlyList<MasterDataExchangeRateRecord>> ListExchangeRatesAsync(TenantContext tenantContext, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MasterDataExchangeRateRecord>>(Available ? [new(RateId, tenantId, Guid.NewGuid(), Guid.NewGuid(), "USD", "SAR", MasterDataLifecycleState.Active, 1, [new(VersionId, 1, new DateOnly(2026, 1, 1), null, Rate, 6, ExchangeRateProvenance.Configured, "MESP-141 S10", "USD", "SAR")], [1])] : []);
+        internal (Guid RateId, Guid VersionId) AddRate(string sourceCurrency, string targetCurrency, decimal rate, TenantId? ownerTenant = null, MasterDataLifecycleState state = MasterDataLifecycleState.Active, DateOnly? effectiveFrom = null, DateOnly? effectiveTo = null)
+        {
+            var rateId = Guid.NewGuid();
+            var versionId = Guid.NewGuid();
+            var tenant = ownerTenant ?? this.ownerTenant;
+            var from = effectiveFrom ?? new DateOnly(2026, 1, 1);
+            additionalRates.Add(new(rateId, tenant, Guid.NewGuid(), Guid.NewGuid(), sourceCurrency, targetCurrency, state, 1,
+                [new(versionId, 1, from, effectiveTo, rate, 6, ExchangeRateProvenance.Configured, "MESP-141 S10 provider scenario", sourceCurrency, targetCurrency)], [1]));
+            return (rateId, versionId);
+        }
 
-        public Task<MasterDataExchangeRateRecord?> FindExchangeRateAsync(TenantContext tenantContext, Guid exchangeRateId, CancellationToken cancellationToken = default) => Task.FromResult<MasterDataExchangeRateRecord?>(null);
+        internal void UpdateRate(Guid rateId, decimal rate)
+        {
+            var index = additionalRates.FindIndex(item => item.Id == rateId);
+            var record = additionalRates[index];
+            additionalRates[index] = record with { Versions = [.. record.Versions.Select(version => version with { Rate = rate })] };
+        }
+
+        public Task<IReadOnlyList<MasterDataExchangeRateRecord>> ListExchangeRatesAsync(TenantContext tenantContext, CancellationToken cancellationToken = default)
+        {
+            if (!Available || tenantContext.TenantId != ownerTenant)
+                return Task.FromResult<IReadOnlyList<MasterDataExchangeRateRecord>>([]);
+            var records = additionalRates.Where(item => item.TenantId == tenantContext.TenantId).ToList();
+            if (BaseAvailable && BaseTenantId == tenantContext.TenantId)
+                records.Add(new(RateId, BaseTenantId, Guid.NewGuid(), Guid.NewGuid(), "USD", "SAR", BaseState, 1, [new(VersionId, 1, BaseEffectiveFrom, BaseEffectiveTo, Rate, 6, ExchangeRateProvenance.Configured, "MESP-141 S10", "USD", "SAR")], [1]));
+            return Task.FromResult<IReadOnlyList<MasterDataExchangeRateRecord>>(records);
+        }
+
+        public async Task<MasterDataExchangeRateRecord?> FindExchangeRateAsync(TenantContext tenantContext, Guid exchangeRateId, CancellationToken cancellationToken = default) =>
+            (await ListExchangeRatesAsync(tenantContext, cancellationToken)).SingleOrDefault(item => item.Id == exchangeRateId);
         public Task<MasterDataPersistenceResult<MasterDataExchangeRateRecord>> CreateExchangeRateAsync(TenantContext tenantContext, Guid exchangeRateId, CreateMasterDataExchangeRateCommand command, MasterDataAuditEvidence evidence, CancellationToken cancellationToken = default) => Task.FromException<MasterDataPersistenceResult<MasterDataExchangeRateRecord>>(new InvalidOperationException("unused"));
         public Task<MasterDataPersistenceResult<MasterDataExchangeRateRecord>> EditExchangeRateAsync(TenantContext tenantContext, EditMasterDataExchangeRateCommand command, MasterDataAuditEvidence evidence, CancellationToken cancellationToken = default) => Task.FromException<MasterDataPersistenceResult<MasterDataExchangeRateRecord>>(new InvalidOperationException("unused"));
         public Task<MasterDataPersistenceResult<MasterDataExchangeRateRecord>> SetExchangeRateLifecycleAsync(TenantContext tenantContext, Guid exchangeRateId, MasterDataLifecycleState lifecycleState, byte[] expectedVersion, MasterDataAuditEvidence evidence, CancellationToken cancellationToken = default) => Task.FromException<MasterDataPersistenceResult<MasterDataExchangeRateRecord>>(new InvalidOperationException("unused"));

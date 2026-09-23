@@ -1,25 +1,30 @@
 # Mini_ERP_SaaS_Platform — Project Statistics & Production Readiness Tracker
 
-**Last Updated:** 22 September 2026 (MESP-141 Slice 10 implementation handoff; Draft/unaccepted)
+**Last Updated:** 23 September 2026 (MESP-141 Slice 10 provider acceptance evidence complete; awaiting independent acceptance)
 
-## Current execution snapshot - 22 September 2026 (MESP-141 Slice 10 implementation handoff; Draft/unaccepted)
+## Current execution snapshot - 23 September 2026 (MESP-141 Slice 10 provider acceptance evidence; Draft/unaccepted)
 
 MESP-141 Slice 10 Multi-Currency Opening & FX Evidence is implemented on
 `feat/mesp-141-multi-currency-opening-fx-evidence` from exact Slice 9 main base
-`45aafec1a1349c2e4d7bdda1b05b6f820422d35f`. It remains a bounded Draft/unaccepted
-handoff to GPT-5.6 Sol. Issue #229 remains OPEN / ACTIVE / IN PROGRESS; Issue
-#230 remains OPEN / NOT ACTIVATED. No Ready transition, merge, lifecycle
-closure, reconciliation/sign-off implementation, MESP-142 activation, Jira
-mutation, or Production action is authorized by this session.
+`45aafec1a1349c2e4d7bdda1b05b6f820422d35f`. All 24 Slice 10 provider
+acceptance IDs now have executable passing evidence. PR #260 remains OPEN /
+DRAFT / UNMERGED, and Issue #229 remains OPEN / ACTIVE / IN PROGRESS, pending
+independent GPT-5.6 Sol acceptance. Issue #230 remains OPEN / NOT ACTIVATED.
+The exact-head hosted CI result is tracked on PR #260 after this handoff.
+No Ready transition, merge, lifecycle closure, reconciliation/sign-off
+implementation, MESP-142 activation, Jira mutation, or Production action was
+performed.
 
-Local validation is Release `0 warnings / 0 errors`; the sanctioned serialized
-disposable-LocalDB backend/provider suite is `1,472/1,472` with `0` failures /
-`0` skips; the focused Slice 10 provider matrix is `44/44`; Angular is
-`316/316`; Chromium is `51/51`; and all eight EF contexts report no pending
-model changes. The additive Migration EF migration applies cleanly. The
-existing `514.26 kB` initial-budget warning and known moderate npm advisories
-remain unchanged; the five-project NuGet vulnerability scan is clear. No
-runtime or persistent MESP database was used for acceptance evidence, and
+Local validation is Release `0 warnings / 0 errors`; focused Slice 10 and REST
+acceptance is `55/55`; the explicit Slice 9 opening provider regressions are
+`94/94`; the full SQL Server safety/provider suite is `230/230`; and the full
+non-SQL backend suite is `1,294/1,294`, all with zero failures and skips.
+Angular is `316/316`, Chromium is `51/51`, and all eight EF contexts report no
+pending model changes. The five-project NuGet vulnerability scan is clear.
+Production and full-tree npm audits report the existing `4` and `7` moderate
+findings respectively, with no high-severity finding. The existing `514.26 kB`
+initial bundle exceeds the 500 kB budget by `14.27 kB`; it was not changed.
+No runtime or persistent MESP database was used for acceptance evidence, and
 `frontend/assets` remains untouched.
 
 Metrics remain unchanged: accepted fast-track capability completion **24 / 26 =
@@ -27,16 +32,20 @@ Metrics remain unchanged: accepted fast-track capability completion **24 / 26 =
 Procurement/P2P**. Slice 10 is not accepted, merged, or counted as an accepted
 capability.
 
-### Progress history - 22 September 2026 (MESP-141 Slice 10 implementation handoff)
+### Progress history - 23 September 2026 (MESP-141 Slice 10 provider acceptance evidence)
 
 Slice 10 adds Finance-owned OpeningDate FX resolution, monetary-policy rounding,
 typed durable monetary expectations, historical JournalMonetaryEvidence for
 foreign AR/AP/Cash openings, functional-currency GL projection/grouping, and
-source monetary-input rejection. Inventory and residual GL remain
-functional-only; no opening FX/revaluation/rounding journal is created. Local
-provider evidence is green, but this is an implementation handoff only and
-does not change capability or readiness percentages. Independent Sol acceptance,
-exact-head hosted CI, and normal lifecycle closure remain outstanding.
+source monetary-input rejection. The completed P01-P24 evidence now covers
+functional-currency regressions, foreign-currency success and failure cases,
+durable replay, owner outcome recovery, ordinary settlement/revaluation,
+public reconciliation, and typed REST/OpenAPI contracts. Inventory and residual
+GL remain functional-only; no opening FX/revaluation/rounding journal is
+created. This remains an executor evidence handoff, not Slice 10 acceptance,
+and does not change capability or readiness percentages. Exact-head hosted CI
+is tracked on PR #260; independent Sol acceptance and normal lifecycle closure
+remain required.
 
 ## Historical execution snapshot - 22 September 2026 (MESP-141 Slice 9 merged; final-main verified; lifecycle closed)
 
