@@ -73,8 +73,8 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         Assert.Equal(fixture.ExchangeRates.RateId, historical.MonetaryEvidence.TransactionToFunctionalRate!.ExchangeRateId);
 
         await using var db = new FinanceDbContext(fixture.FinanceOptions, fixture.Tenant);
-        Assert.Equal(3, await db.JournalMonetaryEvidence.CountAsync());
-        Assert.Equal(0, await db.Journals.CountAsync(item => item.SourceContract == "finance-fx.v1" || item.SourceContract == "finance-revaluation.v1"));
+        Assert.Equal(3, await db.JournalMonetaryEvidence.CountAsync(item => item.CompanyId == fixture.CompanyId));
+        Assert.Equal(0, await db.Journals.CountAsync(item => item.CompanyId == fixture.CompanyId && (item.SourceContract == "finance-fx.v1" || item.SourceContract == "finance-revaluation.v1")));
     }
 
     [Fact]
@@ -118,6 +118,124 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         await using var db = new FinanceDbContext(fixture.FinanceOptions, fixture.Tenant);
         Assert.Empty(await db.OpenItems.AsNoTracking().Where(item => item.SourceContract == "migration-ar-opening.v1" && item.Reference == command.SourceReference).ToListAsync());
         Assert.Empty(await db.Journals.AsNoTracking().Where(item => item.SourceContract == "migration-ar-opening.v1" && item.Description.Contains(command.SourceReference)).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Sql_server_s10_p02_foreign_ar_real_orchestration_succeeds_and_exposes_fx_evidence()
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        await fixture.EnableMonetaryPolicyAsync();
+        var prepared = await fixture.PrepareAsync("S10-P02-AR-USD", 100m, "USD");
+
+        var result = await fixture.NewExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, "s10-p02-ar", prepared.Run.Version);
+
+        Assert.Equal(MigrationAttemptOutcome.Succeeded, result.Value!.AttemptOutcome);
+        await fixture.AssertOneEffectAsync("S10-P02-AR-USD", 100m);
+        var reconciliation = Assert.Single(result.Value!.ArEconomicReconciliations!, item => item.SourceReference == "S10-P02-AR-USD");
+        Assert.Equal("USD", reconciliation.TransactionCurrencyCode);
+        Assert.Equal(100m, reconciliation.TransactionAmount);
+        Assert.Equal("SAR", reconciliation.FunctionalCurrencyCode);
+        Assert.Equal(375m, reconciliation.FunctionalAmount);
+        Assert.Equal(fixture.ExchangeRates.RateId, reconciliation.ExchangeRateId);
+        Assert.Equal(new DateOnly(2026, 1, 15), reconciliation.RateDate);
+        Assert.Equal(3.75m, reconciliation.AppliedRate);
+    }
+
+    [Fact]
+    public async Task Sql_server_s10_p03_foreign_ap_real_orchestration_succeeds_and_exposes_fx_evidence()
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        await fixture.EnableMonetaryPolicyAsync();
+        var prepared = await fixture.PrepareApAsync("S10-P03-AP-USD", 100m, "USD");
+
+        var result = await fixture.NewApExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, "s10-p03-ap", prepared.Run.Version);
+
+        Assert.Equal(MigrationAttemptOutcome.Succeeded, result.Value!.AttemptOutcome);
+        await fixture.AssertOneApEffectAsync("S10-P03-AP-USD", 100m);
+        var reconciliation = Assert.Single(result.Value!.ApEconomicReconciliations!, item => item.SourceReference == "S10-P03-AP-USD");
+        Assert.Equal("USD", reconciliation.TransactionCurrencyCode);
+        Assert.Equal(100m, reconciliation.TransactionAmount);
+        Assert.Equal(375m, reconciliation.FunctionalAmount);
+        Assert.Equal(3.75m, reconciliation.AppliedRate);
+    }
+
+    [Fact]
+    public async Task Sql_server_s10_p04_foreign_cash_real_orchestration_mixed_gl_group_regression()
+    {
+        // Regression proof for the Blocker A fix: MigrationGlOpeningExecutionCoordinator.CashMatches
+        // previously compared the functional-currency journal total against the raw transaction-currency
+        // command amount (e.g. SAR 375 vs USD 100), which always failed for foreign Cash inside a mixed
+        // owner group that also posts GL. This exercises the REAL mixed/GL orchestration path, not the
+        // standalone Cash coordinator (which was never affected) or a direct Settlement call.
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        await fixture.EnableMonetaryPolicyAsync();
+        var usdCash = await fixture.Settlement.CreateCashAccountAsync(
+            fixture.FinanceContextFor("tenant.finance.settlement.manage"),
+            new FinanceCashAccountCommand(fixture.CompanyId, "S10-P04-USD-CASH", "S10 P04 USD cash", null, FinanceCashAccountKind.Bank, "USD", fixture.CashLinkedAccountId, null, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), null, "s10-p04-cash", "s10-p04-cash"));
+        Assert.True(usdCash.Succeeded, usdCash.Code);
+
+        var prepared = await fixture.PrepareMixedAsync("S10-P04", 375m, includeCash: true, includeGl: true, cashAmount: 100m, cashCurrencyCode: "USD", cashAccountIdOverride: usdCash.Value!.Id);
+        var result = await fixture.NewMixedExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, "s10-p04-mixed-cash-fx", prepared.Run.Version);
+
+        Assert.True(result.Succeeded, $"{result.Kind}:{result.Code}");
+        Assert.Equal(MigrationAttemptOutcome.Succeeded, result.Value!.AttemptOutcome);
+        await fixture.AssertOneCashEffectAsync("S10-P04-CASH", 375m);
+        var reconciliation = Assert.Single(result.Value!.CashBankEconomicReconciliations!, item => item.SourceReference == "S10-P04-CASH");
+        Assert.Equal("USD", reconciliation.TransactionCurrencyCode);
+        Assert.Equal(100m, reconciliation.TransactionAmount);
+        Assert.Equal("SAR", reconciliation.FunctionalCurrencyCode);
+        Assert.Equal(375m, reconciliation.FunctionalAmount);
+        await using var db = new FinanceDbContext(fixture.FinanceOptions, fixture.Tenant);
+        Assert.Equal(1, await db.Journals.CountAsync(item => item.CompanyId == fixture.CompanyId && item.SourceContract == "migration-gl-opening.v1" && item.Status == FinanceJournalStatus.Posted));
+    }
+
+    [Fact]
+    public async Task Sql_server_s10_p05_foreign_inventory_opening_rejected_before_owner_effect()
+    {
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        await fixture.EnableMonetaryPolicyAsync();
+        var prepared = await fixture.PrepareInventoryOnlyAsync("S10-P05-LINE", "USD");
+
+        var result = await fixture.NewMixedExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, "s10-p05-foreign-inventory", prepared.Run.Version);
+
+        Assert.False(result.Succeeded, result.Code);
+        await fixture.AssertNoStockMovementAsync();
+    }
+
+    [Fact]
+    public async Task Sql_server_s10_p07_mixed_all_five_two_foreign_owners_real_orchestration()
+    {
+        // P07 flagship: two independently-foreign owner types (AR and Cash, both USD) inside one mixed
+        // run alongside functional-currency AP/Inventory/GL, executed through the real orchestration
+        // path (Prepare -> durable expectation -> owner execution -> GL last -> public reconciliation).
+        await using var fixture = await ArSqlFixture.CreateAsync(safety);
+        await fixture.EnableMonetaryPolicyAsync();
+        var usdCash = await fixture.Settlement.CreateCashAccountAsync(
+            fixture.FinanceContextFor("tenant.finance.settlement.manage"),
+            new FinanceCashAccountCommand(fixture.CompanyId, "S10-P07-USD-CASH", "S10 P07 USD cash", null, FinanceCashAccountKind.Bank, "USD", fixture.CashLinkedAccountId, null, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), null, "s10-p07-cash", "s10-p07-cash"));
+        Assert.True(usdCash.Succeeded, usdCash.Code);
+
+        var prepared = await fixture.PrepareMixedAsync("S10-P07", 375m, includeCash: true, includeGl: true, cashAmount: 100m, cashCurrencyCode: "USD", cashAccountIdOverride: usdCash.Value!.Id, arAmount: 100m, arCurrencyCode: "USD");
+        var result = await fixture.NewMixedExecution().ExecuteAsync(fixture.Request, prepared.Run.RunId, "s10-p07-mixed-all-five", prepared.Run.Version);
+
+        Assert.Equal(MigrationAttemptOutcome.Succeeded, result.Value!.AttemptOutcome);
+        await fixture.AssertOneEffectAsync("S10-P07", 100m);
+        await fixture.AssertOneApEffectAsync("S10-P07-AP", 375m);
+        await fixture.AssertOneCashEffectAsync("S10-P07-CASH", 375m);
+
+        var arReconciliation = Assert.Single(result.Value!.ArEconomicReconciliations!, item => item.SourceReference == "S10-P07");
+        Assert.Equal("USD", arReconciliation.TransactionCurrencyCode);
+        Assert.Equal(375m, arReconciliation.FunctionalAmount);
+        var cashReconciliation = Assert.Single(result.Value!.CashBankEconomicReconciliations!, item => item.SourceReference == "S10-P07-CASH");
+        Assert.Equal("USD", cashReconciliation.TransactionCurrencyCode);
+        Assert.Equal(375m, cashReconciliation.FunctionalAmount);
+        var apReconciliation = Assert.Single(result.Value!.ApEconomicReconciliations!, item => item.SourceReference == "S10-P07-AP");
+        Assert.Equal("SAR", apReconciliation.TransactionCurrencyCode);
+        Assert.Null(apReconciliation.AppliedRate);
+
+        await using var db = new FinanceDbContext(fixture.FinanceOptions, fixture.Tenant);
+        Assert.Equal(1, await db.Journals.CountAsync(item => item.CompanyId == fixture.CompanyId && item.SourceContract == "migration-gl-opening.v1" && item.Status == FinanceJournalStatus.Posted));
+        Assert.Equal(5, await db.JournalMonetaryEvidence.CountAsync(item => item.CompanyId == fixture.CompanyId));
     }
 
     [Fact]
@@ -1013,7 +1131,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             return context!;
         }
 
-        internal async Task<PreparedRun> PrepareAsync(string sourceReference, decimal amount)
+        internal async Task<PreparedRun> PrepareAsync(string sourceReference, decimal amount, string currencyCode = "SAR")
         {
             var objectId = Guid.NewGuid();
             var run = MigrationRun.Create(Tenant, new MigrationDefinitionReference("tenant-onboarding.foundation", "1"), new MigrationSourceProfileReference("neutral-source-profile", "1"));
@@ -1023,7 +1141,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.True(intake.Succeeded, intake.Code);
             Assert.True((await Migration.SetEvidenceStateAsync(Tenant, new MigrationEvidenceReference(intake.Value!.Run.RunId, MigrationOperationKind.Validation, intakeKey.Value), true)).Succeeded);
             var persisted = (await Migration.FindRunAsync(Tenant, run.RunId))!;
-            var json = JsonSerializer.Serialize(new { companyId = CompanyId, customerId = CustomerId, sourceReference, documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount, currencyCode = "SAR", dueDate = new DateOnly(2026, 2, 14) });
+            var json = JsonSerializer.Serialize(new { companyId = CompanyId, customerId = CustomerId, sourceReference, documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount, currencyCode, dueDate = new DateOnly(2026, 2, 14) });
             var staged = new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 1, sourceReference, MigrationCanonicalRecordType.ArOpening, json, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow);
             Assert.True((await Migration.StagePackageAsync(Tenant, new StageMigrationPackageCommand(persisted.RunId, objectId, sourceHash, packageHash, MigrationCanonicalPackageParser.Version, DateTimeOffset.UtcNow, [staged]))).Succeeded);
             var current = await TransitionAsync(persisted, MigrationRunStatus.Prepared);
@@ -1043,7 +1161,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             return new PreparedRun(current, [staged]);
         }
 
-        internal async Task<PreparedRun> PrepareApAsync(string sourceReference, decimal amount)
+        internal async Task<PreparedRun> PrepareApAsync(string sourceReference, decimal amount, string currencyCode = "SAR")
         {
             var objectId = Guid.NewGuid();
             var run = MigrationRun.Create(Tenant, new MigrationDefinitionReference("tenant-onboarding.foundation", "1"), new MigrationSourceProfileReference("neutral-source-profile", "1"));
@@ -1053,7 +1171,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.True(intake.Succeeded, intake.Code);
             Assert.True((await Migration.SetEvidenceStateAsync(Tenant, new MigrationEvidenceReference(intake.Value!.Run.RunId, MigrationOperationKind.Validation, intakeKey.Value), true)).Succeeded);
             var persisted = (await Migration.FindRunAsync(Tenant, run.RunId))!;
-            var json = JsonSerializer.Serialize(new { companyId = CompanyId, supplierId = SupplierId, sourceReference, documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount, currencyCode = "SAR", dueDate = new DateOnly(2026, 2, 14) });
+            var json = JsonSerializer.Serialize(new { companyId = CompanyId, supplierId = SupplierId, sourceReference, documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount, currencyCode, dueDate = new DateOnly(2026, 2, 14) });
             var staged = new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 1, sourceReference, MigrationCanonicalRecordType.ApOpening, json, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow);
             Assert.True((await Migration.StagePackageAsync(Tenant, new StageMigrationPackageCommand(persisted.RunId, objectId, sourceHash, packageHash, MigrationCanonicalPackageParser.Version, DateTimeOffset.UtcNow, [staged]))).Succeeded);
             var current = await TransitionAsync(persisted, MigrationRunStatus.Prepared);
@@ -1066,6 +1184,37 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             current = await TransitionAsync(current, MigrationRunStatus.Validated);
             var dryAttempt = await StartAttemptAsync(current, MigrationOperationKind.DryRun, $"s7-ap-dry-{Guid.NewGuid():N}", "s7-ap-dry-fingerprint");
             var dryRun = new MigrationDryRunPreview(Guid.NewGuid(), Tenant.TenantId, current.RunId, dryAttempt.AttemptId, validationAttempt.AttemptId, packageHash, sourceHash, 1, 1, 0, 0, new Dictionary<string, int>(), new Dictionary<string, decimal>(), 0, 0, [new(staged.StagedRecordId, 1, MigrationCanonicalRecordType.ApOpening, MigrationRecordDisposition.Accepted, MigrationPlannedAction.Create, null)], DateTimeOffset.UtcNow);
+            Assert.True((await Migration.SaveDryRunAsync(Tenant, new SaveMigrationDryRunCommand(dryRun))).Succeeded);
+            Assert.True((await foundation.RecordAttemptOutcomeAsync(Request, current.RunId, dryAttempt.AttemptId, MigrationAttemptOutcome.Succeeded, "dry_run_completed", dryAttempt.Version)).Succeeded);
+            current = (await Migration.FindRunAsync(Tenant, current.RunId))!;
+            current = await TransitionAsync(current, MigrationRunStatus.Approved);
+            return new PreparedRun(current, [staged]);
+        }
+
+        internal async Task<PreparedRun> PrepareInventoryOnlyAsync(string sourceReference, string currencyCode = "SAR")
+        {
+            var objectId = Guid.NewGuid();
+            var run = MigrationRun.Create(Tenant, new MigrationDefinitionReference("tenant-onboarding.foundation", "1"), new MigrationSourceProfileReference("neutral-source-profile", "1"));
+            var source = new MigrationSourceArtifactSnapshot(objectId, Tenant.TenantId, null, null, null, sourceHash, 1, 1);
+            var intakeKey = new MigrationIdempotencyKey($"s10-inventory-intake-{Guid.NewGuid():N}");
+            var intake = await Migration.CreateIntakeAsync(Tenant, new CreateMigrationIntakeCommand(run, MigrationOperationKind.Validation, intakeKey, new MigrationRequestFingerprint("s10-inventory-intake-fingerprint"), MigrationIntakeFingerprint.Version, source));
+            Assert.True(intake.Succeeded, intake.Code);
+            Assert.True((await Migration.SetEvidenceStateAsync(Tenant, new MigrationEvidenceReference(intake.Value!.Run.RunId, MigrationOperationKind.Validation, intakeKey.Value), true)).Succeeded);
+            var persisted = (await Migration.FindRunAsync(Tenant, run.RunId))!;
+            var inventoryPayload = new MigrationInventoryOpeningPayload(CompanyId, BranchId, WarehouseId, ProductId, UnitId, 2m, 50m, currencyCode, new DateOnly(2026, 1, 15), TrackingIdentity: sourceReference + "-LOT", SourceLineReference: sourceReference);
+            var json = JsonSerializer.Serialize(inventoryPayload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            var staged = new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 1, sourceReference, MigrationCanonicalRecordType.InventoryOpening, json, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow);
+            Assert.True((await Migration.StagePackageAsync(Tenant, new StageMigrationPackageCommand(persisted.RunId, objectId, sourceHash, packageHash, MigrationCanonicalPackageParser.Version, DateTimeOffset.UtcNow, [staged]))).Succeeded);
+            var current = await TransitionAsync(persisted, MigrationRunStatus.Prepared);
+            current = await TransitionAsync(current, MigrationRunStatus.Validating);
+            var validationAttempt = await StartAttemptAsync(current, MigrationOperationKind.Validation, $"s10-inventory-validation-{Guid.NewGuid():N}", "s10-inventory-validation-fingerprint");
+            var validation = new MigrationValidationSummary(Guid.NewGuid(), Tenant.TenantId, current.RunId, validationAttempt.AttemptId, packageHash, sourceHash, 1, 1, 0, 0, new Dictionary<string, int>(), [new(staged.StagedRecordId, 1, MigrationCanonicalRecordType.InventoryOpening, MigrationRecordDisposition.Accepted, [])], DateTimeOffset.UtcNow);
+            Assert.True((await Migration.SaveValidationAsync(Tenant, new SaveMigrationValidationCommand(validation, []))).Succeeded);
+            Assert.True((await foundation.RecordAttemptOutcomeAsync(Request, current.RunId, validationAttempt.AttemptId, MigrationAttemptOutcome.Succeeded, "validation_completed", validationAttempt.Version)).Succeeded);
+            current = (await Migration.FindRunAsync(Tenant, current.RunId))!;
+            current = await TransitionAsync(current, MigrationRunStatus.Validated);
+            var dryAttempt = await StartAttemptAsync(current, MigrationOperationKind.DryRun, $"s10-inventory-dry-{Guid.NewGuid():N}", "s10-inventory-dry-fingerprint");
+            var dryRun = new MigrationDryRunPreview(Guid.NewGuid(), Tenant.TenantId, current.RunId, dryAttempt.AttemptId, validationAttempt.AttemptId, packageHash, sourceHash, 1, 1, 0, 0, new Dictionary<string, int>(), new Dictionary<string, decimal>(), 0, 0, [new(staged.StagedRecordId, 1, MigrationCanonicalRecordType.InventoryOpening, MigrationRecordDisposition.Accepted, MigrationPlannedAction.Create, null)], DateTimeOffset.UtcNow);
             Assert.True((await Migration.SaveDryRunAsync(Tenant, new SaveMigrationDryRunCommand(dryRun))).Succeeded);
             Assert.True((await foundation.RecordAttemptOutcomeAsync(Request, current.RunId, dryAttempt.AttemptId, MigrationAttemptOutcome.Succeeded, "dry_run_completed", dryAttempt.Version)).Succeeded);
             current = (await Migration.FindRunAsync(Tenant, current.RunId))!;
@@ -1183,6 +1332,12 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.Equal(0, await financeDb.SettlementDocuments.CountAsync(item => item.CompanyId == CompanyId));
         }
 
+        internal async Task AssertNoStockMovementAsync()
+        {
+            await using var inventoryDb = new InventoryDbContext(InventoryOptions, Tenant);
+            Assert.Equal(0, await inventoryDb.StockMovements.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId));
+        }
+
         internal async Task DisableArAccountAsync()
         {
             var accounts = await ((FinancePersistence)Finance).ListAccountsAsync(FinanceContextFor("tenant.finance.account.manage"), CompanyId);
@@ -1216,7 +1371,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.Equal(amount, journal.Lines.Single(item => item.LineNumber == 2).FunctionalCredit);
         }
 
-        internal async Task<PreparedRun> PrepareMixedAsync(string sourceReference, decimal amount, bool includeCash = false, bool includeGl = false, bool derivedOffsets = false, bool invalidGl = false)
+        internal async Task<PreparedRun> PrepareMixedAsync(string sourceReference, decimal amount, bool includeCash = false, bool includeGl = false, bool derivedOffsets = false, bool invalidGl = false, decimal? cashAmount = null, string cashCurrencyCode = "SAR", Guid? cashAccountIdOverride = null, decimal? arAmount = null, string arCurrencyCode = "SAR")
         {
             var objectId = Guid.NewGuid();
             var run = MigrationRun.Create(Tenant, new MigrationDefinitionReference("tenant-onboarding.foundation", "1"), new MigrationSourceProfileReference("neutral-source-profile", "1"));
@@ -1226,9 +1381,9 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.True(intake.Succeeded, intake.Code);
             Assert.True((await Migration.SetEvidenceStateAsync(Tenant, new MigrationEvidenceReference(intake.Value!.Run.RunId, MigrationOperationKind.Validation, intakeKey.Value), true)).Succeeded);
             var persisted = (await Migration.FindRunAsync(Tenant, run.RunId))!;
-            var inventoryPayload = new MigrationInventoryOpeningPayload(CompanyId, BranchId, WarehouseId, ProductId, UnitId, 2m, 50m, "SAR", new DateOnly(2026, 1, 15), TrackingIdentity: "S6-MIXED-LOT", SourceLineReference: "S6-MIXED-LINE");
+            var inventoryPayload = new MigrationInventoryOpeningPayload(CompanyId, BranchId, WarehouseId, ProductId, UnitId, 2m, amount / 2m, "SAR", new DateOnly(2026, 1, 15), TrackingIdentity: "S6-MIXED-LOT", SourceLineReference: "S6-MIXED-LINE");
             var inventoryJson = JsonSerializer.Serialize(inventoryPayload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            var arJson = JsonSerializer.Serialize(new { companyId = CompanyId, customerId = CustomerId, sourceReference, documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount, currencyCode = "SAR", dueDate = new DateOnly(2026, 2, 14) });
+            var arJson = JsonSerializer.Serialize(new { companyId = CompanyId, customerId = CustomerId, sourceReference, documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount = arAmount ?? amount, currencyCode = arCurrencyCode, dueDate = new DateOnly(2026, 2, 14) });
             var apJson = JsonSerializer.Serialize(new { companyId = CompanyId, supplierId = SupplierId, sourceReference = sourceReference + "-AP", documentDate = new DateOnly(2026, 1, 10), openingDate = new DateOnly(2026, 1, 15), amount, currencyCode = "SAR", dueDate = new DateOnly(2026, 2, 14) });
             var staged = new List<MigrationStagedRecord>
             {
@@ -1238,7 +1393,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             };
             if (includeCash)
             {
-                var cashJson = JsonSerializer.Serialize(new { companyId = CompanyId, cashAccountId = CashAccountId, sourceReference = sourceReference + "-CASH", amount, currencyCode = "SAR", openingDate = new DateOnly(2026, 1, 15) });
+                var cashJson = JsonSerializer.Serialize(new { companyId = CompanyId, cashAccountId = cashAccountIdOverride ?? CashAccountId, sourceReference = sourceReference + "-CASH", amount = cashAmount ?? amount, currencyCode = cashCurrencyCode, openingDate = new DateOnly(2026, 1, 15) });
                 staged.Add(new MigrationStagedRecord(Guid.NewGuid(), Tenant.TenantId, persisted.RunId, 4, sourceReference + "-CASH", MigrationCanonicalRecordType.CashBankOpening, cashJson, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(cashJson))), packageHash, MigrationCanonicalPackageParser.Version, objectId, sourceHash, DateTimeOffset.UtcNow));
             }
             if (includeGl)

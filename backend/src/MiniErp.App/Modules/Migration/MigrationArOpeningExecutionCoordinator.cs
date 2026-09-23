@@ -247,7 +247,8 @@ internal sealed class MigrationArOpeningExecutionCoordinator
             catch { }
             var journalAmount = evidence?.RecognitionJournal.Lines.Sum(item => item.FunctionalDebit);
             var exact = evidence is not null && EvidenceMatches(evidence, command) && journalAmount == amount;
-            result.Add(new(effect.Id, effect.SourceSequence, exact ? "reconciled" : "partial", exact ? null : "finance_ar_opening_evidence_not_reconciled", companyId, customerId, payload.SourceReference.Trim(), amount, evidence?.OpenItem.OriginalAmount, evidence?.OpenItem.OutstandingAmount, journalAmount, evidence?.OpenItem.AllocatedAmount, payload.CurrencyCode.Trim().ToUpperInvariant(), evidence?.OpenItem.Id, evidence?.RecognitionJournal.Id, clock.GetUtcNow()));
+            var monetary = MigrationOpeningMonetaryMatching.ReconciliationFields(evidence?.MonetaryEvidence);
+            result.Add(new(effect.Id, effect.SourceSequence, exact ? "reconciled" : "partial", exact ? null : "finance_ar_opening_evidence_not_reconciled", companyId, customerId, payload.SourceReference.Trim(), amount, evidence?.OpenItem.OriginalAmount, evidence?.OpenItem.OutstandingAmount, journalAmount, evidence?.OpenItem.AllocatedAmount, payload.CurrencyCode.Trim().ToUpperInvariant(), evidence?.OpenItem.Id, evidence?.RecognitionJournal.Id, clock.GetUtcNow(), monetary.TransactionCurrencyCode, monetary.TransactionAmount, monetary.FunctionalCurrencyCode, monetary.FunctionalAmount, monetary.RateDate, monetary.ExchangeRateId, monetary.ExchangeRateVersionId, monetary.ExchangeRateVersionNumber, monetary.AppliedRate, monetary.MonetaryPolicyId, monetary.MonetaryPolicyVersionNumber, monetary.RoundingScale, monetary.RoundingMode, monetary.FunctionalRoundingDifference, monetary.ReportingCurrencyCode, monetary.ReportingAmount, monetary.ReportingExchangeRateId, monetary.ReportingExchangeRateVersionId, monetary.ReportingExchangeRateVersionNumber, monetary.ReportingAppliedRate, monetary.ReportingEvidenceStatus));
         }
         return result;
     }
@@ -322,6 +323,31 @@ internal static class MigrationOpeningMonetaryMatching
             && (expected.RateDate is null || expected.RateDate == openingDate);
     }
 
+    internal static MigrationOpeningReconciliationMonetaryFields ReconciliationFields(FinanceMonetaryEvidence? evidence) => evidence is null
+        ? new MigrationOpeningReconciliationMonetaryFields(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)
+        : new MigrationOpeningReconciliationMonetaryFields(
+            evidence.TransactionCurrencyCode,
+            evidence.TransactionAmount,
+            evidence.FunctionalCurrencyCode,
+            evidence.FunctionalAmount,
+            evidence.TransactionToFunctionalRate?.EffectiveOn,
+            evidence.TransactionToFunctionalRate?.ExchangeRateId,
+            evidence.TransactionToFunctionalRate?.ExchangeRateVersionId,
+            evidence.TransactionToFunctionalRate?.VersionNumber,
+            evidence.TransactionToFunctionalRate?.Rate,
+            evidence.MonetaryPolicyId,
+            evidence.MonetaryPolicyVersionNumber,
+            evidence.RoundingScale,
+            evidence.RoundingMode,
+            evidence.FunctionalRoundingDifference,
+            evidence.ReportingCurrencyCode,
+            evidence.ReportingAmount,
+            evidence.FunctionalToReportingRate?.ExchangeRateId,
+            evidence.FunctionalToReportingRate?.ExchangeRateVersionId,
+            evidence.FunctionalToReportingRate?.VersionNumber,
+            evidence.FunctionalToReportingRate?.Rate,
+            evidence.ReportingEvidenceStatus.ToString());
+
     internal static FinanceMigrationOpeningExpectation FromRepresentation(MigrationEconomicRepresentationRecord record) => new(
         record.OwnerId,
         record.SourceContract ?? string.Empty,
@@ -354,5 +380,28 @@ internal static class MigrationOpeningMonetaryMatching
         record.ReportingExchangeRateVersionNumber,
         record.ReportingAppliedRate);
 }
+
+internal sealed record MigrationOpeningReconciliationMonetaryFields(
+    string? TransactionCurrencyCode,
+    decimal? TransactionAmount,
+    string? FunctionalCurrencyCode,
+    decimal? FunctionalAmount,
+    DateOnly? RateDate,
+    Guid? ExchangeRateId,
+    Guid? ExchangeRateVersionId,
+    int? ExchangeRateVersionNumber,
+    decimal? AppliedRate,
+    Guid? MonetaryPolicyId,
+    int? MonetaryPolicyVersionNumber,
+    int? RoundingScale,
+    string? RoundingMode,
+    decimal? FunctionalRoundingDifference,
+    string? ReportingCurrencyCode,
+    decimal? ReportingAmount,
+    Guid? ReportingExchangeRateId,
+    Guid? ReportingExchangeRateVersionId,
+    int? ReportingExchangeRateVersionNumber,
+    decimal? ReportingAppliedRate,
+    string? ReportingEvidenceStatus);
 
 #pragma warning restore CS1591
