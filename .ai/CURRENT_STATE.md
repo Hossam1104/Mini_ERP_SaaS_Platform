@@ -10,7 +10,30 @@
 
 ---
 
-## CURRENT AUTHORITY - 22 September 2026 (MESP-141 SLICE 9 RESIDUAL GL OPENING ECONOMIC EXECUTION MERGED; LIFECYCLE CLOSED)
+## CURRENT AUTHORITY - 23 September 2026 (MESP-141 SLICE 10 MULTI-CURRENCY OPENING MERGED; LIFECYCLE CLOSED)
+
+**MESP-141 Slice 10 — Multi-Currency Opening & FX Evidence is accepted, merged, final-main verified, and lifecycle closed.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1–10 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
+
+| Item | Value |
+|---|---|
+| Slice 10 activation | Issue #229 comment `5781215755` |
+| Slice 10 branch / base | `feat/mesp-141-multi-currency-opening-fx-evidence` from `45aafec1a1349c2e4d7bdda1b05b6f820422d35f` |
+| Slice 10 accepted head | `8b46a819806bd51c8ac0333f40cb7c6320d2e99e` |
+| GPT-5.6 Sol acceptance | Issue #229 comment `5801879507` |
+| Feature PR | **#260 MERGED** by normal merge commit |
+| Feature merge / final `main` | `54d7bc0456ecb7c3732365acbdf14b451c33dc97`; parents are base `45aafec1a1349c2e4d7bdda1b05b6f820422d35f` and accepted head above |
+| Accepted exact-head CI | Run `35910898480`: Repository Validation, Backend, and Frontend passed |
+| Final-main CI | Run `35914246765`: Repository Validation, Backend, and Frontend passed |
+| Slice 10 status | **ACCEPTED / MERGED / FINAL-MAIN VERIFIED / LIFECYCLE CLOSED** |
+| Remaining MESP-141 boundary | Migration reconciliation, approval/sign-off, Ready-for-Handover, repeatable onboarding prerequisites, and any future Slice remain separately governed; no next Slice is activated |
+| MESP-141 / MESP-142 | Issue #229 **OPEN / ACTIVE / IN PROGRESS**; Issue #230 **OPEN / NOT ACTIVATED** |
+| Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
+
+Final-main local evidence is Release build `0 warnings / 0 errors` using an isolated artifacts path; focused Migration/REST acceptance `62/62`; Slice 10 SQL-provider acceptance `48/48` on disposable LocalDB; and all eight EF contexts have no pending model changes. Exact-main hosted CI reports Backend `1,294/1,294`, Angular `316/316`, production build success, and Chromium `51/51`. The existing `514.26 kB` initial-bundle warning remains. The verified malformed generated test-output directory was removed; six pre-existing stashes were untouched. `frontend/assets` remains untouched.
+
+The next dependency candidate is Migration reconciliation, domain approval/sign-off, and Ready-for-Handover evidence under the M40 BRD. It is not activated or started. The BRD's reconciliation and M27 handover/activation gates remain open. Golden E2E has not started; production migration/cutover and MESP-142 remain outside this lifecycle.
+
+## HISTORICAL RECORD - 22 September 2026 (MESP-141 SLICE 9 RESIDUAL GL OPENING ECONOMIC EXECUTION MERGED; LIFECYCLE CLOSED)
 
 **MESP-141 Slice 9 - Residual GL Opening Economic Execution is accepted, merged, final-main verified, and lifecycle closed.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1-9 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
 
