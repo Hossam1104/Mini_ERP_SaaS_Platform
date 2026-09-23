@@ -1506,14 +1506,16 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
             Assert.All(accounts, account => Assert.Equal(target.GetValueOrDefault(account), actual.GetValueOrDefault(account)));
         }
 
-        internal async Task<(int Journals, int SourceEffects, int StockMovements, int ValuationEvents, int Handoffs, int Batches, int Effects, int Representations)> ReadEconomicCountsAsync(Guid runId, Guid attemptId)
+        internal async Task<(int Journals, int SourceEffects, int OpenItems, int StockMovements, int ValuationEvents, int Handoffs, int Batches, int Effects, int Representations)> ReadEconomicCountsAsync(Guid runId, Guid attemptId)
         {
             var contracts = new[] { "inventory-valuation-finance.v1", "migration-ar-opening.v1", "migration-ap-opening.v1", "migration-cash-bank-opening.v1", "migration-gl-opening.v1" };
+            var openItemContracts = new[] { "migration-ar-opening.v1", "migration-ap-opening.v1" };
             await using var financeDb = new FinanceDbContext(FinanceOptions, Tenant);
             await using var inventoryDb = new InventoryDbContext(InventoryOptions, Tenant);
             return (
                 await financeDb.Journals.CountAsync(item => item.CompanyId == CompanyId && contracts.Contains(item.SourceContract)),
                 await financeDb.SourceEffects.CountAsync(item => item.CompanyId == CompanyId && contracts.Contains(item.SourceContract)),
+                await financeDb.OpenItems.CountAsync(item => item.CompanyId == CompanyId && openItemContracts.Contains(item.SourceContract)),
                 await inventoryDb.StockMovements.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId),
                 await inventoryDb.MovementValuationEvents.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId),
                 await inventoryDb.FinanceValuationHandoffs.CountAsync(item => item.CompanyId == CompanyId && item.ProductId == ProductId),

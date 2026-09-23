@@ -280,6 +280,7 @@ public sealed class MigrationS10ProviderAcceptanceSqlServerSafetyTests(SqlServer
         var first = await execution.ExecuteAsync(fixture.Request, prepared.Run.RunId, "s10-p12-exact", prepared.Run.Version);
         Assert.True(first.Succeeded, first.Code);
         var before = await fixture.ReadEconomicCountsAsync(prepared.Run.RunId, first.Value!.AttemptId);
+        Assert.Equal(1, before.OpenItems);
 
         fixture.ExchangeRates.Rate = 4m;
         var replay = await execution.ExecuteAsync(fixture.Request, prepared.Run.RunId, "s10-p12-exact", prepared.Run.Version);
@@ -289,6 +290,8 @@ public sealed class MigrationS10ProviderAcceptanceSqlServerSafetyTests(SqlServer
         Assert.Equal(first.Value.Fingerprint, replay.Value.Fingerprint);
         Assert.Equal(375m, Assert.Single(replay.Value.ArEconomicReconciliations!).FunctionalAmount);
         Assert.Equal(before, await fixture.ReadEconomicCountsAsync(prepared.Run.RunId, first.Value.AttemptId));
+        await using var financeDb = new FinanceDbContext(fixture.FinanceOptions, fixture.Tenant);
+        Assert.Equal(1, await financeDb.OpenItems.CountAsync(item => item.CompanyId == fixture.CompanyId && item.SourceContract == "migration-ar-opening.v1"));
     }
 
     [Fact]
@@ -697,7 +700,9 @@ public sealed class MigrationS10ProviderAcceptanceSqlServerSafetyTests(SqlServer
     public async Task Sql_server_s10_p23_public_read_exposes_persisted_ar_ap_cash_fx_and_functional_gl_without_rate_reresolution()
     {
         await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
-        await fixture.EnableMonetaryPolicyAsync();
+        var reportingCurrencyId = fixture.PaymentTerms.AddCurrency("USD");
+        var reportingRate = fixture.ExchangeRates.AddRate("SAR", "USD", 0.2667m);
+        await fixture.EnableMonetaryPolicyAsync(reportingCurrencyId: reportingCurrencyId, reportingCurrencyCode: "USD");
         var usdCash = await fixture.Settlement.CreateCashAccountAsync(fixture.FinanceContextFor("tenant.finance.settlement.manage"),
             new FinanceCashAccountCommand(fixture.CompanyId, "S10-P23-USD-CASH", "S10 P23 USD cash", null, FinanceCashAccountKind.Bank, "USD", fixture.CashLinkedAccountId, null, new DateOnly(2026, 1, 1), null, Guid.NewGuid(), null, "s10-p23-cash", "s10-p23-cash"));
         Assert.True(usdCash.Succeeded, usdCash.Code);
@@ -709,6 +714,7 @@ public sealed class MigrationS10ProviderAcceptanceSqlServerSafetyTests(SqlServer
         Assert.True(executed.Succeeded, executed.Code);
         var before = await fixture.ReadEconomicCountsAsync(prepared.Run.RunId, executed.Value!.AttemptId);
         fixture.ExchangeRates.Rate = 4m;
+        fixture.ExchangeRates.UpdateRate(reportingRate.RateId, 0.25m);
 
         var read = await execution.ReadAsync(fixture.Request, prepared.Run.RunId);
 
@@ -719,7 +725,9 @@ public sealed class MigrationS10ProviderAcceptanceSqlServerSafetyTests(SqlServer
         var cash = Assert.Single(read.CashBankEconomicReconciliations!, item => item.SourceReference == "S10-P23-CASH");
         void AssertOpeningEvidence(string? transactionCurrency, decimal? transactionAmount, string? functionalCurrency,
             decimal? functionalAmount, DateOnly? rateDate, Guid? rateId, Guid? rateVersionId, int? rateVersionNumber,
-            decimal? appliedRate, Guid? policyId, int? policyVersion, int? roundingScale, string? roundingMode)
+            decimal? appliedRate, Guid? policyId, int? policyVersion, int? roundingScale, string? roundingMode,
+            string? reportingCurrency, decimal? reportingAmount, Guid? reportingRateId, Guid? reportingRateVersionId,
+            int? reportingRateVersionNumber, decimal? reportingAppliedRate, string? reportingEvidenceStatus)
         {
             Assert.Equal("USD", transactionCurrency);
             Assert.Equal(100m, transactionAmount);
@@ -734,10 +742,20 @@ public sealed class MigrationS10ProviderAcceptanceSqlServerSafetyTests(SqlServer
             Assert.Equal(1, policyVersion);
             Assert.Equal(2, roundingScale);
             Assert.Equal("AwayFromZero", roundingMode);
+            Assert.Equal("USD", reportingCurrency);
+            Assert.Equal(100.01m, reportingAmount);
+            Assert.Equal(reportingRate.RateId, reportingRateId);
+            Assert.Equal(reportingRate.VersionId, reportingRateVersionId);
+            Assert.Equal(1, reportingRateVersionNumber);
+            Assert.Equal(0.2667m, reportingAppliedRate);
+            Assert.Equal("Captured", reportingEvidenceStatus);
         }
-        AssertOpeningEvidence(ar.TransactionCurrencyCode, ar.TransactionAmount, ar.FunctionalCurrencyCode, ar.FunctionalAmount, ar.RateDate, ar.ExchangeRateId, ar.ExchangeRateVersionId, ar.ExchangeRateVersionNumber, ar.AppliedRate, ar.MonetaryPolicyId, ar.MonetaryPolicyVersionNumber, ar.RoundingScale, ar.RoundingMode);
-        AssertOpeningEvidence(ap.TransactionCurrencyCode, ap.TransactionAmount, ap.FunctionalCurrencyCode, ap.FunctionalAmount, ap.RateDate, ap.ExchangeRateId, ap.ExchangeRateVersionId, ap.ExchangeRateVersionNumber, ap.AppliedRate, ap.MonetaryPolicyId, ap.MonetaryPolicyVersionNumber, ap.RoundingScale, ap.RoundingMode);
-        AssertOpeningEvidence(cash.TransactionCurrencyCode, cash.TransactionAmount, cash.FunctionalCurrencyCode, cash.FunctionalAmount, cash.RateDate, cash.ExchangeRateId, cash.ExchangeRateVersionId, cash.ExchangeRateVersionNumber, cash.AppliedRate, cash.MonetaryPolicyId, cash.MonetaryPolicyVersionNumber, cash.RoundingScale, cash.RoundingMode);
+        AssertOpeningEvidence(ar.TransactionCurrencyCode, ar.TransactionAmount, ar.FunctionalCurrencyCode, ar.FunctionalAmount, ar.RateDate, ar.ExchangeRateId, ar.ExchangeRateVersionId, ar.ExchangeRateVersionNumber, ar.AppliedRate, ar.MonetaryPolicyId, ar.MonetaryPolicyVersionNumber, ar.RoundingScale, ar.RoundingMode, ar.ReportingCurrencyCode, ar.ReportingAmount, ar.ReportingExchangeRateId, ar.ReportingExchangeRateVersionId, ar.ReportingExchangeRateVersionNumber, ar.ReportingAppliedRate, ar.ReportingEvidenceStatus);
+        AssertOpeningEvidence(ap.TransactionCurrencyCode, ap.TransactionAmount, ap.FunctionalCurrencyCode, ap.FunctionalAmount, ap.RateDate, ap.ExchangeRateId, ap.ExchangeRateVersionId, ap.ExchangeRateVersionNumber, ap.AppliedRate, ap.MonetaryPolicyId, ap.MonetaryPolicyVersionNumber, ap.RoundingScale, ap.RoundingMode, ap.ReportingCurrencyCode, ap.ReportingAmount, ap.ReportingExchangeRateId, ap.ReportingExchangeRateVersionId, ap.ReportingExchangeRateVersionNumber, ap.ReportingAppliedRate, ap.ReportingEvidenceStatus);
+        AssertOpeningEvidence(cash.TransactionCurrencyCode, cash.TransactionAmount, cash.FunctionalCurrencyCode, cash.FunctionalAmount, cash.RateDate, cash.ExchangeRateId, cash.ExchangeRateVersionId, cash.ExchangeRateVersionNumber, cash.AppliedRate, cash.MonetaryPolicyId, cash.MonetaryPolicyVersionNumber, cash.RoundingScale, cash.RoundingMode, cash.ReportingCurrencyCode, cash.ReportingAmount, cash.ReportingExchangeRateId, cash.ReportingExchangeRateVersionId, cash.ReportingExchangeRateVersionNumber, cash.ReportingAppliedRate, cash.ReportingEvidenceStatus);
+        Assert.Equal((decimal?)0m, ar.FunctionalRoundingDifference);
+        Assert.Equal((decimal?)0m, ap.FunctionalRoundingDifference);
+        Assert.Equal((decimal?)0m, cash.FunctionalRoundingDifference);
         var glLines = read.GlEconomicReconciliations!.SelectMany(item => item.Lines!).ToArray();
         Assert.Contains(glLines, line =>
             line.AccountId == fixture.ArAccountId && line.AccountingTreatment == "represented_by_ar" && line.EstablishedSignedAmount == 375m && line.ResidualDebit == 0m && line.ResidualCredit == 0m);
