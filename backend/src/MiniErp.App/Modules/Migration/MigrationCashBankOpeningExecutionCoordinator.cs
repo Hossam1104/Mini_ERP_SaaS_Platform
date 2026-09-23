@@ -40,6 +40,7 @@ internal sealed class MigrationCashBankOpeningExecutionCoordinator
         if (!FinanceRequestContext.TryCreate(requestContext, out var financeContext) || financeContext is null)
             return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure("finance_request_context_unavailable");
 
+        var expectations = new Dictionary<Guid, FinanceMigrationOpeningExpectation>();
         foreach (var row in rows.OrderBy(item => item.Staged.SourceSequence))
         {
             if (row.Parsed.Payload is not MigrationCashBankOpeningPayload payload || !ReadyPayload(payload))
@@ -48,10 +49,12 @@ internal sealed class MigrationCashBankOpeningExecutionCoordinator
             var failedCheck = checks.FirstOrDefault(item => item.State is not (MigrationReferenceState.NotApplicable or MigrationReferenceState.Active));
             if (failedCheck is not null)
                 return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(failedCheck.Code);
-            var command = Command(payload, row.Staged.PayloadHash, OwnerKey(run.RunId, row.Staged.StagedRecordId, "finance"));
+            var command = Command(payload, row.Staged.PayloadHash, OwnerKey(run.RunId, row.Staged.StagedRecordId, "finance"), row.Staged.StagedRecordId);
             var ready = await finance.PreflightMigrationCashBankOpeningAsync(financeContext, command, cancellationToken);
             if (!ready.Ready)
                 return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(ready.Code);
+            if (ready.Expectation is { } expectation && MigrationOpeningMonetaryMatching.HasMonetaryEvidence(expectation))
+                expectations[row.Staged.StagedRecordId] = expectation;
         }
 
         var batchId = StableId($"migration-cash-bank-opening-batch:{attempt.AttemptId:D}");
@@ -65,6 +68,11 @@ internal sealed class MigrationCashBankOpeningExecutionCoordinator
             var effect = new MigrationExecutionEffectRecord(StableId($"migration-cash-bank-opening-effect:{attempt.AttemptId:D}:{row.Staged.StagedRecordId:D}"), tenant.TenantId, run.RunId, attempt.AttemptId, row.Staged.StagedRecordId, row.Staged.SourceSequence, MigrationCanonicalRecordType.CashBankOpening, batchId, null, null, payload.SourceReference?.Trim(), MigrationExecutionEffectDisposition.Prepared, null, clock.GetUtcNow(), null, null, run.CorrelationId.Value, Guid.NewGuid().ToByteArray());
             var savedEffect = await migration.CreateEffectAsync(tenant, new CreateMigrationExecutionEffectCommand(effect), cancellationToken);
             if (!savedEffect.Succeeded) return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(savedEffect.Code);
+            if (expectations.TryGetValue(row.Staged.StagedRecordId, out var expectation))
+            {
+                var savedExpectation = await migration.CreateRepresentationAsync(tenant, new CreateMigrationEconomicRepresentationCommand(ExpectedRepresentation(tenant, attempt, effect, expectation)), cancellationToken);
+                if (!savedExpectation.Succeeded) return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure("migration_economic_expectation_persistence_unknown");
+            }
         }
         return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Successful();
     }
@@ -82,6 +90,7 @@ internal sealed class MigrationCashBankOpeningExecutionCoordinator
         if (!FinanceRequestContext.TryCreate(requestContext, out var financeContext) || financeContext is null)
             return MigrationEconomicGroupResult.Failure("finance_request_context_unavailable", false);
 
+        var representations = await migration.ListRepresentationsAsync(tenant, run.RunId, attempt.AttemptId, cancellationToken) ?? [];
         foreach (var row in rows.OrderBy(item => item.Staged.SourceSequence))
         {
             var effect = (await migration.ListEffectsAsync(tenant, run.RunId, attempt.AttemptId, cancellationToken)).SingleOrDefault(item => item.StagedRecordId == row.Staged.StagedRecordId);
@@ -89,7 +98,9 @@ internal sealed class MigrationCashBankOpeningExecutionCoordinator
             if (effect.Disposition == MigrationExecutionEffectDisposition.Unknown) return MigrationEconomicGroupResult.Failure(effect.SafeCode ?? "migration_execution_outcome_unknown", true);
             if (effect.Disposition == MigrationExecutionEffectDisposition.Committed) continue;
             if (row.Parsed.Payload is not MigrationCashBankOpeningPayload payload || !ReadyPayload(payload)) return await FailEffectAsync(tenant, batch, effect, "migration_execution_payload_invalid", false, cancellationToken);
-            var command = Command(payload, row.Staged.PayloadHash, OwnerKey(run.RunId, row.Staged.StagedRecordId, "finance"));
+            var expectedRepresentation = representations.FirstOrDefault(item => item.EffectId == effect.Id && item.Kind == MigrationEconomicRepresentationKind.FinanceOpeningExpectation);
+            var expected = MigrationOpeningMonetaryMatching.HasMonetaryEvidence(expectedRepresentation) ? MigrationOpeningMonetaryMatching.FromRepresentation(expectedRepresentation!) : null;
+            var command = Command(payload, row.Staged.PayloadHash, OwnerKey(run.RunId, row.Staged.StagedRecordId, "finance"), row.Staged.StagedRecordId, expected);
             effect = await ChangeEffectAsync(tenant, effect, MigrationExecutionEffectDisposition.Started, payload.CashAccountId, null, null, clock.GetUtcNow(), null, cancellationToken);
             if (effect is null) return MigrationEconomicGroupResult.Failure("migration_execution_effect_state_conflict", false);
             FinanceOperationResult<FinanceJournalRecord> response;
@@ -144,9 +155,10 @@ internal sealed class MigrationCashBankOpeningExecutionCoordinator
             var command = Command(payload, stagedRow.PayloadHash, "reconciliation");
             FinanceMigrationCashBankOpeningEvidence? evidence = null;
             try { evidence = await finance.ReadMigrationCashBankOpeningAsync(financeContext, command, cancellationToken); } catch { }
-            var posted = evidence?.RecognitionJournal.Lines.Sum(item => item.FunctionalDebit);
-            var exact = evidence is not null && EvidenceMatches(evidence, command) && posted == amount;
-            result.Add(new(effect.Id, effect.SourceSequence, exact ? "reconciled" : "partial", exact ? null : "finance_cash_bank_opening_evidence_not_reconciled", companyId, cashAccountId, evidence?.LinkedAccount.Id ?? Guid.Empty, payload.SourceReference.Trim(), amount, posted, payload.CurrencyCode.Trim().ToUpperInvariant(), openingDate, evidence?.RecognitionJournal.Id, evidence?.SourceEffect.Id, clock.GetUtcNow()));
+            var posted = evidence?.RecognitionJournal.Lines.Where(item => item.FunctionalDebit > 0m).Sum(item => item.FunctionalDebit);
+            var exact = evidence is not null && EvidenceMatches(evidence, command) && posted is not null;
+            var monetary = MigrationOpeningMonetaryMatching.ReconciliationFields(evidence?.MonetaryEvidence);
+            result.Add(new(effect.Id, effect.SourceSequence, exact ? "reconciled" : "partial", exact ? null : "finance_cash_bank_opening_evidence_not_reconciled", companyId, cashAccountId, evidence?.LinkedAccount.Id ?? Guid.Empty, payload.SourceReference.Trim(), amount, posted, payload.CurrencyCode.Trim().ToUpperInvariant(), openingDate, evidence?.RecognitionJournal.Id, evidence?.SourceEffect.Id, clock.GetUtcNow(), monetary.TransactionCurrencyCode, monetary.TransactionAmount, monetary.FunctionalCurrencyCode, monetary.FunctionalAmount, monetary.RateDate, monetary.ExchangeRateId, monetary.ExchangeRateVersionId, monetary.ExchangeRateVersionNumber, monetary.AppliedRate, monetary.MonetaryPolicyId, monetary.MonetaryPolicyVersionNumber, monetary.RoundingScale, monetary.RoundingMode, monetary.FunctionalRoundingDifference, monetary.ReportingCurrencyCode, monetary.ReportingAmount, monetary.ReportingExchangeRateId, monetary.ReportingExchangeRateVersionId, monetary.ReportingExchangeRateVersionNumber, monetary.ReportingAppliedRate, monetary.ReportingEvidenceStatus));
         }
         return result;
     }
@@ -185,9 +197,10 @@ internal sealed class MigrationCashBankOpeningExecutionCoordinator
         await migration.UpdateBatchAsync(tenant, new UpdateMigrationExecutionBatchCommand(batch.Id, state, batch.StartedAt, state is MigrationExecutionBatchState.Completed or MigrationExecutionBatchState.Failed or MigrationExecutionBatchState.Unknown ? clock.GetUtcNow() : null, batch.Version), cancellationToken);
     }
 
-    private static FinanceMigrationCashBankOpeningCommand Command(MigrationCashBankOpeningPayload payload, string fingerprint, string idempotencyKey) => new(payload.CompanyId!.Value, payload.CashAccountId!.Value, payload.SourceReference!.Trim(), payload.OpeningDate!.Value, payload.Amount!.Value, payload.CurrencyCode!.Trim(), fingerprint, idempotencyKey, fingerprint);
+    private static FinanceMigrationCashBankOpeningCommand Command(MigrationCashBankOpeningPayload payload, string fingerprint, string idempotencyKey, Guid sourceRecordId = default, FinanceMigrationOpeningExpectation? expected = null) => new(payload.CompanyId!.Value, payload.CashAccountId!.Value, payload.SourceReference!.Trim(), payload.OpeningDate!.Value, payload.Amount!.Value, payload.CurrencyCode!.Trim(), fingerprint, idempotencyKey, fingerprint, sourceRecordId, expected);
     private static bool ReadyPayload(MigrationCashBankOpeningPayload payload) => payload.CompanyId is not null && payload.CashAccountId is not null && payload.ControlAccountId is null && !string.IsNullOrWhiteSpace(payload.SourceReference) && payload.OpeningDate is not null && payload.Amount is > 0m && !string.IsNullOrWhiteSpace(payload.CurrencyCode);
-    private static bool EvidenceMatches(FinanceMigrationCashBankOpeningEvidence evidence, FinanceMigrationCashBankOpeningCommand command) => evidence.CashAccount.Id == command.CashAccountId && evidence.CashAccount.CompanyId == command.CompanyId && evidence.LinkedAccount.Id == evidence.CashAccount.LinkedAccountId && evidence.RecognitionJournal.CompanyId == command.CompanyId && evidence.RecognitionJournal.Status == FinanceJournalStatus.Posted && evidence.RecognitionJournal.PostingDate == command.OpeningDate && evidence.RecognitionJournal.SourceContract == Contract && evidence.RecognitionJournal.SourceEvidenceId == evidence.SourceEffect.SourceEvidenceId && evidence.SourceEffect.SourceContract == Contract && evidence.SourceEffect.JournalId == evidence.RecognitionJournal.Id && evidence.RecognitionJournal.Lines.Sum(item => item.FunctionalDebit) == command.Amount && string.Equals(evidence.CashAccount.CurrencyCode, command.CurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase);
+    private static bool EvidenceMatches(FinanceMigrationCashBankOpeningEvidence evidence, FinanceMigrationCashBankOpeningCommand command) => evidence.CashAccount.Id == command.CashAccountId && evidence.CashAccount.CompanyId == command.CompanyId && evidence.LinkedAccount.Id == evidence.CashAccount.LinkedAccountId && evidence.RecognitionJournal.CompanyId == command.CompanyId && evidence.RecognitionJournal.Status == FinanceJournalStatus.Posted && evidence.RecognitionJournal.PostingDate == command.OpeningDate && evidence.RecognitionJournal.SourceContract == Contract && evidence.RecognitionJournal.SourceEvidenceId == evidence.SourceEffect.SourceEvidenceId && evidence.SourceEffect.SourceContract == Contract && evidence.SourceEffect.JournalId == evidence.RecognitionJournal.Id && (evidence.MonetaryEvidence is null ? evidence.RecognitionJournal.Lines.Sum(item => item.FunctionalDebit) == command.Amount : evidence.RecognitionJournal.Lines.Sum(item => item.FunctionalDebit) == evidence.MonetaryEvidence.FunctionalAmount) && string.Equals(evidence.CashAccount.CurrencyCode, command.CurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase) && string.Equals(evidence.RecognitionJournal.TransactionCurrencyCode, command.CurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase) && MigrationOpeningMonetaryMatching.Matches(command.ExpectedExpectation, evidence.MonetaryEvidence, command.CurrencyCode, command.Amount, evidence.MonetaryEvidence?.FunctionalCurrencyCode ?? command.CurrencyCode, command.OpeningDate);
+    private MigrationEconomicRepresentationRecord ExpectedRepresentation(TenantContext tenant, MigrationAttemptRecord attempt, MigrationExecutionEffectRecord effect, FinanceMigrationOpeningExpectation expected) => new(StableId($"migration-cash-bank-opening-expectation:{effect.Id:D}"), tenant.TenantId, attempt.RunId, attempt.AttemptId, effect.Id, MigrationEconomicOwnerModule.Finance, MigrationEconomicRepresentationKind.FinanceOpeningExpectation, expected.SourceRecordId, expected.OwnerReference, "prepared", "migration-economic-expectation-v1", clock.GetUtcNow(), clock.GetUtcNow(), true, Guid.NewGuid().ToByteArray(), expected.SourceContract, expected.SourceEvent, expected.FunctionalAmount, expected.PostingRuleId, expected.PostingRuleVersionNumber, expected.ControlAccountId, expected.OffsetAccountId, expected.Reversal, expected.SourceEvidenceId, expected.SourceEvidenceVersion, expected.OwnerSourceId, expected.TransactionCurrencyCode, expected.TransactionAmount, expected.ExpectedFunctionalCurrencyCode, expected.RateDate, expected.ExchangeRateId, expected.ExchangeRateVersionId, expected.ExchangeRateVersionNumber, expected.AppliedRate, expected.MonetaryPolicyId, expected.MonetaryPolicyVersionNumber, expected.RoundingScale, expected.RoundingMode, expected.ReportingCurrencyCode, expected.ReportingExchangeRateId, expected.ReportingExchangeRateVersionId, expected.ReportingExchangeRateVersionNumber, expected.ReportingAppliedRate);
     private MigrationEconomicRepresentationRecord Representation(TenantContext tenant, MigrationAttemptRecord attempt, MigrationExecutionEffectRecord effect, MigrationEconomicRepresentationKind kind, Guid ownerId, string? reference, string status, string version, DateTimeOffset occurredAt) => new(StableId($"migration-cash-bank-representation:{effect.Id:D}:{kind}:{ownerId:D}:{version}"), tenant.TenantId, attempt.RunId, attempt.AttemptId, effect.Id, MigrationEconomicOwnerModule.Finance, kind, ownerId, reference, status, version, occurredAt, clock.GetUtcNow(), true, Guid.NewGuid().ToByteArray());
     private static Guid StableId(string value) => new(SHA256.HashData(Encoding.UTF8.GetBytes(value))[..16]);
     private static string OwnerKey(Guid runId, Guid stagedRecordId, string step) => $"migration-cash-bank-opening:{runId:N}:{stagedRecordId:N}:{step}";

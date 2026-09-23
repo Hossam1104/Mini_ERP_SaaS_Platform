@@ -69,7 +69,9 @@ public sealed record FinanceMigrationArOpeningCommand(
     Guid? PaymentTermId,
     string SourcePayloadFingerprint,
     string IdempotencyKey,
-    string RequestFingerprint);
+    string RequestFingerprint,
+    Guid SourceRecordId = default,
+    FinanceMigrationOpeningExpectation? ExpectedExpectation = null);
 
 public sealed record FinanceMigrationApOpeningCommand(
     Guid CompanyId,
@@ -83,7 +85,9 @@ public sealed record FinanceMigrationApOpeningCommand(
     Guid? PaymentTermId,
     string SourcePayloadFingerprint,
     string IdempotencyKey,
-    string RequestFingerprint);
+    string RequestFingerprint,
+    Guid SourceRecordId = default,
+    FinanceMigrationOpeningExpectation? ExpectedExpectation = null);
 
 public sealed record FinanceMigrationCashBankOpeningCommand(
     Guid CompanyId,
@@ -94,7 +98,9 @@ public sealed record FinanceMigrationCashBankOpeningCommand(
     string CurrencyCode,
     string SourcePayloadFingerprint,
     string IdempotencyKey,
-    string RequestFingerprint);
+    string RequestFingerprint,
+    Guid SourceRecordId = default,
+    FinanceMigrationOpeningExpectation? ExpectedExpectation = null);
 
 public sealed record FinanceArOpeningPreflightResult(
     bool Ready,
@@ -106,7 +112,8 @@ public sealed record FinanceArOpeningPreflightResult(
     Guid? PostingRuleId = null,
     int? PostingRuleVersionNumber = null,
     Guid? ControlAccountId = null,
-    Guid? OffsetAccountId = null);
+    Guid? OffsetAccountId = null,
+    FinanceMigrationOpeningExpectation? Expectation = null);
 
 public sealed record FinanceSourceEffectRecord(
     Guid Id,
@@ -121,7 +128,8 @@ public sealed record FinanceSourceEffectRecord(
 public sealed record FinanceMigrationArOpeningEvidence(
     FinanceOpenItemRecord OpenItem,
     FinanceJournalRecord RecognitionJournal,
-    FinanceSourceEffectRecord SourceEffect);
+    FinanceSourceEffectRecord SourceEffect,
+    FinanceMonetaryEvidence? MonetaryEvidence = null);
 
 public sealed record FinanceApOpeningPreflightResult(
     bool Ready,
@@ -133,12 +141,14 @@ public sealed record FinanceApOpeningPreflightResult(
     Guid? PostingRuleId = null,
     int? PostingRuleVersionNumber = null,
     Guid? ControlAccountId = null,
-    Guid? OffsetAccountId = null);
+    Guid? OffsetAccountId = null,
+    FinanceMigrationOpeningExpectation? Expectation = null);
 
 public sealed record FinanceMigrationApOpeningEvidence(
     FinanceOpenItemRecord OpenItem,
     FinanceJournalRecord RecognitionJournal,
-    FinanceSourceEffectRecord SourceEffect);
+    FinanceSourceEffectRecord SourceEffect,
+    FinanceMonetaryEvidence? MonetaryEvidence = null);
 
 public sealed record FinanceCashBankOpeningPreflightResult(
     bool Ready,
@@ -150,13 +160,15 @@ public sealed record FinanceCashBankOpeningPreflightResult(
     Guid? PostingRuleId = null,
     int? PostingRuleVersionNumber = null,
     Guid? ControlAccountId = null,
-    Guid? OffsetAccountId = null);
+    Guid? OffsetAccountId = null,
+    FinanceMigrationOpeningExpectation? Expectation = null);
 
 public sealed record FinanceMigrationCashBankOpeningEvidence(
     FinanceCashAccountRecord CashAccount,
     FinanceAccountRecord LinkedAccount,
     FinanceJournalRecord RecognitionJournal,
-    FinanceSourceEffectRecord SourceEffect);
+    FinanceSourceEffectRecord SourceEffect,
+    FinanceMonetaryEvidence? MonetaryEvidence = null);
 
 public sealed record FinanceMigrationGlOpeningLine(
     Guid AccountId,
@@ -178,7 +190,8 @@ public sealed record FinanceMigrationOpeningProjection(
     Guid? OffsetAccountId = null,
     bool? Reversal = null,
     Guid? SourceEvidenceId = null,
-    int? SourceEvidenceVersion = null);
+    int? SourceEvidenceVersion = null,
+    FinanceMigrationOpeningExpectation? MonetaryExpectation = null);
 
 public sealed record FinanceMigrationOpeningExpectation(
     Guid SourceRecordId,
@@ -193,7 +206,24 @@ public sealed record FinanceMigrationOpeningExpectation(
     Guid? SourceEvidenceId = null,
     int? SourceEvidenceVersion = null,
     Guid? OwnerSourceId = null,
-    string? OwnerReference = null);
+    string? OwnerReference = null,
+    string? TransactionCurrencyCode = null,
+    decimal? TransactionAmount = null,
+    string? ExpectedFunctionalCurrencyCode = null,
+    DateOnly? RateDate = null,
+    Guid? ExchangeRateId = null,
+    Guid? ExchangeRateVersionId = null,
+    int? ExchangeRateVersionNumber = null,
+    decimal? AppliedRate = null,
+    Guid? MonetaryPolicyId = null,
+    int? MonetaryPolicyVersionNumber = null,
+    int? RoundingScale = null,
+    string? RoundingMode = null,
+    string? ReportingCurrencyCode = null,
+    Guid? ReportingExchangeRateId = null,
+    Guid? ReportingExchangeRateVersionId = null,
+    int? ReportingExchangeRateVersionNumber = null,
+    decimal? ReportingAppliedRate = null);
 
 public sealed record FinanceMigrationGlOpeningCommand(
     Guid CompanyId,

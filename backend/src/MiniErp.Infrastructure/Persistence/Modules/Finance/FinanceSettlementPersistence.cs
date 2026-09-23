@@ -302,9 +302,11 @@ internal sealed partial class FinanceSettlementPersistence(
 
         var itemId = MigrationArOpenItemId(context, command);
         var company = Company(context, command.CompanyId)!;
-        var item = new FinanceOpenItemEntity(context.TenantId, itemId, FinanceOpenItemKind.Receivable, command.CompanyId, null, command.CustomerId, MigrationArContract, evidenceId, 1, evidenceId, 1, command.SourceReference.Trim(), command.DocumentDate, preflight.Result.DueDate!.Value, company.FunctionalCurrencyCode, command.Amount, company.FunctionalCurrencyCode, command.Amount, 1m, null, null, null, preflight.Result.PaymentTerm, null, null, MigrationArSnapshot(command, preflight.Result.DueDate.Value, preflight.Result.PaymentTerm));
+        var expectation = preflight.Result.Expectation!;
+        var currency = NormalizeCode(command.CurrencyCode)!;
+        var item = new FinanceOpenItemEntity(context.TenantId, itemId, FinanceOpenItemKind.Receivable, command.CompanyId, null, command.CustomerId, MigrationArContract, evidenceId, 1, evidenceId, 1, command.SourceReference.Trim(), command.DocumentDate, preflight.Result.DueDate!.Value, currency, command.Amount, company.FunctionalCurrencyCode, expectation.FunctionalAmount, currency == company.FunctionalCurrencyCode ? 1m : expectation.AppliedRate, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateId, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateVersionId, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateVersionNumber, preflight.Result.PaymentTerm, null, null, MigrationArSnapshot(command, preflight.Result.DueDate.Value, preflight.Result.PaymentTerm));
         db.OpenItems.Add(item);
-        var journal = await CreateMigrationArPostedJournalAsync(db, context, command, evidenceId, preflight.Rule!, company, cancellationToken);
+        var journal = await CreateMigrationArPostedJournalAsync(db, context, command, evidenceId, preflight.Rule!, company, expectation, cancellationToken);
         if (!journal.Succeeded || journal.Value is null) return Failure<FinanceOpenItemRecord>(journal.Code);
         item.SetRecognition(FinanceOpenItemRecognitionState.Recognized, journal.Value.Id);
         var now = DateTimeOffset.UtcNow;
@@ -779,8 +781,6 @@ internal sealed partial class FinanceSettlementPersistence(
         var currency = NormalizeCode(command.CurrencyCode);
         if (currency is null || command.CustomerId == Guid.Empty || command.DocumentDate == default || command.OpeningDate == default || command.Amount <= 0m || string.IsNullOrWhiteSpace(command.SourceReference) || command.SourceReference.Trim().Length > 256)
             return Block("invalid_ar_opening", company.FunctionalCurrencyCode);
-        if (!string.Equals(currency, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase))
-            return Block("currency_not_functional", company.FunctionalCurrencyCode);
         if (!await CustomerIsActiveAsync(context, command.CustomerId, cancellationToken)) return Block("party_scope_denied", company.FunctionalCurrencyCode);
 
         var term = await ResolveMigrationArPaymentTermAsync(context, command.PaymentTermId, command.DueDate, command.DocumentDate, cancellationToken);
@@ -817,10 +817,13 @@ internal sealed partial class FinanceSettlementPersistence(
         if (await db.CashAccounts.AnyAsync(item => item.CompanyId == command.CompanyId && item.LinkedAccountId == rule.Value.DebitAccountId && item.Lifecycle == FinancePaymentMethodLifecycle.Active && item.EffectiveFrom <= command.OpeningDate && (item.EffectiveTo == null || item.EffectiveTo >= command.OpeningDate), cancellationToken))
             return Block("ar_control_account_overlaps_cash", company.FunctionalCurrencyCode, term.Value.Value.DueDate, term.Value.Value.Snapshot);
 
+        var monetary = await FinanceJournalMonetaryEvidenceFactory.ResolveMigrationOpeningAsync(db, context.TenantContext, exchangeRates, command.CompanyId, command.OpeningDate, currency, command.Amount, company.FunctionalCurrencyCode, command.ExpectedExpectation, cancellationToken);
+        if (!monetary.Succeeded) return Block(monetary.Code, company.FunctionalCurrencyCode, term.Value.Value.DueDate, term.Value.Value.Snapshot);
+        var expectation = FinanceJournalMonetaryEvidenceFactory.ApplyExpectation(new FinanceMigrationOpeningExpectation(command.SourceRecordId, MigrationArContract, "recognition", monetary.Evidence?.FunctionalAmount ?? command.Amount, rule.Value.Id, rule.Value.VersionNumber, rule.Value.DebitAccountId, rule.Value.CreditAccountId, false, sourceEvidenceId, 1, command.CustomerId, command.SourceReference.Trim()), monetary.Evidence, command.OpeningDate, currency, command.Amount, company.FunctionalCurrencyCode);
         var approval = SourceApprovalPolicy.Resolve(MigrationArContract, "recognition");
         if (approval != FinanceApprovalRequirement.NotRequired)
             return Block(approval == FinanceApprovalRequirement.Required ? "approval_required" : "approval_policy_not_configured", company.FunctionalCurrencyCode, term.Value.Value.DueDate, term.Value.Value.Snapshot);
-        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, term.Value.Value.DueDate, term.Value.Value.Snapshot, rule.Value.Id, rule.Value.VersionNumber, rule.Value.DebitAccountId, rule.Value.CreditAccountId), rule.Value);
+        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, term.Value.Value.DueDate, term.Value.Value.Snapshot, rule.Value.Id, rule.Value.VersionNumber, rule.Value.DebitAccountId, rule.Value.CreditAccountId, expectation), rule.Value);
     }
 
     private async Task<(bool Succeeded, string Code, (DateOnly DueDate, FinancePaymentTermSnapshotRecord? Snapshot)? Value)> ResolveMigrationArPaymentTermAsync(FinanceRequestContext context, Guid? paymentTermId, DateOnly? dueDate, DateOnly documentDate, CancellationToken cancellationToken)
@@ -838,7 +841,7 @@ internal sealed partial class FinanceSettlementPersistence(
         return (true, "eligible", (calculatedDue, new FinancePaymentTermSnapshotRecord(term.Id, version.Code, version.Name.English, version.Name.Arabic, version.VersionNumber, version.Id, documentDate, calculatedDue)));
     }
 
-    private async Task<(bool Succeeded, string Code, FinanceJournalRecord? Value)> CreateMigrationArPostedJournalAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationArOpeningCommand command, Guid sourceEvidenceId, FinancePostingRuleEntity rule, FinanceCompanyOption company, CancellationToken cancellationToken)
+    private async Task<(bool Succeeded, string Code, FinanceJournalRecord? Value)> CreateMigrationArPostedJournalAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationArOpeningCommand command, Guid sourceEvidenceId, FinancePostingRuleEntity rule, FinanceCompanyOption company, FinanceMigrationOpeningExpectation expectation, CancellationToken cancellationToken)
     {
         var period = await db.FiscalPeriods.SingleOrDefaultAsync(item => item.CompanyId == command.CompanyId && item.StartDate <= command.OpeningDate && item.EndDate >= command.OpeningDate && item.State == FinanceFiscalPeriodState.Open, cancellationToken);
         if (period is null) return (false, "period_not_open", null);
@@ -848,15 +851,17 @@ internal sealed partial class FinanceSettlementPersistence(
         while (db.ChangeTracker.Entries<FinanceJournalEntity>().Any(entry => entry.State != EntityState.Deleted && entry.Entity.CompanyId == command.CompanyId && entry.Entity.JournalSequence == sequence)) sequence++;
         var lines = new[]
         {
-            new FinanceJournalLineCommand(rule.DebitAccountId, command.Amount, 0m, command.Amount, company.FunctionalCurrencyCode, null, "AR opening recognition"),
-            new FinanceJournalLineCommand(rule.CreditAccountId, 0m, command.Amount, command.Amount, company.FunctionalCurrencyCode, null, "AR opening recognition")
+            new FinanceJournalLineCommand(rule.DebitAccountId, command.Amount, 0m, command.Amount, NormalizeCode(command.CurrencyCode), null, "AR opening recognition"),
+            new FinanceJournalLineCommand(rule.CreditAccountId, 0m, command.Amount, command.Amount, NormalizeCode(command.CurrencyCode), null, "AR opening recognition")
         };
-        var journalCommand = new FinanceJournalCommand(command.CompanyId, command.DocumentDate, command.OpeningDate, company.FunctionalCurrencyCode, 1m, null, null, null, MigrationArContract, "recognition", sourceEvidenceId, 1, rule.Id, $"AR opening {command.SourceReference.Trim()}", lines, Guid.NewGuid(), Guid.NewGuid().ToString("N"), command.RequestFingerprint, FinanceJournalAmountAuthority.ManualTransactionCurrency, FinanceApprovalRequirement.NotRequired);
+        var currency = NormalizeCode(command.CurrencyCode)!;
+        var journalCommand = new FinanceJournalCommand(command.CompanyId, command.DocumentDate, command.OpeningDate, currency, currency == company.FunctionalCurrencyCode ? 1m : expectation.AppliedRate, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateId, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateVersionId, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateVersionNumber, MigrationArContract, "recognition", sourceEvidenceId, 1, rule.Id, $"AR opening {command.SourceReference.Trim()}", lines, Guid.NewGuid(), Guid.NewGuid().ToString("N"), command.RequestFingerprint, FinanceJournalAmountAuthority.ManualTransactionCurrency, FinanceApprovalRequirement.NotRequired);
         var journal = new FinanceJournalEntity(context.TenantId, journalCommand.Id, journalCommand, sequence, company.FunctionalCurrencyCode, context.ActorId, DateTimeOffset.UtcNow);
         journal.SetCorrelation(context.CorrelationId); journal.SetPeriod(period.FiscalYearId, period.Id); journal.SetRule(rule.Id, rule.VersionNumber); journal.SetStatus(FinanceJournalStatus.Posted, context.ActorId, DateTimeOffset.UtcNow);
-        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, Guid.NewGuid(), journal.Id, 1, accounts[rule.DebitAccountId], lines[0], null, command.Amount, 0m, FinanceJournalAmountAuthority.ManualTransactionCurrency));
-        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, Guid.NewGuid(), journal.Id, 2, accounts[rule.CreditAccountId], lines[1], null, 0m, command.Amount, FinanceJournalAmountAuthority.ManualTransactionCurrency));
-        var evidence = await FinanceJournalMonetaryEvidenceFactory.BuildAsync(db, context.TenantContext, exchangeRates, command.CompanyId, command.OpeningDate, company.FunctionalCurrencyCode, command.Amount, company.FunctionalCurrencyCode, command.Amount, 1m, null, null, null, cancellationToken);
+        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, Guid.NewGuid(), journal.Id, 1, accounts[rule.DebitAccountId], lines[0], null, expectation.FunctionalAmount, 0m, FinanceJournalAmountAuthority.ManualTransactionCurrency));
+        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, Guid.NewGuid(), journal.Id, 2, accounts[rule.CreditAccountId], lines[1], null, 0m, expectation.FunctionalAmount, FinanceJournalAmountAuthority.ManualTransactionCurrency));
+        var monetary = await FinanceJournalMonetaryEvidenceFactory.ResolveMigrationOpeningAsync(db, context.TenantContext, exchangeRates, command.CompanyId, command.OpeningDate, currency, command.Amount, company.FunctionalCurrencyCode, expectation, cancellationToken);
+        var evidence = (monetary.Succeeded, monetary.Code, monetary.Evidence);
         if (!evidence.Succeeded) return (false, evidence.Code, null);
         db.Journals.Add(journal);
         if (evidence.Evidence is not null) db.JournalMonetaryEvidence.Add(new FinanceJournalMonetaryEvidenceEntity(context.TenantId, Guid.NewGuid(), journal.Id, command.CompanyId, null, evidence.Evidence, DateTimeOffset.UtcNow));
@@ -883,9 +888,6 @@ internal sealed partial class FinanceSettlementPersistence(
             return Block("invalid_cash_bank_opening", company.FunctionalCurrencyCode);
         if (command.Amount < 0m) return Block("migration_cash_bank_opening_amount_negative", company.FunctionalCurrencyCode);
         if (command.Amount == 0m) return Block("migration_cash_bank_opening_zero_amount", company.FunctionalCurrencyCode);
-        if (!string.Equals(currency, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase))
-            return Block("migration_cash_bank_opening_currency_not_functional", company.FunctionalCurrencyCode);
-
         var cashEntity = await db.CashAccounts.SingleOrDefaultAsync(item => item.Id == command.CashAccountId && item.CompanyId == command.CompanyId, cancellationToken);
         if (cashEntity is null) return Block("cash_account_missing", company.FunctionalCurrencyCode);
         var cash = ToCash(cashEntity);
@@ -935,10 +937,13 @@ internal sealed partial class FinanceSettlementPersistence(
         if (await db.PostingRules.AnyAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationApContract && item.SourceEvent == "recognition" && item.Lifecycle == FinancePostingRuleLifecycle.Enabled && item.EffectiveFrom <= command.OpeningDate && (item.EffectiveTo == null || item.EffectiveTo >= command.OpeningDate) && item.CreditAccountId == cash.LinkedAccountId, cancellationToken))
             return Block("cash_bank_account_overlaps_ap_control", company.FunctionalCurrencyCode, cash, linked);
 
+        var monetary = await FinanceJournalMonetaryEvidenceFactory.ResolveMigrationOpeningAsync(db, context.TenantContext, exchangeRates, command.CompanyId, command.OpeningDate, currency, command.Amount, company.FunctionalCurrencyCode, command.ExpectedExpectation, cancellationToken);
+        if (!monetary.Succeeded) return Block(monetary.Code, company.FunctionalCurrencyCode, cash, linked);
+        var expectation = FinanceJournalMonetaryEvidenceFactory.ApplyExpectation(new FinanceMigrationOpeningExpectation(command.SourceRecordId, MigrationCashBankContract, "recognition", monetary.Evidence?.FunctionalAmount ?? command.Amount, rule.Value.Id, rule.Value.VersionNumber, rule.Value.DebitAccountId, rule.Value.CreditAccountId, false, evidenceId, 1, command.CashAccountId, command.SourceReference.Trim()), monetary.Evidence, command.OpeningDate, currency, command.Amount, company.FunctionalCurrencyCode);
         var approval = SourceApprovalPolicy.Resolve(MigrationCashBankContract, "recognition");
         if (approval != FinanceApprovalRequirement.NotRequired)
             return Block(approval == FinanceApprovalRequirement.Required ? "approval_required" : "approval_policy_not_configured", company.FunctionalCurrencyCode, cash, linked);
-        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, cash, linked, rule.Value.Id, rule.Value.VersionNumber, rule.Value.DebitAccountId, rule.Value.CreditAccountId), rule.Value);
+        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, cash, linked, rule.Value.Id, rule.Value.VersionNumber, rule.Value.DebitAccountId, rule.Value.CreditAccountId, expectation), rule.Value);
     }
 
     private async Task<FinanceOperationResult<FinanceJournalRecord>> CreateMigrationCashBankOpeningCoreAsync(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken)
@@ -962,17 +967,19 @@ internal sealed partial class FinanceSettlementPersistence(
         if (!preflight.Result.Ready || preflight.Result.CashAccount is null || preflight.Result.LinkedAccount is null) return Failure<FinanceJournalRecord>(preflight.Result.Code);
         var company = Company(context, command.CompanyId)!;
         var rule = preflight.Rule!;
+        var expectation = preflight.Result.Expectation!;
+        var currency = NormalizeCode(command.CurrencyCode)!;
         var period = await db.FiscalPeriods.SingleAsync(item => item.CompanyId == command.CompanyId && item.StartDate <= command.OpeningDate && item.EndDate >= command.OpeningDate, cancellationToken);
         var accounts = await db.Accounts.Where(item => item.CompanyId == command.CompanyId && (item.Id == rule.DebitAccountId || item.Id == rule.CreditAccountId)).ToDictionaryAsync(item => item.Id, cancellationToken);
-        var journalCommand = new FinanceJournalCommand(command.CompanyId, command.OpeningDate, command.OpeningDate, company.FunctionalCurrencyCode, 1m, null, null, null, MigrationCashBankContract, "recognition", evidenceId, 1, rule.Id, $"Cash/Bank opening {command.SourceReference.Trim()}", [
-            new FinanceJournalLineCommand(rule.DebitAccountId, command.Amount, 0m, command.Amount, company.FunctionalCurrencyCode, null, "Cash/Bank opening recognition"),
-            new FinanceJournalLineCommand(rule.CreditAccountId, 0m, command.Amount, command.Amount, company.FunctionalCurrencyCode, null, "Cash/Bank opening recognition")
+        var journalCommand = new FinanceJournalCommand(command.CompanyId, command.OpeningDate, command.OpeningDate, currency, currency == company.FunctionalCurrencyCode ? 1m : expectation.AppliedRate, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateId, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateVersionId, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateVersionNumber, MigrationCashBankContract, "recognition", evidenceId, 1, rule.Id, $"Cash/Bank opening {command.SourceReference.Trim()}", [
+            new FinanceJournalLineCommand(rule.DebitAccountId, command.Amount, 0m, command.Amount, currency, null, "Cash/Bank opening recognition"),
+            new FinanceJournalLineCommand(rule.CreditAccountId, 0m, command.Amount, command.Amount, currency, null, "Cash/Bank opening recognition")
         ], MigrationCashBankJournalId(context, command), Guid.NewGuid().ToString("N"), command.RequestFingerprint, FinanceJournalAmountAuthority.ManualTransactionCurrency, FinanceApprovalRequirement.NotRequired);
         var journal = new FinanceJournalEntity(context.TenantId, journalCommand.Id, journalCommand, (await db.Journals.Where(item => item.CompanyId == command.CompanyId).Select(item => (long?)item.JournalSequence).MaxAsync(cancellationToken) ?? 0L) + 1L, company.FunctionalCurrencyCode, context.ActorId, DateTimeOffset.UtcNow);
         journal.SetCorrelation(context.CorrelationId); journal.SetPeriod(period.FiscalYearId, period.Id); journal.SetRule(rule.Id, rule.VersionNumber); journal.SetStatus(FinanceJournalStatus.Posted, context.ActorId, DateTimeOffset.UtcNow);
-        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, StableId("cash-bank-line", evidenceId.ToString("D"), "debit"), journal.Id, 1, accounts[rule.DebitAccountId], journalCommand.Lines[0], null, command.Amount, 0m, FinanceJournalAmountAuthority.ManualTransactionCurrency));
-        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, StableId("cash-bank-line", evidenceId.ToString("D"), "credit"), journal.Id, 2, accounts[rule.CreditAccountId], journalCommand.Lines[1], null, 0m, command.Amount, FinanceJournalAmountAuthority.ManualTransactionCurrency));
-        var monetary = await FinanceJournalMonetaryEvidenceFactory.BuildAsync(db, context.TenantContext, exchangeRates, command.CompanyId, command.OpeningDate, company.FunctionalCurrencyCode, command.Amount, company.FunctionalCurrencyCode, command.Amount, 1m, null, null, null, cancellationToken);
+        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, StableId("cash-bank-line", evidenceId.ToString("D"), "debit"), journal.Id, 1, accounts[rule.DebitAccountId], journalCommand.Lines[0], null, expectation.FunctionalAmount, 0m, FinanceJournalAmountAuthority.ManualTransactionCurrency));
+        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, StableId("cash-bank-line", evidenceId.ToString("D"), "credit"), journal.Id, 2, accounts[rule.CreditAccountId], journalCommand.Lines[1], null, 0m, expectation.FunctionalAmount, FinanceJournalAmountAuthority.ManualTransactionCurrency));
+        var monetary = await FinanceJournalMonetaryEvidenceFactory.ResolveMigrationOpeningAsync(db, context.TenantContext, exchangeRates, command.CompanyId, command.OpeningDate, currency, command.Amount, company.FunctionalCurrencyCode, expectation, cancellationToken);
         if (!monetary.Succeeded) return Failure<FinanceJournalRecord>(monetary.Code);
         db.Journals.Add(journal);
         if (monetary.Evidence is not null) db.JournalMonetaryEvidence.Add(new FinanceJournalMonetaryEvidenceEntity(context.TenantId, Guid.NewGuid(), journal.Id, command.CompanyId, null, monetary.Evidence, DateTimeOffset.UtcNow));
@@ -1005,7 +1012,7 @@ internal sealed partial class FinanceSettlementPersistence(
         if (linkedEntity is null) return null;
         var evidenceId = MigrationCashBankSourceEvidenceId(context, command);
         var journal = await db.Journals.AsNoTracking().Include(item => item.Lines).SingleOrDefaultAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationCashBankContract && item.SourceEvent == "recognition" && item.SourceEvidenceId == evidenceId && item.SourceEvidenceVersion == 1 && item.Status == FinanceJournalStatus.Posted, cancellationToken);
-        if (journal is null || journal.JournalDate != command.OpeningDate || journal.PostingDate != command.OpeningDate || !string.Equals(journal.TransactionCurrencyCode, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase) || journal.ExchangeRate != 1m || journal.AmountAuthority != FinanceJournalAmountAuthority.ManualTransactionCurrency || journal.ApprovalRequirement != FinanceApprovalRequirement.NotRequired)
+        if (journal is null || journal.JournalDate != command.OpeningDate || journal.PostingDate != command.OpeningDate || !string.Equals(journal.TransactionCurrencyCode, NormalizeCode(command.CurrencyCode), StringComparison.OrdinalIgnoreCase) || journal.AmountAuthority != FinanceJournalAmountAuthority.ManualTransactionCurrency || journal.ApprovalRequirement != FinanceApprovalRequirement.NotRequired)
             return null;
         if (journal.PostingRuleId is not { } ruleId || journal.PostingRuleVersionNumber is not { } ruleVersion) return null;
         var rule = await db.PostingRules.AsNoTracking().SingleOrDefaultAsync(item => item.Id == ruleId && item.CompanyId == command.CompanyId && item.SourceContract == MigrationCashBankContract && item.SourceEvent == "recognition" && item.VersionNumber == ruleVersion, cancellationToken);
@@ -1013,7 +1020,8 @@ internal sealed partial class FinanceSettlementPersistence(
         var effects = await db.SourceEffects.AsNoTracking().Where(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationCashBankContract && item.SourceEvidenceId == evidenceId && item.SourceEvidenceVersion == 1).ToListAsync(cancellationToken);
         if (effects.Count != 1 || effects[0].JournalId != journal.Id) return null;
         var cash = ToCash(cashEntity);
-        return new FinanceMigrationCashBankOpeningEvidence(cash, ToAccount(linkedEntity), ToJournal(journal), ToSourceEffect(effects[0]));
+        var monetary = await ReadMonetaryEvidenceAsync(db, journal.Id, cancellationToken);
+        return new FinanceMigrationCashBankOpeningEvidence(cash, ToAccount(linkedEntity), ToJournal(journal), ToSourceEffect(effects[0]), monetary);
     }
 
     private static async Task<bool> ExistingMigrationCashBankConflictAsync(FinanceDbContext db, FinanceSourceEffectEntity existing, FinanceMigrationCashBankOpeningCommand command, CancellationToken cancellationToken)
@@ -1032,8 +1040,8 @@ internal sealed partial class FinanceSettlementPersistence(
         return rule.DebitAccountId == linkedAccountId
             && lines.Length == 2
             && string.Equals(journal.Description, $"Cash/Bank opening {command.SourceReference.Trim()}", StringComparison.Ordinal)
-            && lines[0].AccountId == linkedAccountId && lines[0].Debit == command.Amount && lines[0].Credit == 0m && lines[0].FunctionalDebit == command.Amount && lines[0].FunctionalCredit == 0m && lines[0].TransactionAmount == command.Amount && string.Equals(lines[0].TransactionCurrencyCode, functionalCurrencyCode, StringComparison.OrdinalIgnoreCase)
-            && lines[1].AccountId == rule.CreditAccountId && lines[1].Debit == 0m && lines[1].Credit == command.Amount && lines[1].FunctionalDebit == 0m && lines[1].FunctionalCredit == command.Amount && lines[1].TransactionAmount == command.Amount && string.Equals(lines[1].TransactionCurrencyCode, functionalCurrencyCode, StringComparison.OrdinalIgnoreCase);
+            && lines[0].AccountId == linkedAccountId && lines[0].Debit == command.Amount && lines[0].Credit == 0m && lines[0].FunctionalDebit > 0m && lines[0].FunctionalCredit == 0m && lines[0].TransactionAmount == command.Amount && string.Equals(lines[0].TransactionCurrencyCode, NormalizeCode(command.CurrencyCode), StringComparison.OrdinalIgnoreCase)
+            && lines[1].AccountId == rule.CreditAccountId && lines[1].Debit == 0m && lines[1].Credit == command.Amount && lines[1].FunctionalDebit == 0m && lines[1].FunctionalCredit == lines[0].FunctionalDebit && lines[1].TransactionAmount == command.Amount && string.Equals(lines[1].TransactionCurrencyCode, NormalizeCode(command.CurrencyCode), StringComparison.OrdinalIgnoreCase);
     }
 
     private static Guid MigrationCashBankSourceEvidenceId(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command) => StableId("migration-cash-bank-source", context.TenantId.Value.ToString("D"), command.CompanyId.ToString("D"), command.CashAccountId.ToString("D"), command.SourceReference.Trim(), MigrationCashBankContract);
@@ -1050,8 +1058,6 @@ internal sealed partial class FinanceSettlementPersistence(
         var currency = NormalizeCode(command.CurrencyCode);
         if (currency is null || command.SupplierId == Guid.Empty || command.DocumentDate == default || command.OpeningDate == default || command.Amount <= 0m || string.IsNullOrWhiteSpace(command.SourceReference) || command.SourceReference.Trim().Length > 256)
             return Block("invalid_ap_opening", company.FunctionalCurrencyCode);
-        if (!string.Equals(currency, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase))
-            return Block("currency_not_functional", company.FunctionalCurrencyCode);
         if (!await SupplierIsActiveAsync(context, command.SupplierId, cancellationToken)) return Block("party_scope_denied", company.FunctionalCurrencyCode);
 
         var term = await ResolveMigrationArPaymentTermAsync(context, command.PaymentTermId, command.DueDate, command.DocumentDate, cancellationToken);
@@ -1088,10 +1094,13 @@ internal sealed partial class FinanceSettlementPersistence(
         if (await db.CashAccounts.AnyAsync(item => item.CompanyId == command.CompanyId && item.LinkedAccountId == rule.Value.CreditAccountId && item.Lifecycle == FinancePaymentMethodLifecycle.Active && item.EffectiveFrom <= command.OpeningDate && (item.EffectiveTo == null || item.EffectiveTo >= command.OpeningDate), cancellationToken))
             return Block("ap_control_account_overlaps_cash", company.FunctionalCurrencyCode, term.Value.Value.DueDate, term.Value.Value.Snapshot);
 
+        var monetary = await FinanceJournalMonetaryEvidenceFactory.ResolveMigrationOpeningAsync(db, context.TenantContext, exchangeRates, command.CompanyId, command.OpeningDate, currency, command.Amount, company.FunctionalCurrencyCode, command.ExpectedExpectation, cancellationToken);
+        if (!monetary.Succeeded) return Block(monetary.Code, company.FunctionalCurrencyCode, term.Value.Value.DueDate, term.Value.Value.Snapshot);
+        var expectation = FinanceJournalMonetaryEvidenceFactory.ApplyExpectation(new FinanceMigrationOpeningExpectation(command.SourceRecordId, MigrationApContract, "recognition", monetary.Evidence?.FunctionalAmount ?? command.Amount, rule.Value.Id, rule.Value.VersionNumber, rule.Value.CreditAccountId, rule.Value.DebitAccountId, true, sourceEvidenceId, 1, command.SupplierId, command.SourceReference.Trim()), monetary.Evidence, command.OpeningDate, currency, command.Amount, company.FunctionalCurrencyCode);
         var approval = SourceApprovalPolicy.Resolve(MigrationApContract, "recognition");
         if (approval != FinanceApprovalRequirement.NotRequired)
             return Block(approval == FinanceApprovalRequirement.Required ? "approval_required" : "approval_policy_not_configured", company.FunctionalCurrencyCode, term.Value.Value.DueDate, term.Value.Value.Snapshot);
-        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, term.Value.Value.DueDate, term.Value.Value.Snapshot, rule.Value.Id, rule.Value.VersionNumber, rule.Value.CreditAccountId, rule.Value.DebitAccountId), rule.Value);
+        return new(new(true, "ready", company.FunctionalCurrencyCode, approval, term.Value.Value.DueDate, term.Value.Value.Snapshot, rule.Value.Id, rule.Value.VersionNumber, rule.Value.CreditAccountId, rule.Value.DebitAccountId, expectation), rule.Value);
     }
 
     private async Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateMigrationApOpeningCoreAsync(FinanceRequestContext context, FinanceMigrationApOpeningCommand command, CancellationToken cancellationToken)
@@ -1118,9 +1127,11 @@ internal sealed partial class FinanceSettlementPersistence(
         var preflight = await ValidateMigrationApOpeningAsync(db, context, command, cancellationToken);
         if (!preflight.Result.Ready) return Failure<FinanceOpenItemRecord>(preflight.Result.Code);
         var company = Company(context, command.CompanyId)!;
-        var item = new FinanceOpenItemEntity(context.TenantId, MigrationApOpenItemId(context, command), FinanceOpenItemKind.Payable, command.CompanyId, command.SupplierId, null, MigrationApContract, evidenceId, 1, evidenceId, 1, command.SourceReference.Trim(), command.DocumentDate, preflight.Result.DueDate!.Value, company.FunctionalCurrencyCode, command.Amount, company.FunctionalCurrencyCode, command.Amount, 1m, null, null, null, preflight.Result.PaymentTerm, null, null, MigrationApSnapshot(command, preflight.Result.DueDate.Value, preflight.Result.PaymentTerm));
+        var expectation = preflight.Result.Expectation!;
+        var currency = NormalizeCode(command.CurrencyCode)!;
+        var item = new FinanceOpenItemEntity(context.TenantId, MigrationApOpenItemId(context, command), FinanceOpenItemKind.Payable, command.CompanyId, command.SupplierId, null, MigrationApContract, evidenceId, 1, evidenceId, 1, command.SourceReference.Trim(), command.DocumentDate, preflight.Result.DueDate!.Value, currency, command.Amount, company.FunctionalCurrencyCode, expectation.FunctionalAmount, currency == company.FunctionalCurrencyCode ? 1m : expectation.AppliedRate, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateId, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateVersionId, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateVersionNumber, preflight.Result.PaymentTerm, null, null, MigrationApSnapshot(command, preflight.Result.DueDate.Value, preflight.Result.PaymentTerm));
         db.OpenItems.Add(item);
-        var journal = await CreateMigrationApPostedJournalAsync(db, context, command, evidenceId, preflight.Rule!, company, cancellationToken);
+        var journal = await CreateMigrationApPostedJournalAsync(db, context, command, evidenceId, preflight.Rule!, company, expectation, cancellationToken);
         if (!journal.Succeeded || journal.Value is null) return Failure<FinanceOpenItemRecord>(journal.Code);
         item.SetRecognition(FinanceOpenItemRecognitionState.Recognized, journal.Value.Id);
         var now = DateTimeOffset.UtcNow;
@@ -1142,7 +1153,7 @@ internal sealed partial class FinanceSettlementPersistence(
         return item is not null && !MatchesRecordedMigrationApOpening(item, command) ? "migration_ap_source_conflict" : "migration_ap_opening_outcome_unknown";
     }
 
-    private async Task<(bool Succeeded, string Code, FinanceJournalRecord? Value)> CreateMigrationApPostedJournalAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationApOpeningCommand command, Guid sourceEvidenceId, FinancePostingRuleEntity rule, FinanceCompanyOption company, CancellationToken cancellationToken)
+    private async Task<(bool Succeeded, string Code, FinanceJournalRecord? Value)> CreateMigrationApPostedJournalAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationApOpeningCommand command, Guid sourceEvidenceId, FinancePostingRuleEntity rule, FinanceCompanyOption company, FinanceMigrationOpeningExpectation expectation, CancellationToken cancellationToken)
     {
         var period = await db.FiscalPeriods.SingleOrDefaultAsync(item => item.CompanyId == command.CompanyId && item.StartDate <= command.OpeningDate && item.EndDate >= command.OpeningDate && item.State == FinanceFiscalPeriodState.Open, cancellationToken);
         if (period is null) return (false, "period_not_open", null);
@@ -1152,15 +1163,17 @@ internal sealed partial class FinanceSettlementPersistence(
         while (db.ChangeTracker.Entries<FinanceJournalEntity>().Any(entry => entry.State != EntityState.Deleted && entry.Entity.CompanyId == command.CompanyId && entry.Entity.JournalSequence == sequence)) sequence++;
         var lines = new[]
         {
-            new FinanceJournalLineCommand(rule.DebitAccountId, command.Amount, 0m, command.Amount, company.FunctionalCurrencyCode, null, "AP opening recognition"),
-            new FinanceJournalLineCommand(rule.CreditAccountId, 0m, command.Amount, command.Amount, company.FunctionalCurrencyCode, null, "AP opening recognition")
+            new FinanceJournalLineCommand(rule.DebitAccountId, command.Amount, 0m, command.Amount, NormalizeCode(command.CurrencyCode), null, "AP opening recognition"),
+            new FinanceJournalLineCommand(rule.CreditAccountId, 0m, command.Amount, command.Amount, NormalizeCode(command.CurrencyCode), null, "AP opening recognition")
         };
-        var journalCommand = new FinanceJournalCommand(command.CompanyId, command.DocumentDate, command.OpeningDate, company.FunctionalCurrencyCode, 1m, null, null, null, MigrationApContract, "recognition", sourceEvidenceId, 1, rule.Id, $"AP opening {command.SourceReference.Trim()}", lines, Guid.NewGuid(), Guid.NewGuid().ToString("N"), command.RequestFingerprint, FinanceJournalAmountAuthority.ManualTransactionCurrency, FinanceApprovalRequirement.NotRequired);
+        var currency = NormalizeCode(command.CurrencyCode)!;
+        var journalCommand = new FinanceJournalCommand(command.CompanyId, command.DocumentDate, command.OpeningDate, currency, currency == company.FunctionalCurrencyCode ? 1m : expectation.AppliedRate, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateId, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateVersionId, currency == company.FunctionalCurrencyCode ? null : expectation.ExchangeRateVersionNumber, MigrationApContract, "recognition", sourceEvidenceId, 1, rule.Id, $"AP opening {command.SourceReference.Trim()}", lines, Guid.NewGuid(), Guid.NewGuid().ToString("N"), command.RequestFingerprint, FinanceJournalAmountAuthority.ManualTransactionCurrency, FinanceApprovalRequirement.NotRequired);
         var journal = new FinanceJournalEntity(context.TenantId, journalCommand.Id, journalCommand, sequence, company.FunctionalCurrencyCode, context.ActorId, DateTimeOffset.UtcNow);
         journal.SetCorrelation(context.CorrelationId); journal.SetPeriod(period.FiscalYearId, period.Id); journal.SetRule(rule.Id, rule.VersionNumber); journal.SetStatus(FinanceJournalStatus.Posted, context.ActorId, DateTimeOffset.UtcNow);
-        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, Guid.NewGuid(), journal.Id, 1, accounts[rule.DebitAccountId], lines[0], null, command.Amount, 0m, FinanceJournalAmountAuthority.ManualTransactionCurrency));
-        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, Guid.NewGuid(), journal.Id, 2, accounts[rule.CreditAccountId], lines[1], null, 0m, command.Amount, FinanceJournalAmountAuthority.ManualTransactionCurrency));
-        var evidence = await FinanceJournalMonetaryEvidenceFactory.BuildAsync(db, context.TenantContext, exchangeRates, command.CompanyId, command.OpeningDate, company.FunctionalCurrencyCode, command.Amount, company.FunctionalCurrencyCode, command.Amount, 1m, null, null, null, cancellationToken);
+        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, Guid.NewGuid(), journal.Id, 1, accounts[rule.DebitAccountId], lines[0], null, expectation.FunctionalAmount, 0m, FinanceJournalAmountAuthority.ManualTransactionCurrency));
+        journal.Lines.Add(new FinanceJournalLineEntity(context.TenantId, Guid.NewGuid(), journal.Id, 2, accounts[rule.CreditAccountId], lines[1], null, 0m, expectation.FunctionalAmount, FinanceJournalAmountAuthority.ManualTransactionCurrency));
+        var monetary = await FinanceJournalMonetaryEvidenceFactory.ResolveMigrationOpeningAsync(db, context.TenantContext, exchangeRates, command.CompanyId, command.OpeningDate, currency, command.Amount, company.FunctionalCurrencyCode, expectation, cancellationToken);
+        var evidence = (monetary.Succeeded, monetary.Code, monetary.Evidence);
         if (!evidence.Succeeded) return (false, evidence.Code, null);
         db.Journals.Add(journal);
         if (evidence.Evidence is not null) db.JournalMonetaryEvidence.Add(new FinanceJournalMonetaryEvidenceEntity(context.TenantId, Guid.NewGuid(), journal.Id, command.CompanyId, null, evidence.Evidence, DateTimeOffset.UtcNow));
@@ -1179,21 +1192,21 @@ internal sealed partial class FinanceSettlementPersistence(
         var item = await db.OpenItems.AsNoTracking().SingleOrDefaultAsync(value => value.CompanyId == command.CompanyId && value.SourceContract == MigrationApContract && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1, cancellationToken);
         if (item is null || !MatchesRecordedMigrationApOpening(item, command) || item.RecognitionJournalId is not { } journalId) return null;
         var journal = await db.Journals.AsNoTracking().Include(value => value.Lines).SingleOrDefaultAsync(value => value.Id == journalId && value.CompanyId == command.CompanyId && value.SourceContract == MigrationApContract && value.SourceEvent == "recognition" && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1 && value.Status == FinanceJournalStatus.Posted, cancellationToken);
-        if (journal is null || journal.JournalDate != command.DocumentDate || journal.PostingDate != command.OpeningDate || !string.Equals(journal.FunctionalCurrencyCode, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase) || !string.Equals(journal.TransactionCurrencyCode, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase) || journal.ExchangeRate != 1m || journal.AmountAuthority != FinanceJournalAmountAuthority.ManualTransactionCurrency || journal.ApprovalRequirement != FinanceApprovalRequirement.NotRequired)
+        if (journal is null || journal.JournalDate != command.DocumentDate || journal.PostingDate != command.OpeningDate || !string.Equals(journal.FunctionalCurrencyCode, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase) || !string.Equals(journal.TransactionCurrencyCode, NormalizeCode(command.CurrencyCode), StringComparison.OrdinalIgnoreCase) || journal.AmountAuthority != FinanceJournalAmountAuthority.ManualTransactionCurrency || journal.ApprovalRequirement != FinanceApprovalRequirement.NotRequired)
             return null;
         if (journal.PostingRuleId is not { } ruleId || journal.PostingRuleVersionNumber is not { } ruleVersion) return null;
         var rule = await db.PostingRules.AsNoTracking().SingleOrDefaultAsync(value => value.Id == ruleId && value.CompanyId == command.CompanyId && value.SourceContract == MigrationApContract && value.SourceEvent == "recognition" && value.VersionNumber == ruleVersion, cancellationToken);
-        if (rule is null || !JournalMatchesMigrationApOpening(journal, rule, command, company.FunctionalCurrencyCode)) return null;
+        if (rule is null || !JournalMatchesMigrationApOpening(journal, rule, command, company.FunctionalCurrencyCode, item.OriginalFunctionalAmount)) return null;
         var sourceEffects = await db.SourceEffects.AsNoTracking().Where(value => value.CompanyId == command.CompanyId && value.SourceContract == MigrationApContract && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1).ToListAsync(cancellationToken);
-        return sourceEffects.Count != 1 || sourceEffects[0].JournalId != journal.Id ? null : new FinanceMigrationApOpeningEvidence(await ToOpenItemAsync(db, item, cancellationToken), ToJournal(journal), ToSourceEffect(sourceEffects[0]));
+        return sourceEffects.Count != 1 || sourceEffects[0].JournalId != journal.Id ? null : new FinanceMigrationApOpeningEvidence(await ToOpenItemAsync(db, item, cancellationToken), ToJournal(journal), ToSourceEffect(sourceEffects[0]), await ReadMonetaryEvidenceAsync(db, journal.Id, cancellationToken));
     }
 
-    private static bool JournalMatchesMigrationApOpening(FinanceJournalEntity journal, FinancePostingRuleEntity rule, FinanceMigrationApOpeningCommand command, string functionalCurrencyCode)
+    private static bool JournalMatchesMigrationApOpening(FinanceJournalEntity journal, FinancePostingRuleEntity rule, FinanceMigrationApOpeningCommand command, string functionalCurrencyCode, decimal functionalAmount)
     {
         var lines = journal.Lines.OrderBy(value => value.LineNumber).ToArray();
         return lines.Length == 2
-            && lines[0].AccountId == rule.DebitAccountId && lines[0].Debit == command.Amount && lines[0].Credit == 0m && lines[0].FunctionalDebit == command.Amount && lines[0].FunctionalCredit == 0m && lines[0].TransactionAmount == command.Amount && string.Equals(lines[0].TransactionCurrencyCode, functionalCurrencyCode, StringComparison.OrdinalIgnoreCase)
-            && lines[1].AccountId == rule.CreditAccountId && lines[1].Debit == 0m && lines[1].Credit == command.Amount && lines[1].FunctionalDebit == 0m && lines[1].FunctionalCredit == command.Amount && lines[1].TransactionAmount == command.Amount && string.Equals(lines[1].TransactionCurrencyCode, functionalCurrencyCode, StringComparison.OrdinalIgnoreCase);
+            && lines[0].AccountId == rule.DebitAccountId && lines[0].Debit == command.Amount && lines[0].Credit == 0m && lines[0].FunctionalDebit == functionalAmount && lines[0].FunctionalCredit == 0m && lines[0].TransactionAmount == command.Amount && string.Equals(lines[0].TransactionCurrencyCode, NormalizeCode(command.CurrencyCode), StringComparison.OrdinalIgnoreCase)
+            && lines[1].AccountId == rule.CreditAccountId && lines[1].Debit == 0m && lines[1].Credit == command.Amount && lines[1].FunctionalDebit == 0m && lines[1].FunctionalCredit == functionalAmount && lines[1].TransactionAmount == command.Amount && string.Equals(lines[1].TransactionCurrencyCode, NormalizeCode(command.CurrencyCode), StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool MatchesRecordedMigrationApOpening(FinanceOpenItemEntity item, FinanceMigrationApOpeningCommand command)
@@ -1214,35 +1227,35 @@ internal sealed partial class FinanceSettlementPersistence(
         var item = await db.OpenItems.AsNoTracking().SingleOrDefaultAsync(value => value.CompanyId == command.CompanyId && value.SourceContract == MigrationArContract && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1, cancellationToken);
         if (item is null || !MatchesRecordedMigrationArOpening(item, command) || item.RecognitionJournalId is not { } journalId) return null;
         var journal = await db.Journals.AsNoTracking().Include(value => value.Lines).SingleOrDefaultAsync(value => value.Id == journalId && value.CompanyId == command.CompanyId && value.SourceContract == MigrationArContract && value.SourceEvent == "recognition" && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1 && value.Status == FinanceJournalStatus.Posted, cancellationToken);
-        if (journal is null || journal.JournalDate != command.DocumentDate || journal.PostingDate != command.OpeningDate || !string.Equals(journal.FunctionalCurrencyCode, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase) || !string.Equals(journal.TransactionCurrencyCode, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase) || journal.ExchangeRate != 1m || journal.AmountAuthority != FinanceJournalAmountAuthority.ManualTransactionCurrency || journal.ApprovalRequirement != FinanceApprovalRequirement.NotRequired)
+        if (journal is null || journal.JournalDate != command.DocumentDate || journal.PostingDate != command.OpeningDate || !string.Equals(journal.FunctionalCurrencyCode, company.FunctionalCurrencyCode, StringComparison.OrdinalIgnoreCase) || !string.Equals(journal.TransactionCurrencyCode, NormalizeCode(command.CurrencyCode), StringComparison.OrdinalIgnoreCase) || journal.AmountAuthority != FinanceJournalAmountAuthority.ManualTransactionCurrency || journal.ApprovalRequirement != FinanceApprovalRequirement.NotRequired)
             return null;
         if (journal.PostingRuleId is not { } ruleId || journal.PostingRuleVersionNumber is not { } ruleVersion) return null;
         var rule = await db.PostingRules.AsNoTracking().SingleOrDefaultAsync(value => value.Id == ruleId && value.CompanyId == command.CompanyId && value.SourceContract == MigrationArContract && value.SourceEvent == "recognition" && value.VersionNumber == ruleVersion, cancellationToken);
-        if (rule is null || !JournalMatchesMigrationArOpening(journal, rule, command, company.FunctionalCurrencyCode)) return null;
+        if (rule is null || !JournalMatchesMigrationArOpening(journal, rule, command, company.FunctionalCurrencyCode, item.OriginalFunctionalAmount)) return null;
         var sourceEffects = await db.SourceEffects.AsNoTracking().Where(value => value.CompanyId == command.CompanyId && value.SourceContract == MigrationArContract && value.SourceEvidenceId == evidenceId && value.SourceEvidenceVersion == 1).ToListAsync(cancellationToken);
         return sourceEffects.Count != 1 || sourceEffects[0].JournalId != journal.Id
             ? null
-            : new FinanceMigrationArOpeningEvidence(await ToOpenItemAsync(db, item, cancellationToken), ToJournal(journal), ToSourceEffect(sourceEffects[0]));
+            : new FinanceMigrationArOpeningEvidence(await ToOpenItemAsync(db, item, cancellationToken), ToJournal(journal), ToSourceEffect(sourceEffects[0]), await ReadMonetaryEvidenceAsync(db, journal.Id, cancellationToken));
     }
 
-    private static bool JournalMatchesMigrationArOpening(FinanceJournalEntity journal, FinancePostingRuleEntity rule, FinanceMigrationArOpeningCommand command, string functionalCurrencyCode)
+    private static bool JournalMatchesMigrationArOpening(FinanceJournalEntity journal, FinancePostingRuleEntity rule, FinanceMigrationArOpeningCommand command, string functionalCurrencyCode, decimal functionalAmount)
     {
         var lines = journal.Lines.OrderBy(value => value.LineNumber).ToArray();
         return lines.Length == 2
             && lines[0].AccountId == rule.DebitAccountId
             && lines[0].Debit == command.Amount
             && lines[0].Credit == 0m
-            && lines[0].FunctionalDebit == command.Amount
+            && lines[0].FunctionalDebit == functionalAmount
             && lines[0].FunctionalCredit == 0m
             && lines[0].TransactionAmount == command.Amount
-            && string.Equals(lines[0].TransactionCurrencyCode, functionalCurrencyCode, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(lines[0].TransactionCurrencyCode, NormalizeCode(command.CurrencyCode), StringComparison.OrdinalIgnoreCase)
             && lines[1].AccountId == rule.CreditAccountId
             && lines[1].Debit == 0m
             && lines[1].Credit == command.Amount
             && lines[1].FunctionalDebit == 0m
-            && lines[1].FunctionalCredit == command.Amount
+            && lines[1].FunctionalCredit == functionalAmount
             && lines[1].TransactionAmount == command.Amount
-            && string.Equals(lines[1].TransactionCurrencyCode, functionalCurrencyCode, StringComparison.OrdinalIgnoreCase);
+            && string.Equals(lines[1].TransactionCurrencyCode, NormalizeCode(command.CurrencyCode), StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool MatchesRecordedMigrationArOpening(FinanceOpenItemEntity item, FinanceMigrationArOpeningCommand command)
@@ -1398,6 +1411,12 @@ internal sealed partial class FinanceSettlementPersistence(
     private async Task<bool> SupplierIsActiveAsync(FinanceRequestContext context, Guid id, CancellationToken cancellationToken) { var value = await suppliers.FindSupplierAsync(context.TenantContext, id, cancellationToken); return value is not null && value.TenantId.Value == context.TenantId.Value && value.LifecycleState == MasterDataLifecycleState.Active; }
     private async Task<bool> CustomerIsActiveAsync(FinanceRequestContext context, Guid id, CancellationToken cancellationToken) { var value = await customers.FindCustomerReferenceAsync(context.TenantContext, id, cancellationToken); return value is not null && value.TenantId.Value == context.TenantId.Value && value.LifecycleState == MasterDataLifecycleState.Active; }
     private FinanceCompanyOption? Company(FinanceRequestContext context, Guid id) { var matches = companies.List(context.TenantId).Where(item => item.CompanyId == id && item.IsActive).ToArray(); if (matches.Length == 0 || matches.Select(item => NormalizeCode(item.FunctionalCurrencyCode)).Distinct(StringComparer.OrdinalIgnoreCase).Count() != 1) return null; if (context.TenantContext.Scope is { } scope) { var value = scope.Value; if (value.StartsWith("Company:", StringComparison.OrdinalIgnoreCase) && (!Guid.TryParse(value["Company:".Length..], out var scoped) || scoped != id)) return null; if (value.StartsWith("Branch:", StringComparison.OrdinalIgnoreCase) && (!Guid.TryParse(value["Branch:".Length..], out var branch) || !matches.Any(item => item.BranchId == branch))) return null; } return matches[0] with { FunctionalCurrencyCode = NormalizeCode(matches[0].FunctionalCurrencyCode)! }; }
+    private static async Task<FinanceMonetaryEvidence?> ReadMonetaryEvidenceAsync(FinanceDbContext db, Guid journalId, CancellationToken cancellationToken)
+    {
+        var row = await db.JournalMonetaryEvidence.AsNoTracking().SingleOrDefaultAsync(item => item.JournalId == journalId, cancellationToken);
+        return row is null ? null : JsonSerializer.Deserialize<FinanceMonetaryEvidence>(row.MonetaryEvidenceJson);
+    }
+
     private async Task<IReadOnlyList<FinanceOpenItemRecord>> ToOpenItemsAsync(FinanceDbContext db, IEnumerable<FinanceOpenItemEntity> entities, CancellationToken cancellationToken) { var result = new List<FinanceOpenItemRecord>(); foreach (var entity in entities) result.Add(await ToOpenItemAsync(db, entity, cancellationToken)); return result; }
     private async Task<FinanceOpenItemRecord> ToOpenItemAsync(FinanceDbContext db, FinanceOpenItemEntity entity, CancellationToken cancellationToken) { var allocated = await EffectiveAllocations(db).Where(item => item.OpenItemId == entity.Id).SumAsync(item => (decimal?)item.Amount, cancellationToken) ?? 0m; var credited = await db.CustomerCreditApplications.Where(item => item.OpenItemId == entity.Id && !item.Reversed).SumAsync(item => (decimal?)item.Amount, cancellationToken) ?? 0m; var outstanding = Math.Max(0m, entity.OriginalAmount - allocated - credited); var status = entity.RecognitionState != FinanceOpenItemRecognitionState.Recognized ? FinanceOpenItemStatus.OnHold : outstanding == 0m ? FinanceOpenItemStatus.Settled : allocated + credited > 0m ? FinanceOpenItemStatus.PartiallySettled : FinanceOpenItemStatus.Open; var term = entity.PaymentTermId is { } id ? new FinancePaymentTermSnapshotRecord(id, entity.PaymentTermCode ?? string.Empty, entity.PaymentTermEnglishName, entity.PaymentTermArabicName, entity.PaymentTermVersionNumber ?? 0, entity.PaymentTermVersionId ?? Guid.Empty, entity.PaymentTermEffectiveOn ?? entity.DocumentDate, entity.DueDate) : null; return new(entity.Id, entity.TenantId.Value, entity.CompanyId, entity.Kind, entity.SupplierId, entity.CustomerId, entity.SourceContract, entity.SourceDocumentId, entity.SourceDocumentVersion, entity.SourceEvidenceId, entity.SourceEvidenceVersion, entity.Reference, entity.DocumentDate, entity.DueDate, entity.CurrencyCode, entity.OriginalAmount, entity.FunctionalCurrencyCode, entity.OriginalFunctionalAmount, entity.ExchangeRate, entity.ExchangeRateId, entity.ExchangeRateVersionId, entity.ExchangeRateVersionNumber, term, entity.MatchEvidenceId, entity.MatchEvidenceVersion, entity.RecognitionState, entity.RecognitionJournalId, allocated, outstanding, status, entity.Version); }
     private async Task<IReadOnlyList<FinanceSettlementDocumentRecord>> ToDocumentsAsync(FinanceDbContext db, IEnumerable<FinanceSettlementDocumentEntity> entities, CancellationToken cancellationToken) { var result = new List<FinanceSettlementDocumentRecord>(); foreach (var entity in entities) result.Add(await ToDocumentAsync(db, entity, cancellationToken)); return result; }

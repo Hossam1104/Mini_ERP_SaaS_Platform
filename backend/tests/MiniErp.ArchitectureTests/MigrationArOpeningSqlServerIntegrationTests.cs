@@ -185,7 +185,7 @@ public sealed class MigrationArOpeningSqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.Equal("migration_ar_source_conflict", changed.Code);
         var foreign = await settlement.PreflightMigrationArOpeningAsync(migrationContext, command with { CurrencyCode = "USD", SourceReference = "AR-FOREIGN" });
         Assert.False(foreign.Ready);
-        Assert.Equal("currency_not_functional", foreign.Code);
+        Assert.Equal("migration_opening_monetary_policy_required", foreign.Code);
 
         approval.Requirement = FinanceApprovalRequirement.Required;
         var approvalBlocked = await settlement.PreflightMigrationArOpeningAsync(migrationContext, command with { SourceReference = "AR-APPROVAL" });

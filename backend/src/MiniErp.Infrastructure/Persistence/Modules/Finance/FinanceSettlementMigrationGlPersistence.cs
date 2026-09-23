@@ -165,14 +165,14 @@ internal sealed partial class FinanceSettlementPersistence
                     && projection.ControlAccountId is { } controlId
                     && projection.OffsetAccountId is { } offsetId
                     && projection.Reversal is { } reversal
-                    ? new FinanceMigrationOpeningExpectation(projection.SourceRecordId, projection.SourceContract, projection.SourceEvent, projection.Amount, ruleId, ruleVersion, controlId, offsetId, reversal, projection.SourceEvidenceId, projection.SourceEvidenceVersion, projection.OwnerSourceId, projection.OwnerReference)
+                    ? WithMonetaryExpectation(new FinanceMigrationOpeningExpectation(projection.SourceRecordId, projection.SourceContract, projection.SourceEvent, projection.Amount, ruleId, ruleVersion, controlId, offsetId, reversal, projection.SourceEvidenceId, projection.SourceEvidenceVersion, projection.OwnerSourceId, projection.OwnerReference), projection.MonetaryExpectation)
                     : null;
             }
 
             var spec = controls.Specs.SingleOrDefault(item => item.Contract == projection.SourceContract && item.Event == projection.SourceEvent);
             return spec is null
                 ? null
-                : new FinanceMigrationOpeningExpectation(projection.SourceRecordId, projection.SourceContract, projection.SourceEvent, projection.Amount, spec.Rule.Id, spec.Rule.VersionNumber, spec.Reversal ? spec.Rule.CreditAccountId : spec.Rule.DebitAccountId, spec.Reversal ? spec.Rule.DebitAccountId : spec.Rule.CreditAccountId, spec.Reversal, projection.SourceEvidenceId, projection.SourceEvidenceVersion, projection.OwnerSourceId, projection.OwnerReference);
+                : WithMonetaryExpectation(new FinanceMigrationOpeningExpectation(projection.SourceRecordId, projection.SourceContract, projection.SourceEvent, projection.Amount, spec.Rule.Id, spec.Rule.VersionNumber, spec.Reversal ? spec.Rule.CreditAccountId : spec.Rule.DebitAccountId, spec.Reversal ? spec.Rule.DebitAccountId : spec.Rule.CreditAccountId, spec.Reversal, projection.SourceEvidenceId, projection.SourceEvidenceVersion, projection.OwnerSourceId, projection.OwnerReference), projection.MonetaryExpectation);
         }).ToArray();
         if (expectations.Any(item => item is null)) return BlockGl("migration_gl_opening_economic_expectation_incomplete", company.FunctionalCurrencyCode);
         var sourceEvidenceId = MigrationGlSourceEvidenceId(context, command);
@@ -198,6 +198,27 @@ internal sealed partial class FinanceSettlementPersistence
         MigrationApContract => "represented_by_ap",
         MigrationCashBankContract => "represented_by_cash_bank",
         _ => "control_account"
+    };
+
+    private static FinanceMigrationOpeningExpectation WithMonetaryExpectation(FinanceMigrationOpeningExpectation baseline, FinanceMigrationOpeningExpectation? monetary) => monetary is null ? baseline : baseline with
+    {
+        TransactionCurrencyCode = monetary.TransactionCurrencyCode,
+        TransactionAmount = monetary.TransactionAmount,
+        ExpectedFunctionalCurrencyCode = monetary.ExpectedFunctionalCurrencyCode,
+        RateDate = monetary.RateDate,
+        ExchangeRateId = monetary.ExchangeRateId,
+        ExchangeRateVersionId = monetary.ExchangeRateVersionId,
+        ExchangeRateVersionNumber = monetary.ExchangeRateVersionNumber,
+        AppliedRate = monetary.AppliedRate,
+        MonetaryPolicyId = monetary.MonetaryPolicyId,
+        MonetaryPolicyVersionNumber = monetary.MonetaryPolicyVersionNumber,
+        RoundingScale = monetary.RoundingScale,
+        RoundingMode = monetary.RoundingMode,
+        ReportingCurrencyCode = monetary.ReportingCurrencyCode,
+        ReportingExchangeRateId = monetary.ReportingExchangeRateId,
+        ReportingExchangeRateVersionId = monetary.ReportingExchangeRateVersionId,
+        ReportingExchangeRateVersionNumber = monetary.ReportingExchangeRateVersionNumber,
+        ReportingAppliedRate = monetary.ReportingAppliedRate
     };
 
     private async Task<FinanceMigrationGlOpeningEvidence?> ReadMigrationGlOpeningEvidenceAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, IReadOnlyList<FinanceMigrationGlOpeningResidualLine> residual, CancellationToken cancellationToken, IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? representedControlLines = null)

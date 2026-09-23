@@ -373,7 +373,24 @@ internal sealed partial class MigrationPersistence
         && entity.Reversal == record.Reversal
         && entity.SourceEvidenceId == record.SourceEvidenceId
         && entity.SourceEvidenceVersion == record.SourceEvidenceVersion
-        && entity.OwnerSourceId == record.OwnerSourceId;
+        && entity.OwnerSourceId == record.OwnerSourceId
+        && entity.TransactionCurrencyCode == record.TransactionCurrencyCode
+        && entity.TransactionAmount == record.TransactionAmount
+        && entity.ExpectedFunctionalCurrencyCode == record.ExpectedFunctionalCurrencyCode
+        && entity.RateDate == record.RateDate
+        && entity.ExchangeRateId == record.ExchangeRateId
+        && entity.ExchangeRateVersionId == record.ExchangeRateVersionId
+        && entity.ExchangeRateVersionNumber == record.ExchangeRateVersionNumber
+        && entity.AppliedRate == record.AppliedRate
+        && entity.MonetaryPolicyId == record.MonetaryPolicyId
+        && entity.MonetaryPolicyVersionNumber == record.MonetaryPolicyVersionNumber
+        && entity.RoundingScale == record.RoundingScale
+        && entity.RoundingMode == record.RoundingMode
+        && entity.ReportingCurrencyCode == record.ReportingCurrencyCode
+        && entity.ReportingExchangeRateId == record.ReportingExchangeRateId
+        && entity.ReportingExchangeRateVersionId == record.ReportingExchangeRateVersionId
+        && entity.ReportingExchangeRateVersionNumber == record.ReportingExchangeRateVersionNumber
+        && entity.ReportingAppliedRate == record.ReportingAppliedRate;
 
     private static MigrationExecutionBatchRecord ToRecord(MigrationExecutionBatchEntity entity) => new(
         entity.Id,
@@ -436,5 +453,22 @@ internal sealed partial class MigrationPersistence
         entity.Reversal,
         entity.SourceEvidenceId,
         entity.SourceEvidenceVersion,
-        entity.OwnerSourceId);
+        entity.OwnerSourceId,
+        entity.TransactionCurrencyCode,
+        entity.TransactionAmount,
+        entity.ExpectedFunctionalCurrencyCode,
+        entity.RateDate,
+        entity.ExchangeRateId,
+        entity.ExchangeRateVersionId,
+        entity.ExchangeRateVersionNumber,
+        entity.AppliedRate,
+        entity.MonetaryPolicyId,
+        entity.MonetaryPolicyVersionNumber,
+        entity.RoundingScale,
+        entity.RoundingMode,
+        entity.ReportingCurrencyCode,
+        entity.ReportingExchangeRateId,
+        entity.ReportingExchangeRateVersionId,
+        entity.ReportingExchangeRateVersionNumber,
+        entity.ReportingAppliedRate);
 }

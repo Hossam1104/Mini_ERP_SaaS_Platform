@@ -180,6 +180,23 @@ internal sealed class MigrationEconomicRepresentationEntity : ITenantOwned
         SourceEvidenceId = record.SourceEvidenceId;
         SourceEvidenceVersion = record.SourceEvidenceVersion;
         OwnerSourceId = record.OwnerSourceId;
+        TransactionCurrencyCode = record.TransactionCurrencyCode;
+        TransactionAmount = record.TransactionAmount;
+        ExpectedFunctionalCurrencyCode = record.ExpectedFunctionalCurrencyCode;
+        RateDate = record.RateDate;
+        ExchangeRateId = record.ExchangeRateId;
+        ExchangeRateVersionId = record.ExchangeRateVersionId;
+        ExchangeRateVersionNumber = record.ExchangeRateVersionNumber;
+        AppliedRate = record.AppliedRate;
+        MonetaryPolicyId = record.MonetaryPolicyId;
+        MonetaryPolicyVersionNumber = record.MonetaryPolicyVersionNumber;
+        RoundingScale = record.RoundingScale;
+        RoundingMode = record.RoundingMode;
+        ReportingCurrencyCode = record.ReportingCurrencyCode;
+        ReportingExchangeRateId = record.ReportingExchangeRateId;
+        ReportingExchangeRateVersionId = record.ReportingExchangeRateVersionId;
+        ReportingExchangeRateVersionNumber = record.ReportingExchangeRateVersionNumber;
+        ReportingAppliedRate = record.ReportingAppliedRate;
         Version = record.Version;
     }
 
@@ -208,5 +225,22 @@ internal sealed class MigrationEconomicRepresentationEntity : ITenantOwned
     internal Guid? SourceEvidenceId { get; private set; }
     internal int? SourceEvidenceVersion { get; private set; }
     internal Guid? OwnerSourceId { get; private set; }
+    internal string? TransactionCurrencyCode { get; private set; }
+    internal decimal? TransactionAmount { get; private set; }
+    internal string? ExpectedFunctionalCurrencyCode { get; private set; }
+    internal DateOnly? RateDate { get; private set; }
+    internal Guid? ExchangeRateId { get; private set; }
+    internal Guid? ExchangeRateVersionId { get; private set; }
+    internal int? ExchangeRateVersionNumber { get; private set; }
+    internal decimal? AppliedRate { get; private set; }
+    internal Guid? MonetaryPolicyId { get; private set; }
+    internal int? MonetaryPolicyVersionNumber { get; private set; }
+    internal int? RoundingScale { get; private set; }
+    internal string? RoundingMode { get; private set; }
+    internal string? ReportingCurrencyCode { get; private set; }
+    internal Guid? ReportingExchangeRateId { get; private set; }
+    internal Guid? ReportingExchangeRateVersionId { get; private set; }
+    internal int? ReportingExchangeRateVersionNumber { get; private set; }
+    internal decimal? ReportingAppliedRate { get; private set; }
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
 }

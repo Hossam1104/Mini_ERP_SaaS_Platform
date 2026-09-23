@@ -164,7 +164,7 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
         Assert.Equal("migration_cash_bank_source_conflict", changed.Code);
         var foreign = await settlement.PreflightMigrationCashBankOpeningAsync(migrationContext, command with { SourceReference = "CASH-FOREIGN", CurrencyCode = "USD" });
         Assert.False(foreign.Ready);
-        Assert.Equal("migration_cash_bank_opening_currency_not_functional", foreign.Code);
+        Assert.Equal("cash_account_currency_mismatch", foreign.Code);
         approval.Requirement = FinanceApprovalRequirement.Required;
         var approvalBlocked = await settlement.PreflightMigrationCashBankOpeningAsync(migrationContext, command with { SourceReference = "CASH-APPROVAL" });
         Assert.False(approvalBlocked.Ready);
@@ -357,7 +357,7 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
         Assert.Equal("migration_cash_bank_opening_amount_negative", negative.Code);
         Assert.Equal("migration_cash_bank_opening_zero_amount", zero.Code);
         var foreignCurrency = await fixture.Settlement.PreflightMigrationCashBankOpeningAsync(fixture.FinanceContext, command with { CurrencyCode = "USD", SourceReference = "S8-MATRIX-FX" });
-        Assert.Equal("migration_cash_bank_opening_currency_not_functional", foreignCurrency.Code);
+        Assert.Equal("cash_account_currency_mismatch", foreignCurrency.Code);
         var mismatchedCurrencyAccount = await fixture.CreateVariantAsync(FinanceCashAccountKind.Bank, "USD");
         var currencyMismatch = await fixture.Settlement.PreflightMigrationCashBankOpeningAsync(fixture.FinanceContext, command with { CashAccountId = mismatchedCurrencyAccount.Id, SourceReference = "S8-MATRIX-CURRENCY-MISMATCH" });
         Assert.Equal("cash_account_currency_mismatch", currencyMismatch.Code);

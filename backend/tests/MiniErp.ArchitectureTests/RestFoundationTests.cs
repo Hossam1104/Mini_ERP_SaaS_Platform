@@ -651,6 +651,70 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
     }
 
     [Fact]
+    public async Task S10_p24_migration_public_reconciliation_has_typed_additive_openapi_contract_and_catalogue_parity()
+    {
+        var read = FoundationOperationCatalog.GetRequired("migration.execution.read");
+        var start = FoundationOperationCatalog.GetRequired("migration.execution.start");
+        Assert.Equal("GET", read.HttpMethod);
+        Assert.Equal("POST", start.HttpMethod);
+        Assert.Equal(read.Route, start.Route);
+        Assert.Equal("tenant.migration.execute", read.ExactPermissionCode);
+        Assert.Equal(FoundationSecurityProfile.OrdinaryMembership, read.SecurityProfile);
+        Assert.False(read.IsUnsafe);
+        Assert.True(start.IsUnsafe);
+        Assert.Equal(FoundationIdempotencyPolicy.Required, start.Idempotency);
+        Assert.Equal(FoundationConcurrencyPolicy.IfMatch, start.Concurrency);
+
+        using var client = factory.CreateClient();
+        using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
+        var root = document.RootElement;
+        var route = read.Route.Replace(":guid", string.Empty, StringComparison.Ordinal);
+        var path = root.GetProperty("paths").GetProperty(route);
+        var operation = path.GetProperty("get");
+        Assert.Equal(read.OperationId, operation.GetProperty("operationId").GetString());
+        Assert.Equal(start.OperationId, path.GetProperty("post").GetProperty("operationId").GetString());
+        var responseSchema = operation.GetProperty("responses").GetProperty("200").GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        Assert.True(responseSchema.TryGetProperty("$ref", out var responseReference), "Migration execution read must expose a concrete response schema.");
+        var responseName = responseReference.GetString()!.Split('/').Last();
+        Assert.DoesNotContain("Anonymous", responseName, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Object", responseName, StringComparison.OrdinalIgnoreCase);
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+        var response = schemas.GetProperty(responseName);
+        var responseProperties = response.GetProperty("properties");
+        Assert.True(responseProperties.TryGetProperty("outcomeCode", out _));
+        Assert.True(responseProperties.TryGetProperty("effects", out _));
+        Assert.True(responseProperties.TryGetProperty("arEconomicReconciliations", out var arArray));
+        Assert.True(responseProperties.TryGetProperty("apEconomicReconciliations", out var apArray));
+        Assert.True(responseProperties.TryGetProperty("cashBankEconomicReconciliations", out var cashArray));
+        Assert.True(responseProperties.TryGetProperty("glEconomicReconciliations", out var glArray));
+
+        static JsonElement ItemSchema(JsonElement array, JsonElement schemas)
+        {
+            var reference = array.GetProperty("items").GetProperty("$ref").GetString()!;
+            return schemas.GetProperty(reference.Split('/').Last());
+        }
+
+        var monetaryFields = new[]
+        {
+            "transactionCurrencyCode", "transactionAmount", "functionalCurrencyCode", "functionalAmount", "rateDate",
+            "exchangeRateId", "exchangeRateVersionId", "exchangeRateVersionNumber", "appliedRate", "monetaryPolicyId",
+            "monetaryPolicyVersionNumber", "roundingScale", "roundingMode", "functionalRoundingDifference",
+            "reportingCurrencyCode", "reportingAmount", "reportingExchangeRateId", "reportingExchangeRateVersionId",
+            "reportingExchangeRateVersionNumber", "reportingAppliedRate", "reportingEvidenceStatus"
+        };
+        foreach (var array in new[] { arArray, apArray, cashArray })
+        {
+            var item = ItemSchema(array, schemas);
+            var properties = item.GetProperty("properties");
+            foreach (var field in monetaryFields) Assert.True(properties.TryGetProperty(field, out _), $"Reconciliation schema is missing {field}.");
+        }
+        var glProperties = ItemSchema(glArray, schemas).GetProperty("properties");
+        Assert.True(glProperties.TryGetProperty("lines", out _));
+        var allSchemaNames = schemas.EnumerateObject().Select(item => item.Name).ToArray();
+        Assert.DoesNotContain(allSchemaNames, name => name.Contains("Anonymous", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task Platform_governance_context_is_not_tenant_context()
     {
         var actor = Guid.NewGuid();

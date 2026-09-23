@@ -8,6 +8,25 @@ using MiniErp.Contracts.Modules.Migration;
 
 namespace MiniErp.Api;
 
+public sealed record MigrationExecutionResponse(
+    Guid RunId,
+    Guid TenantId,
+    Guid AttemptId,
+    string FingerprintVersion,
+    string Fingerprint,
+    MigrationRunStatus RunStatus,
+    MigrationAttemptOutcome AttemptOutcome,
+    string OutcomeCode,
+    IReadOnlyList<MigrationExecutionBatchRecord> Batches,
+    IReadOnlyList<MigrationExecutionEffectRecord> Effects,
+    IReadOnlyList<MigrationEconomicRepresentationRecord>? Representations,
+    IReadOnlyList<MigrationEconomicReconciliationRecord>? EconomicReconciliations,
+    IReadOnlyList<MigrationArEconomicReconciliationRecord>? ArEconomicReconciliations,
+    IReadOnlyList<MigrationApEconomicReconciliationRecord>? ApEconomicReconciliations,
+    IReadOnlyList<MigrationCashBankEconomicReconciliationRecord>? CashBankEconomicReconciliations,
+    IReadOnlyList<MigrationGlEconomicReconciliationRecord>? GlEconomicReconciliations,
+    bool ZeroEconomicEffects);
+
 /// <summary>REST adapter for the bounded MESP-141 migration lifecycle.</summary>
 public static class MigrationEndpoints
 {
@@ -72,14 +91,16 @@ public static class MigrationEndpoints
             async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationExecutionService service) =>
                 await ExecuteMutationAsync(runId, httpContext, resolver, service))
             .WithName("migration.execution.start")
-            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.execution.start")));
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.execution.start")))
+            .Produces<MigrationExecutionResponse>(StatusCodes.Status200OK);
 
         endpoints.MapGet(
             "/api/v1/migrations/{runId:guid}/execution",
             async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationExecutionService service) =>
                 await ExecuteExecutionReadAsync(runId, httpContext, resolver, service))
             .WithName("migration.execution.read")
-            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.execution.read")));
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.execution.read")))
+            .Produces<MigrationExecutionResponse>(StatusCodes.Status200OK);
 
         return endpoints;
     }
@@ -367,10 +388,9 @@ public static class MigrationEndpoints
         zeroAuthoritativeBusinessEffect = true
     };
 
-    private static object ToExecutionResponse(MigrationExecutionResult value) => new
-    {
+    private static MigrationExecutionResponse ToExecutionResponse(MigrationExecutionResult value) => new(
         value.RunId,
-        tenantId = value.TenantId.Value,
+        value.TenantId.Value,
         value.AttemptId,
         value.FingerprintVersion,
         value.Fingerprint,
@@ -385,8 +405,7 @@ public static class MigrationEndpoints
         value.ApEconomicReconciliations,
         value.CashBankEconomicReconciliations,
         value.GlEconomicReconciliations,
-        zeroEconomicEffects = value.Representations is null or { Count: 0 }
-    };
+        value.Representations is null or { Count: 0 });
 
     private static object ToResponse(MigrationIntakeRecord record) => new
     {
