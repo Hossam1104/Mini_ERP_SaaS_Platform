@@ -1,3 +1,42 @@
+## MESP-141 Slice 10 - Multi-Currency Opening & FX Evidence post-merge lifecycle reconciliation (23 September 2026)
+
+Slice 10 was accepted by GPT-5.6 Sol at exact head
+`8b46a819806bd51c8ac0333f40cb7c6320d2e99e` and merged through PR #260 using
+normal merge commit `54d7bc0456ecb7c3732365acbdf14b451c33dc97` from verified
+`origin/main` base `45aafec1a1349c2e4d7bdda1b05b6f820422d35f`. The merge commit
+is the final-main SHA. Issue #229 remains **OPEN / ACTIVE / IN PROGRESS**;
+Slices 1-10 are **ACCEPTED / MERGED / LIFECYCLE CLOSED**. Issue #230 remains
+**OPEN / NOT ACTIVATED**.
+
+Sol acceptance is recorded in Issue #229 comment `5801879507`; activation is
+recorded in comment `5781215755`. Exact-head CI run `35910898480` and final-main
+CI run `35914246765` both passed Repository Validation, Backend, and Frontend.
+The feature branch entered `main` unchanged after acceptance; no conflict
+resolution or product-code correction was performed during integration.
+
+Final-main local evidence is Release build `0 warnings / 0 errors` using an
+isolated artifacts path, focused Migration/REST acceptance `62/62`, the Slice
+10 SQL-provider acceptance filter `48/48` on disposable LocalDB, and all eight
+EF contexts with no pending model changes. Exact-main hosted CI reports the
+non-SQL backend `1,294/1,294`, Angular `316/316`, production build success,
+and Chromium `51/51`. The existing `514.26 kB` bundle-budget warning remains.
+The malformed untracked .NET output directory was verified as generated and
+removed; six pre-existing stashes were left untouched. `frontend/assets` is
+untouched.
+
+Metrics remain unchanged: accepted fast-track completion `24 / 26 = 92.3%`,
+production readiness approximately `47%` overall and `41%` Procurement/P2P.
+Issue #229 remains open and active. Issue #230 remains open and not activated.
+No next Slice, Golden E2E, production migration/cutover, or MESP-142 work was
+started.
+
+The next dependency candidate is Migration reconciliation, domain
+approval/sign-off, and Ready-for-Handover evidence under M40 BRD §§7.2, 7.3,
+and 14. It blocks readiness handoff until opening control totals and required
+owner approvals are reconciled. It is not activated by this lifecycle record.
+Production migration/cutover can remain deferred until the functional baseline
+and Golden Release-1 cycle are proven.
+
 ## MESP-141 Slice 9 - Residual GL Opening Economic Execution post-merge lifecycle reconciliation (22 September 2026)
 
 Slice 9 was accepted by GPT-5.6 Sol at exact head
