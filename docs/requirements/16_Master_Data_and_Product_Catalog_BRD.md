@@ -1090,4 +1090,4 @@ conditional VAT/registration baseline is retained, but fields beyond VAT are
 not guessed or declared legally complete. MESP-49 remains open. The detailed
 readiness contract, alternatives, acceptance traceability, exclusions,
 non-blocking Product hardening follow-up, and exact revalidation handoff are in
-[`19_Supplier_M95_SL_04_Readiness.md`](19_Supplier_M95_SL_04_Readiness.md).
+[`19_Supplier_M95_SL_04_Readiness.md`](../history/specs/19_Supplier_M95_SL_04_Readiness.md).
