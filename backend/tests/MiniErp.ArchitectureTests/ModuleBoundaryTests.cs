@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -514,4 +515,125 @@ public sealed class ModuleBoundaryTests
         active.Remove(name);
         return false;
     }
+    // Architecture ratchets R2-R5 (docs/ARCHITECTURE.md § Enforcement). Exception lists are
+    // shrink-only: remove an entry when the code no longer needs it; never add one to go green.
+
+    private static readonly IReadOnlySet<string> AllowedAppModuleEdges = new HashSet<string>(
+    [
+        "BusinessParties->MasterData", // two-way with MasterData->BusinessParties
+        "Finance->Identity",
+        "Finance->Inventory",
+        "Finance->Sales", // two-way with Sales->Finance
+        "Inventory->MasterData",
+        "Inventory->Procurement",
+        "Inventory->Sales", // two-way with Sales->Inventory
+        "MasterData->Audit",
+        "MasterData->BusinessParties",
+        "Migration->Audit",
+        "Migration->Finance",
+        "Migration->Inventory",
+        "Notifications->Audit",
+        "Procurement->BusinessParties",
+        "Procurement->MasterData",
+        "Reporting->Audit",
+        "Reporting->Finance",
+        "Reporting->Inventory",
+        "Reporting->Procurement",
+        "Reporting->Sales",
+        "Sales->BusinessParties",
+        "Sales->Finance",
+        "Sales->Inventory",
+        "Sales->MasterData",
+        "Sales->Procurement"
+    ],
+    StringComparer.Ordinal);
+
+    [Fact]
+    public void App_module_edges_match_the_frozen_shrink_only_allowlist()
+    {
+        var modulesRoot = Path.Combine(FindRepositoryRoot(), "backend", "src", "MiniErp.App", "Modules");
+        var actual = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var moduleDirectory in Directory.GetDirectories(modulesRoot))
+        {
+            var module = Path.GetFileName(moduleDirectory);
+            foreach (var path in SourceFiles(moduleDirectory))
+            {
+                foreach (Match match in Regex.Matches(File.ReadAllText(path), @"MiniErp\.App\.Modules\.(\w+)"))
+                {
+                    if (match.Groups[1].Value != module)
+                    {
+                        actual.Add($"{module}->{match.Groups[1].Value}");
+                    }
+                }
+            }
+        }
+
+        Assert.Empty(actual.Except(AllowedAppModuleEdges)); // a new cross-module edge
+        Assert.Empty(AllowedAppModuleEdges.Except(actual)); // an edge was removed: strike it from the list
+    }
+
+    [Fact]
+    public void Module_persistence_does_not_reference_another_modules_persistence()
+    {
+        var persistenceRoot = Path.Combine(FindRepositoryRoot(), "backend", "src", "MiniErp.Infrastructure", "Persistence", "Modules");
+        var modules = Directory.GetDirectories(persistenceRoot).Select(path => Path.GetFileName(path)).ToArray();
+        var violations = new List<string>();
+        foreach (var module in modules)
+        {
+            foreach (var path in SourceFiles(Path.Combine(persistenceRoot, module)))
+            {
+                var source = File.ReadAllText(path);
+                violations.AddRange(modules
+                    .Where(other => other != module
+                        && Regex.IsMatch(source, $@"\bPersistence\.Modules\.{other}\b|\b{other}DbContext\b"))
+                    .Select(other => $"{module}/{Path.GetFileName(path)} -> {other}"));
+            }
+        }
+
+        Assert.Equal(7, modules.Length);
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Allow_listed_raw_sql_is_tenant_scoped_and_lock_only()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var statements = new[] { MigrationPersistencePath, MigrationReconciliationPersistencePath }
+            .SelectMany(relativePath => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(repositoryRoot, relativePath)))
+                .GetRoot()
+                .DescendantNodes()
+                .OfType<InvocationExpressionSyntax>()
+                .Where(invocation => ResolveInvokedMethodName(invocation) == "ExecuteSqlInterpolatedAsync")
+                .Select(invocation => invocation.ArgumentList.Arguments[0].Expression.ToString()))
+            .ToArray();
+
+        Assert.Equal(3, statements.Length);
+        Assert.All(statements, sql =>
+        {
+            Assert.StartsWith("$\"SELECT ", sql, StringComparison.Ordinal);
+            Assert.Contains("WITH (UPDLOCK", sql, StringComparison.Ordinal);
+            Assert.Contains("[TenantId] = {", sql, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void Sql_server_safety_collection_classes_keep_the_hosted_ci_exclusion_suffix()
+    {
+        // Hosted CI skips LocalDB tests with --filter "FullyQualifiedName!~SqlServerSafetyTests".
+        var collectionMembers = typeof(ModuleBoundaryTests).Assembly.GetTypes()
+            .Where(type => type.CustomAttributes.Any(attribute => attribute.AttributeType == typeof(CollectionAttribute)
+                && attribute.ConstructorArguments.Count == 1
+                && Equals(attribute.ConstructorArguments[0].Value, SqlServerSafetyCollection.Name)))
+            .ToArray();
+
+        Assert.NotEmpty(collectionMembers);
+        Assert.Empty(collectionMembers
+            .Where(type => !type.Name.EndsWith("SqlServerSafetyTests", StringComparison.Ordinal))
+            .Select(type => type.FullName));
+    }
+
+    private static IEnumerable<string> SourceFiles(string directory) =>
+        Directory.GetFiles(directory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains("\\bin\\", StringComparison.OrdinalIgnoreCase)
+                && !path.Contains("\\obj\\", StringComparison.OrdinalIgnoreCase));
 }
