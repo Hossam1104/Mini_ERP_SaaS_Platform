@@ -244,7 +244,7 @@ internal sealed class MigrationArOpeningExecutionCoordinator
             var command = Command(payload, amount, companyId, customerId, documentDate, openingDate, stagedRow.PayloadHash, "reconciliation");
             FinanceMigrationArOpeningEvidence? evidence = null;
             try { evidence = await finance.ReadMigrationArOpeningAsync(financeContext, command, cancellationToken); }
-            catch { }
+            catch (Exception ex) when (ex is not OperationCanceledException) { }
             var journalAmount = evidence?.RecognitionJournal.Lines.Sum(item => item.FunctionalDebit);
             var monetary = MigrationOpeningMonetaryMatching.ReconciliationFields(evidence?.MonetaryEvidence);
             var exact = evidence is not null && EvidenceMatches(evidence, command)
