@@ -1,4 +1,10 @@
-# Executor Rules — PROPOSAL (not adopted)
+# Executor Rules — PROPOSAL (ADOPTED 2026-09-25)
+
+> **ADOPTED 2026-09-25 (Phase 2, MESP-149 (#264)).** The rules below are now in the root
+> [`AGENTS.md`](../../AGENTS.md) and [`docs/MODEL_ROUTING.md`](../MODEL_ROUTING.md), with Opus 5.5 as
+> the acceptance authority (Q2). This file is kept as the audit record. Where it differs from those
+> files, they win. The status note below is the original proposal text.
+
 
 > **Status: PROPOSAL.** `AGENTS.md`, `CLAUDE.md` and `.ai/AI_EXECUTION_POLICY.md` already exist and **remain authoritative**. Nothing here overwrites them.
 >

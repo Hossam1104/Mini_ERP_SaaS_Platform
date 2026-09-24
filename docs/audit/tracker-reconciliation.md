@@ -1,4 +1,7 @@
-# Tracker Reconciliation — PROPOSED (not applied)
+# Tracker Reconciliation — APPLIED 2026-09-25 (see §5)
+
+> **Applied 2026-09-25** under owner decisions Q-F and Q-K (MESP-149 (#264)). §1–§4 below are the
+> original proposal, kept unchanged. §5 is the log of what was applied.
 
 - **Date:** 2026-09-25.
 - **Planner:** Claude Opus 5.5.
@@ -43,3 +46,31 @@
 ## 4. Apply order (once authorized)
 
 T-09 → T-08 → T-10 → T-04 → T-11 comment → T-01/T-02 (per Q-K) → T-06 (per owner scope answer). Afterwards, re-query the project and record the before and after counts in `RESULT.md`.
+
+## 5. Applied log (2026-09-25)
+
+| Item | Done / pending | What happened |
+|---|---|---|
+| T-09 | **Done** | Created epic MESP-145 (#263), "EPIC 16 - Architecture & Project Cleanup" (In Progress / Active), and its child MESP-149 (#264), the cleanup execution (Governance, In Progress / Active). |
+| T-08 | **Done** | Retitled #238–#240 to MESP-146/147/148, set `Jira Key`, set Parent `[MESP-145] #263`, and added a comment on each. They stay Todo / Backlog because CI is kept (Q3). |
+| T-10 | **Done** | Created four items, all Todo / Backlog: MESP-150 (#265) Slice 11 acceptance review, parent MESP-15 (#104); MESP-151 (#266) Golden cycle; MESP-152 (#267) functional/API baseline; MESP-153 (#268) UI/UX modernization. The last three have parent MESP-1 (#90). |
+| (debt) | **Done** | Created MESP-154 (#269), architecture exceptions and size watch, and MESP-155 (#270), bundle and npm advisories. Both are Todo, parent MESP-145 (#263). |
+| T-04 | **Done** | Set #104 MESP-15 to In Progress, Capability State Active, Classification Active, and added a comment. |
+| T-11 | **Done** | Commented on #229 MESP-141 recording the Step Zero merge of Slice 11 (#262 at `ac0309a`) and the pending acceptance MESP-150 (#265). No status change. |
+| T-01 / T-02 | **Done: comment only (Q-K)** | Commented on #92, #93, #94, #95, #96, #98, #99, #100, #101 and #102 that all children are Done (verified) and that closure is pending owner review. **None were closed or moved.** They are listed in `ROADMAP.md`. |
+| T-06 | **Done: no change (Q-F)** | #154–#174 keep their `release-1` labels. They are listed in the ROADMAP backlog. |
+| T-03 / T-05 / T-07 | No action | Consistent. |
+| Link comments | **Done** | Commented on #263 and #90 to link ARCHITECTURE and ROADMAP. |
+| Epic closure | **Pending: owner** | The owner closes the Q-K epics after review. |
+
+**Project counts** (`gh project item-list 1 --owner Hossam1104 --limit 300`):
+
+| | Items | Done | In Progress | Todo |
+|---|---|---|---|---|
+| Before (2026-09-25, pre-apply) | 148 | 104 | 11 | 33 |
+| After (2026-09-25) | 156 | 104 | 14 | 38 |
+
+The delta is +8 items: MESP-145 and MESP-149..155.
+- In Progress: +3 (#263, #264, #104).
+- Todo: +6 new, −1 (#104 moved to In Progress).
+- Nothing was deleted or closed. Jira was not written.

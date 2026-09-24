@@ -1,4 +1,11 @@
-# Architecture Enforcement — PROPOSED
+# Architecture Enforcement — PROPOSED (ADOPTED 2026-09-25)
+
+> **ADOPTED 2026-09-25 (Q-E).** Ratchets R2–R5 were installed in
+> `backend/tests/MiniErp.ArchitectureTests/ModuleBoundaryTests.cs` by commit `0d5fa4d`. The backend
+> gate passed at 1551/1551. The three two-way module pairs are frozen. The live rules are summarized
+> in [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md) §7. MESP-154 (#269) tracks reducing the exceptions.
+> The status note below is the original proposal text.
+
 
 > **Status: PROPOSED. Nothing is installed.** No test, package, or CI change has been made.
 > Adoption needs an owner decision (see drift-report Q5). After that, a bounded executor task will add the rules to `backend/tests/MiniErp.ArchitectureTests`. No new tool or package is needed, because the existing xUnit plus source-scan pattern in `ModuleBoundaryTests.cs` already covers every rule below.
