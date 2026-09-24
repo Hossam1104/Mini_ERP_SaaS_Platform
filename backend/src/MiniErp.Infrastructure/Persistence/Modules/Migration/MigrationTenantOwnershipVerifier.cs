@@ -78,6 +78,26 @@ internal static class MigrationTenantOwnershipVerifier
                 .Where(item => item.Id == representation.Id)
                 .Select(item => item.TenantId)
                 .SingleOrDefault(),
+            MigrationReconciliationEntity reconciliation => migrationContext.Reconciliations
+                .Where(item => item.Id == reconciliation.Id)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
+            MigrationReconciliationDetailEntity detail => migrationContext.ReconciliationDetails
+                .Where(item => item.Id == detail.Id)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
+            MigrationReconciliationRequirementEntity requirement => migrationContext.ReconciliationRequirements
+                .Where(item => item.Id == requirement.Id)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
+            MigrationReconciliationApprovalEntity approval => migrationContext.ReconciliationApprovals
+                .Where(item => item.Id == approval.Id)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
+            MigrationHandoverReadinessEntity readiness => migrationContext.HandoverReadiness
+                .Where(item => item.Id == readiness.Id)
+                .Select(item => item.TenantId)
+                .SingleOrDefault(),
             _ => null
         };
     }
@@ -147,6 +167,26 @@ internal static class MigrationTenantOwnershipVerifier
                 .SingleOrDefaultAsync(cancellationToken),
             MigrationEconomicRepresentationEntity representation => await migrationContext.EconomicRepresentations
                 .Where(item => item.Id == representation.Id)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationReconciliationEntity reconciliation => await migrationContext.Reconciliations
+                .Where(item => item.Id == reconciliation.Id)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationReconciliationDetailEntity detail => await migrationContext.ReconciliationDetails
+                .Where(item => item.Id == detail.Id)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationReconciliationRequirementEntity requirement => await migrationContext.ReconciliationRequirements
+                .Where(item => item.Id == requirement.Id)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationReconciliationApprovalEntity approval => await migrationContext.ReconciliationApprovals
+                .Where(item => item.Id == approval.Id)
+                .Select(item => (TenantId?)item.TenantId)
+                .SingleOrDefaultAsync(cancellationToken),
+            MigrationHandoverReadinessEntity readiness => await migrationContext.HandoverReadiness
+                .Where(item => item.Id == readiness.Id)
                 .Select(item => (TenantId?)item.TenantId)
                 .SingleOrDefaultAsync(cancellationToken),
             _ => null

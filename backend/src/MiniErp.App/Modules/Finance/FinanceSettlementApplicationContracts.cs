@@ -255,14 +255,16 @@ public sealed record FinanceGlOpeningPreflightResult(
     Guid SourceEvidenceId,
     IReadOnlyList<FinanceMigrationGlOpeningResidualLine> ResidualLines,
     IReadOnlyList<FinanceMigrationOpeningExpectation>? Expectations = null,
-    IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? RepresentedControlLines = null);
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? RepresentedControlLines = null,
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? EstablishedLines = null);
 
 public sealed record FinanceMigrationGlOpeningEvidence(
     FinanceJournalRecord? Journal,
     FinanceSourceEffectRecord? SourceEffect,
     Guid SourceEvidenceId,
     IReadOnlyList<FinanceMigrationGlOpeningResidualLine> ResidualLines,
-    IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? RepresentedControlLines = null);
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? RepresentedControlLines = null,
+    IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? EstablishedLines = null);
 
 public sealed record FinanceSalesInvoiceCommand(
     Guid CompanyId,

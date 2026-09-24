@@ -10,28 +10,25 @@
 
 ---
 
-## CURRENT AUTHORITY - 23 September 2026 (MESP-141 SLICE 10 MULTI-CURRENCY OPENING MERGED; LIFECYCLE CLOSED)
+## CURRENT AUTHORITY - 24 September 2026 (MESP-141 SLICE 11 CANDIDATE IN DRAFT PR)
 
-**MESP-141 Slice 10 — Multi-Currency Opening & FX Evidence is accepted, merged, final-main verified, and lifecycle closed.** Issue #229 remains OPEN / ACTIVE / IN PROGRESS. Slices 1–10 are accepted, merged, and lifecycle closed; MESP-142 remains OPEN / NOT ACTIVATED.
+**MESP-141 Slice 11 - Migration Reconciliation, Approval and Ready-for-Handover Evidence is implemented and awaiting independent GPT-5.6 Sol acceptance.** Slices 1–10 remain accepted, merged, and lifecycle closed. Slice 11 is not accepted, Ready, merged, or lifecycle closed. Issue #229 remains OPEN / ACTIVE / IN PROGRESS; Issue #230 remains OPEN / NOT ACTIVATED.
 
 | Item | Value |
 |---|---|
-| Slice 10 activation | Issue #229 comment `5781215755` |
-| Slice 10 branch / base | `feat/mesp-141-multi-currency-opening-fx-evidence` from `45aafec1a1349c2e4d7bdda1b05b6f820422d35f` |
-| Slice 10 accepted head | `8b46a819806bd51c8ac0333f40cb7c6320d2e99e` |
-| GPT-5.6 Sol acceptance | Issue #229 comment `5801879507` |
-| Feature PR | **#260 MERGED** by normal merge commit |
-| Feature merge / final `main` | `54d7bc0456ecb7c3732365acbdf14b451c33dc97`; parents are base `45aafec1a1349c2e4d7bdda1b05b6f820422d35f` and accepted head above |
-| Accepted exact-head CI | Run `35910898480`: Repository Validation, Backend, and Frontend passed |
-| Final-main CI | Run `35914246765`: Repository Validation, Backend, and Frontend passed |
-| Slice 10 status | **ACCEPTED / MERGED / FINAL-MAIN VERIFIED / LIFECYCLE CLOSED** |
-| Remaining MESP-141 boundary | Migration reconciliation, approval/sign-off, Ready-for-Handover, repeatable onboarding prerequisites, and any future Slice remain separately governed; no next Slice is activated |
-| MESP-141 / MESP-142 | Issue #229 **OPEN / ACTIVE / IN PROGRESS**; Issue #230 **OPEN / NOT ACTIVATED** |
+| Existing Slice 11 activation | Issue #229 comment `5811630326` |
+| Sol correction / continuation | Issue #229 comments `5812297427` / `5812483949` |
+| Branch / exact base | `feat/mesp-141-reconciliation-handover-evidence` from `13ede0af8234c3dc1d58272532f27258f1c87ed6` |
+| Implementation commit | `6029b9e482f391675665ff2990a79d6018aad509` |
+| Feature PR | **#262 OPEN / DRAFT / UNMERGED / NOT READY**; the live PR is authority for mutable head and hosted checks |
+| M40-DEC-006 | **OPEN**; production approval quorum and identities remain unresolved; this bounded implementation is decision-neutral |
 | Metrics | Unchanged: **24 / 26 = 92.3%** accepted fast-track capability completion; approximately **47% overall / 41% Procurement/P2P** production readiness |
 
-Final-main local evidence is Release build `0 warnings / 0 errors` using an isolated artifacts path; focused Migration/REST acceptance `62/62`; Slice 10 SQL-provider acceptance `48/48` on disposable LocalDB; and all eight EF contexts have no pending model changes. Exact-main hosted CI reports Backend `1,294/1,294`, Angular `316/316`, production build success, and Chromium `51/51`. The existing `514.26 kB` initial-bundle warning remains. The verified malformed generated test-output directory was removed; six pre-existing stashes were untouched. `frontend/assets` remains untouched.
+The candidate reuses persisted exact Migration and Finance economic representation evidence for historical control-account, source, rule/version, reversal, monetary and FX mapping; it does not resolve current posting rules as historical truth. Finance remains owner of accounting evidence; Inventory remains owner of movement and valuation. Approval requires a versioned Tenant-scoped policy and fails closed when none is configured. The synthetic provider policy does not resolve M40-DEC-006. Ready for Handover does not activate a Tenant or close production gates.
 
-The next dependency candidate is Migration reconciliation, domain approval/sign-off, and Ready-for-Handover evidence under the M40 BRD. It is not activated or started. The BRD's reconciliation and M27 handover/activation gates remain open. Golden E2E has not started; production migration/cutover and MESP-142 remain outside this lifecycle.
+Local evidence: Release `0 warnings / 0 errors`; full backend architecture/provider suite `1,546/1,546`; Slice 11 provider suite `21/21` including R01–R20 and a separate no-policy case; focused REST/OpenAPI/lifecycle `58/58`; all eight EF contexts have no pending model changes; solution NuGet vulnerability scan clear; `git diff --check` clean. Hosted `Repository Validation`, `Backend`, and `Frontend` checks are read from the live exact head of PR #262. No production database or Owner-managed frontend asset was used; `frontend/assets` remains untouched. Six pre-existing stashes remain untouched.
+
+Golden E2E, production migration/cutover, M27 Tenant activation, MESP-142, MESP-48/MESP-50 closure, and any production-specific approval decision remain separate gates. No Jira mutation or Tenant activation was performed.
 
 ## HISTORICAL RECORD - 22 September 2026 (MESP-141 SLICE 9 RESIDUAL GL OPENING ECONOMIC EXECUTION MERGED; LIFECYCLE CLOSED)
 

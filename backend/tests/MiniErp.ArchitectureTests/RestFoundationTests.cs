@@ -794,6 +794,59 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
         }
     }
 
+    [Fact]
+    public async Task Slice11_migration_reconciliation_approval_and_handover_have_typed_openapi_schemas()
+    {
+        using var client = factory.CreateClient();
+        using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
+        var paths = document.RootElement.GetProperty("paths");
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+
+        var reconciliation = paths.GetProperty("/api/v1/migrations/{runId}/reconciliation");
+        var calculate = reconciliation.GetProperty("post");
+        var read = reconciliation.GetProperty("get");
+        Assert.Equal("migration.reconciliation.calculate", calculate.GetProperty("operationId").GetString());
+        Assert.Equal("migration.reconciliation.read", read.GetProperty("operationId").GetString());
+        var reconciliationSchema = ResponseSchema(calculate, schemas);
+        var reconciliationProperties = reconciliationSchema.GetProperty("properties");
+        Assert.True(reconciliationProperties.TryGetProperty("tenantId", out var tenantId));
+        Assert.Equal("uuid", tenantId.GetProperty("format").GetString());
+        Assert.True(reconciliationProperties.TryGetProperty("details", out var details));
+        Assert.True(reconciliationProperties.TryGetProperty("approvals", out var approvals));
+        var detailSchema = ItemSchema(details, schemas).GetProperty("properties");
+        Assert.True(detailSchema.TryGetProperty("controlAccountId", out _));
+        Assert.True(detailSchema.TryGetProperty("postingRuleVersionNumber", out _));
+        Assert.True(detailSchema.TryGetProperty("isBlocking", out _));
+        Assert.True(detailSchema.TryGetProperty("explanation", out _));
+        var approvalSchema = ItemSchema(approvals, schemas).GetProperty("properties");
+        Assert.True(approvalSchema.TryGetProperty("policyId", out _));
+        Assert.True(approvalSchema.TryGetProperty("evidenceConfirmed", out _));
+
+        var approval = paths.GetProperty("/api/v1/migrations/{runId}/reconciliation/{reconciliationId}/approvals").GetProperty("post");
+        Assert.Equal("migration.reconciliation.approve", approval.GetProperty("operationId").GetString());
+        Assert.True(ResponseSchema(approval, schemas).GetProperty("properties").TryGetProperty("tenantId", out _));
+        var readiness = paths.GetProperty("/api/v1/migrations/{runId}/reconciliation/{reconciliationId}/readiness").GetProperty("post");
+        Assert.Equal("migration.handover.ready", readiness.GetProperty("operationId").GetString());
+        var readinessProperties = ResponseSchema(readiness, schemas).GetProperty("properties");
+        Assert.True(readinessProperties.TryGetProperty("businessReady", out _));
+        Assert.True(readinessProperties.TryGetProperty("tenantActivationPerformed", out _));
+        var readinessRead = paths.GetProperty("/api/v1/migrations/{runId}/readiness").GetProperty("get");
+        Assert.Equal("migration.handover.read", readinessRead.GetProperty("operationId").GetString());
+
+        static JsonElement ResponseSchema(JsonElement operation, JsonElement componentSchemas)
+        {
+            var schema = operation.GetProperty("responses").GetProperty("200").GetProperty("content")
+                .GetProperty("application/json").GetProperty("schema");
+            return componentSchemas.GetProperty(schema.GetProperty("$ref").GetString()!.Split('/').Last());
+        }
+
+        static JsonElement ItemSchema(JsonElement array, JsonElement componentSchemas)
+        {
+            var reference = array.GetProperty("items").GetProperty("$ref").GetString()!;
+            return componentSchemas.GetProperty(reference.Split('/').Last());
+        }
+    }
+
     private static void CollectOpenApiProperties(JsonElement schema, JsonElement root, ISet<string> properties)
     {
         if (schema.TryGetProperty("$ref", out var reference))

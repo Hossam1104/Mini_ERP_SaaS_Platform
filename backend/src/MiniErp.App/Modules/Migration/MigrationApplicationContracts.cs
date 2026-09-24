@@ -264,6 +264,7 @@ public sealed class MigrationRun : ITenantOwned
             },
             [MigrationRunStatus.Reconciled] = new HashSet<MigrationRunStatus>
             {
+                MigrationRunStatus.ReconciliationPending,
                 MigrationRunStatus.ReadyForHandover
             },
             [MigrationRunStatus.ReadyForHandover] = new HashSet<MigrationRunStatus>

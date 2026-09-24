@@ -53,7 +53,7 @@ internal sealed class MigrationCashBankOpeningExecutionCoordinator
             var ready = await finance.PreflightMigrationCashBankOpeningAsync(financeContext, command, cancellationToken);
             if (!ready.Ready)
                 return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(ready.Code);
-            if (ready.Expectation is { } expectation && MigrationOpeningMonetaryMatching.HasMonetaryEvidence(expectation))
+            if (ready.Expectation is { } expectation)
                 expectations[row.Staged.StagedRecordId] = expectation;
         }
 

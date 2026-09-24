@@ -641,7 +641,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.InventoryOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed));
         Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.ArOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed));
         Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.ApOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed));
-        Assert.Equal(10, result.Value.Representations!.Count);
+        Assert.Equal(12, result.Value.Representations!.Count);
 
         await fixture.AssertMixedEffectsAsync("AR-MIXED", 100m);
     }
@@ -686,7 +686,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
         Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.ArOpening));
         Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.ApOpening));
         Assert.Equal(1, result.Value.Effects.Count(item => item.RecordType == MigrationCanonicalRecordType.CashBankOpening));
-        Assert.Equal(13, result.Value.Representations!.Count);
+        Assert.Equal(16, result.Value.Representations!.Count);
         await fixture.AssertMixedEffectsAsync("S8-MIXED", 100m);
         await fixture.AssertOneCashEffectAsync("S8-MIXED-CASH", 100m);
     }
@@ -974,7 +974,7 @@ public sealed class MigrationEconomicOpeningRemediationSqlServerSafetyTests(SqlS
 
         internal DbContextOptions FinanceOptions { get; }
         internal DbContextOptions InventoryOptions { get; }
-        private DbContextOptions MigrationOptions { get; }
+        internal DbContextOptions MigrationOptions { get; }
         internal TenantContext Tenant { get; }
         internal Guid CompanyId { get; }
         internal Guid CustomerId { get; }

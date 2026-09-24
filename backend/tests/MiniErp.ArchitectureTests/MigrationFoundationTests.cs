@@ -65,7 +65,7 @@ public sealed class MigrationFoundationTests
         ],
         [MigrationRunStatus.OutcomeUnknown] = [MigrationRunStatus.ReconciliationPending],
         [MigrationRunStatus.ReconciliationPending] = [MigrationRunStatus.Reconciled],
-        [MigrationRunStatus.Reconciled] = [MigrationRunStatus.ReadyForHandover],
+        [MigrationRunStatus.Reconciled] = [MigrationRunStatus.ReconciliationPending, MigrationRunStatus.ReadyForHandover],
         [MigrationRunStatus.ReadyForHandover] = [MigrationRunStatus.Closed],
         [MigrationRunStatus.Corrected] = [MigrationRunStatus.Prepared],
         [MigrationRunStatus.Cancelled] = [],

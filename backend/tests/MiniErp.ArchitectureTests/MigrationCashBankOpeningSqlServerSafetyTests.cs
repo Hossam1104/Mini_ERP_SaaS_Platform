@@ -146,7 +146,7 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
         Assert.Equal(MigrationRunStatus.Completed, executed.Value!.RunStatus);
         Assert.Equal(MigrationExecutionService.FingerprintVersion, executed.Value.FingerprintVersion);
         Assert.Single(executed.Value.Effects, item => item.RecordType == MigrationCanonicalRecordType.CashBankOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed);
-        Assert.Equal(3, executed.Value.Representations!.Count);
+        Assert.Equal(4, executed.Value.Representations!.Count);
         Assert.Contains(executed.Value.Representations, item => item.Kind == MigrationEconomicRepresentationKind.FinanceJournal);
         Assert.Contains(executed.Value.Representations, item => item.Kind == MigrationEconomicRepresentationKind.FinanceSourceEffect);
         Assert.Contains(executed.Value.Representations, item => item.Kind == MigrationEconomicRepresentationKind.FinanceCashAccount);
