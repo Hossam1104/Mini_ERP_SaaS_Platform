@@ -129,4 +129,19 @@ All of these still hold:
 
 ### 5.2 Pending (Phase 1 questions, 2026-09-25)
 
-Q-A to Q-L are in the chat reply and `cleanup-plan.md` §g. Answers are recorded here before Phase 2 starts.
+The questions are in `cleanup-plan.md` §g. Hossam answered them on 2026-09-25:
+
+| # | Question | Decision | How Phase 2 applies it |
+|---|---|---|---|
+| Q-A | Final push path | **Option 1.** | Work stays on local `main`. At the end: one short-lived branch, one PR, and the owner merges it with a merge commit using the admin bypass. This overrides the contract's "no new branches or PRs" rule for that one PR only. |
+| Q-B | Slice 11 acceptance | **After the cleanup, as the first task.** | It is added to the `TASK.md` queue and to the tracker (T-10). |
+| Q-C | Owner assets on the archive tag | **Restore them for the Wafra tenant.** | Restore `Saudi_Riyal.svg` and `wafra-logo.jpeg` byte-for-byte from `archive/fix/MESP-123-angular-branding` into `frontend/assets/`, as explicit owner instruction. No regeneration and no hard-coded tenant logic (ADR-019). |
+| Q-D | Routing file location | **`docs/MODEL_ROUTING.md`.** | — |
+| Q-E | Enforcement tests | **Yes.** | Install R2–R5. The three two-way pairs are frozen; scheduling their removal was not requested. |
+| Q-F | Tracker reconciliation | **Yes.** | Apply T-04, T-08, T-09, T-10 and T-11, plus the §3 conventions. #154–174 keep their current `release-1` labels; nothing is relabelled. |
+| Q-G | Docs outside the 5 core files | **Recommended options.** | BRDs and the glossary go to `docs/requirements/`; `staticts.md` and its rule are retired to history; the component READMEs are kept, trimmed. |
+| Q-H | Non-Markdown documents | **Move them.** | → `docs/assets/`. |
+| Q-I | `.runtime/` | **Recommended option.** | KEEP (ignored local data). |
+| Q-J | Stashes | **OK.** | Drop `@{0}`, `@{1}`, `@{4}` and `@{5}` after re-verifying each message. Keep `@{3}`. `@{2}` (secret) is left untouched for the owner. |
+| Q-K | Epics with every child Done | **"Partially, for review."** | Conservative reading: none are closed by the executor. Each gets a comment saying that all children are Done and that closure is pending owner review, and they are listed for review in `ROADMAP.md`. MESP-6, 7 and 12 stay in Todo until that review. |
+| Q-L | D-18 behavior change | **Approved.** | — |
