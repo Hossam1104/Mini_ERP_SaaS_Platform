@@ -122,7 +122,7 @@ public sealed class MigrationApOpeningSqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.True(executed.Succeeded, executed.Code);
         Assert.Equal(MigrationRunStatus.Completed, executed.Value!.RunStatus);
         Assert.Single(executed.Value.Effects, item => item.RecordType == MigrationCanonicalRecordType.ApOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed);
-        Assert.Equal(2, executed.Value.Representations!.Count);
+        Assert.Equal(3, executed.Value.Representations!.Count);
         Assert.Equal("reconciled", Assert.Single(executed.Value.ApEconomicReconciliations!).Status);
 
         var staged = Assert.Single(await migration.ListStagedRecordsAsync(tenant, runId, 0, 100));

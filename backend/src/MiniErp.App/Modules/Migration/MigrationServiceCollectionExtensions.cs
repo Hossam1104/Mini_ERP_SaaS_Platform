@@ -36,6 +36,8 @@ public static class MigrationServiceCollectionExtensions
             provider.GetService<TimeProvider>(),
             provider.GetRequiredService<MigrationCashBankOpeningExecutionCoordinator>(),
             provider.GetRequiredService<MigrationGlOpeningExecutionCoordinator>()));
+        services.AddSingleton<IMigrationReconciliationApprovalPolicy, UnconfiguredMigrationReconciliationApprovalPolicy>();
+        services.AddSingleton<MigrationReconciliationService>();
         services.AddSingleton<IMigrationReferenceAuthority, UnavailableMigrationReferenceAuthority>();
         return services;
     }

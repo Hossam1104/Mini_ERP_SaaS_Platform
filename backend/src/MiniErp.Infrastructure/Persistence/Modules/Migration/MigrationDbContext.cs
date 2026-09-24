@@ -41,6 +41,11 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
 
     internal DbSet<MigrationExecutionEffectEntity> ExecutionEffects => Set<MigrationExecutionEffectEntity>();
     internal DbSet<MigrationEconomicRepresentationEntity> EconomicRepresentations => Set<MigrationEconomicRepresentationEntity>();
+    internal DbSet<MigrationReconciliationEntity> Reconciliations => Set<MigrationReconciliationEntity>();
+    internal DbSet<MigrationReconciliationDetailEntity> ReconciliationDetails => Set<MigrationReconciliationDetailEntity>();
+    internal DbSet<MigrationReconciliationRequirementEntity> ReconciliationRequirements => Set<MigrationReconciliationRequirementEntity>();
+    internal DbSet<MigrationReconciliationApprovalEntity> ReconciliationApprovals => Set<MigrationReconciliationApprovalEntity>();
+    internal DbSet<MigrationHandoverReadinessEntity> HandoverReadiness => Set<MigrationHandoverReadinessEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -422,6 +427,162 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
             .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.AttemptId, item.Id })
             .OnDelete(DeleteBehavior.Restrict);
         representation.HasQueryFilter(item => item.TenantId == TrustedTenantId);
+
+        var reconciliation = modelBuilder.Entity<MigrationReconciliationEntity>();
+        reconciliation.ToTable("MigrationReconciliations", "migration");
+        reconciliation.HasKey(item => item.Id);
+        reconciliation.Property(item => item.Id).ValueGeneratedNever();
+        ConfigureTenant(reconciliation.Property(item => item.TenantId));
+        reconciliation.Property(item => item.EvidenceFingerprint).HasMaxLength(64).IsRequired();
+        reconciliation.Property(item => item.IdempotencyKey).HasMaxLength(128).IsRequired();
+        reconciliation.Property(item => item.Status).IsRequired();
+        reconciliation.Property(item => item.CreatedAt).IsRequired();
+        reconciliation.Property(item => item.CalculatedAt).IsRequired();
+        reconciliation.Property(item => item.VersionNumber).IsRequired();
+        reconciliation.Property(item => item.SubmittedCount).IsRequired();
+        reconciliation.Property(item => item.AcceptedCount).IsRequired();
+        reconciliation.Property(item => item.RejectedCount).IsRequired();
+        reconciliation.Property(item => item.DuplicateCount).IsRequired();
+        reconciliation.Property(item => item.SkippedCount).IsRequired();
+        reconciliation.Property(item => item.QuarantinedCount).IsRequired();
+        reconciliation.Property(item => item.UnresolvedCount).IsRequired();
+        reconciliation.Property(item => item.RequiredApprovalCount).IsRequired();
+        reconciliation.Property(item => item.ApprovalPolicyId).HasMaxLength(128).IsRequired(false);
+        reconciliation.Property(item => item.ApprovalPolicyVersion).IsRequired(false);
+        reconciliation.Property(item => item.ApprovalPolicyCode).HasMaxLength(128).IsRequired();
+        reconciliation.Property(item => item.ApprovalPolicyEffectiveFrom).IsRequired(false);
+        reconciliation.Property(item => item.ApprovalPolicyEffectiveTo).IsRequired(false);
+        reconciliation.Property(item => item.ApprovalEnforcesSeparationOfDuties).IsRequired();
+        foreach (var property in new[] { nameof(MigrationReconciliationEntity.SourceDebit), nameof(MigrationReconciliationEntity.SourceCredit), nameof(MigrationReconciliationEntity.TargetDebit), nameof(MigrationReconciliationEntity.TargetCredit), nameof(MigrationReconciliationEntity.Variance) })
+            reconciliation.Property<decimal>(property).HasPrecision(28, 8);
+        ConfigureVersion(reconciliation.Property(item => item.Version));
+        reconciliation.HasAlternateKey(item => new { item.TenantId, item.RunId, item.Id });
+        reconciliation.HasIndex(item => new { item.TenantId, item.RunId, item.VersionNumber }).IsUnique();
+        reconciliation.HasIndex(item => new { item.TenantId, item.RunId, item.EvidenceFingerprint }).IsUnique();
+        reconciliation.HasIndex(item => new { item.TenantId, item.RunId, item.IdempotencyKey }).IsUnique();
+        reconciliation.HasOne<MigrationRunEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId }).OnDelete(DeleteBehavior.Restrict);
+        reconciliation.HasOne<MigrationAttemptEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.AttemptId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.AttemptId }).OnDelete(DeleteBehavior.Restrict);
+        reconciliation.HasQueryFilter(item => item.TenantId == TrustedTenantId);
+
+        var detail = modelBuilder.Entity<MigrationReconciliationDetailEntity>();
+        detail.ToTable("MigrationReconciliationDetails", "migration");
+        detail.HasKey(item => item.Id);
+        detail.Property(item => item.Id).ValueGeneratedNever();
+        ConfigureTenant(detail.Property(item => item.TenantId));
+        detail.Property(item => item.Domain).IsRequired();
+        detail.Property(item => item.ScopeKey).HasMaxLength(256).IsRequired();
+        detail.Property(item => item.CompanyId).IsRequired(false);
+        detail.Property(item => item.OpeningDate).IsRequired(false);
+        detail.Property(item => item.CurrencyCode).HasMaxLength(16).IsRequired(false);
+        detail.Property(item => item.TransactionCurrencyCode).HasMaxLength(16).IsRequired(false);
+        detail.Property(item => item.FunctionalCurrencyCode).HasMaxLength(16).IsRequired(false);
+        detail.Property(item => item.SourceContract).HasMaxLength(128).IsRequired(false);
+        detail.Property(item => item.SourceEvent).HasMaxLength(128).IsRequired(false);
+        detail.Property(item => item.RoundingMode).HasMaxLength(32).IsRequired(false);
+        detail.Property(item => item.FindingCode).HasMaxLength(128).IsRequired(false);
+        detail.Property(item => item.Explanation).HasMaxLength(512).IsRequired(false);
+        detail.Property(item => item.SourceCount).IsRequired();
+        detail.Property(item => item.ExchangeRateId).IsRequired(false);
+        detail.Property(item => item.ExchangeRateVersionId).IsRequired(false);
+        detail.Property(item => item.ExchangeRateVersionNumber).IsRequired(false);
+        detail.Property(item => item.ControlAccountId).IsRequired(false);
+        detail.Property(item => item.PostingRuleId).IsRequired(false);
+        detail.Property(item => item.PostingRuleVersionNumber).IsRequired(false);
+        detail.Property(item => item.OwnerSourceId).IsRequired(false);
+        detail.Property(item => item.WarehouseId).IsRequired(false);
+        detail.Property(item => item.ProductId).IsRequired(false);
+        detail.Property(item => item.UnitOfMeasureId).IsRequired(false);
+        detail.Property(item => item.RoundingPolicyId).IsRequired(false);
+        detail.Property(item => item.RoundingPolicyVersionNumber).IsRequired(false);
+        detail.Property(item => item.RoundingScale).IsRequired(false);
+        detail.Property(item => item.IsBlocking).IsRequired();
+        detail.Property(item => item.EffectId).IsRequired(false);
+        detail.Property(item => item.OwnerReferenceId).IsRequired(false);
+        detail.Property(item => item.LinkedAccountId).IsRequired(false);
+        foreach (var property in new[] { nameof(MigrationReconciliationDetailEntity.SourceDebit), nameof(MigrationReconciliationDetailEntity.SourceCredit), nameof(MigrationReconciliationDetailEntity.TargetDebit), nameof(MigrationReconciliationDetailEntity.TargetCredit), nameof(MigrationReconciliationDetailEntity.Variance), nameof(MigrationReconciliationDetailEntity.SourceAmount), nameof(MigrationReconciliationDetailEntity.TargetAmount), nameof(MigrationReconciliationDetailEntity.AmountVariance), nameof(MigrationReconciliationDetailEntity.OwnerRoundingDifference), nameof(MigrationReconciliationDetailEntity.TransactionAmount), nameof(MigrationReconciliationDetailEntity.FunctionalAmount), nameof(MigrationReconciliationDetailEntity.SubsidiaryEstablishedAmount), nameof(MigrationReconciliationDetailEntity.GlControlAmount), nameof(MigrationReconciliationDetailEntity.AppliedRate), nameof(MigrationReconciliationDetailEntity.SourceQuantity), nameof(MigrationReconciliationDetailEntity.TargetQuantity), nameof(MigrationReconciliationDetailEntity.QuantityVariance) })
+            detail.Property<decimal?>(property).HasPrecision(28, 8);
+        detail.HasIndex(item => new { item.TenantId, item.ReconciliationId, item.Domain, item.ScopeKey }).IsUnique();
+        detail.HasOne<MigrationReconciliationEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.ReconciliationId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+        detail.HasQueryFilter(item => item.TenantId == TrustedTenantId);
+
+        var requirement = modelBuilder.Entity<MigrationReconciliationRequirementEntity>();
+        requirement.ToTable("MigrationReconciliationRequirements", "migration");
+        requirement.HasKey(item => item.Id);
+        requirement.Property(item => item.Id).ValueGeneratedNever();
+        ConfigureTenant(requirement.Property(item => item.TenantId));
+        requirement.Property(item => item.Domain).HasMaxLength(64).IsRequired();
+        requirement.Property(item => item.RequirementKey).HasMaxLength(128).IsRequired();
+        requirement.Property(item => item.PolicyId).HasMaxLength(128).IsRequired();
+        requirement.Property(item => item.PolicyVersion).IsRequired();
+        requirement.Property(item => item.RequiredCount).IsRequired();
+        requirement.Property(item => item.EnforceSeparationOfDuties).IsRequired();
+        requirement.Property(item => item.EligibleActorIdsJson).HasMaxLength(8000).IsRequired();
+        requirement.HasIndex(item => new { item.TenantId, item.ReconciliationId, item.Domain, item.RequirementKey }).IsUnique();
+        requirement.HasOne<MigrationReconciliationEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.ReconciliationId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.Id }).OnDelete(DeleteBehavior.Restrict);
+        requirement.HasQueryFilter(item => item.TenantId == TrustedTenantId);
+
+        var approval = modelBuilder.Entity<MigrationReconciliationApprovalEntity>();
+        approval.ToTable("MigrationReconciliationApprovals", "migration");
+        approval.HasKey(item => item.Id);
+        approval.Property(item => item.Id).ValueGeneratedNever();
+        ConfigureTenant(approval.Property(item => item.TenantId));
+        approval.Property(item => item.EvidenceFingerprint).HasMaxLength(64).IsRequired();
+        approval.Property(item => item.IdempotencyKey).HasMaxLength(128).IsRequired();
+        approval.Property(item => item.ReconciliationVersion).IsRequired();
+        approval.Property(item => item.PolicyVersion).IsRequired();
+        approval.Property(item => item.ActorId).IsRequired();
+        approval.Property(item => item.Domain).HasMaxLength(64).IsRequired();
+        approval.Property(item => item.RequirementKey).HasMaxLength(128).IsRequired();
+        approval.Property(item => item.PolicyId).HasMaxLength(128).IsRequired();
+        approval.Property(item => item.Decision).IsRequired();
+        approval.Property(item => item.Reason).HasMaxLength(512).IsRequired(false);
+        approval.Property(item => item.DecidedAt).IsRequired();
+        approval.Property(item => item.EvidenceConfirmed).IsRequired();
+        ConfigureVersion(approval.Property(item => item.Version));
+        approval.HasIndex(item => new { item.TenantId, item.ReconciliationId, item.ReconciliationVersion, item.Domain, item.RequirementKey, item.ActorId }).IsUnique();
+        approval.HasIndex(item => new { item.TenantId, item.RunId, item.IdempotencyKey }).IsUnique();
+        approval.HasOne<MigrationReconciliationEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.ReconciliationId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.Id }).OnDelete(DeleteBehavior.Restrict);
+        approval.HasOne<MigrationAttemptEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.AttemptId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.AttemptId }).OnDelete(DeleteBehavior.Restrict);
+        approval.HasQueryFilter(item => item.TenantId == TrustedTenantId);
+
+        var readiness = modelBuilder.Entity<MigrationHandoverReadinessEntity>();
+        readiness.ToTable("MigrationHandoverReadiness", "migration");
+        readiness.HasKey(item => item.Id);
+        readiness.Property(item => item.Id).ValueGeneratedNever();
+        ConfigureTenant(readiness.Property(item => item.TenantId));
+        readiness.Property(item => item.EvidenceFingerprint).HasMaxLength(64).IsRequired();
+        readiness.Property(item => item.IdempotencyKey).HasMaxLength(128).IsRequired();
+        readiness.Property(item => item.ResultCode).HasMaxLength(128).IsRequired();
+        readiness.Property(item => item.CreatedAt).IsRequired();
+        readiness.Property(item => item.ReconciliationVersion).IsRequired();
+        readiness.Property(item => item.BusinessReady).IsRequired();
+        readiness.Property(item => item.ProductionReady).IsRequired();
+        readiness.Property(item => item.Mesp48Complete).IsRequired();
+        readiness.Property(item => item.Mesp50Complete).IsRequired();
+        readiness.Property(item => item.TenantActivationPerformed).IsRequired();
+        ConfigureVersion(readiness.Property(item => item.Version));
+        readiness.HasIndex(item => new { item.TenantId, item.ReconciliationId, item.ReconciliationVersion }).IsUnique();
+        readiness.HasIndex(item => new { item.TenantId, item.RunId, item.IdempotencyKey }).IsUnique();
+        readiness.HasOne<MigrationReconciliationEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.ReconciliationId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.Id }).OnDelete(DeleteBehavior.Restrict);
+        readiness.HasOne<MigrationAttemptEntity>().WithMany()
+            .HasForeignKey(item => new { item.TenantId, item.RunId, item.AttemptId })
+            .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.AttemptId }).OnDelete(DeleteBehavior.Restrict);
+        readiness.HasQueryFilter(item => item.TenantId == TrustedTenantId);
     }
 
     private void ConfigureTenant(Microsoft.EntityFrameworkCore.Metadata.Builders.PropertyBuilder<TenantId> property) =>

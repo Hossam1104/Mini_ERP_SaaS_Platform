@@ -67,7 +67,7 @@ internal sealed class MigrationArOpeningExecutionCoordinator
             var ready = await finance.PreflightMigrationArOpeningAsync(financeContext, command, cancellationToken);
             if (!ready.Ready)
                 return MigrationOwnerExecutionCoordinator.OwnerPreparationResult.Failure(ready.Code);
-            if (ready.Expectation is { } expectation && MigrationOpeningMonetaryMatching.HasMonetaryEvidence(expectation))
+            if (ready.Expectation is { } expectation)
                 expectations[row.Staged.StagedRecordId] = expectation;
         }
 
@@ -246,8 +246,9 @@ internal sealed class MigrationArOpeningExecutionCoordinator
             try { evidence = await finance.ReadMigrationArOpeningAsync(financeContext, command, cancellationToken); }
             catch { }
             var journalAmount = evidence?.RecognitionJournal.Lines.Sum(item => item.FunctionalDebit);
-            var exact = evidence is not null && EvidenceMatches(evidence, command) && journalAmount == amount;
             var monetary = MigrationOpeningMonetaryMatching.ReconciliationFields(evidence?.MonetaryEvidence);
+            var exact = evidence is not null && EvidenceMatches(evidence, command)
+                && journalAmount == (monetary.FunctionalAmount ?? amount);
             result.Add(new(effect.Id, effect.SourceSequence, exact ? "reconciled" : "partial", exact ? null : "finance_ar_opening_evidence_not_reconciled", companyId, customerId, payload.SourceReference.Trim(), amount, evidence?.OpenItem.OriginalAmount, evidence?.OpenItem.OutstandingAmount, journalAmount, evidence?.OpenItem.AllocatedAmount, payload.CurrencyCode.Trim().ToUpperInvariant(), evidence?.OpenItem.Id, evidence?.RecognitionJournal.Id, clock.GetUtcNow(), monetary.TransactionCurrencyCode, monetary.TransactionAmount, monetary.FunctionalCurrencyCode, monetary.FunctionalAmount, monetary.RateDate, monetary.ExchangeRateId, monetary.ExchangeRateVersionId, monetary.ExchangeRateVersionNumber, monetary.AppliedRate, monetary.MonetaryPolicyId, monetary.MonetaryPolicyVersionNumber, monetary.RoundingScale, monetary.RoundingMode, monetary.FunctionalRoundingDifference, monetary.ReportingCurrencyCode, monetary.ReportingAmount, monetary.ReportingExchangeRateId, monetary.ReportingExchangeRateVersionId, monetary.ReportingExchangeRateVersionNumber, monetary.ReportingAppliedRate, monetary.ReportingEvidenceStatus));
         }
         return result;

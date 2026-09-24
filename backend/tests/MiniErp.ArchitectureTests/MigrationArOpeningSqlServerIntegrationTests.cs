@@ -148,7 +148,7 @@ public sealed class MigrationArOpeningSqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.Equal(MigrationRunStatus.Completed, executed.Value!.RunStatus);
         Assert.Equal(MigrationExecutionService.FingerprintVersion, executed.Value.FingerprintVersion);
         Assert.Single(executed.Value.Effects, item => item.RecordType == MigrationCanonicalRecordType.ArOpening && item.Disposition == MigrationExecutionEffectDisposition.Committed);
-        Assert.Equal(2, executed.Value.Representations!.Count);
+        Assert.Equal(3, executed.Value.Representations!.Count);
         Assert.Contains(executed.Value.Representations, item => item.Kind == MigrationEconomicRepresentationKind.FinanceOpenItem);
         Assert.Contains(executed.Value.Representations, item => item.Kind == MigrationEconomicRepresentationKind.FinanceJournal);
         Assert.Equal("reconciled", Assert.Single(executed.Value.ArEconomicReconciliations!).Status);

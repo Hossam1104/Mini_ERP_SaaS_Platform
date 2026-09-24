@@ -1,5 +1,6 @@
 #pragma warning disable CS1591
 
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.Modules.Migration;
@@ -12,7 +13,7 @@ namespace MiniErp.Infrastructure.Persistence.Modules.Migration;
 /// trusted Tenant context and every idempotency record stores identifiers and
 /// fingerprints only; no imported payload is persisted by this slice.
 /// </summary>
-internal sealed partial class MigrationPersistence : IMigrationFoundationPersistence, IMigrationValidationPersistence, IMigrationExecutionPersistence
+internal sealed partial class MigrationPersistence : IMigrationFoundationPersistence, IMigrationValidationPersistence, IMigrationExecutionPersistence, IMigrationReconciliationPersistence
 {
     private readonly DbContextOptions options;
     private readonly TimeProvider timeProvider;
@@ -532,6 +533,9 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
         ArgumentNullException.ThrowIfNull(reference);
 
         await using var db = CreateContext(tenantContext);
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        if (db.Database.IsSqlServer())
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT [RunId] FROM [migration].[MigrationRuns] WITH (UPDLOCK, HOLDLOCK) WHERE [TenantId] = {tenantContext.TenantId.Value} AND [RunId] = {reference.RunId}", cancellationToken);
         var run = await db.Runs.SingleOrDefaultAsync(item => item.RunId == reference.RunId, cancellationToken);
         if (run is null)
         {
@@ -559,13 +563,15 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
                     "migration_attempt_identity_mismatch");
             }
 
-            identity.SetEvidenceConfirmed(confirmed);
+            if (identity.EvidenceConfirmed != confirmed)
+                identity.SetEvidenceConfirmed(confirmed);
             if (identity.AttemptId is { } identityAttemptId)
             {
                 var attempt = await db.Attempts.SingleOrDefaultAsync(
                     item => item.RunId == reference.RunId && item.AttemptId == identityAttemptId,
                     cancellationToken);
-                attempt?.SetEvidenceConfirmed(confirmed);
+                if (attempt is not null && attempt.EvidenceConfirmed != confirmed)
+                    attempt.SetEvidenceConfirmed(confirmed);
             }
         }
 
@@ -581,13 +587,16 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
                     "migration_attempt_not_found");
             }
 
-            attempt.SetEvidenceConfirmed(confirmed);
+            if (attempt.EvidenceConfirmed != confirmed)
+                attempt.SetEvidenceConfirmed(confirmed);
         }
 
-        run.SetEvidenceConfirmed(confirmed);
+        if (run.EvidenceConfirmed != confirmed)
+            run.SetEvidenceConfirmed(confirmed);
         try
         {
             await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             return MigrationPersistenceResult<bool>.Success(true);
         }
         catch (DbUpdateConcurrencyException)

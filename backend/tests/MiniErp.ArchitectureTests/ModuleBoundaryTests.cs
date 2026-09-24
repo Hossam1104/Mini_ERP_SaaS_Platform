@@ -201,9 +201,7 @@ public sealed class ModuleBoundaryTests
                 Source: File.ReadAllText(path)));
         var callSites = FindForbiddenEfInvocations(sourceUnits);
 
-        var approvedCount = callSites.Count(callSite => IsApprovedUnscopedCall(callSite));
-        Assert.Equal(1, approvedCount);
-        Assert.DoesNotContain(callSites, callSite => !IsApprovedUnscopedCall(callSite));
+        AssertApprovedUnscopedCalls(callSites);
     }
 
     [Fact]
@@ -219,8 +217,7 @@ public sealed class ModuleBoundaryTests
                 Source: File.ReadAllText(path)));
         var callSites = FindForbiddenEfInvocations(sourceUnits);
 
-        Assert.Equal(1, callSites.Count(IsApprovedUnscopedCall));
-        Assert.DoesNotContain(callSites, callSite => !IsApprovedUnscopedCall(callSite));
+        AssertApprovedUnscopedCalls(callSites);
     }
 
     [Fact]
@@ -277,6 +274,10 @@ public sealed class ModuleBoundaryTests
 
     private const string ApprovedVerifierPath =
         "backend/src/MiniErp.Infrastructure/Persistence/TenantOwnershipStoreVerifier.cs";
+    private const string MigrationPersistencePath =
+        "backend/src/MiniErp.Infrastructure/Persistence/Modules/Migration/MigrationPersistence.cs";
+    private const string MigrationReconciliationPersistencePath =
+        "backend/src/MiniErp.Infrastructure/Persistence/Modules/Migration/MigrationReconciliationPersistence.cs";
 
     private static readonly IReadOnlySet<string> ForbiddenEfMethodNames = new HashSet<string>(
     [
@@ -344,8 +345,18 @@ public sealed class ModuleBoundaryTests
 
     private static bool IsApprovedUnscopedCall(ForbiddenEfInvocation callSite)
     {
-        return callSite.RelativePath == ApprovedVerifierPath
-            && callSite.Method == "IgnoreQueryFilters";
+        return callSite.RelativePath == ApprovedVerifierPath && callSite.Method == "IgnoreQueryFilters"
+            || (callSite.RelativePath == MigrationPersistencePath || callSite.RelativePath == MigrationReconciliationPersistencePath)
+                && callSite.Method == "ExecuteSqlInterpolatedAsync";
+    }
+
+    private static void AssertApprovedUnscopedCalls(IReadOnlyList<ForbiddenEfInvocation> callSites)
+    {
+        Assert.Equal(4, callSites.Count);
+        Assert.Equal(1, callSites.Count(callSite => callSite.RelativePath == ApprovedVerifierPath && callSite.Method == "IgnoreQueryFilters"));
+        Assert.Equal(1, callSites.Count(callSite => callSite.RelativePath == MigrationPersistencePath && callSite.Method == "ExecuteSqlInterpolatedAsync"));
+        Assert.Equal(2, callSites.Count(callSite => callSite.RelativePath == MigrationReconciliationPersistencePath && callSite.Method == "ExecuteSqlInterpolatedAsync"));
+        Assert.DoesNotContain(callSites, callSite => !IsApprovedUnscopedCall(callSite));
     }
 
     private static string NormalizePath(string path) => path.Replace('\\', '/');

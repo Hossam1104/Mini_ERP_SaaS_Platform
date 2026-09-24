@@ -17,15 +17,78 @@ public sealed record MigrationExecutionResponse(
     MigrationRunStatus RunStatus,
     MigrationAttemptOutcome AttemptOutcome,
     string OutcomeCode,
-    IReadOnlyList<MigrationExecutionBatchRecord> Batches,
-    IReadOnlyList<MigrationExecutionEffectRecord> Effects,
-    IReadOnlyList<MigrationEconomicRepresentationRecord>? Representations,
+    IReadOnlyList<MigrationExecutionBatchResponse> Batches,
+    IReadOnlyList<MigrationExecutionEffectResponse> Effects,
+    IReadOnlyList<MigrationEconomicRepresentationResponse>? Representations,
     IReadOnlyList<MigrationEconomicReconciliationRecord>? EconomicReconciliations,
     IReadOnlyList<MigrationArEconomicReconciliationRecord>? ArEconomicReconciliations,
     IReadOnlyList<MigrationApEconomicReconciliationRecord>? ApEconomicReconciliations,
     IReadOnlyList<MigrationCashBankEconomicReconciliationRecord>? CashBankEconomicReconciliations,
     IReadOnlyList<MigrationGlEconomicReconciliationRecord>? GlEconomicReconciliations,
     bool ZeroEconomicEffects);
+
+public sealed record MigrationExecutionBatchResponse(
+    Guid Id, Guid TenantId, Guid RunId, Guid AttemptId, MigrationCanonicalRecordType RecordType,
+    MigrationExecutionBatchState State, Guid OwnerBatchId, string Fingerprint, DateTimeOffset CreatedAt,
+    DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt, string CorrelationId, byte[] Version);
+
+public sealed record MigrationExecutionEffectResponse(
+    Guid Id, Guid TenantId, Guid RunId, Guid AttemptId, Guid StagedRecordId, int SourceSequence,
+    MigrationCanonicalRecordType RecordType, Guid OwnerBatchId, Guid? OwnerRowId, Guid? ResultingResourceId,
+    string? ResultingResourceCode, MigrationExecutionEffectDisposition Disposition, string? SafeCode,
+    DateTimeOffset CreatedAt, DateTimeOffset? EffectStartedAt, DateTimeOffset? CompletedAt,
+    string CorrelationId, byte[] Version);
+
+public sealed record MigrationEconomicRepresentationResponse(
+    Guid Id, Guid TenantId, Guid RunId, Guid AttemptId, Guid EffectId, MigrationEconomicOwnerModule OwnerModule,
+    MigrationEconomicRepresentationKind Kind, Guid OwnerId, string? OwnerReference, string Status,
+    string EvidenceVersion, DateTimeOffset OccurredAt, DateTimeOffset RecordedAt, bool EvidenceConfirmed,
+    byte[] Version, string? SourceContract, string? SourceEvent, decimal? FunctionalAmount, Guid? PostingRuleId,
+    int? PostingRuleVersionNumber, Guid? ControlAccountId, Guid? OffsetAccountId, bool? Reversal,
+    Guid? SourceEvidenceId, int? SourceEvidenceVersion, Guid? OwnerSourceId, string? TransactionCurrencyCode,
+    decimal? TransactionAmount, string? ExpectedFunctionalCurrencyCode, DateOnly? RateDate, Guid? ExchangeRateId,
+    Guid? ExchangeRateVersionId, int? ExchangeRateVersionNumber, decimal? AppliedRate, Guid? MonetaryPolicyId,
+    int? MonetaryPolicyVersionNumber, int? RoundingScale, string? RoundingMode, string? ReportingCurrencyCode,
+    Guid? ReportingExchangeRateId, Guid? ReportingExchangeRateVersionId, int? ReportingExchangeRateVersionNumber,
+    decimal? ReportingAppliedRate);
+
+public sealed record MigrationReconciliationResponse(
+    Guid Id, Guid TenantId, Guid RunId, Guid AttemptId, int VersionNumber, string EvidenceFingerprint, string IdempotencyKey,
+    MigrationReconciliationStatus Status, DateTimeOffset CreatedAt, DateTimeOffset CalculatedAt, int SubmittedCount,
+    int AcceptedCount, int RejectedCount, int DuplicateCount, int SkippedCount, int QuarantinedCount, int UnresolvedCount,
+    int RequiredApprovalCount, int ObtainedApprovalCount, decimal SourceDebit, decimal SourceCredit, decimal TargetDebit,
+    decimal TargetCredit, decimal Variance, byte[] Version, bool IsCurrent, string? ApprovalPolicyId,
+    int? ApprovalPolicyVersion, string ApprovalPolicyCode, DateTimeOffset? ApprovalPolicyEffectiveFrom,
+    DateTimeOffset? ApprovalPolicyEffectiveTo, bool ApprovalEnforcesSeparationOfDuties,
+    IReadOnlyList<MigrationReconciliationApprovalRequirement> Requirements, IReadOnlyList<MigrationReconciliationDetailResponse> Details,
+    IReadOnlyList<MigrationReconciliationApprovalResponse> Approvals, MigrationHandoverReadinessResponse? Readiness);
+
+public sealed record MigrationReconciliationDetailResponse(
+    Guid Id, MigrationReconciliationDomain Domain, string ScopeKey, Guid? CompanyId, DateOnly? OpeningDate,
+    string? CurrencyCode, string? TransactionCurrencyCode, string? FunctionalCurrencyCode, int SourceCount,
+    decimal? SourceDebit, decimal? SourceCredit, decimal? TargetDebit, decimal? TargetCredit, decimal? Variance,
+    decimal? SourceAmount, decimal? TargetAmount, decimal? AmountVariance, decimal? OwnerRoundingDifference,
+    decimal? TransactionAmount, decimal? FunctionalAmount, decimal? SubsidiaryEstablishedAmount, decimal? GlControlAmount,
+    Guid? ExchangeRateId, Guid? ExchangeRateVersionId, int? ExchangeRateVersionNumber, decimal? AppliedRate,
+    decimal? SourceQuantity, decimal? TargetQuantity, decimal? QuantityVariance, Guid? ControlAccountId,
+    Guid? PostingRuleId, int? PostingRuleVersionNumber, Guid? OwnerSourceId, Guid? WarehouseId, Guid? ProductId,
+    Guid? UnitOfMeasureId, string? SourceContract, string? SourceEvent, Guid? RoundingPolicyId,
+    int? RoundingPolicyVersionNumber, int? RoundingScale, string? RoundingMode, bool IsBlocking, string? FindingCode,
+    string? Explanation, Guid? EffectId, Guid? OwnerReferenceId, Guid? LinkedAccountId);
+
+public sealed record MigrationReconciliationApprovalResponse(
+    Guid Id, Guid TenantId, Guid RunId, Guid ReconciliationId, int ReconciliationVersion, Guid AttemptId,
+    string EvidenceFingerprint, string IdempotencyKey, string Domain, string RequirementKey, string PolicyId,
+    int PolicyVersion, Guid ActorId, MigrationApprovalDecision Decision, string? Reason, DateTimeOffset DecidedAt,
+    byte[] Version, bool EvidenceConfirmed);
+
+public sealed record MigrationHandoverReadinessResponse(
+    Guid Id, Guid TenantId, Guid RunId, Guid ReconciliationId, int ReconciliationVersion, Guid AttemptId,
+    string EvidenceFingerprint, string IdempotencyKey, DateTimeOffset CreatedAt, bool BusinessReady,
+    bool ProductionReady, bool Mesp48Complete, bool Mesp50Complete, bool TenantActivationPerformed,
+    string ResultCode, byte[] Version);
+
+public sealed record MigrationApprovalDecisionRequest(string Domain, string RequirementKey, MigrationApprovalDecision Decision, string? Reason);
 
 /// <summary>REST adapter for the bounded MESP-141 migration lifecycle.</summary>
 public static class MigrationEndpoints
@@ -89,7 +152,7 @@ public static class MigrationEndpoints
         endpoints.MapPost(
             "/api/v1/migrations/{runId:guid}/execution",
             async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationExecutionService service) =>
-                await ExecuteMutationAsync(runId, httpContext, resolver, service))
+            await ExecuteMutationAsync(runId, httpContext, resolver, service))
             .WithName("migration.execution.start")
             .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.execution.start")))
             .Produces<MigrationExecutionResponse>(StatusCodes.Status200OK);
@@ -97,12 +160,131 @@ public static class MigrationEndpoints
         endpoints.MapGet(
             "/api/v1/migrations/{runId:guid}/execution",
             async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationExecutionService service) =>
-                await ExecuteExecutionReadAsync(runId, httpContext, resolver, service))
+            await ExecuteExecutionReadAsync(runId, httpContext, resolver, service))
             .WithName("migration.execution.read")
             .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.execution.read")))
             .Produces<MigrationExecutionResponse>(StatusCodes.Status200OK);
 
+        endpoints.MapPost("/api/v1/migrations/{runId:guid}/reconciliation",
+            async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationValidationService validation, MigrationReconciliationService service) =>
+            await ExecuteMutationAsync(runId, httpContext, resolver, validation, service))
+            .WithName("migration.reconciliation.calculate")
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.reconciliation.calculate")))
+            .Produces<MigrationReconciliationResponse>(StatusCodes.Status200OK);
+
+        endpoints.MapGet("/api/v1/migrations/{runId:guid}/reconciliation",
+            async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationValidationService validation, MigrationReconciliationService service) =>
+            await ExecuteReconciliationReadAsync(runId, httpContext, resolver, validation, service))
+            .WithName("migration.reconciliation.read")
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.reconciliation.read")))
+            .Produces<MigrationReconciliationResponse>(StatusCodes.Status200OK);
+
+        endpoints.MapPost("/api/v1/migrations/{runId:guid}/reconciliation/{reconciliationId:guid}/approvals",
+            async (Guid runId, Guid reconciliationId, MigrationApprovalDecisionRequest? request, HttpContext httpContext,
+                ITrustedRequestContextResolver resolver, MigrationValidationService validation, MigrationReconciliationService service) =>
+            await ExecuteMutationAsync(runId, reconciliationId, request, httpContext, resolver, validation, service))
+            .WithName("migration.reconciliation.approve")
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.reconciliation.approve")))
+            .Produces<MigrationReconciliationApprovalResponse>(StatusCodes.Status200OK);
+
+        endpoints.MapPost("/api/v1/migrations/{runId:guid}/reconciliation/{reconciliationId:guid}/readiness",
+            async (Guid runId, Guid reconciliationId, HttpContext httpContext, ITrustedRequestContextResolver resolver,
+                MigrationValidationService validation, MigrationReconciliationService service) =>
+            await ExecuteMutationAsync(runId, reconciliationId, httpContext, resolver, validation, service))
+            .WithName("migration.handover.ready")
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.handover.ready")))
+            .Produces<MigrationHandoverReadinessResponse>(StatusCodes.Status200OK);
+
+        endpoints.MapGet("/api/v1/migrations/{runId:guid}/readiness",
+            async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationValidationService validation, MigrationReconciliationService service) =>
+            await ExecuteReadinessReadAsync(runId, httpContext, resolver, validation, service))
+            .WithName("migration.handover.read")
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.handover.read")))
+            .Produces<MigrationHandoverReadinessResponse>(StatusCodes.Status200OK);
+
         return endpoints;
+    }
+
+    private static async Task<IResult> ExecuteMutationAsync(Guid runId, HttpContext httpContext,
+        ITrustedRequestContextResolver resolver, MigrationValidationService validation, MigrationReconciliationService service)
+    {
+        const string operationId = "migration.reconciliation.calculate";
+        var context = await ResolveMutationContextAsync(httpContext, resolver, operationId);
+        if (context.Error is not null) return context.Error;
+        if (!await validation.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", operationId);
+        if (!TryReadExpectedVersion(httpContext, out var expectedVersion))
+            return Problem(httpContext, 400, "if_match_required", "If-Match required", "A valid If-Match run version is required.", operationId);
+        var key = httpContext.Request.Headers["Idempotency-Key"].FirstOrDefault();
+        if (!FoundationCorrelation.IsValid(key))
+            return Problem(httpContext, 400, "idempotency_key_invalid", "Invalid idempotency key", "A valid Idempotency-Key is required for this mutation.", operationId);
+        var result = await service.ReconcileAsync(context.Value!, new MigrationReconcileRequest(runId, expectedVersion, key!), httpContext.RequestAborted);
+        if (result.Value is { } value) httpContext.Response.Headers.ETag = $"\"{Convert.ToBase64String(value.Version)}\"";
+        return MutationResponse(httpContext, result, operationId, "Migration reconciliation failed", ToResponse);
+    }
+
+    private static async Task<IResult> ExecuteReconciliationReadAsync(Guid runId, HttpContext httpContext,
+        ITrustedRequestContextResolver resolver, MigrationValidationService validation, MigrationReconciliationService service)
+    {
+        const string operationId = "migration.reconciliation.read";
+        var context = await ResolveReadContextAsync(httpContext, resolver, operationId);
+        if (context.Error is not null) return context.Error;
+        if (!await validation.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", operationId);
+        var value = await service.ReadAsync(context.Value!, runId, httpContext.RequestAborted);
+        if (value is null) return Problem(httpContext, 404, "migration_reconciliation_not_found", "Not found", "The migration reconciliation was not found.", operationId);
+        httpContext.Response.Headers.ETag = $"\"{Convert.ToBase64String(value.Version)}\"";
+        return Results.Json(ToResponse(value));
+    }
+
+    private static async Task<IResult> ExecuteMutationAsync(Guid runId, Guid reconciliationId, MigrationApprovalDecisionRequest? request,
+        HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationValidationService validation, MigrationReconciliationService service)
+    {
+        const string operationId = "migration.reconciliation.approve";
+        if (request is null) return Problem(httpContext, 400, "validation_failed", "Validation failed", "An approval decision is required.", operationId);
+        var context = await ResolveMutationContextAsync(httpContext, resolver, operationId);
+        if (context.Error is not null) return context.Error;
+        if (!await validation.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", operationId);
+        if (!TryReadExpectedVersion(httpContext, out var expectedVersion))
+            return Problem(httpContext, 400, "if_match_required", "If-Match required", "A valid If-Match reconciliation version is required.", operationId);
+        var key = httpContext.Request.Headers["Idempotency-Key"].FirstOrDefault();
+        if (!FoundationCorrelation.IsValid(key))
+            return Problem(httpContext, 400, "idempotency_key_invalid", "Invalid idempotency key", "A valid Idempotency-Key is required for this mutation.", operationId);
+        var result = await service.ApproveAsync(context.Value!, new MigrationApprovalRequest(runId, reconciliationId, request.Domain, request.RequirementKey,
+            request.Decision, request.Reason, expectedVersion, key!), httpContext.RequestAborted);
+        return MutationResponse(httpContext, result, operationId, "Migration approval failed", ToResponse);
+    }
+
+    private static async Task<IResult> ExecuteMutationAsync(Guid runId, Guid reconciliationId, HttpContext httpContext,
+        ITrustedRequestContextResolver resolver, MigrationValidationService validation, MigrationReconciliationService service)
+    {
+        const string operationId = "migration.handover.ready";
+        var context = await ResolveMutationContextAsync(httpContext, resolver, operationId);
+        if (context.Error is not null) return context.Error;
+        if (!await validation.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", operationId);
+        if (!TryReadExpectedVersion(httpContext, out var expectedVersion))
+            return Problem(httpContext, 400, "if_match_required", "If-Match required", "A valid If-Match reconciliation version is required.", operationId);
+        var key = httpContext.Request.Headers["Idempotency-Key"].FirstOrDefault();
+        if (!FoundationCorrelation.IsValid(key))
+            return Problem(httpContext, 400, "idempotency_key_invalid", "Invalid idempotency key", "A valid Idempotency-Key is required for this mutation.", operationId);
+        var result = await service.CreateReadinessAsync(context.Value!, new MigrationHandoverRequest(runId, reconciliationId, expectedVersion, key!), httpContext.RequestAborted);
+        return MutationResponse(httpContext, result, operationId, "Migration readiness failed", ToResponse);
+    }
+
+    private static async Task<IResult> ExecuteReadinessReadAsync(Guid runId, HttpContext httpContext,
+        ITrustedRequestContextResolver resolver, MigrationValidationService validation, MigrationReconciliationService service)
+    {
+        const string operationId = "migration.handover.read";
+        var context = await ResolveReadContextAsync(httpContext, resolver, operationId);
+        if (context.Error is not null) return context.Error;
+        if (!await validation.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", operationId);
+        var value = await service.ReadAsync(context.Value!, runId, httpContext.RequestAborted);
+        return value?.Readiness is { } readiness
+            ? Results.Json(ToResponse(readiness))
+            : Problem(httpContext, 404, "migration_readiness_not_found", "Not found", "The migration readiness snapshot was not found.", operationId);
     }
 
     private static async Task<IResult> ExecuteValidationMutationAsync(
@@ -397,15 +579,62 @@ public static class MigrationEndpoints
         value.RunStatus,
         value.AttemptOutcome,
         value.OutcomeCode,
-        value.Batches,
-        value.Effects,
-        value.Representations,
+        value.Batches.Select(item => new MigrationExecutionBatchResponse(item.Id, item.TenantId.Value, item.RunId, item.AttemptId,
+            item.RecordType, item.State, item.OwnerBatchId, item.Fingerprint, item.CreatedAt, item.StartedAt, item.CompletedAt,
+            item.CorrelationId, item.Version)).ToArray(),
+        value.Effects.Select(item => new MigrationExecutionEffectResponse(item.Id, item.TenantId.Value, item.RunId, item.AttemptId,
+            item.StagedRecordId, item.SourceSequence, item.RecordType, item.OwnerBatchId, item.OwnerRowId, item.ResultingResourceId,
+            item.ResultingResourceCode, item.Disposition, item.SafeCode, item.CreatedAt, item.EffectStartedAt, item.CompletedAt,
+            item.CorrelationId, item.Version)).ToArray(),
+        value.Representations?.Select(item => new MigrationEconomicRepresentationResponse(item.Id, item.TenantId.Value, item.RunId,
+            item.AttemptId, item.EffectId, item.OwnerModule, item.Kind, item.OwnerId, item.OwnerReference, item.Status,
+            item.EvidenceVersion, item.OccurredAt, item.RecordedAt, item.EvidenceConfirmed, item.Version, item.SourceContract,
+            item.SourceEvent, item.FunctionalAmount, item.PostingRuleId, item.PostingRuleVersionNumber, item.ControlAccountId,
+            item.OffsetAccountId, item.Reversal, item.SourceEvidenceId, item.SourceEvidenceVersion, item.OwnerSourceId,
+            item.TransactionCurrencyCode, item.TransactionAmount, item.ExpectedFunctionalCurrencyCode, item.RateDate,
+            item.ExchangeRateId, item.ExchangeRateVersionId, item.ExchangeRateVersionNumber, item.AppliedRate,
+            item.MonetaryPolicyId, item.MonetaryPolicyVersionNumber, item.RoundingScale, item.RoundingMode,
+            item.ReportingCurrencyCode, item.ReportingExchangeRateId, item.ReportingExchangeRateVersionId,
+            item.ReportingExchangeRateVersionNumber, item.ReportingAppliedRate)).ToArray(),
         value.EconomicReconciliations,
         value.ArEconomicReconciliations,
         value.ApEconomicReconciliations,
         value.CashBankEconomicReconciliations,
         value.GlEconomicReconciliations,
         value.Representations is null or { Count: 0 });
+
+    private static MigrationReconciliationResponse ToResponse(MigrationReconciliationRecord value) => new(
+        value.Id, value.TenantId.Value, value.RunId, value.AttemptId, value.VersionNumber, value.EvidenceFingerprint,
+        value.IdempotencyKey, value.Status, value.CreatedAt, value.CalculatedAt, value.SubmittedCount, value.AcceptedCount,
+        value.RejectedCount, value.DuplicateCount, value.SkippedCount, value.QuarantinedCount, value.UnresolvedCount,
+        value.RequiredApprovalCount, value.ObtainedApprovalCount, value.SourceDebit, value.SourceCredit, value.TargetDebit,
+        value.TargetCredit, value.Variance, value.Version, value.IsCurrent, value.ApprovalPolicyId,
+        value.ApprovalPolicyVersion, value.ApprovalPolicyCode, value.ApprovalPolicyEffectiveFrom,
+        value.ApprovalPolicyEffectiveTo, value.ApprovalEnforcesSeparationOfDuties, value.Requirements,
+        value.Details.Select(ToResponse).ToArray(),
+        value.Approvals.Select(ToResponse).ToArray(), value.Readiness is null ? null : ToResponse(value.Readiness));
+
+    private static MigrationReconciliationDetailResponse ToResponse(MigrationReconciliationDetail value) => new(
+        value.Id, value.Domain, value.ScopeKey, value.CompanyId, value.OpeningDate, value.CurrencyCode,
+        value.TransactionCurrencyCode, value.FunctionalCurrencyCode, value.SourceCount, value.SourceDebit, value.SourceCredit,
+        value.TargetDebit, value.TargetCredit, value.Variance, value.SourceAmount, value.TargetAmount, value.AmountVariance,
+        value.OwnerRoundingDifference, value.TransactionAmount, value.FunctionalAmount, value.SubsidiaryEstablishedAmount,
+        value.GlControlAmount, value.ExchangeRateId, value.ExchangeRateVersionId, value.ExchangeRateVersionNumber,
+        value.AppliedRate, value.SourceQuantity, value.TargetQuantity, value.QuantityVariance, value.ControlAccountId,
+        value.PostingRuleId, value.PostingRuleVersionNumber, value.OwnerSourceId, value.WarehouseId, value.ProductId,
+        value.UnitOfMeasureId, value.SourceContract, value.SourceEvent, value.RoundingPolicyId,
+        value.RoundingPolicyVersionNumber, value.RoundingScale, value.RoundingMode, value.IsBlocking, value.FindingCode,
+        value.Explanation, value.EffectId, value.OwnerReferenceId, value.LinkedAccountId);
+
+    private static MigrationReconciliationApprovalResponse ToResponse(MigrationReconciliationApprovalRecord value) => new(
+        value.Id, value.TenantId.Value, value.RunId, value.ReconciliationId, value.ReconciliationVersion, value.AttemptId,
+        value.EvidenceFingerprint, value.IdempotencyKey, value.Domain, value.RequirementKey, value.PolicyId,
+        value.PolicyVersion, value.ActorId, value.Decision, value.Reason, value.DecidedAt, value.Version, value.EvidenceConfirmed);
+
+    private static MigrationHandoverReadinessResponse ToResponse(MigrationHandoverReadinessSnapshot value) => new(
+        value.Id, value.TenantId.Value, value.RunId, value.ReconciliationId, value.ReconciliationVersion, value.AttemptId,
+        value.EvidenceFingerprint, value.IdempotencyKey, value.CreatedAt, value.BusinessReady, value.ProductionReady,
+        value.Mesp48Complete, value.Mesp50Complete, value.TenantActivationPerformed, value.ResultCode, value.Version);
 
     private static object ToResponse(MigrationIntakeRecord record) => new
     {

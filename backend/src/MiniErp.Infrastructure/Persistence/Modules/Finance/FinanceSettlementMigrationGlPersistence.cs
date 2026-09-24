@@ -29,9 +29,11 @@ internal sealed partial class FinanceSettlementPersistence
         if (Company(context, command.CompanyId) is null) return null;
         await using var db = CreateContext(context);
         var validation = await ValidateMigrationGlOpeningAsync(db, context, command, cancellationToken);
-        var evidence = await ReadMigrationGlOpeningEvidenceAsync(db, context, command, validation.Result.ResidualLines, cancellationToken, validation.Result.RepresentedControlLines);
+        var evidence = await ReadMigrationGlOpeningEvidenceAsync(db, context, command, validation.Result.ResidualLines, cancellationToken,
+            validation.Result.RepresentedControlLines, validation.Result.EstablishedLines);
         return evidence ?? (validation.Result.Ready && validation.Result.NonEffect
-            ? new FinanceMigrationGlOpeningEvidence(null, null, validation.Result.SourceEvidenceId, validation.Result.ResidualLines, validation.Result.RepresentedControlLines)
+            ? new FinanceMigrationGlOpeningEvidence(null, null, validation.Result.SourceEvidenceId, validation.Result.ResidualLines,
+                validation.Result.RepresentedControlLines, validation.Result.EstablishedLines)
             : null);
     }
 
@@ -43,11 +45,13 @@ internal sealed partial class FinanceSettlementPersistence
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
             var validation = await ValidateMigrationGlOpeningAsync(db, context, command, cancellationToken);
             if (!validation.Result.Ready) return FinanceOperationResult<FinanceMigrationGlOpeningEvidence>.Failure(validation.Result.Code);
-            var existing = await ReadMigrationGlOpeningEvidenceAsync(db, context, command, validation.Result.ResidualLines, cancellationToken, validation.Result.RepresentedControlLines);
+            var existing = await ReadMigrationGlOpeningEvidenceAsync(db, context, command, validation.Result.ResidualLines, cancellationToken,
+                validation.Result.RepresentedControlLines, validation.Result.EstablishedLines);
             if (existing is not null) return FinanceOperationResult<FinanceMigrationGlOpeningEvidence>.Success(existing);
             if (validation.Result.NonEffect)
             {
-                var empty = new FinanceMigrationGlOpeningEvidence(null, null, validation.Result.SourceEvidenceId, validation.Result.ResidualLines, validation.Result.RepresentedControlLines);
+                var empty = new FinanceMigrationGlOpeningEvidence(null, null, validation.Result.SourceEvidenceId, validation.Result.ResidualLines,
+                    validation.Result.RepresentedControlLines, validation.Result.EstablishedLines);
                 await tx.CommitAsync(cancellationToken);
                 return FinanceOperationResult<FinanceMigrationGlOpeningEvidence>.Success(empty);
             }
@@ -87,7 +91,8 @@ internal sealed partial class FinanceSettlementPersistence
             await tx.CommitAsync(cancellationToken);
             var journalRecord = ToJournal(journal);
             var sourceEffect = ToSourceEffect(new FinanceSourceEffectEntity(context.TenantId, sourceEffectId, command.CompanyId, MigrationGlContract, validation.Result.SourceEvidenceId, 1, journalId, now));
-            return FinanceOperationResult<FinanceMigrationGlOpeningEvidence>.Success(new(journalRecord, sourceEffect, validation.Result.SourceEvidenceId, validation.Result.ResidualLines, validation.Result.RepresentedControlLines));
+            return FinanceOperationResult<FinanceMigrationGlOpeningEvidence>.Success(new(journalRecord, sourceEffect, validation.Result.SourceEvidenceId,
+                validation.Result.ResidualLines, validation.Result.RepresentedControlLines, validation.Result.EstablishedLines));
         }
         catch (DbUpdateException)
         {
@@ -148,7 +153,8 @@ internal sealed partial class FinanceSettlementPersistence
             return new FinanceMigrationGlOpeningResidualLine(accountId, target.GetValueOrDefault(accountId), establishedByAccount.GetValueOrDefault(accountId), amount > 0m ? amount : 0m, amount < 0m ? -amount : 0m, isControl, source, treatment);
         }).OrderBy(item => item.AccountId).ToArray();
         var residual = allLines.Where(item => Math.Abs(item.Debit - item.Credit) > MigrationGlTolerance).ToArray();
-        var representedControlLines = allLines.Where(item => item.IsControlAccount && Math.Abs(item.Debit - item.Credit) <= MigrationGlTolerance).ToArray();
+        var establishedLines = allLines.Where(item => Math.Abs(item.Debit - item.Credit) <= MigrationGlTolerance).ToArray();
+        var representedControlLines = establishedLines.Where(item => item.IsControlAccount).ToArray();
         if (!SameAmount(residual.Sum(item => item.Debit), residual.Sum(item => item.Credit))) return BlockGl("migration_gl_opening_imbalanced", company.FunctionalCurrencyCode);
         foreach (var control in allControlAccounts)
         {
@@ -184,11 +190,13 @@ internal sealed partial class FinanceSettlementPersistence
             var existingJournal = await db.Journals.AsNoTracking().SingleOrDefaultAsync(item => item.Id == existingEffect.JournalId && item.CompanyId == command.CompanyId, cancellationToken);
             if (existingJournal is null) return BlockGl("migration_gl_opening_outcome_unknown", company.FunctionalCurrencyCode, approval, false, sourceEvidenceId, residual);
             if (!FingerprintMatches(existingJournal.CorrelationId, command)) return BlockGl("migration_gl_source_conflict", company.FunctionalCurrencyCode, approval, false, sourceEvidenceId, residual);
-            var existing = await ReadMigrationGlOpeningEvidenceAsync(db, context, command, residual, cancellationToken);
+            var existing = await ReadMigrationGlOpeningEvidenceAsync(db, context, command, residual, cancellationToken,
+                representedControlLines, establishedLines);
             if (existing is null) return BlockGl("migration_gl_opening_outcome_unknown", company.FunctionalCurrencyCode, approval, false, sourceEvidenceId, residual);
             if (!ResidualMatches(existing.ResidualLines, residual)) return BlockGl("migration_gl_source_conflict", company.FunctionalCurrencyCode, approval, false, sourceEvidenceId, residual);
         }
-        return new(new(true, residual.Length == 0 ? "non_effect" : "ready", company.FunctionalCurrencyCode, approval, residual.Length == 0, sourceEvidenceId, residual, expectations.OfType<FinanceMigrationOpeningExpectation>().ToArray(), representedControlLines), controls, projections.Values);
+        return new(new(true, residual.Length == 0 ? "non_effect" : "ready", company.FunctionalCurrencyCode, approval, residual.Length == 0,
+            sourceEvidenceId, residual, expectations.OfType<FinanceMigrationOpeningExpectation>().ToArray(), representedControlLines, establishedLines), controls, projections.Values);
     }
 
     private static string RepresentedTreatment(string contract) => contract switch
@@ -221,7 +229,10 @@ internal sealed partial class FinanceSettlementPersistence
         ReportingAppliedRate = monetary.ReportingAppliedRate
     };
 
-    private async Task<FinanceMigrationGlOpeningEvidence?> ReadMigrationGlOpeningEvidenceAsync(FinanceDbContext db, FinanceRequestContext context, FinanceMigrationGlOpeningCommand command, IReadOnlyList<FinanceMigrationGlOpeningResidualLine> residual, CancellationToken cancellationToken, IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? representedControlLines = null)
+    private async Task<FinanceMigrationGlOpeningEvidence?> ReadMigrationGlOpeningEvidenceAsync(FinanceDbContext db, FinanceRequestContext context,
+        FinanceMigrationGlOpeningCommand command, IReadOnlyList<FinanceMigrationGlOpeningResidualLine> residual, CancellationToken cancellationToken,
+        IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? representedControlLines = null,
+        IReadOnlyList<FinanceMigrationGlOpeningResidualLine>? establishedLines = null)
     {
         var sourceEvidenceId = MigrationGlSourceEvidenceId(context, command);
         var effect = await db.SourceEffects.AsNoTracking().SingleOrDefaultAsync(item => item.CompanyId == command.CompanyId && item.SourceContract == MigrationGlContract && item.SourceEvidenceId == sourceEvidenceId && item.SourceEvidenceVersion == 1, cancellationToken);
@@ -233,7 +244,7 @@ internal sealed partial class FinanceSettlementPersistence
         var recorded = journalRecord.Lines.Select(item => new { item.AccountId, item.Debit, item.Credit }).OrderBy(item => item.AccountId).ToArray();
         var expected = residual.Select(item => new { item.AccountId, item.Debit, item.Credit }).OrderBy(item => item.AccountId).ToArray();
         return recorded.Length == expected.Length && recorded.Zip(expected).All(item => item.First.AccountId == item.Second.AccountId && SameAmount(item.First.Debit, item.Second.Debit) && SameAmount(item.First.Credit, item.Second.Credit))
-            ? new(journalRecord, source, sourceEvidenceId, residual, representedControlLines)
+            ? new(journalRecord, source, sourceEvidenceId, residual, representedControlLines, establishedLines)
             : null;
     }
 
