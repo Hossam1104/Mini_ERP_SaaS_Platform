@@ -4,6 +4,32 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-25 — Opus review of the Slice 11 test-oracle handoff — Claude Opus 5.5 / high — MESP-150 (#265), MESP-156..163 (#272–#276, #279, #280, #282)
+
+- Status: **REJECTED.** Slice 11 is still not accepted. Luna's STOP under TASK §10 was correct and within its authority. Two of the new oracles fail on the product, as they should: R12 (MESP-161) and R20 (MESP-162). One oracle is wrong: R07. The gate pair is unstable because of an existing StartAttempt deadlock (MESP-163).
+- Branch / starting SHA / ending SHA: this review is on `docs/mesp-150-slice11-rereview`, created from `fix/mesp-156-slice11-test-oracles` at `d410e8d` (Draft PR #281). Ending SHA: this commit, which is local and not pushed.
+- What changed: `RESULT.md` (this entry), `docs/ROADMAP.md` (MESP-141 row and queue item 1), `TASK.md` (next-task summary 1). Tracker: created MESP-163 (#282).
+- Verification (live Git, tracker and code; nothing re-run):
+  - The tree is clean. PR #281 is a Draft with 8 commits. #272–#276 each have one evidence comment. #279 and #280 are `type:bug` in Project #1 with Jira Key, `[MESP-15] #104` and Status Todo. Nothing was merged, marked Ready or closed.
+  - `git diff e507cc9 d410e8d` changes only the allowed test file, RESULT.md and TASK.md. The 5 removed lines are three `service.X` calls rewritten to use per-task `Service(...)` instances, plus one local variable. No assertion was removed or relaxed, and nothing is skipped. The suite total is 1552: 1551 plus the one new A5 test.
+- Per-row verdict:
+
+| Row | Verdict | Reason |
+|---|---|---|
+| R04 / R05 (MESP-156) | **Met, one strengthening needed** | `Assert.Equal` on all three fields against a persisted `MigrationEconomicRepresentation` (RT:130–133, 159–162; helper RT:787–800). The helper picks one row by `OrderByDescending(Kind…).ThenByDescending(RecordedAt)`, so rows that disagree would be masked. Add an assertion that all Finance representation rows for the effect carry exactly one distinct mapping. |
+| R07 (MESP-157) | **Not met: the test oracle is wrong** | Subsidiary/GL checks pass (RT:210–251). The count at RT:252–256 sums owner *artifacts* (15). An inventory effect legitimately yields both a stock movement and a valuation event, so there are 14 execution effects. Part of this is a Planner defect: TASK §5.2 said "one per owner effect … from the owner-effect counts", which mixes the two. Correct oracle: distinct represented `EffectId`s equal the run's execution-effect count (`ReadEconomicCountsAsync.Effects`), and every representation's `EffectId` is one of the run's effects. |
+| R12 (MESP-158) | **Test correct; product defect confirmed** | `IsCurrent == false` (RT:374–375) passes. The second reconciliation fails with `migration_reconciliation_version_conflict`. Code confirms it: detail `Id = StableId(domain, scope)` (Svc:540, 466, 497, 713–717), and the detail primary key is `Id` alone (`MigrationDbContext.cs:473`). A second reconciliation of the same run always collides with the same keys and falls into the unique-violation branch (Persistence:71–80). Re-reconciliation after corrected evidence is impossible. → MESP-161 (#279). Changing the approval policy to move the fingerprint (on a separate clean fixture) is acceptable: mutating the journal would block the reconciliation and hide the approval oracle. |
+| R18 (MESP-159) | **Met** | Persisted flags, per-schema row counts and constructor reflection (RT:554–576). It passed in both runs. The in-place-update limit and the deferred M27 read-back are recorded. |
+| R20 (MESP-162) | **Test correct; product defect confirmed** | Separate instances per task (RT:626–637). Opus diagnosis (a hypothesis for the fixer): a loser that replays inside `SaveAsync` still runs the post-save lifecycle step. It then races the winner on `TransitionRunAsync(… Reconciled, pendingRun.Version)` (Svc:106–113) and gets a `Failure` (`migration_run_version_conflict`). A caller that sees the winner before `SetEvidenceStateAsync` (Svc:100) gets `Unknown` (`migration_audit_recovery_required`) (Svc:77–79). Contract kept: every identical concurrent caller returns Success or Replayed for the same record. |
+| A5 (MESP-160) | **Met** | Exact codes and three unchanged counts per action (RT:647–686). Passed in both runs. |
+
+- Failures and classification:
+  - The StartAttempt deadlock (existing test `SqlServerSafetyTests.cs:3475`) appeared in 2 of 7 full runs. It surfaces an unhandled `SqlException` 1205. `StartAttemptAsync` reads without a transaction or a run lock (MigrationPersistence.cs:216–260). Classification: product concurrency defect, intermittent, not caused by the new tests. → **MESP-163 (#282)** created (`type:bug`, Project #1, Jira Key MESP-163, `[MESP-15] #104`, Work Type Bug, Domain Migration, Status Todo). The gates stay unstable until it is fixed.
+  - The initial nullable build failure is an AUTOMATION_DEFECT fixed before tests; accepted as reported.
+  - Luna's run had no Serena or Context7. Recorded; no effect on the verdict.
+- Status files updated: RESULT.md, ROADMAP.md, TASK.md (summary only; the owner has not sent `p`). #272–#276 stay open until Slice 11 is accepted.
+- Exact next action: **the owner sends `p`.** Opus then writes the prompt for summary 1 in TASK.md: Luna 6 / **max** (owner decision, 2026-09-25; allowed by MODEL_ROUTING §1 after the failed xhigh attempt). It fixes MESP-161, MESP-162 and MESP-163 and corrects the R07 oracle. Then Opus re-reviews Slice 11 under MESP-150 (#265).
+
 ## 2026-09-25 — Slice 11 test-oracle executor handoff — Luna 6 / xhigh — MESP-156..160 (#272–#276), MESP-161 (#279), MESP-162 (#280)
 
 - Status: **STOPPED** under TASK.md §10. The final same-tree full-suite pair disagreed because the existing MESP141 concurrent-attempt-start test deadlocked only in the second run. The repeated R12 and R20 product failures are retained; no retry or delay was added.

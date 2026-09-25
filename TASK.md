@@ -241,10 +241,19 @@ Every row needs `file:line` evidence in RESULT.md.
 
 ## Next-task summaries (Planner, 2026-09-25)
 
-### 1. Slice 11 evidence Bugs MESP-156..160 (#272–#276)
+### 1. Slice 11 product Bugs MESP-161/162/163 and the R07 oracle correction
 
-The prompt is above. After it: Opus re-reviews Slice 11 under MESP-150 (#265). If Slice 11 is
-accepted, the Sol 6 review of Slice 11 follows (critical point 2).
+The prompt above is CONSUMED. Opus rejected its result (RESULT.md, 2026-09-25 re-review). This task
+replaces it.
+
+| | |
+|---|---|
+| Model / effort | **Luna 6 / max.** Owner decision (2026-09-25), allowed by MODEL_ROUTING §1 after the failed xhigh attempt. Fresh session. |
+| Work items | MESP-161 (#279), MESP-162 (#280), MESP-163 (#282); MESP-157 (#273) R07 oracle; MESP-156 (#272) R04/R05 strengthening. Branch continues from `fix/mesp-156-slice11-test-oracles` (Draft PR #281). |
+| Scope | **MESP-161:** reconciliation detail IDs must be unique per reconciliation, e.g. derived from the reconciliation id plus domain and scope (Svc:466, 497, 540, 713). No migration and no primary-key change; if either is needed, stop. **MESP-162:** identical concurrent reconcile, approve and readiness callers converge. A caller that replays must not repeat the winner's lifecycle transition or report in-flight evidence as a failure. Diagnose first; Opus's hypothesis is in RESULT.md. **MESP-163:** concurrent `StartAttemptAsync` never surfaces a deadlock and converges to one attempt plus replays. Reuse the existing run-lock pattern (`MigrationReconciliationPersistence.cs:294-297`). **R07:** distinct represented `EffectId`s == the run's execution-effect count, and every representation's `EffectId` is one of the run's effects. **R04/R05:** all Finance representation rows for the effect carry exactly one distinct mapping. |
+| Files | `MigrationReconciliationService.cs`, `MigrationReconciliationPersistence.cs`, `MigrationPersistence.cs` (attempt start only), `MigrationReconciliationSqlServerSafetyTests.cs`, plus a regression test for each product Bug; RESULT.md, TASK.md. |
+| Out of scope | Migrations and schema changes, the R4 allowlist (the owner's decision), the Sol cleanup follow-ups, closing or changing the Status of any issue, and weakening any existing oracle. In particular, the R12 and R20 tests stay as written and must turn green on the product. |
+| Acceptance | R12, R20 and the existing MESP141 attempt-start test pass. R07 uses the corrected oracle. Two **sequential** `Test-MiniErpBackend.ps1 -NoBuild:$false` runs on the same tree agree: all passed, 0 skipped, 0 warnings, with the disposable-DB and "MESP data is intact" lines. EF: no pending model changes. `git diff --check` is clean. Draft PR only. Then Opus re-reviews Slice 11 under MESP-150 (#265). If Slice 11 is accepted, the Sol 6 review of Slice 11 follows (critical point 2). |
 
 ### 2. Cleanup follow-ups: governance text and BRD byte restore (SOL-CL-05, -06, -07)
 
