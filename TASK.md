@@ -6,7 +6,7 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **OPEN** (written by the Planner on 2026-09-25 after the owner sent `p`).
+Status: **CONSUMED** (written by the Planner on 2026-09-25 after the owner sent `p`; executed by Claude Opus 5.5 on 2026-09-25; verdict REJECTED; see `RESULT.md`).
 
 Routing: **Claude Opus 5.5, effort as needed.** Open a **new session**. This is an acceptance review,
 which is Opus's role (`MODEL_ROUTING.md` §1). Luna 6 and Sonnet 5 hold no acceptance authority.

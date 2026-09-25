@@ -28,7 +28,7 @@ Finish MESP-141 → Golden Release-1 cycle → stable functional/API baseline �
 
 | Item | State | Notes |
 |---|---|---|
-| MESP-141 (#229): Release 1 migration and repeatable Tenant onboarding | Active | Slices 1–11 are merged. Slices 1–10 are accepted. **Slice 11** (reconciliation, approval, Ready-for-Handover) was merged via PR #262 (`ac0309a`) **without acceptance**. MESP-150 reviews it. Later slices are not activated. |
+| MESP-141 (#229): Release 1 migration and repeatable Tenant onboarding | Active | Slices 1–11 are merged. Slices 1–10 are accepted. **Slice 11** (reconciliation, approval, Ready-for-Handover; PR #262, `ac0309a`) was **REJECTED** by MESP-150 (#265) on 2026-09-25. Five provider oracles are not directly asserted: Bugs MESP-156..160 (#272–#276). Slice 11 stays merged and not accepted. Later slices are not activated. |
 | MESP-149 (#264): full project cleanup, refactor, tracker reconciliation and operating model | In progress | This cleanup. The Sol 6 review of `pre-cleanup-20260925..main` comes after MESP-150. |
 | MESP-23 (#112): Open Questions Register | Living | The register of open business questions. It stays open. |
 
@@ -36,8 +36,8 @@ Finish MESP-141 → Golden Release-1 cycle → stable functional/API baseline �
 
 | # | Item | Model / effort (planned) | Notes |
 |---|---|---|---|
-| 1 | MESP-150 (#265): acceptance review of MESP-141 Slice 11 | Opus 5.5 | Owner decision Q-B: this is the first task after the cleanup. Checks acceptance matrix R01–R20 and the D-18 fix. |
-| 2 | Sol 6 independent review of the cleanup (`pre-cleanup-20260925..main`) under MESP-149 (#264) | Sol 6 / high | This is a critical point: it is a governance and architecture change on `main`. |
+| 1 | Sol 6 independent review of the cleanup (`pre-cleanup-20260925..main`) under MESP-149 (#264) | Sol 6 / high | This is a critical point: it is a governance and architecture change on `main`. MESP-150 (#265) is done: Slice 11 was REJECTED, and #265 stays open until the Bugs are fixed and the slice is re-reviewed. |
+| 2 | Slice 11 evidence Bugs MESP-156..160 (#272–#276), then an Opus re-review of Slice 11 under MESP-150 (#265) | Planner to route | Test-only fixes: R04/R05 exact mapping, R07 subsidiary-to-GL reconciliation, R12 fingerprint and approval staleness, R18 Tenant lifecycle read-back, R20/A5 real concurrency and version conflict. |
 | 3 | Decide whether MESP-141 needs further slices before it closes | Opus 5.5 | M40 exit criteria: completed reconciliation, accepted exceptions, named approvals, a readiness snapshot. |
 | 4 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Luna 6 / xhigh | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
 | 5 | MESP-152 (#267): stable functional/API baseline | Luna 6 / xhigh | The UI work must preserve this baseline. |
