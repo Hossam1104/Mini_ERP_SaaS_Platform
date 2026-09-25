@@ -30,3 +30,7 @@
 /backend/src/MiniErp.Api/minierp_dev.db
 /backend/src/MiniErp.Api/minierp_dev.db-wal
 /backend/src/MiniErp.Api/minierp_dev.db-shm
+
+# Local validation scratch output (never committed).
+/.artifacts/
+/backend/.s10-validation/

@@ -1,127 +1,5 @@
 # Mini ERP Tenant-Aware Shell
 
-<!-- MESP-144-CURRENT-START -->
-> **MESP-144 HOLD 5 merge-safety record - 30 August 2026.**
-> MESP-144 reconciliation reached Sol content acceptance at comment `12293` on
-> reviewed head `ffe5a8975611dcc85c3a7c40dce0b3737b123aeb`. HOLD 5 authority is
-> comment `12296` and exists only to make repository state merge-safe. At the
-> HOLD 5 executor handoff, Jira and PR lifecycle had not yet been finalized;
-> Jira and GitHub remain authoritative for their respective final states.
-> The pre-reconciliation main baseline was `4d6e33189a3835d5d8d2a58736055a837a3f5bc9`.
-> MESP-137 is Done/accepted/merged; no implementation capability is active;
-> MESP-138/139 remain To Do/inactive; fast-track is `21/26 = 80.8%`; and
-> production readiness remains approximately `47%` overall / `41%` P2P.
->
-> This is documentation/state reconciliation only. No frontend source, tests,
-> migrations, assets, Jira state, or later capability changed in this checkpoint.
->
-<!-- MESP-144-CURRENT-END -->
-
-<!-- MESP-134-HISTORICAL-START -->
-> **MESP-134 Tax / FX / Reporting Currency / Revaluation HOLD 2 - 26 August 2026.**
-> MESP-133 is accepted and merged at `3c616dd85b9cebb53990934321f1ae7d0d5410c9`.
-> MESP-134 adds the lazy `/app/finance/tax-fx` workspace for monetary policy,
-> exact Tax/FX/Reporting evidence, revaluation lifecycle, reconciliation, and
-> blocked/evidence states. It remains bilingual EN/AR with RTL and
-> server-authoritative for Company, Tax, Currency, Exchange Rate, posting, and
-> evidence. HOLD 2 adds bilingual mappings for exact server error codes,
-> including `unsupported_revaluation_scope`, while preserving EN/AR/RTL.
-> Angular passes 283/283 across 39 spec files, focused Tax/FX is 9/9, and the
-> production bundle is 496.44 kB initial with Finance/GL 34.52 kB, Tax/FX
-> 40.38 kB, and settlement 56.04 kB lazy chunks. Draft PR #78 remains
-> Open/Unmerged for Sol review. MESP-134 is the only active capability;
-> MESP-135 remains inactive.
-<!-- MESP-134-HISTORICAL-END -->
-
-<!-- MESP-131-HISTORICAL-START -->
-> **Current MESP-131 workspace overlay â€” 23 August 2026; pending Sol acceptance.** The Inventory feature now includes lazy `/app/inventory/valuation` for valuation summary, explainable MWA history, Pending/Blocked states, Inventory reconciliation, In-Transit value, Finance handoff facts, correction history and authorized CSV export. The surface uses server-owned Warehouse context, preserves EN/AR and RTL, never accepts browser-authored cost/FX authority, and keeps `frontend/assets` untouched.
->
-> **MESP-131 executor-reported frontend evidence.** Angular `254/254` across 35 spec files; production initial total `499.94 kB` with valuation lazy chunk `35.96 kB`; focused MESP-131 Chromium `5/5`; full Chromium `32/32`; both npm audits report 0 vulnerabilities. Draft PR #75 remains open/Draft/unmerged pending Sol acceptance. Sol acceptance comments are `11788` and `11789`; no Jira writes were performed.
-<!-- MESP-131-HISTORICAL-END -->
-
-<!-- MESP-131-HISTORICAL-MERGED-START -->
-> **Historical MESP-131 merged-main workspace overlay — 24 August 2026.** PR #75
-> is merged to `main`; MESP-131 and MESP-8 are Done in Jira. The Inventory
-> valuation workspace remains the bounded EN/AR RTL surface for summary, MWA
-> history, Pending/Blocked state, reconciliation, In-Transit value, Finance
-> handoff facts, correction history, and authorized export. It uses server-owned
-> Warehouse context and never accepts browser-authored cost or FX authority.
->
-> **Accepted frontend evidence.** Angular `254/254` across 35 spec files;
-> initial bundle `499.94 kB`; valuation lazy chunk `35.96 kB`; focused/full
-> Chromium `5/5` and `32/32`; npm audits report 0 vulnerabilities; assets are
-> untouched.
-<!-- MESP-131-HISTORICAL-MERGED-END -->
-
-<!-- MESP-133-HISTORICAL-START -->
-> **MESP-133 Finance settlement workspaces verification-only HOLD 4 - 25 August 2026.** The shell
-> keeps the lazy routes `/app/finance/ap`, `/app/finance/ar`, and
-> `/app/finance/settlements`. The AP, AR, and settlement surfaces present
-> server-derived Company scope, source lineage, outstanding/unapplied
-> balances, approval and mapping failures, reversal constraints, and
-> reconciliation status without claiming success for blocked backend states.
-> The presentation remains bilingual EN/AR with RTL support; settlement
-> source identity, direction, payment method, GL account, and evidence remain
-> server-authoritative. No Wafra-specific branching or external provider UI
-> was added.
->
-> **MESP-133 validation.** Angular passes `274/274` across 38 spec files;
-> production initial total is `496.44 kB`, Finance/GL lazy chunk is `34.31 kB`,
-> settlement lazy chunk is `56.04 kB`, focused Angular workspace coverage is
-> `15/15`, focused Finance Chromium is `6/6`, full
-> Chromium is `38/38`, and both npm audits report `0 vulnerabilities`. PR #77
-> remains Draft/unmerged for independent Sol review; MESP-132 is Done/merged.
-> HOLD 4 added no frontend production code; the focused backend additions prove
-> the real Procurement source-provider and historical recognition-rule boundary.
-<!-- MESP-133-HISTORICAL-END -->
-
-> **Historical MESP-129 workspace overlay - 22 August 2026.** The Inventory
-> workspace now exposes server-authorized Warehouse Transfers with direct and
-> two-step/InTransit flows, partial receipt, shortage/loss and overage-safe
-> states, immutable history evidence, and human-readable Warehouse/Product/UOM
-> facts. Goods Receipt lines expose the authoritative Inventory post action;
-> Supplier Return exposes a real physical-post action only in the
-> `AwaitingInventory` state; and Customer Return remains a truthful blocked
-> state awaiting an authoritative Sales handoff. The UI preserves EN/AR,
-> RTL/LTR, keyboard labels, responsive safe errors, and no client Tenant
-> authority. No arbitrary customer-return form or MESP-130/MESP-131,
-> commercial Sales, Finance, or Wafra-specific behavior is included.
-
-> **MESP-129 validation.** Angular passes **241/241 across 32 spec files**;
-> production build is **499.97 kB initial total** with a **33.12 kB Inventory
-> lazy chunk**; full Chromium is **26/26**; both npm audit --omit=dev and full
-> npm audit report **0 vulnerabilities**; and `frontend/assets` is untouched.
-> Code-complete commit is `01ea8f7369d173c15cf55a723d6bd95006208282`; Draft PR
-> **#73** remains open/Draft/unmerged.
-
-> **Historical MESP-128 workspace overlay - 21 August 2026.** The shell now
-> includes a lazy Inventory workspace at /app/inventory with server-provided
-> Warehouse scope, human-readable Product/UOM selection, six distinct stock
-> facts, append-only ledger visibility, opening-balance create/validate/post/
-> correction controls, and partial reservation create/reduce/release controls.
-> It preserves EN/AR RTL/LTR, accessible labels, responsive layout, safe server
-> errors, and no client-supplied Tenant authority. Expected/Damaged/InTransit
-> display the truthful zero state because those later posting workflows remain
-> out of scope.
-
-> **MESP-128 validation.** Angular passes **241/241 across 32 spec files**;
-> production build is **499.97 kB initial total** with a **25.82 kB Inventory
-> lazy chunk**; focused Inventory Chromium coverage is **2/2** and full
-> Chromium is **26/26**; both npm audit --omit=dev and full npm audit report
-> **0 vulnerabilities**.
-
-> **Historical MESP-127 workspace overlay - 21 August 2026.** The Procurement
-> shell now includes a lazy Supplier Returns workspace at
-> `/app/procurement/supplier-returns`, `/new`, and `/:id`. It provides a
-> server-derived accepted-Goods-Receipt source selector, remaining-return
-> quantity display, source lineage, return reason/condition/commercial outcome,
-> private evidence-reference capture, correction/reversal-aware detail
-> evidence, Inventory handoff and Finance correction-reference states, history,
-> audit, operational report metrics, visible safe error states, EN/AR RTL/LTR,
-> responsive layout, keyboard-labelled controls, and reduced-motion styling.
-> The workspace explicitly distinguishes Procurement evidence from authoritative
-> Inventory stock movement and Finance/AP posting.
-
 This Angular 22 application is the first-party Release 1 B2B ERP shell. It
 contains the responsive application shell, EN/AR localization and RTL/LTR
 direction switching, sign-in/session bootstrap, server-resolved Tenant entry,
@@ -180,20 +58,7 @@ npm audit --omit=dev
 npm audit
 ```
 
-Accepted merged-main MESP-131 frontend evidence:
-
-- Angular unit tests: **254/254 across 35 spec files**.
-- Production initial bundle: **499.94 kB**, still within the existing 500 kB budget.
-- Valuation lazy chunk: **35.96 kB**.
-- Focused MESP-131 Chromium: **5/5**.
-- Full Chromium suite: **32/32**.
-- Both npm audits: **0 vulnerabilities**.
-- `frontend/assets`: **untouched**.
-
-Current MESP-132 implementation evidence is recorded above and in
-`docs/35_MESP-132_Finance_Foundation_Architecture.md`. The Finance route is
-implemented and merged, but it is not a production-readiness claim; Sol still
-owns Jira closure and Finance Epic reconciliation.
+Current gate baselines are recorded in `RESULT.md` and `AGENTS.md` § Gates.
 
 The Playwright checks are automated API-fixture/browser evidence, not a manual interactive production sign-off.
 
@@ -224,8 +89,5 @@ inventing business data.
 - `src/app/shared` — reusable status, Tenant, and operational-context controls.
 - `e2e` — focused Playwright TypeScript smoke coverage.
 
-Tenant schema/migrations, DNS/TLS provisioning, full Platform Administration,
-Purchase Order downstream effects (stock, invoice posting, AP, payment,
-accounting), Inventory, AP/AR/cash/bank Finance follow-on, B2B Sales, Retail
-POS, Wafra-specific core behavior, production deployment, generic Reporting,
-and external/statutory country-pack behavior remain explicitly out of scope.
+Retail POS, Wafra-specific core behavior, production deployment and external/statutory
+country-pack behavior are out of scope (see `docs/PROJECT.md`).

@@ -154,7 +154,7 @@ internal sealed class MigrationCashBankOpeningExecutionCoordinator
             }
             var command = Command(payload, stagedRow.PayloadHash, "reconciliation");
             FinanceMigrationCashBankOpeningEvidence? evidence = null;
-            try { evidence = await finance.ReadMigrationCashBankOpeningAsync(financeContext, command, cancellationToken); } catch { }
+            try { evidence = await finance.ReadMigrationCashBankOpeningAsync(financeContext, command, cancellationToken); } catch (Exception ex) when (ex is not OperationCanceledException) { }
             var posted = evidence?.RecognitionJournal.Lines.Where(item => item.FunctionalDebit > 0m).Sum(item => item.FunctionalDebit);
             var exact = evidence is not null && EvidenceMatches(evidence, command) && posted is not null;
             var monetary = MigrationOpeningMonetaryMatching.ReconciliationFields(evidence?.MonetaryEvidence);

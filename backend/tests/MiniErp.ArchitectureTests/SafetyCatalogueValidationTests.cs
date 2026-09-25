@@ -7,7 +7,7 @@ namespace MiniErp.ArchitectureTests;
 
 /// <summary>
 /// Structurally validates the Foundation safety assertion matrix in
-/// docs/96_Foundation_Release1_Safety_Validation.md so the catalogue cannot
+/// docs/history/96_Foundation_Release1_Safety_Validation.md so the catalogue cannot
 /// silently drift into duplicate/missing row numbers, an unrecognized status
 /// value, or a Passed row with no evidence text.
 /// </summary>
@@ -73,7 +73,7 @@ public sealed class SafetyCatalogueValidationTests
     private static List<CatalogueRow> ReadCatalogueRows()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var path = Path.Combine(repositoryRoot, "docs", "96_Foundation_Release1_Safety_Validation.md");
+        var path = Path.Combine(repositoryRoot, "docs", "history", "96_Foundation_Release1_Safety_Validation.md");
         Assert.True(File.Exists(path), $"Safety catalogue not found at {path}.");
 
         var rows = new List<CatalogueRow>();

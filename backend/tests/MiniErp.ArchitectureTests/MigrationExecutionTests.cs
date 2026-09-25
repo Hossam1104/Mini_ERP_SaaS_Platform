@@ -171,6 +171,26 @@ public sealed class MigrationExecutionTests
         Assert.Equal(1, finance.CreateCalls);
     }
 
+    [Fact]
+    public async Task Ar_reconciliation_read_fault_is_partial_but_cancellation_propagates()
+    {
+        var proxy = DispatchProxy.Create<IFinanceSettlementPersistence, ArFinanceProxy>();
+        var finance = (ArFinanceProxy)(object)proxy;
+        await using var fixture = await ExecutionFixture.CreateAsync(arFinance: proxy);
+        var prepared = await PrepareArAsync(fixture, Guid.NewGuid(), Guid.NewGuid(), "AR-UNIT-FAULT", 100m);
+        var executed = await fixture.Service.ExecuteAsync(fixture.Request, prepared.Run.RunId, "ar-fault-key", prepared.Run.Version);
+        Assert.True(executed.Succeeded, executed.Code);
+
+        finance.ReadFault = new InvalidOperationException("finance read fault");
+        var faulted = await fixture.Service.ReadAsync(fixture.Request, prepared.Run.RunId);
+        var row = Assert.Single(faulted!.ArEconomicReconciliations!);
+        Assert.Equal("partial", row.Status);
+        Assert.Equal("finance_ar_opening_evidence_not_reconciled", row.SafeCode);
+
+        finance.ReadFault = new OperationCanceledException();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Service.ReadAsync(fixture.Request, prepared.Run.RunId));
+    }
+
     private static async Task<PreparedRun> PrepareArAsync(ExecutionFixture fixture, Guid companyId, Guid customerId, string sourceReference, decimal amount)
     {
         var payload = JsonSerializer.Serialize(new
@@ -1096,6 +1116,7 @@ public sealed class MigrationExecutionTests
         internal int CreateCalls { get; private set; }
         internal bool ThrowAfterCreate { get; set; }
         internal bool HideReadback { get; set; }
+        internal Exception? ReadFault { get; set; }
         private FinanceMigrationArOpeningEvidence? evidence;
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
@@ -1121,7 +1142,7 @@ public sealed class MigrationExecutionTests
         }
 
         private Task<FinanceMigrationArOpeningEvidence?> Read() =>
-            Task.FromResult(HideReadback ? null : evidence);
+            ReadFault is not null ? Task.FromException<FinanceMigrationArOpeningEvidence?>(ReadFault) : Task.FromResult(HideReadback ? null : evidence);
 
         private static FinanceMigrationArOpeningEvidence BuildEvidence(FinanceRequestContext context, FinanceMigrationArOpeningCommand command)
         {

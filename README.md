@@ -22,80 +22,31 @@
 ---
 
 MESP is a generic SaaS ERP product under active Release 1 development. Its
-architecture is shared across Tenants: Tenant isolation, organization scope,
-configuration-led business behavior, server-authoritative authorization, and
-module-owned persistence are product rules — not customer-specific forks.
+architecture is shared across Tenants. These are product rules, not customer-specific forks:
 
-The canonical project identity is **`Mini_ERP_SaaS_Platform`**. The
-authoritative source repository is GitHub `Hossam1104/Mini_ERP_SaaS_Platform`;
-the authoritative work-management tracker is **GitHub Issues + the GitHub
-Project [`MESP — Mini ERP SaaS Platform`](https://github.com/users/Hossam1104/projects/1)**.
-The issue key remains **`MESP`** and is carried in every GitHub Issue title and
-in the Project `Jira Key` field. Jira is **historical tracker / migration
-provenance** only: preserved read-only evidence, not the live work-management
-authority.
+- Tenant isolation;
+- organization scope;
+- configuration-led business behavior;
+- server-authoritative authorization;
+- module-owned persistence.
 
-## Current development status
+Where things stand:
+- The source repository is GitHub `Hossam1104/Mini_ERP_SaaS_Platform`.
+- Work is tracked in GitHub Issues and the Project
+  [`MESP — Mini ERP SaaS Platform`](https://github.com/users/Hossam1104/projects/1). Items are
+  referenced as `MESP-<n> (#<issue>)`.
+- Jira is read-only historical provenance.
 
-The summary below is a convenience view. The authoritative live position is the
-**CURRENT AUTHORITY** block at the top of
-[`.ai/CURRENT_STATE.md`](.ai/CURRENT_STATE.md); live GitHub Issues, the live
-GitHub Project, and live GitHub outrank this file for mutable facts.
+## Status
 
-| Item | Value |
-|---|---|
-| Accepted `main` (12 September 2026) | `b1ceb21fc71d0838325efd58071d5d3f6895ab18` — resolve live `origin/main` from Git |
-| Active capability | **MESP-141** Data Migration and Tenant Onboarding — **Slice 1 (migration foundation) in review**, [Issue #229](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/229) |
-| Active branch | `feat/mesp-141-migration-foundation` |
-| Published as | Draft PR [**#242**](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/242) — Open / Draft / Unmerged; **not accepted** |
-| Next capability | MESP-142 — **Open, not activated** |
-| Accepted fast-track completion | **24 / 26 = 92.3%** |
-| Production readiness | ~**47%** overall · ~**41%** Procurement/P2P |
-| Open production gates | **MESP-48** (supported volume) · **MESP-50** (retention, privacy, legal hold, purge, residency, backup/restore) |
-| Continuous integration | **GitHub Actions — ACTIVE / VERIFIED.** Main push run `34623801987` on `b1ceb21` passed `Repository Validation`, `Backend`, and `Frontend`. Continuous deployment is **not implemented** |
+The live position is in [`docs/ROADMAP.md`](docs/ROADMAP.md): done, in progress, next, blocked and
+deferred, with every line linked to its tracker item. The latest work is logged in
+[`RESULT.md`](RESULT.md), newest entry first. Live Git and the tracker outrank both files.
 
-Delivery is strictly sequential: one active capability, one executor, one
-focused branch and Pull Request, and an exact one-session
-[`TASK.md`](TASK.md) handoff. GPT-5.6 Sol is the planning and acceptance
-authority; no executor self-accepts its own work.
-
-## Capability matrix
-
-Legend — **Merged**: accepted and merged at a bounded scope · **In review**:
-implemented but not accepted · **Planned**: required Release 1 work not started
-· **Gated**: blocked pending validation or an external decision.
-
-| Capability | Status | Current boundary |
-|---|:---:|---|
-| Tenant, Company, Branch and organization scoping | Merged | Server-derived scope and Tenant isolation |
-| Tenant-aware entry routing and operational context | Merged | Host candidate resolution, server membership, context switching |
-| Authentication, session, authorization and audit seams | Merged | Production identity provider hardening remains gated |
-| English / Arabic localization and RTL | Merged | Coverage expands with each bounded journey |
-| Master Data and Business Parties | Merged | Category/UOM, Product, Supplier, Customer, reusable references |
-| Tax, Currency, Exchange Rate and Payment Term references | Merged | Internal configuration-led evidence; no external/statutory claim |
-| Price Lists and Master Data Import | Merged | Tenant-owned bounded capabilities |
-| Purchase Requests and approval foundation | Merged | Configurable demand and approval flow |
-| Supplier Quotations and source decision | Merged | Auditable quotation comparison and sourcing choice |
-| Purchase Orders and Supplier Confirmation | Merged | Source lineage, approval, issue, confirmation/change/reapproval |
-| Goods Receipt, Purchase Invoice handoff, matching | Merged | Physical and commercial evidence |
-| Supplier Returns | Merged | Procurement commercial evidence plus Inventory handoff |
-| Inventory ledger, opening, availability, reservation, tracking | Merged | MESP-128 authoritative physical ledger foundation |
-| Receipt effects, Transfers, In Transit, Supplier Return stock | Merged | MESP-129 immutable movement lineage |
-| Stock Adjustment, Counts, Stock Issue, corrections | Merged | MESP-130 count fences, SoD, blind counting, correction history |
-| Moving-weighted-average valuation and Inventory reconciliation | Merged | MESP-131 Inventory-owned valuation and Finance handoff facts |
-| Core Finance: chart of accounts, periods, journals, GL | Merged | MESP-132 Finance foundation |
-| AP / AR / cash and settlement | Merged | MESP-133 manual-only settlement methods, subledger-to-GL reconciliation |
-| Tax, FX, reporting currency and revaluation | Merged | MESP-134 internal configuration-led; no statutory scope |
-| Finance period close, corrections and reports | Merged | MESP-135 controlled reversal and successor corrections |
-| B2B Sales: quotations, Sales Orders, credit control | Merged | MESP-136 server-authoritative pricing, approval/SoD, credit outcomes |
-| Sales reservation, fulfillment, Delivery, invoice eligibility | Merged | MESP-137 durable coordinated Delivery handoff and AR seams |
-| Customer returns, credit notes, customer receipts | Merged | MESP-138 customer return and credit foundation (PR #86) |
-| Release 1 Reporting and Analytics | Merged | MESP-139 approved reporting catalogue, lineage, export and distribution (PR #88) |
-| Cross-cutting Security, Audit, Files, Notifications, Localization, Support | Merged | MESP-140 cross-cutting controls (PR #89) |
-| Data Migration and Tenant Onboarding | **In review** | MESP-40 BRD accepted; MESP-141 Slice 1 migration foundation in Draft PR #242, **not accepted**. File ingestion, staging, validation engine, load execution, UI and cutover are later slices, not activated |
-| Release 1 stabilization, regression, UAT and RC readiness | Planned | MESP-142; not activated |
-| External integrations and production cutover | Gated | Production, provider and cutover gates remain open |
-| ZATCA / FATOORA / statutory certification | Gated | Qualified external validation required; **no readiness is claimed** |
+- **Capability completion is 24/26 (92.3%).** That is not production readiness, which is about 47%
+  overall and 41% for Procurement/P2P.
+- **The active capability is MESP-141 (#229)**, Data Migration and Tenant Onboarding.
+- **MESP-48 (#137) and MESP-50 (#139)** remain open production gates.
 
 ## Product direction
 
@@ -115,7 +66,7 @@ Release 1 covers the connected business domains needed for a reusable ERP:
 - Reporting and Analytics;
 - Administration, Tenancy, security, audit, migration and onboarding.
 
-The matrix above distinguishes those required domains from what is actually
+[`docs/ROADMAP.md`](docs/ROADMAP.md) separates the domains Release 1 requires from what is actually
 usable today.
 
 ## Architecture
@@ -187,17 +138,20 @@ Development/QA rendering of that generated contract, not a production surface.
 ## Repository map
 
 ```text
-backend/       .NET projects, module application code, persistence and tests
-frontend/      Angular shell, feature workspaces, unit tests and Playwright
-docs/          BRDs, ADRs, specifications, decisions and the progress tracker
-scripts/       Official local Development and validation helpers
-wireframes/    Product and UI reference material
-.ai/           Executor authorization policy and verified current state
-AGENTS.md      Durable working agreement and AI model routing baseline
-CLAUDE.md      Reading order and bounded execution rules for AI executors
-TASK.md        Exact bounded prompt for the next session
-Run.md         Local runtime, SQL and validation guide
+backend/        .NET projects, module application code, persistence and tests
+frontend/       Angular shell, feature workspaces, unit tests and Playwright
+scripts/        Official local Development and validation helpers
+docs/           PROJECT, ARCHITECTURE, ROADMAP, DECISIONS, MODEL_ROUTING
+docs/requirements/  Approved BRDs and the business glossary
+docs/assets/    PRD, presentation and wireframes (non-Markdown)
+docs/audit/     Cleanup audit: drift report, plan, tracker reconciliation
+docs/history/   Archived records (not authority)
+AGENTS.md       Working agreement and executor rules (CLAUDE.md points here)
+TASK.md         The single next executor prompt and the Planner's next-task summary
+RESULT.md       Shared results log, newest first
+RUN.md          Local runtime, SQL and validation guide
 ```
+
 
 ## Local quick start
 
@@ -227,7 +181,7 @@ connection value itself must stay outside tracked documentation. The
 Development bypass is exact-environment, loopback-only, server-actor based, and
 does not bypass ordinary authorization or allow client impersonation. It fails
 startup if enabled outside Development. For normal credential testing, leave it
-disabled and follow [`Run.md`](Run.md).
+disabled and follow [`RUN.md`](RUN.md).
 
 > **Note for test runs:** because the bypass guard fails closed, leaving
 > `MESP_DEV_AUTH_BYPASS=true` in your ambient shell will fail the host security
@@ -241,7 +195,7 @@ Expected local addresses:
 - Tenant entry fixture: <http://tenant.localhost:4300>
 - Platform boundary fixture: <http://admin.localhost:4300>
 - API health: <http://localhost:5300/health>
-- OpenAPI / Scalar: Development/QA-only surfaces described in [`Run.md`](Run.md)
+- OpenAPI / Scalar: Development/QA-only surfaces described in [`RUN.md`](RUN.md)
 
 The launcher and generated proxy preserve the browser `Host` so the API can
 resolve the entry mode. The browser consumes `auth/entry`; it does not
@@ -298,32 +252,24 @@ SQL Server safety suite reports as **gated** rather than passing when
 `MESP_SQLSERVER_SAFETY_CONNECTION_STRING` is absent. Gated evidence is never
 reported as passed.
 
-The repository-owned GitHub Actions workflow is
-`.github/workflows/ci.yml`. The latest verified `push` run on `main`,
-`34623801987` on commit `b1ceb21`, passed `Repository Validation`, `Backend`,
-and `Frontend`. CI is **GitHub Actions — ACTIVE / VERIFIED**; the `main`
-ruleset requires those three checks. Hosted CI excludes the LocalDB SQL Server
+CI is the repository-owned GitHub Actions workflow `.github/workflows/ci.yml`. The `main` ruleset
+requires three checks: `Repository Validation`, `Backend` and `Frontend`. Hosted CI excludes the LocalDB SQL Server
 safety suite, which runs locally through `.\scripts\Test-MiniErpBackend.ps1`.
 Continuous deployment is not implemented. A passing local Development suite or
 hosted CI run does not by itself establish production readiness.
 
 ## Documentation
 
-- [Local Development and integrated runtime guide](Run.md)
+- [Project: goal, scope, module rules, requirements index, glossary](docs/PROJECT.md)
+- [Architecture: layers, modules, enforcement, stack, environments](docs/ARCHITECTURE.md)
+- [Roadmap: live plan linked to the tracker](docs/ROADMAP.md)
+- [Decisions: owner/planner decisions and the ADRs](docs/DECISIONS.md)
+- [Model routing and operating model](docs/MODEL_ROUTING.md)
+- [Working agreement and executor rules](AGENTS.md)
+- [Local Development and integrated runtime guide](RUN.md)
 - [Backend technical reference](backend/README.md)
 - [Frontend technical reference](frontend/README.md)
-- [Current verified state](.ai/CURRENT_STATE.md)
-- [AI executor authorization policy](.ai/AI_EXECUTION_POLICY.md)
-- [Repository working agreement and model routing](AGENTS.md)
-- [Project statistics and production-readiness tracker](docs/staticts.md)
-- [CI/CD governance and validation contract](docs/CI_CD_Governance.md)
-- [Backend project/module boundaries](docs/ADR-002_Backend_Project_Structure_and_Module_Enforcement.md)
-- [SQL schemas, migrations and provider boundaries](docs/ADR-006_Module_Schemas_EF_Core_Migrations_Transactions.md)
-- [Testing environments and production gates](docs/ADR-018_Testing_Environments_SQL_Server_Containers_and_Gates.md)
-- [Tenant host resolution, workspace context and branding](docs/ADR-019_Tenant_Host_Resolution_Workspace_Context_and_Branding.md)
-- [Release 1 approved decision and dependency map](docs/33_Release_1_MESP_116_Approved_Decision_and_Dependency_Map.md)
-- [Data Migration and Tenant Onboarding BRD](docs/40_Data_Migration_and_Tenant_Onboarding_BRD.md)
-- [Next exact session prompt](TASK.md)
+- [Business requirements (BRDs)](docs/requirements/)
 
 ## Production-readiness disclaimer
 
@@ -340,17 +286,12 @@ convenience or the local database process as a production deployment model.
 
 ## Scope discipline
 
-- MESP-141 Slice 1 is **in review and not accepted**. Draft PR #242 must not
-  be marked Ready, merged, or counted as delivered capability without GPT-5.6
-  Sol acceptance. Later MESP-141 slices are not activated.
-- MESP-142 must not be started until GPT-5.6 Sol explicitly activates it.
-- MESP-40 open decisions M40-DEC-001 through M40-DEC-006 remain open; no
+- **One capability at a time.** Only positive authority activates it. MESP-142 (#230) is not
+  activated. Later MESP-141 slices are not activated.
+- **Open migration decisions stay open.** M40-DEC-001 through M40-DEC-006 remain open, and no
   implementation may decide them implicitly.
-- Owner-managed source assets under `frontend/assets` must never be deleted,
-  renamed, replaced, regenerated, optimized, recolored, moved, or restored from
-  Git without explicit Owner instruction. Untracked files there are not
-  temporary.
-- The tracker filename `docs/staticts.md` is canonical and must not be
-  "corrected" or duplicated.
-- Retail POS, customer-specific core forks, external production integrations,
-  and statutory implementation remain out of Release 1 scope.
+- **Owner-managed assets are off-limits.** Source assets under `frontend/assets` must never be
+  deleted, renamed, replaced, regenerated, optimized, recolored, moved or restored from Git without
+  explicit owner instruction.
+- **Out of Release 1 scope:** Retail POS, customer-specific core forks, external production
+  integrations and statutory implementation.
