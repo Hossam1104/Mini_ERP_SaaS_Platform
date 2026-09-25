@@ -380,7 +380,7 @@ public sealed class MigrationReconciliationService
             var blocked = !string.Equals(item.Status, "reconciled", StringComparison.OrdinalIgnoreCase)
                 || !item.PhysicalQuantityProven || !item.ValuationAmountProven || !item.FinanceAmountProven
                 || quantityVariance != 0m || amountVariance != 0m || mapping.ControlAccountId is null;
-            rows.Add(new(StableId(MigrationReconciliationDomain.Inventory, $"inventory:{item.EffectId:N}"), MigrationReconciliationDomain.Inventory, $"inventory:{item.EffectId:N}", payload?.CompanyId,
+            rows.Add(new(Guid.Empty, MigrationReconciliationDomain.Inventory, $"inventory:{item.EffectId:N}", payload?.CompanyId,
                 payload?.OpeningDate, item.FunctionalCurrencyCode, payload?.CurrencyCode, item.FunctionalCurrencyCode, 1, null, null, null, null,
                 amountVariance, item.CanonicalValue, item.InventoryValue, amountVariance, null, null, item.FinancePostedAmount,
                 item.InventoryValue, Signed(item.FinancePostedAmount ?? 0m, mapping.Reversal, creditNormal: false), null, null, null, null, item.CanonicalQuantity, item.InventoryQuantity,
@@ -463,7 +463,7 @@ public sealed class MigrationReconciliationService
                     || !string.Equals(group.Status, "reconciled", StringComparison.OrdinalIgnoreCase);
                 rows.Add(new MigrationReconciliationDetail
                 {
-                    Id = StableId(MigrationReconciliationDomain.Gl, $"line:{group.CompanyId:N}:{group.OpeningDate:yyyyMMdd}:{group.CurrencyCode}:{group.JournalId:N}:{line.AccountId:N}"),
+                    Id = Guid.Empty,
                     Domain = MigrationReconciliationDomain.Gl, ScopeKey = $"line:{group.CompanyId:N}:{group.OpeningDate:yyyyMMdd}:{group.CurrencyCode}:{group.JournalId:N}:{line.AccountId:N}",
                     CompanyId = group.CompanyId, OpeningDate = group.OpeningDate, CurrencyCode = group.CurrencyCode,
                     SourceCount = sourceRows.Length, SourceDebit = debit, SourceCredit = credit,
@@ -494,7 +494,7 @@ public sealed class MigrationReconciliationService
             var block = targetLine.Length == 0 || diff != 0m && !allowed;
             rows.Add(new MigrationReconciliationDetail
             {
-                Id = StableId(MigrationReconciliationDomain.Gl, $"control:{group.Key.CompanyId:N}:{group.Key.OpeningDate:yyyyMMdd}:{group.Key.FunctionalCurrencyCode}:{group.Key.AccountId:N}"),
+                Id = Guid.Empty,
                 Domain = MigrationReconciliationDomain.Gl,
                 ScopeKey = $"control:{group.Key.CompanyId:N}:{group.Key.OpeningDate:yyyyMMdd}:{group.Key.FunctionalCurrencyCode}:{group.Key.AccountId:N}",
                 CompanyId = group.Key.CompanyId, OpeningDate = group.Key.OpeningDate, CurrencyCode = group.Key.FunctionalCurrencyCode,
@@ -537,7 +537,7 @@ public sealed class MigrationReconciliationService
         var blocking = incomplete || transactionVariance != 0m || variance != 0m && !roundingExplainsVariance;
         return new MigrationReconciliationDetail
         {
-            Id = StableId(domain, $"{domain}:{effectId:N}"), Domain = domain, ScopeKey = $"{domain}:{effectId:N}", CompanyId = companyId, OpeningDate = openingDate,
+            Id = Guid.Empty, Domain = domain, ScopeKey = $"{domain}:{effectId:N}", CompanyId = companyId, OpeningDate = openingDate,
             CurrencyCode = currency, TransactionCurrencyCode = transactionCurrency, FunctionalCurrencyCode = functionalCurrency,
             EffectId = effectId, OwnerReferenceId = ownerReferenceId, LinkedAccountId = linkedAccountId ?? mapping.ControlAccountId,
             SourceCount = 1, Variance = variance, SourceAmount = transactionAmount, TargetAmount = sourceOwnerAmount,
@@ -600,10 +600,12 @@ public sealed class MigrationReconciliationService
 
     private MigrationReconciliationRecord CreateRecord(TenantContext tenant, MigrationRunRecord run, EvidenceCapture x, string idempotencyKey, int versionNumber)
     {
+        var id = Guid.NewGuid();
+        var details = x.Details.Select(item => item with { Id = StableId(id, item.Domain, item.ScopeKey) }).ToArray();
         var policy = x.Policy;
-        var blocked = x.Details.Any(item => item.IsBlocking) || x.HasUnknown || x.HasIncompleteDomain
+        var blocked = details.Any(item => item.IsBlocking) || x.HasUnknown || x.HasIncompleteDomain
             || x.OutcomeCounts[1] + x.OutcomeCounts[4] + x.OutcomeCounts[5] > 0;
-        var gl = x.Details.Where(item => item.Domain == MigrationReconciliationDomain.Gl && item.SourceDebit.HasValue)
+        var gl = details.Where(item => item.Domain == MigrationReconciliationDomain.Gl && item.SourceDebit.HasValue)
             .GroupBy(item => item.ScopeKey.StartsWith("line:", StringComparison.Ordinal) ? "ledger" : "control", StringComparer.Ordinal)
             .Select(group => group.First()).ToArray();
         var sourceDebit = x.Staged.Where(item => item.RecordType == MigrationCanonicalRecordType.GlOpening)
@@ -619,14 +621,14 @@ public sealed class MigrationReconciliationService
         var actualCredit = x.Execution.GlEconomicReconciliations?.GroupBy(item => (item.CompanyId, item.OpeningDate, item.CurrencyCode, item.JournalId))
             .Sum(group => group.First().EstablishedCredit) ?? 0m;
         var required = policy?.Requirements.Sum(item => item.RequiredCount) ?? 0;
-        return new(Guid.NewGuid(), tenant.TenantId, run.RunId, x.Execution.AttemptId, versionNumber, x.Fingerprint, idempotencyKey,
+        return new(id, tenant.TenantId, run.RunId, x.Execution.AttemptId, versionNumber, x.Fingerprint, idempotencyKey,
             blocked ? MigrationReconciliationStatus.Blocked : MigrationReconciliationStatus.Reconciled, clock.GetUtcNow(), clock.GetUtcNow(),
             x.OutcomeCounts.Sum(), x.OutcomeCounts[0], x.OutcomeCounts[1], x.OutcomeCounts[2], x.OutcomeCounts[3], x.OutcomeCounts[4],
             x.OutcomeCounts[5], required, 0, sourceDebit, sourceCredit, targetDebit, targetCredit,
             (sourceDebit - sourceCredit) - (actualDebit - actualCredit), Guid.NewGuid().ToByteArray(), false,
             policy?.PolicyId, policy?.Version, policy is null ? "approval_policy_not_configured" : "configured",
             policy?.EffectiveFrom, policy?.EffectiveTo, policy?.EnforceSeparationOfDuties ?? false,
-            policy?.Requirements ?? [], x.Details, [], null);
+            policy?.Requirements ?? [], details, [], null);
     }
 
     private static string Fingerprint(MigrationRunRecord run, IReadOnlyList<MigrationAttemptRecord> attempts,
@@ -641,7 +643,7 @@ public sealed class MigrationReconciliationService
         values.AddRange(preview.Rows.OrderBy(item => item.SourceSequence).Select(item => JsonSerializer.Serialize(item, JsonOptions)));
         values.AddRange(effects.OrderBy(item => item.StagedRecordId).ThenBy(item => item.AttemptId).Select(item => JsonSerializer.Serialize(new { item.Id, item.AttemptId, item.StagedRecordId, item.Disposition, item.SafeCode, Version = Convert.ToHexString(item.Version) }, JsonOptions)));
         values.AddRange(representations.OrderBy(item => item.Id).Select(item => JsonSerializer.Serialize(new { item.Id, item.AttemptId, item.EffectId, item.OwnerModule, item.Kind, item.OwnerId, item.Status, item.EvidenceVersion, item.SourceContract, item.SourceEvent, item.FunctionalAmount, item.PostingRuleId, item.PostingRuleVersionNumber, item.ControlAccountId, item.OffsetAccountId, item.Reversal, item.SourceEvidenceId, item.SourceEvidenceVersion, item.OwnerSourceId, item.TransactionCurrencyCode, item.TransactionAmount, item.ExpectedFunctionalCurrencyCode, item.ExchangeRateId, item.ExchangeRateVersionId, item.ExchangeRateVersionNumber, item.AppliedRate, item.MonetaryPolicyId, item.MonetaryPolicyVersionNumber, item.RoundingScale, item.RoundingMode, Version = Convert.ToHexString(item.Version) }, JsonOptions)));
-        values.AddRange(details.OrderBy(item => item.Domain).ThenBy(item => item.ScopeKey).Select(item => JsonSerializer.Serialize(item, JsonOptions)));
+        values.AddRange(details.OrderBy(item => item.Domain).ThenBy(item => item.ScopeKey).Select(item => JsonSerializer.Serialize(item with { Id = FingerprintDetailId(item.Domain, item.ScopeKey) }, JsonOptions)));
         if (policy is not null) values.Add(JsonSerializer.Serialize(new { policy.PolicyId, policy.Version, policy.EffectiveFrom, policy.EffectiveTo, policy.EnforceSeparationOfDuties, Requirements = policy.Requirements.OrderBy(item => item.Domain).ThenBy(item => item.RequirementKey).Select(item => new { item.Domain, item.RequirementKey, item.RequiredCount, Actors = item.EligibleActorIds.OrderBy(id => id) }) }, JsonOptions));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("\n", values))));
     }
@@ -710,7 +712,13 @@ public sealed class MigrationReconciliationService
     private static MigrationGlOpeningPayload? ReadGl(MigrationStagedRecord row) { try { return JsonSerializer.Deserialize<MigrationGlOpeningPayload>(row.CanonicalPayload, JsonOptions); } catch (JsonException) { return null; } }
     private static DateOnly? ReadArDate(MigrationStagedRecord row) { try { return JsonSerializer.Deserialize<MigrationArOpeningPayload>(row.CanonicalPayload, JsonOptions)?.OpeningDate; } catch (JsonException) { return null; } }
     private static DateOnly? ReadApDate(MigrationStagedRecord row) { try { return JsonSerializer.Deserialize<MigrationApOpeningPayload>(row.CanonicalPayload, JsonOptions)?.OpeningDate; } catch (JsonException) { return null; } }
-    private static Guid StableId(MigrationReconciliationDomain domain, string scope)
+    private static Guid StableId(Guid reconciliationId, MigrationReconciliationDomain domain, string scope)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{reconciliationId:N}:{domain}:{scope}"));
+        return new Guid(hash.AsSpan(0, 16));
+    }
+
+    private static Guid FingerprintDetailId(MigrationReconciliationDomain domain, string scope)
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{domain}:{scope}"));
         return new Guid(hash.AsSpan(0, 16));
@@ -775,7 +783,7 @@ public sealed class MigrationReconciliationService
         { company = gl.CompanyId; date = gl.OpeningDate; currency = gl.CurrencyCode; debit = gl.Debit; credit = gl.Credit; }
         return new MigrationReconciliationDetail
         {
-            Id = StableId(domain, scope), Domain = domain, ScopeKey = scope, CompanyId = company, OpeningDate = date, CurrencyCode = currency,
+            Id = Guid.Empty, Domain = domain, ScopeKey = scope, CompanyId = company, OpeningDate = date, CurrencyCode = currency,
             EffectId = effect.Id,
             SourceCount = 1, SourceDebit = debit, SourceCredit = credit, SourceAmount = (debit ?? 0m) - (credit ?? 0m),
             IsBlocking = true,

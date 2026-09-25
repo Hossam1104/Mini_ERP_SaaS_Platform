@@ -357,6 +357,45 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
     }
 
     [Fact]
+    public async Task Sql_server_s11_r12_reconciliation_details_are_unique_and_prior_rows_are_unchanged()
+    {
+        await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
+        var scenario = await ExecuteMixedAsync(fixture, "S11-R12-DETAIL-ID");
+        var policy = ApprovalPolicy(fixture.Request.ActorId!.Value, Guid.NewGuid());
+        var first = await ReconcileAsync(fixture, Service(fixture, new TestApprovalPolicy(policy)),
+            scenario.RunId, "s11-r12-detail-first");
+        Assert.True(first.Succeeded, first.Code);
+        var firstRecord = first.Value!;
+        MigrationReconciliationDetail[] firstDetailsBefore;
+        await using (var firstDb = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant))
+        {
+            firstDetailsBefore = await ReadReconciliationDetailsAsync(firstDb, firstRecord.Id);
+        }
+        Assert.NotEmpty(firstDetailsBefore);
+
+        var requirement = policy.Requirements.Single();
+        var changedPolicy = policy with
+        {
+            Requirements = [requirement with { EligibleActorIds = [.. requirement.EligibleActorIds, Guid.NewGuid()] }]
+        };
+        var second = await ReconcileAsync(fixture, Service(fixture, new TestApprovalPolicy(changedPolicy)),
+            scenario.RunId, "s11-r12-detail-second");
+        Assert.True(second.Succeeded, second.Code);
+        var secondRecord = second.Value!;
+        Assert.NotEqual(firstRecord.Id, secondRecord.Id);
+        Assert.NotEqual(firstRecord.EvidenceFingerprint, secondRecord.EvidenceFingerprint);
+
+        await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
+        Assert.Equal(2, await db.Reconciliations.CountAsync(item => item.RunId == scenario.RunId));
+        var firstDetailsAfter = await ReadReconciliationDetailsAsync(db, firstRecord.Id);
+        var secondDetails = await ReadReconciliationDetailsAsync(db, secondRecord.Id);
+        Assert.Equal(firstDetailsBefore, firstDetailsAfter);
+        Assert.Equal(firstDetailsAfter.Length + secondDetails.Length,
+            await db.ReconciliationDetails.CountAsync(item => item.RunId == scenario.RunId));
+        Assert.Empty(firstDetailsAfter.Select(item => item.Id).Intersect(secondDetails.Select(item => item.Id)));
+    }
+
+    [Fact]
     public async Task Sql_server_s11_r12_changed_owner_evidence_invalidates_prior_approval()
     {
         await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
@@ -783,6 +822,23 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
     }
 
     private sealed record HistoricalFinanceMapping(Guid ControlAccountId, Guid PostingRuleId, int PostingRuleVersionNumber);
+
+    private static async Task<MigrationReconciliationDetail[]> ReadReconciliationDetailsAsync(
+        MigrationDbContext db, Guid reconciliationId) =>
+        await db.ReconciliationDetails.AsNoTracking().Where(item => item.ReconciliationId == reconciliationId)
+            .OrderBy(item => item.Id)
+            .Select(item => new MigrationReconciliationDetail(item.Id, item.Domain, item.ScopeKey,
+                item.CompanyId, item.OpeningDate, item.CurrencyCode, item.TransactionCurrencyCode, item.FunctionalCurrencyCode,
+                item.SourceCount, item.SourceDebit, item.SourceCredit, item.TargetDebit, item.TargetCredit,
+                item.Variance, item.SourceAmount, item.TargetAmount, item.AmountVariance, item.OwnerRoundingDifference,
+                item.TransactionAmount, item.FunctionalAmount, item.SubsidiaryEstablishedAmount, item.GlControlAmount,
+                item.ExchangeRateId, item.ExchangeRateVersionId, item.ExchangeRateVersionNumber, item.AppliedRate,
+                item.SourceQuantity, item.TargetQuantity, item.QuantityVariance, item.ControlAccountId, item.PostingRuleId,
+                item.PostingRuleVersionNumber, item.OwnerSourceId, item.WarehouseId, item.ProductId, item.UnitOfMeasureId,
+                item.SourceContract, item.SourceEvent, item.RoundingPolicyId, item.RoundingPolicyVersionNumber,
+                item.RoundingScale, item.RoundingMode, item.IsBlocking, item.FindingCode, item.Explanation,
+                item.EffectId, item.OwnerReferenceId, item.LinkedAccountId))
+            .ToArrayAsync();
 
     private static async Task<HistoricalFinanceMapping> ReadHistoricalFinanceMappingAsync(
         MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture fixture,
