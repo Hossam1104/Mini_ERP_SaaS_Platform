@@ -66,6 +66,8 @@ public sealed class MigrationReconciliationService
         var runResult = await foundation.FindRunAsync(tenant, request.RunId, cancellationToken);
         if (!runResult.Succeeded || runResult.Value is not { } run)
             return MigrationOperationResult<MigrationReconciliationRecord>.Rejected(runResult.Code);
+
+        MigrationPersistenceResult<MigrationReconciliationRecord> saved;
         if (!run.Version.AsSpan().SequenceEqual(request.ExpectedRunVersion))
         {
             var replayRecord = await persistence.FindLatestAsync(tenant, run.RunId, cancellationToken);
@@ -74,21 +76,22 @@ public sealed class MigrationReconciliationService
             var replayCapture = await CaptureAsync(requestContext, run, cancellationToken);
             if (replayCapture is null || !FixedEquals(replayCapture.Fingerprint, replayRecord.EvidenceFingerprint))
                 return MigrationOperationResult<MigrationReconciliationRecord>.Rejected("migration_reconciliation_idempotency_conflict");
-            if (!run.EvidenceConfirmed)
-                return MigrationOperationResult<MigrationReconciliationRecord>.Unknown("migration_audit_recovery_required");
-            return MigrationOperationResult<MigrationReconciliationRecord>.Replay(replayRecord with { IsCurrent = true });
+            saved = MigrationPersistenceResult<MigrationReconciliationRecord>.Replay(replayRecord with { IsCurrent = true });
         }
-        if (run.Status is not (MigrationRunStatus.Completed or MigrationRunStatus.PartiallyCompleted or MigrationRunStatus.Failed
-            or MigrationRunStatus.OutcomeUnknown or MigrationRunStatus.ReconciliationPending or MigrationRunStatus.Reconciled))
-            return MigrationOperationResult<MigrationReconciliationRecord>.Rejected("migration_reconciliation_state_invalid");
+        else
+        {
+            if (run.Status is not (MigrationRunStatus.Completed or MigrationRunStatus.PartiallyCompleted or MigrationRunStatus.Failed
+                or MigrationRunStatus.OutcomeUnknown or MigrationRunStatus.ReconciliationPending or MigrationRunStatus.Reconciled))
+                return MigrationOperationResult<MigrationReconciliationRecord>.Rejected("migration_reconciliation_state_invalid");
 
-        var capture = await CaptureAsync(requestContext, run, cancellationToken);
-        if (capture is null)
-            return MigrationOperationResult<MigrationReconciliationRecord>.Rejected("reconciliation_evidence_incomplete");
+            var capture = await CaptureAsync(requestContext, run, cancellationToken);
+            if (capture is null)
+                return MigrationOperationResult<MigrationReconciliationRecord>.Rejected("reconciliation_evidence_incomplete");
 
-        var latest = await persistence.FindLatestAsync(tenant, run.RunId, cancellationToken);
-        var record = CreateRecord(tenant, run, capture, request.IdempotencyKey, (latest?.VersionNumber ?? 0) + 1);
-        var saved = await persistence.SaveAsync(tenant, new SaveMigrationReconciliationCommand(record, run.Version), cancellationToken);
+            var latest = await persistence.FindLatestAsync(tenant, run.RunId, cancellationToken);
+            var record = CreateRecord(tenant, run, capture, request.IdempotencyKey, (latest?.VersionNumber ?? 0) + 1);
+            saved = await persistence.SaveAsync(tenant, new SaveMigrationReconciliationCommand(record, run.Version), cancellationToken);
+        }
         if (!saved.Succeeded || saved.Value is null)
             return Map(saved, "migration_reconciliation_persistence_unknown");
 
@@ -108,9 +111,13 @@ public sealed class MigrationReconciliationService
             {
                 var reconciled = await foundation.TransitionRunAsync(requestContext, run.RunId, MigrationRunStatus.Reconciled, pendingRun.Version, cancellationToken);
                 if (!reconciled.Succeeded)
-                    return reconciled.Kind == MigrationResultKind.UnknownOutcome
-                        ? MigrationOperationResult<MigrationReconciliationRecord>.Unknown(reconciled.Code)
-                        : MigrationOperationResult<MigrationReconciliationRecord>.Failure(reconciled.Code);
+                {
+                    var after = await foundation.FindRunAsync(tenant, run.RunId, cancellationToken);
+                    if (after.Value is not { Status: MigrationRunStatus.Reconciled })
+                        return reconciled.Kind == MigrationResultKind.UnknownOutcome
+                            ? MigrationOperationResult<MigrationReconciliationRecord>.Unknown(reconciled.Code)
+                            : MigrationOperationResult<MigrationReconciliationRecord>.Failure(reconciled.Code);
+                }
             }
             else if (current.Value is not { Status: MigrationRunStatus.Reconciled })
                 return MigrationOperationResult<MigrationReconciliationRecord>.Unknown("migration_reconciliation_lifecycle_unknown");
