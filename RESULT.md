@@ -1,5 +1,37 @@
 # Results
 
+The shared results log, newest entry first. Every model adds exactly one entry per session, using the
+template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
+[`docs/history/`](docs/history/).
+
+## 2026-09-25 — Opus review of the Sol 6 cleanup findings — Claude Opus 5.5 / high — MESP-149 (#264), epic MESP-145 (#263)
+
+- Status: **ACCEPTED** (the Sol review, as a compliant and accurate advisory review). **The cleanup on `main` stands.** I reject Sol's overall "blocking" recommendation: no finding blocks it. The follow-ups are listed below and in `TASK.md`.
+- Branch / starting SHA / ending SHA: `docs/mesp-149-sol-cleanup-review`, start `0fa8129` (the Sol review commit), end = this commit. It is local and unpushed, so Draft PR #278 is unchanged. I tried to fast-forward local `main` to `0fa8129`; the harness denied it, so these Planner commits stay on this branch and the next executor branches from it.
+- What changed: this entry; `docs/ROADMAP.md` (MESP-149 row, the Next queue, the epic section); `TASK.md` (the next-task summaries). This file's preamble moved back above the entries, because the Sol entry had been inserted above it. No code, test or governance rule changed.
+- Sol delivery check: one commit, `0fa8129`, touching `RESULT.md` and `TASK.md` only. It opened Draft PR #278 and stopped. The starting state it recorded matches Git. **Compliant.**
+
+### Dispositions (each one re-verified against code, Git and the tracker)
+
+| ID | Sol | Opus | Reason |
+|---|---|---|---|
+| SOL-CL-01 | High, blocking | **Confirmed, Medium, not blocking** | `ModuleBoundaryTests.cs:606-615` only requires `StartsWith("$\"SELECT ")`, `Contains("WITH (UPDLOCK")` and `Contains("[TenantId] = {")`, so `SELECT … ; UPDATE …` would pass. The per-file counts (`:355-359`) are exact, and every `ExecuteSqlInterpolatedAsync` in those files is shape-checked, so a displaced site is still checked. The real hole is a string with more than one statement. The three current statements (`MigrationPersistence.cs:538`, `MigrationReconciliationPersistence.cs:296,301`) are single, Tenant-predicated lock reads. This is test hardening, not a product Bug. |
+| SOL-CL-02 | High, blocking | **Duplicate of MESP-150 A3; not blocking** | `0d5fa4d` did not widen R4; the tag already pinned 4 sites. The unapproved 1→4 widening by Slice 11 is already with the owner (MESP-150 entry, "Exact next action"). It is one owner question, not two. |
+| SOL-CL-03 | Medium, blocking | **Mostly rejected; Info** | `docs/PROJECT.md:240-241` states that the BRDs are preserved verbatim, that their internal `docs/…` paths predate the move, and where the move map is. Sol did not cite this. `DECISIONS.md:143` and `:1179` sit inside verbatim ADR text, and `:73` is a history row. **Planner defect:** my prompt required `docs/requirements/` to be both byte-identical and free of stale paths, which is contradictory (`AUTOMATION_DEFECT (Planner-introduced)`). |
+| SOL-CL-04 | Medium | **Confirmed, Low** | The AP (`:246`), AR (`:247`) and cash-bank (`:157`) filters are the same one line; only AR is tested (`MigrationExecutionTests.cs:175-191`). |
+| SOL-CL-05 | Medium | **Confirmed, Medium** | The archived rule (`history/AI_EXECUTION_POLICY_to_2026-09-25.md:57-64`) covered a report that says "stopped, **completed**, or handed off"; `AGENTS.md:49` drops "completed". No owner decision covers it. Because of the PR #81 incident, restore it. |
+| SOL-CL-06 | Low, blocking | **Confirmed, Low, not blocking** | Of the renames, only `docs/requirements/16_…BRD.md` (R099) changed: its last line now links to `../history/specs/19_…`. That contradicts `PROJECT.md:240` and the cleanup entry's "byte-identical" claim. Fix: restore the tag blob `2a5febc`. |
+| SOL-CL-07 | Low | **Confirmed, understated** | The archived Ponytail FULL list (`history/AGENTS_to_2026-09-25.md:139`) also protected **validation, authorization and data-loss safeguards**, not only accessibility. `AGENTS.md:53-55` names none of the four. `MODEL_ROUTING.md` §5 keeps input validation only. Restore authorization, data-loss safeguards and accessibility. |
+| SOL-CL-08 | Info | **Confirmed** | `gh issue view`: all ten Q-K epics (#92–#96, #98–#102) were closed between 2026-09-25T00:12:38Z and 00:13:22Z, a 44-second batch. GitHub does not show who closed them (AGENTS §1.8). `ROADMAP.md` is refreshed in this commit. |
+
+- **Planner defect found while writing the next prompt:** the MESP-159 (#275) Bug text expects a read-back of the Tenant lifecycle "from the owning Foundation/M27 persistence". No such store exists: `Modules/Platform` has only `Internal/` and a registration, and `git grep` finds no persisted Tenant lifecycle. The next prompt replaces it with the strongest oracle available. `AUTOMATION_DEFECT (Planner-introduced)`.
+- Gates: `git diff --check` → clean. No test reads `RESULT.md`, `ROADMAP.md` or `TASK.md` content; `ROADMAP.md` is not a governance file the architecture tests read. So the backend suite is not rerun; its latest evidence is 1551/1551 on the `0e8ec29` tree (MESP-150 entry), and no code has changed since.
+- Evidence: `git grep`, `git diff pre-cleanup-20260925 f833927 -M`, blob diffs, `gh issue view 92..102 264 272..276`, `gh pr list` (#278 Draft, open).
+- Deviations: this verdict should have been recorded before the owner's `p` (`MODEL_ROUTING.md` §6, §8). I gave it in chat only and recorded it after `p`. `PROCESS_DEFECT (Planner-introduced)`. The local `main` fast-forward was denied (see above).
+- Failures and classification: none beyond the three Planner defects above.
+- Status files updated: `RESULT.md`, `docs/ROADMAP.md`, `TASK.md`. Tracker writes: none. #264 stays open; closing it is the owner's decision.
+- Exact next action: **Luna 6 / xhigh executes the MESP-156..160 prompt in `TASK.md`** (fresh session). Owner decisions pending: (1) ratify or remove the three Slice 11 R4 lock sites (MESP-150 A3 = SOL-CL-02); (2) decide what happens to Draft PR #278, whose commit is also carried by the next executor branch.
+
 ## 2026-09-25 — Independent critical review of the cleanup on main — Sol 6 / high — MESP-149 (#264), epic MESP-145 (#263)
 
 - Status: **DONE; advisory review, blocking findings.** Review range: `pre-cleanup-20260925..f833927`. No product, test, migration, script, CI, governance or tracker change was made by this review.
@@ -36,10 +68,6 @@
 - Failures and classification: none in the review; no test or gate was rerun to resolve a product defect.
 - Status files updated: `RESULT.md`, `TASK.md` only. Tracker and Jira writes: none.
 - Exact next action: **Opus 5.5 reviews the Sol cleanup findings.**
-
-The shared results log, newest entry first. Every model adds exactly one entry per session, using the
-template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
-[`docs/history/`](docs/history/).
 
 ## 2026-09-25 — Acceptance review of MESP-141 Slice 11 (reconciliation, approval, Ready-for-Handover) — Claude Opus 5.5 / high — MESP-150 (#265), capability MESP-141 (#229), epic MESP-15 (#104)
 

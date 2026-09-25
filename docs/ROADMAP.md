@@ -5,7 +5,7 @@ tracker item in [Project #1](https://github.com/users/Hossam1104/projects/1). Re
 `MESP-<n> (#<issue>)`. **Live tracker and Git state outrank this file.** Anyone who changes an item's
 state also updates the line here.
 
-_Last reconciled: 2026-09-25 (cleanup MESP-149 (#264))._
+_Last reconciled: 2026-09-25 (Opus review of the Sol cleanup findings, MESP-149 (#264))._
 
 ## Headline metrics (two different things, never conflate them)
 
@@ -29,20 +29,21 @@ Finish MESP-141 → Golden Release-1 cycle → stable functional/API baseline �
 | Item | State | Notes |
 |---|---|---|
 | MESP-141 (#229): Release 1 migration and repeatable Tenant onboarding | Active | Slices 1–11 are merged. Slices 1–10 are accepted. **Slice 11** (reconciliation, approval, Ready-for-Handover; PR #262, `ac0309a`) was **REJECTED** by MESP-150 (#265) on 2026-09-25. Five provider oracles are not directly asserted: Bugs MESP-156..160 (#272–#276). Slice 11 stays merged and not accepted. Later slices are not activated. |
-| MESP-149 (#264): full project cleanup, refactor, tracker reconciliation and operating model | In progress | This cleanup. The Sol 6 review of `pre-cleanup-20260925..main` comes after MESP-150. |
+| MESP-149 (#264): full project cleanup, refactor, tracker reconciliation and operating model | In progress | The cleanup is on `main`. The Sol 6 review (Draft PR #278) is done and the Opus verdict is **ACCEPTED**: the cleanup stands, with follow-ups SOL-CL-01/04/05/06/07 (see Next). Closing #264 is the owner's decision. |
 | MESP-23 (#112): Open Questions Register | Living | The register of open business questions. It stays open. |
 
 ## Next (in order)
 
 | # | Item | Model / effort (planned) | Notes |
 |---|---|---|---|
-| 1 | Sol 6 independent review of the cleanup (`pre-cleanup-20260925..main`) under MESP-149 (#264) | Sol 6 / high | This is a critical point: it is a governance and architecture change on `main`. MESP-150 (#265) is done: Slice 11 was REJECTED, and #265 stays open until the Bugs are fixed and the slice is re-reviewed. |
-| 2 | Slice 11 evidence Bugs MESP-156..160 (#272–#276), then an Opus re-review of Slice 11 under MESP-150 (#265) | Planner to route | Test-only fixes: R04/R05 exact mapping, R07 subsidiary-to-GL reconciliation, R12 fingerprint and approval staleness, R18 Tenant lifecycle read-back, R20/A5 real concurrency and version conflict. |
-| 3 | Decide whether MESP-141 needs further slices before it closes | Opus 5.5 | M40 exit criteria: completed reconciliation, accepted exceptions, named approvals, a readiness snapshot. |
-| 4 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Luna 6 / xhigh | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
-| 5 | MESP-152 (#267): stable functional/API baseline | Luna 6 / xhigh | The UI work must preserve this baseline. |
-| 6 | MESP-153 (#268): total UI/UX modernization | Luna 6 / xhigh | No hard-coded Wafra behavior. Branding is configuration (ADR-019). |
-| 7 | MESP-142 (#230): Release 1 stabilization, regression, performance, UAT and release candidate | — | **Not Activated.** It needs positive activation authority. |
+| 1 | Slice 11 evidence Bugs MESP-156..160 (#272–#276), then an Opus re-review of Slice 11 under MESP-150 (#265) | Luna 6 / xhigh | Test-only fixes: R04/R05 exact mapping, R07 subsidiary-to-GL reconciliation, R12 fingerprint and approval staleness, R18 no-activation oracle, R20/A5 real concurrency and version conflict. The prompt is in `TASK.md`. |
+| 2 | Cleanup follow-ups from the Sol review: governance text (SOL-CL-05, SOL-CL-07) and the BRD byte restore (SOL-CL-06) | Opus 5.5 (governance docs), then the backend suite | Restore "completed" in the immutable-report rule, and authorization, data-loss safeguards and accessibility in the Ponytail guard. Restore tag blob `2a5febc` for `requirements/16_…BRD.md`. |
+| 3 | Test hardening from the Sol review: the R4 SQL shape check (SOL-CL-01) and the AP/cash-bank D-18 tests (SOL-CL-04) | Luna 6 / xhigh | Test-only. It does not change the R4 allowlist; that waits for the owner's decision on the Slice 11 sites. |
+| 4 | Decide whether MESP-141 needs further slices before it closes | Opus 5.5 | M40 exit criteria: completed reconciliation, accepted exceptions, named approvals, a readiness snapshot. |
+| 5 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Luna 6 / xhigh | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
+| 6 | MESP-152 (#267): stable functional/API baseline | Luna 6 / xhigh | The UI work must preserve this baseline. |
+| 7 | MESP-153 (#268): total UI/UX modernization | Luna 6 / xhigh | No hard-coded Wafra behavior. Branding is configuration (ADR-019). |
+| 8 | MESP-142 (#230): Release 1 stabilization, regression, performance, UAT and release candidate | — | **Not Activated.** It needs positive activation authority. |
 
 ## Backlog (Release 1, not yet sequenced)
 
@@ -74,9 +75,10 @@ Finish MESP-141 → Golden Release-1 cycle → stable functional/API baseline �
 | MESP-14 (#103): Integrations epic | Parent of MESP-39. |
 | Retail POS, Wafra-specific behavior, statutory ZATCA/FATOORA | Permanently out of scope for Release 1 (see `PROJECT.md` §3). |
 
-## Epics pending closure review (owner decision Q-K)
+## Epics closed after the cleanup (owner decision Q-K)
 
-Every child of these epics is Done. Each one carries a review comment. **Only the owner closes them.**
+Q-K: only the owner closes epics. GitHub shows these ten closed on 2026-09-25 between 00:12:38Z and
+00:13:22Z. The evidence does not show who closed them (AGENTS.md §1.8).
 
 - MESP-3 (#92) Identity and Access
 - MESP-4 (#93) Multi-Tenancy
@@ -89,7 +91,7 @@ Every child of these epics is Done. Each one carries a review comment. **Only th
 - MESP-12 (#101) Saudi Localization
 - MESP-13 (#102) Security and Audit
 
-MESP-8 (#97) Inventory is already Done.
+MESP-8 (#97) Inventory was closed on 2026-09-09.
 
 Epics that stay open because they have open children:
 - MESP-1 (#90): gates MESP-48 and MESP-50, MESP-142, MESP-23 and MESP-151..153.
