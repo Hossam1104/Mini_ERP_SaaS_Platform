@@ -6,7 +6,7 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **OPEN** (written by the Planner, Claude Opus 5.5, on 2026-09-25 after the owner sent `p`).
+Status: **CONSUMED** (executed under the owner's 2026-09-25 authorization).
 
 Routing: **Luna 6, effort max.** Open a **new session**.
 - The owner decided this effort on 2026-09-25. MODEL_ROUTING §1 allows max after the xhigh attempt on
