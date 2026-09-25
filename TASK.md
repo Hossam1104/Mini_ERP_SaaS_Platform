@@ -6,7 +6,7 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **OPEN** (written by the Planner, Claude Opus 5.5, on 2026-09-25 after the owner sent `p`).
+Status: **CONSUMED** (written by the Planner, Claude Opus 5.5, on 2026-09-25 after the owner sent `p`).
 
 Routing: **Sol 6, effort high.** Open a **new session**.
 - This is Sol critical point 1 (`MODEL_ROUTING.md` §2): governance and architecture changes merged into `main`.
