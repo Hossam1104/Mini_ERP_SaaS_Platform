@@ -6,7 +6,7 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **OPEN** (written by the Planner, Claude Opus 5.5, on 2026-09-25 after the owner sent `p`).
+Status: **CONSUMED** (written by the Planner, Claude Opus 5.5, on 2026-09-25 after the owner sent `p`).
 
 Routing: **Luna 6, effort xhigh.** Open a **new session**.
 - These are new test oracles on money, stock, concurrency and "no Tenant activation" paths. That is
