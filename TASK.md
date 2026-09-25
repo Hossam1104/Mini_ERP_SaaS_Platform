@@ -6,204 +6,266 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **CONSUMED** (written by the Planner, Claude Opus 5.5, on 2026-09-25 after the owner sent `p`).
+Status: **OPEN** (written by the Planner, Claude Opus 5.5, on 2026-09-25 after the owner sent `p`).
 
-Routing: **Sol 6, effort high.** Open a **new session**.
-- This is Sol critical point 1 (`MODEL_ROUTING.md` §2): governance and architecture changes merged into `main`.
-- Sol is an independent, advisory reviewer. Opus 5.5 decides on every finding.
+Routing: **Luna 6, effort xhigh.** Open a **new session**.
+- These are new test oracles on money, stock, concurrency and "no Tenant activation" paths. That is
+  not a contained, already-diagnosed Sonnet fix.
 
 ```markdown
-# MESP-149 (#264) — Independent critical review of the cleanup merged to main (`pre-cleanup-20260925..f833927`)
-Model: Sol 6 — Effort: high — Fresh session
+# MESP-156..160 (#272–#276) — Slice 11 test-oracle evidence Bugs
+Model: Luna 6 — Effort: xhigh — Fresh session
 
 ## 1. Role and authority
-- You are the **independent reviewer** of the MESP-149 (#264) cleanup (epic MESP-145 (#263)). You
-  are advisory. You report findings; Opus 5.5 decides what happens to each one.
-- `AGENTS.md` binds you, §1 especially. Authorization is positive. Every action this prompt does not
-  list is forbidden.
-- **The review is read-only.** Change no product code, test, migration, script, CI or governance doc,
-  even to fix a finding you are sure of.
-- Branch: `docs/mesp-149-sol-cleanup-review`.
+- You are the **executor**. Opus 5.5 accepts or rejects your result. `AGENTS.md` binds you, §1
+  especially. Authorization is positive: every action this prompt does not list is forbidden.
+- Work items: MESP-156 (#272), MESP-157 (#273), MESP-158 (#274), MESP-159 (#275) and MESP-160 (#276).
+  All are Bugs under MESP-15 (#104), capability MESP-141 (#229). They came out of the MESP-150 (#265)
+  acceptance review of Slice 11 (PR #262, merge `ac0309a`).
+- **This task is test-only.** Every one of these Bugs is an acceptance-evidence defect: the product
+  code reads correctly, but the claimed oracle is not asserted. You add or strengthen assertions. You
+  never change product code.
+- Branch: `fix/mesp-156-slice11-test-oracles`.
 
 ## 2. Read order
-1. `AGENTS.md`, then this prompt, then the two newest `RESULT.md` entries:
-   - the MESP-149 cleanup entry (gates and slice table);
-   - the MESP-150 (#265) Slice 11 verdict. Read it for context only; Slice 11 is out of your scope.
-2. `docs/audit/cleanup-plan.md`, `docs/audit/drift-report.md` (§1 baseline, the D-rows, §5 owner
-   decisions), `docs/audit/architecture-enforcement.md`, `docs/audit/tracker-reconciliation.md`,
-   `docs/audit/executor-rules-proposal.md`.
-3. `docs/DECISIONS.md` §1–§2 (Q1–Q10, Q-A–Q-L, the 2026-09-25 rows).
-4. The range itself, one commit at a time:
-   - List it with `git log --oneline pre-cleanup-20260925..f833927`.
-   - The tag is on `5ae718a`. There are 7 commits plus the merge `f833927`, touching 113 files.
-   - Use `git show --stat <sha>` first, then targeted `git show <sha> -- <path>`.
-- **Serena:** call `initial_instructions` once. Use `find_symbol` on `ModuleBoundaryTests` (the
-  ratchet members after line 518) and on the three coordinators touched by `3cacf79`. Don't read
-  whole files.
-- **Context7:** not needed.
-- **Ponytail:** full. It never trims the findings table or the RESULT.md entry.
+1. `AGENTS.md`, then this prompt.
+2. The two newest `RESULT.md` entries (Opus review of the Sol cleanup; Sol cleanup review) only for the
+   Git state. Then the **MESP-150 (#265) Slice 11 acceptance entry**: its acceptance matrix rows R04,
+   R05, R07, R12, R18, R20 and A5 are the specification of this task.
+3. The five Bug bodies: `gh issue view 272 273 274 275 276` (read-only). **§5 of this prompt overrides
+   MESP-159 (#275)'s "Expected" section**; see §5.4.
+4. BRD 40 only where the Bugs cite it: `docs/requirements/40_Data_Migration_and_Tenant_Onboarding_BRD.md`
+   §7.1, §14.1, §14.3 and §23.1.
+5. Code, symbol by symbol:
+   - **Serena:** call `initial_instructions` once. Use `get_symbols_overview` on
+     `backend/tests/MiniErp.ArchitectureTests/MigrationReconciliationSqlServerSafetyTests.cs` (638
+     lines; don't read it whole). Use `find_symbol` for the R04, R05, R07, R12, R18, R19 and R20
+     tests, the `Service(...)` helper (~612–624) and `ReconciliationCountAsync`. R19 (~470–504) is the
+     pattern for exact mapping equality.
+   - The fixture `MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture`, in the file
+     `MigrationArOpeningSqlServerRemediationTests.cs` (~911; the file and class names differ). Find it
+     with `find_symbol`, and read only the members you use.
+   - Service: `MigrationReconciliationService` (`ReconcileAsync`, `ApproveAsync`,
+     `CreateReadinessAsync`, `ReadAsync`, `ApprovalsSatisfied`, the `workflowGates` field). The
+     rejection codes are at `:73`, `:153`, `:161`, `:208`, `:222` and `:229`.
+   - Persistence: `MigrationReconciliationPersistence.cs` (locks at `:294-302`, replay at `:71-81`)
+     and `MigrationDbContext` (`EconomicRepresentations`, `ReconciliationApprovals`,
+     `HandoverReadiness`).
+- **Context7:** only if you need an EF Core or xUnit API you are unsure of.
+- **Ponytail:** full. It never trims assertions, gate output or the RESULT.md entry.
 - Use `git grep` or the Grep tool, never recursive `grep -r`. If a plugin is missing, say so in one
   line and continue.
 
 ## 3. Starting-state check (record the output in RESULT.md)
-- `git status -sb`: the tree is clean and you are on `main`.
-- HEAD descends from `0e8ec29` (the MESP-150 verdict), and `git diff --name-only 0e8ec29 HEAD` lists
-  only `TASK.md`.
-- `origin/main` is either `f833927` or a later owner merge of PR #277. Both are fine. Record which.
-- `git rev-parse pre-cleanup-20260925^{commit}` starts with `5ae718a`.
-  `git merge-base --is-ancestor f833927 HEAD` succeeds.
+- `git status -sb`: the tree is clean and you are on `docs/mesp-149-sol-cleanup-review`. This branch
+  carries the unpushed Planner commits; local `main` does not have them.
+- HEAD descends from `0bff4dd` (the Opus verdict), and `git diff --name-only 0bff4dd HEAD` lists only
+  `TASK.md`.
+- `git merge-base --is-ancestor ac0309a HEAD` succeeds (Slice 11 is present).
+- `gh issue view 272 273 274 275 276 --json number,state`: all OPEN.
 - Any mismatch: stop (§10).
 
-## 4. Rules to hold the cleanup to
-- **No authority was widened.** The Phase 2 operating model (Q1–Q10, Q-A–Q-L) must not grant an AI
-  executor any right that the archived policy withheld. This covers:
-  - STOP boundaries;
-  - Ready and merge;
-  - tracker lifecycle writes;
-  - Ponytail;
-  - bot reviews.
+## 4. Rules to preserve
+- **Never weaken, skip or delete an existing assertion or test** (AGENTS §5). You only add to them.
+- **An oracle counts only if its exact assertion is present.** A neighbouring test, `Assert.NotNull`,
+  a schema, a hard-coded constant or a reading of the production code does not count. That is the
+  standard MESP-150 applied, and it is the standard Opus will apply to your result.
+- **Read persisted state where the oracle is about persistence.** Use a fresh `MigrationDbContext` or
+  `FinanceDbContext` built from the fixture's options (the pattern of `ReconciliationCountAsync` and
+  `MutateFinanceJournalAsync`), not the object the service returned.
+- **Tenant isolation:** every direct DB read in a test goes through a Tenant-scoped context for the
+  fixture's Tenant. No `IgnoreQueryFilters`, no raw SQL against module tables in test code, with one
+  exception: the `sys.*` catalogue query of §5.4.
+- **No fixed sleeps.** Concurrency comes from `Task.WhenAll`, never from delays. No hard-coded
+  environment data or secrets.
+- **FIN-OD-01:** tests never create Journals to make an oracle pass. Only the existing fixture paths
+  create owner effects.
+- **R5:** new tests stay inside `MigrationReconciliationSqlServerSafetyTests`, so hosted CI keeps
+  excluding them and the LocalDB gate runs them.
 
-  The one exception is a change an owner decision explicitly records.
-- **Allowlists only shrink.** A ratchet that pins a baseline must pin exactly today's sites. A ratchet
-  must not bless a site that was added without owner approval.
-- **Code is the fact.** A core doc that states something the code does not do is a finding.
-- **The archives are verbatim.** Every moved file must be byte-identical to its tag version.
-  `frontend/assets` is owner-managed.
-- **Live Git and the tracker outrank Markdown.**
+## 5. Scope and file allowlist
 
-## 5. Scope (read-only) and file allowlist
-Review these six areas and record every finding:
+### 5.1 MESP-156 (#272): R04 and R05 exact mapping
+Replace nothing. Add equality assertions after the existing `Assert.NotNull` lines (RT:126–128 and
+RT:150–152). The detail's `ControlAccountId`, `PostingRuleId` and `PostingRuleVersionNumber` must each
+**equal** the value recorded when the effect was executed. Read that value from the persisted
+`MigrationEconomicRepresentation` for the effect, or from the Finance source effect / Journal. Use
+whichever one R19 already treats as the historical record, and say which one in RESULT.md.
 
-1. **D-18, `3cacf79`.** AP, AR and cash-bank reconciliation reads now propagate
-   `OperationCanceledException`. Other faults still yield `partial`.
-   - Is the change correct and complete?
-   - Is the regression test adequate? It covers AR only.
-   - Was the "structured log" from the drift-report plan dropped? If so, is that a gap, given that
-     Q-L approved propagation only?
-   - Is the decision to leave `MigrationGlOpeningExecutionCoordinator` unchanged sound (the
-     `DECISIONS.md` 2026-09-25 row)?
-2. **The R2–R5 ratchets, `0d5fa4d`** (`ModuleBoundaryTests`, and `ARCHITECTURE.md` near line 131).
-   - Does each assert exact equality with its baseline, so that removing a site forces the list to
-     shrink and adding a site fails?
-   - Do the R2 edge list (25 edges) and the R4 site list match the code exactly?
-   - R4 pins 4 unscoped sites, 3 of which Slice 11 added without owner approval
-     (`architecture-enforcement.md:87`). Assess whether freezing them as the baseline launders that
-     widening. Recommend how to record it; Opus and the owner decide.
-3. **The doc moves, `0928f93`.**
-   - Each file in `docs/history/`, `docs/requirements/` and `docs/assets/` must be byte-identical to
-     its tag path. Compare with `git diff pre-cleanup-20260925 f833927 -M --stat` and blob hashes.
-   - No live file may reference a removed or moved path, except inside `docs/history/` and
-     `docs/audit/`.
-   - The D-19 test path update in `SafetyCatalogueValidationTests` must be correct.
-4. **The five core docs, `2635d55`, checked against the code:** `docs/PROJECT.md`,
-   `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md` and `docs/MODEL_ROUTING.md`.
-   Spot-check at least these claims:
-   - the layer and module rules;
-   - the `AGENTS.md` §4 gate baselines;
-   - the three CI job names in `.github/workflows/ci.yml`;
-   - that the eight ADRs are embedded verbatim, compared with the tag copies.
-5. **`AGENTS.md` and `MODEL_ROUTING.md` against the archived rules:**
-   `docs/history/AGENTS_to_2026-09-25.md`, `AI_EXECUTION_POLICY_to_2026-09-25.md` and
-   `CLAUDE_to_2026-09-25.md`.
-   - List every rule that was dropped, weakened or widened.
-   - For each one, say whether an owner decision covers it.
-6. **The tracker reconciliation** against `docs/audit/tracker-reconciliation.md` §5.
-   - Use read-only `gh issue list`, `gh issue view` and `gh project item-list 1 --owner Hossam1104`.
-   - Live counts differ by the MESP-150 writes (Bugs #272–#276, MESP-156..160). Account for them;
-     don't flag them.
-   - Also check the asset restore `54cb8bd`: `frontend/assets/Saudi_Riyal.svg` and `wafra-logo.jpeg`
-     must match their last owner version byte for byte.
+### 5.2 MESP-157 (#273): R07 subsidiary-to-GL reconciliation
+Keep the existing count assertions. Then call `ReconcileAsync` on the same mixed run and assert all of
+these:
+- the result is Reconciled;
+- each subsidiary domain row (AR, AP, cash-bank, inventory) is not blocking and has a **zero**
+  variance against its GL control line;
+- the GL control representation lines are present;
+- the persisted `EconomicRepresentations` count for the run is **exactly one per owner effect**. Take
+  the expected number from the owner-effect counts the test already asserts, not a new literal.
 
-**Files you may change:** `RESULT.md` (one new top entry) and `TASK.md` (Status → CONSUMED). No other
-file.
+### 5.3 MESP-158 (#274): R12 fingerprint and approval staleness
+Keep the existing `migration_reconciliation_stale` and 0-snapshot assertions. Add:
+- **Changed fingerprint, proven directly:** `ReadAsync` reports `IsCurrent == false` for the saved
+  reconciliation. Alternatively, the recomputed evidence fingerprint differs from the saved one.
+  Either way, assert it through a public read path or persisted state. This separates the "changed
+  fingerprint" case from the "null capture" case, which `:220-222` reports with the same code.
+- **Prior approval not counted:** reconcile again to get the current reconciliation, then assert that
+  readiness for it is rejected with `migration_approval_required`: the old approval does not carry
+  over. Also assert the persisted approval still references the old reconciliation id and
+  fingerprint.
+
+If no public read path or persisted state can tell the two cases apart without a product change,
+stop (§10).
+
+### 5.4 MESP-159 (#275): R18 no Tenant activation (Planner-corrected oracle)
+The Bug text expects a Tenant lifecycle read-back "from the owning Foundation/M27 persistence". **No
+such store exists in the code** (`Modules/Platform` has only `Internal/` and a registration). Opus
+recorded that as a Planner defect. Implement this oracle instead, keeping the existing assertions:
+1. **Persisted snapshot:** after `CreateReadinessAsync`, read the `HandoverReadiness` row back from a
+   fresh `MigrationDbContext`. Assert that `TenantActivationPerformed`, `ProductionReady`,
+   `Mesp48Complete` and `Mesp50Complete` are all `false` (use the exact column names).
+2. **No writes outside the `migration` schema:** read the row counts of every user table grouped by
+   schema (`sys.tables` / `sys.schemas` / `sys.partitions`, `index_id IN (0,1)`) immediately before and
+   after `CreateReadinessAsync`, on the fixture's disposable database. Assert that every schema other
+   than `migration` is unchanged. If the fixture uses more than one database, do this for each.
+   Record in RESULT.md that row counts do not catch in-place updates.
+3. **No lifecycle dependency:** by reflection, assert that no constructor parameter of
+   `MigrationReconciliationService` has a type from a `MiniErp.App.Modules.Platform` or
+   `MiniErp.App.Modules.Identity` namespace.
+
+Record in RESULT.md that the direct M27 lifecycle read-back is deferred until an M27 lifecycle store
+exists.
+
+### 5.5 MESP-160 (#276): R20 real concurrency and A5 version conflicts
+- **R20:** issue each `Task.WhenAll` action (reconcile, approve, readiness) through **separate
+  `MigrationReconciliationService` instances**, one `Service(fixture, policy)` call per concurrent
+  task, so that the per-instance `workflowGates` semaphore cannot serialize them. Keep the
+  convergence assertions: exactly 1 reconciliation, 1 approval and 1 readiness row, and a single id
+  per action.
+  - First verify that the shared `fixture.Migration` persistence opens a DbContext per operation and
+    is safe to share. If it holds one shared DbContext, give each task its own persistence instance
+    built from the fixture's options. If that needs a change outside §5.6, stop (§10).
+  - Every concurrent result must be a success or a replay of the same record. Assert that; an
+    unexpected rejection code fails the test.
+- **A5, new test(s):** for each of reconcile (`migration_run_version_conflict`), approve and
+  readiness (`migration_reconciliation_version_conflict`), send a **stale** `ExpectedVersion` /
+  version. Assert the exact rejection code and that nothing was persisted: the reconciliation,
+  approval and readiness counts are unchanged.
+
+### 5.6 File allowlist
+- `backend/tests/MiniErp.ArchitectureTests/MigrationReconciliationSqlServerSafetyTests.cs`: the
+  changes above.
+- `backend/tests/MiniErp.ArchitectureTests/MigrationArOpeningSqlServerRemediationTests.cs`: **only**
+  additive, read-only accessors on `ArSqlFixture` if §5 truly needs one. Never change existing
+  members.
+- `RESULT.md` (one new top entry) and `TASK.md` (Status → CONSUMED).
+- No other file.
 
 ## 6. Out of scope
-- Fixing anything, in any file.
-- Any tracker write: no issue, comment, label, field or state change. Jira in any form.
-- The Slice 11 code (PR #262, `ac0309a`) and the MESP-150 verdict. Both predate or follow the range.
-  Slice 11's own Sol review is a separate, later task.
-- Commits after `f833927` (`3819ef1`, `5f7df6b`, `0e8ec29` and the Planner's `TASK.md` commit). The
-  only exception: note it if they contradict a cleanup doc.
-- Deciding any owner question, or deciding M40-DEC-*. Record a genuine new business question as a
-  finding for Opus; do not write to MESP-23 (#112).
+- Any product code, migration, script, CI or governance doc, including the `ponytail:` gate-eviction
+  note (`MigrationReconciliationService.cs:28`).
+- The R4 allowlist and `ModuleBoundaryTests` (SOL-CL-01 and the owner's R4 ratification are separate).
+- The D-18 AP/cash-bank tests (SOL-CL-04, separate task).
+- Deciding M40-DEC-*, or configuring a Production approval policy. The tests keep their private
+  `TestApprovalPolicy`.
+- Closing, reopening or changing the Status of any issue. Jira in any form.
 
-## 7. Acceptance (what Opus will check)
-- Every finding has these fields:
-  - an ID `SOL-CL-nn`;
-  - a severity: **Critical** (authority widened, Tenant isolation, accounting integrity, data loss),
-    **High**, **Medium**, **Low** or **Info**;
-  - the area (1–6);
-  - `file:line` or `sha:path` evidence;
-  - the observed versus expected behavior;
-  - a recommendation.
-- Rank the findings most severe first.
-- Every one of the six areas has a conclusion, even if that conclusion is "no finding", together with
-  the commands that support it.
-- Report an overall advisory recommendation: **no blocking findings**, or **blocking findings**
-  (name them).
-- Record facts only from live Git and the tracker. Never trust Markdown for them.
+## 7. Acceptance matrix (what Opus will check)
 
-## 8. Gates (paste the output and the wall time)
-1. `git diff --check`: it must be clean.
-2. `git diff --name-only main...HEAD`: it lists only `RESULT.md` and `TASK.md`.
-- Reused evidence, not re-run:
-  - the backend suite, 1551/1551, from the MESP-150 entry. That run was on the `0e8ec29` tree, and
-    no code has changed since.
-  - the frontend, npm audit and EF checks from the MESP-149 entry.
-- You may run `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` read-only if a finding needs it.
-  Never run gates concurrently.
+| Bug | Oracle | Evidence Opus expects |
+|---|---|---|
+| MESP-156 | R04 and R05 mapping equals the persisted historical mapping | `Assert.Equal` on all three fields in both tests, against a value read from persistence |
+| MESP-157 | R07 subsidiaries reconcile to GL, one representation per effect | `ReconcileAsync` call; per-domain non-blocking and zero variance; GL lines present; exact representation count |
+| MESP-158 | R12 changed fingerprint; prior approval not counted | `IsCurrent == false` or fingerprint inequality; `migration_approval_required` on the current reconciliation; persisted approval references the old one |
+| MESP-159 | R18 no activation, no side effect outside `migration` | persisted snapshot flags false; per-schema row counts unchanged; constructor-dependency check |
+| MESP-160 | R20 converges across instances; A5 stale versions rejected | separate instances per task; 1/1/1 rows; the exact conflict codes; unchanged counts |
+| All | No weakening | `git diff` shows no removed or relaxed assertion and no `Skip` |
+
+Every row needs `file:line` evidence in RESULT.md.
+
+## 8. Gates (paste the output tail and the wall time)
+1. `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` from Windows PowerShell, on the final tree:
+   0 warnings, 0 errors, **all passed, 0 skipped**. The total must be 1551 plus exactly the tests you
+   added. It must also print the disposable-database and "MESP data is intact" lines.
+2. **Run gate 1 a second time**, sequentially, on the same tree: concurrency tests must be stable. A
+   failure on either run counts (§10).
+3. `git diff --check`: clean.
+4. `git diff --name-only 0bff4dd HEAD`: only the §5.6 files.
+- The script has no test filter, so every run is the full suite. Never run gates concurrently. Never
+  point a test at a non-disposable database.
+- Reused evidence, not re-run: frontend, npm audit and EF checks (no production or model change).
 
 ## 9. Git / PR delivery (positive authority, exactly this)
-- Create `docs/mesp-149-sol-cleanup-review` from local `main` HEAD. Keep the unpushed local commits;
-  never drop, rebase or amend them.
-- Make ONE commit, `docs(review): MESP-149 (#264) Sol 6 cleanup review findings`, containing only
-  `RESULT.md` and `TASK.md`.
-- Push the branch. Open ONE **Draft** PR to `main`. Its body gives the overall recommendation, a
-  findings summary by severity, and the gates.
+- Create `fix/mesp-156-slice11-test-oracles` from the current HEAD. Keep the unpushed Planner and Sol
+  commits; never drop, rebase or amend them.
+- Commits: `test(migration): MESP-156..160 (#272–#276) <what>`. One per Bug is fine. Self-review the
+  staged diff before each commit.
+- Push the branch. Open ONE **Draft** PR to `main`. Its body gives the per-Bug evidence table, the
+  gates and the §3 Git note (the branch also carries Planner/Sol commits already in Draft PRs #277 and
+  #278).
+- **Tracker writes, only these:** one comment on each of #272–#276 with the PR link and that Bug's
+  evidence (`file:line`, gate result). If §10 product-defect applies: create one Bug per defect,
+  following `MODEL_ROUTING.md` §11. That means label `type:bug`, Project #1, `Jira Key` = the next
+  free MESP-n (verify live), `Parent / Epic` = `[MESP-15] #104`, Status Todo.
 - **NOT authorized:** Ready, reviewers, approval, merge, update-branch, rebase, force-push, push to
-  `main`, and any tracker write.
+  `main`, closing or reopening any issue, any Status or Capability State change, and any other
+  tracker write.
 
 ## 10. Stop conditions (stop, write a `STOPPED` entry, do not improvise)
 - The starting state does not match.
-- You would need to change a file outside the allowlist.
-- You find a **Critical** issue: an active Tenant-isolation, accounting or data-loss defect, or an
-  authority widening that executors are relying on now. Record it, deliver per §9, and stop. Do not
-  go on to the remaining areas.
-- A command would mutate the tracker or a remote other than your branch push.
-- After the Draft PR: STOP. No further mutation.
+- You would need to change a file outside §5.6, or change product code.
+- **A strengthened or new test fails on the product** (not on your test code). That is a product
+  defect.
+  - Keep the failing test as written. Never weaken or skip it.
+  - Classify the failure, file the Bug (§9), commit, push and open the Draft PR with the red gate
+    output.
+  - Finish any remaining independent Bugs only if the failure cannot affect them; otherwise stop at
+    once.
+- The two gate-1 runs disagree (a flaky test). Record both outputs and stop. Do not add retries or
+  delays.
+- An oracle cannot be observed through public reads or persisted state without a product change
+  (§5.3, §5.5).
+- After the Draft PR and the issue comments: STOP. No further mutation.
 
 ## 11. Hand-back
-- Add one `RESULT.md` entry at the top, using the `MODEL_ROUTING.md` §7 template, with Status
-  `DONE` or `STOPPED`. It contains:
+- Add one `RESULT.md` entry at the top, directly under the file preamble, using the
+  `MODEL_ROUTING.md` §7 template, with Status `DONE` or `STOPPED`. It contains:
   - the starting-state output;
-  - the per-area conclusions with their commands;
-  - the ranked findings table;
-  - the overall recommendation;
-  - the gates;
-  - any deviations.
-- **Exact next action:** "Opus 5.5 reviews the Sol cleanup findings." Add a one-line recommendation
-  on which findings need a Bug or a docs task.
+  - the §7 matrix with `file:line` evidence;
+  - both gate-1 outputs with wall times;
+  - the §5.4 notes (in-place updates, deferred M27 read-back);
+  - any deviations, and every failure with its classification.
+- **Exact next action:** "Opus 5.5 re-reviews Slice 11 under MESP-150 (#265)."
 - In `TASK.md`, set this prompt's Status to **CONSUMED**. Leave the next-task summaries untouched.
 - Commit and deliver per §9. Then stop.
 ```
 
 ## Next-task summaries (Planner, 2026-09-25)
 
-### 1. MESP-150 (#265): acceptance review of MESP-141 Slice 11: done, REJECTED
+### 1. Slice 11 evidence Bugs MESP-156..160 (#272–#276)
 
-Recorded in `RESULT.md`, Draft PR #277. Bugs MESP-156..160 (#272–#276). #265 stays open until the
-Bugs are fixed and Slice 11 is re-reviewed.
+The prompt is above. After it: Opus re-reviews Slice 11 under MESP-150 (#265). If Slice 11 is
+accepted, the Sol 6 review of Slice 11 follows (critical point 2).
 
-### 2. Independent critical review of the cleanup on `main`
-
-The prompt is above.
-
-### 3. Slice 11 evidence Bugs MESP-156..160 (#272–#276)
+### 2. Cleanup follow-ups: governance text and BRD byte restore (SOL-CL-05, -06, -07)
 
 | | |
 |---|---|
-| Model / effort | **Luna 6 / xhigh**, fresh session. These are new test oracles on money, stock, concurrency and Tenant-lifecycle paths, so this is not a Sonnet contained fix. |
-| Work items | MESP-156..160 (#272–#276), under MESP-15 (#104); capability MESP-141 (#229) |
-| Scope | Test-only. Strengthen `MigrationReconciliationSqlServerSafetyTests` to cover these oracles: <br>- R04/R05: exact equality with the persisted mapping. <br>- R07: reconcile the run and assert that each subsidiary matches GL with no double count. <br>- R12: `IsCurrent == false`, a changed fingerprint, and the prior approval no longer counted. <br>- R18: read back the Tenant lifecycle before and after readiness. <br>- R20: separate service instances. <br>- A5: version conflicts rejected and nothing persisted. <br>If a strengthened test **fails**, that is a product defect: stop and file a Bug. Never adjust the product in the same prompt. |
-| Out of scope | Product code, migrations, allowlists, and deciding M40-DEC-*. |
-| Acceptance | Every new assertion is exact. The full backend suite passes on disposable LocalDB with 0 skipped. Then Opus re-reviews Slice 11 under MESP-150 (#265). |
+| Model / effort | **Opus 5.5** (governance docs are Planner-owned), then the backend suite, because the architecture tests read `AGENTS.md`. |
+| Work item | MESP-149 (#264) |
+| Scope | `AGENTS.md` §1.4: restore "stopped, **completed** or handed off". `AGENTS.md` §1.6 and `MODEL_ROUTING.md` §5: Ponytail never weakens **authorization, data-loss safeguards or accessibility**, in addition to the current list. `docs/requirements/16_Master_Data_and_Product_Catalog_BRD.md`: restore the tag blob `2a5febc` byte for byte. |
+| Out of scope | Any other rule change. No rule widens. |
+| Acceptance | `git diff` shows only these lines. `git rev-parse HEAD:docs/requirements/16_Master_Data_and_Product_Catalog_BRD.md` = `2a5febc…`. Backend suite 1551/1551 plus any tests added by then. |
+
+### 3. Test hardening: R4 SQL shape and the D-18 AP/cash-bank tests (SOL-CL-01, SOL-CL-04)
+
+| | |
+|---|---|
+| Model / effort | **Luna 6 / xhigh** |
+| Work item | A new Task under MESP-145 (#263), created when the prompt is written |
+| Scope | `ModuleBoundaryTests.Allow_listed_raw_sql_is_tenant_scoped_and_lock_only`: pin the complete statement shape (one `SELECT`, the `WITH (UPDLOCK, HOLDLOCK)` hint, a `WHERE [TenantId] = {…} AND [<key>] = {…}` predicate, no `;` and no second statement). Add a negative self-check proving that a multi-statement string is rejected. `MigrationExecutionTests`: add AP and cash-bank fault → `partial` and cancellation → throw tests, mirroring the AR test. |
+| Out of scope | The R4 allowlist itself; it waits for the owner's decision on the three Slice 11 sites. Product code. |
+| Acceptance | Exact assertions. The negative check fails the old shape check and passes the new one. Backend suite green with 0 skipped. |
+
+### Owner decisions pending
+- Ratify or remove the three Slice 11 R4 lock sites (MESP-150 A3 = SOL-CL-02).
+- Draft PRs #277 and #278, and closing MESP-149 (#264).
