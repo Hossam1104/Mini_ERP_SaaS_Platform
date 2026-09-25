@@ -47,6 +47,7 @@ Business decisions (BR/PD rows and the BRDs' open decisions) live with their BRD
 | Q-J | Drop the reviewed stashes. The stash that contains a credential literal is left to the owner. | — |
 | Q-K | Close no epics. Each epic whose children are all Done gets a review comment and is listed in [`ROADMAP.md`](ROADMAP.md). **Only the owner closes epics.** | — |
 | Q-L | Approve D-18: cancellation now propagates from the migration AP/AR/cash-bank reconciliation reads. | Commit `3cacf79`. |
+| Q-M | Remove the `p` gate. Opus writes the next prompt into `TASK.md` in the same session as its review. The owner reviews it and either asks Opus to revise it or executes it. | `MODEL_ROUTING.md` §6 and §8. It supersedes the `p` gate of the 2026-09-24 operating model. |
 
 ### 1.3 Standing product decisions (still in force)
 
@@ -124,6 +125,7 @@ standalone file in the repository. For those, the row below is the decision of r
     `docs/staticts.md` are superseded by `AGENTS.md`, `MODEL_ROUTING.md`, `ROADMAP.md` and
     `RESULT.md`. The old files are archived in `history/`.
   - Sol's acceptance authority is superseded by Opus 5.5 (Q2).
+  - The `p` gate is superseded by same-session prompt release with owner review (Q-M).
 
 ## 5. ADR full texts (embedded verbatim)
 

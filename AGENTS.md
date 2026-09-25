@@ -3,7 +3,7 @@
 These rules bind every AI executor and reviewer working in this repository, including Claude Code,
 Codex and any other agent.
 
-- **Roles, efforts, the `p` gate, handoff files and the operating loop** are defined only in
+- **Roles, efforts, prompt release, handoff files and the operating loop** are defined only in
   [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md).
 - **Live project state** is in:
   - [`RESULT.md`](RESULT.md), newest entry first;

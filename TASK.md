@@ -142,6 +142,9 @@ Model: Luna 6 — Effort: max — Fresh session
   - serialize the critical section on the existing run lock inside persistence.
 - Regression: the R20 test (unchanged) passes in both gate runs. If the diagnosis finds a path R20
   does not exercise, add one LocalDB test for it in the same class.
+- **R20 is timing-dependent.** It passed once, unfixed, in Opus's governance gate run on 2026-09-25.
+  A green R20 is therefore not proof on its own: RESULT.md must show, with `file:line`, that each
+  diagnosed race path is closed in the code.
 
 ### 5.3 MESP-163 (#282): concurrent attempt-start deadlock
 - **Diagnose first.** Record the deadlocking statements and lock order from the code, and from SQL

@@ -8,7 +8,7 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
 
 - Status: **REJECTED.** Slice 11 is still not accepted. Luna's STOP under TASK §10 was correct and within its authority. Two of the new oracles fail on the product, as they should: R12 (MESP-161) and R20 (MESP-162). One oracle is wrong: R07. The gate pair is unstable because of an existing StartAttempt deadlock (MESP-163).
 - Branch / starting SHA / ending SHA: this review is on `docs/mesp-150-slice11-rereview`, created from `fix/mesp-156-slice11-test-oracles` at `d410e8d` (Draft PR #281). Ending SHA: this commit, which is local and not pushed.
-- What changed: `RESULT.md` (this entry), `docs/ROADMAP.md` (MESP-141 row and queue item 1), `TASK.md` (next-task summary 1). Tracker: created MESP-163 (#282).
+- What changed: `RESULT.md` (this entry), `docs/ROADMAP.md` (MESP-141 row and queue item 1), `TASK.md` (next-task summary 1). Tracker: created MESP-163 (#282). Governance: at the owner's instruction, the `p` gate was removed (Q-M). Changed files: `docs/MODEL_ROUTING.md` §6 and §8, the `AGENTS.md` pointer and `docs/DECISIONS.md`. Opus now writes the next prompt into TASK.md in the same session, and the owner reviews it, asks for revisions, or executes it.
 - Verification (live Git, tracker and code; nothing re-run):
   - The tree is clean. PR #281 is a Draft with 8 commits. #272–#276 each have one evidence comment. #279 and #280 are `type:bug` in Project #1 with Jira Key, `[MESP-15] #104` and Status Todo. Nothing was merged, marked Ready or closed.
   - `git diff e507cc9 d410e8d` changes only the allowed test file, RESULT.md and TASK.md. The 5 removed lines are three `service.X` calls rewritten to use per-task `Service(...)` instances, plus one local variable. No assertion was removed or relaxed, and nothing is skipped. The suite total is 1552: 1551 plus the one new A5 test.
@@ -27,8 +27,14 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
   - The StartAttempt deadlock (existing test `SqlServerSafetyTests.cs:3475`) appeared in 2 of 7 full runs. It surfaces an unhandled `SqlException` 1205. `StartAttemptAsync` reads without a transaction or a run lock (MigrationPersistence.cs:216–260). Classification: product concurrency defect, intermittent, not caused by the new tests. → **MESP-163 (#282)** created (`type:bug`, Project #1, Jira Key MESP-163, `[MESP-15] #104`, Work Type Bug, Domain Migration, Status Todo). The gates stay unstable until it is fixed.
   - The initial nullable build failure is an AUTOMATION_DEFECT fixed before tests; accepted as reported.
   - Luna's run had no Serena or Context7. Recorded; no effect on the verdict.
+- Governance gate (after the `p`-gate removal), `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` on this branch:
+  - result: build 0 warnings / 0 errors; **1550 passed, 2 failed, 0 skipped**, total 1552; xUnit 7m22s, wall 483 s;
+  - disposable database `MiniErpFoundation_20260925175154_023d7cdc`; "runtime: unchanged. MESP data is intact.";
+  - the failures are the known red R12 and R07 tests. The governance docs caused no regression;
+  - **R20 passed this run, unfixed.** It is timing-dependent, so the TASK prompt requires code-path proof for MESP-162, not only a green run;
+  - two earlier attempts to invoke the suite failed on invocation mistakes (a PowerShell stderr redirect, then `-File` switch parsing) and never reached a full run. Recorded here, and not counted as gate runs.
 - Status files updated: RESULT.md, ROADMAP.md, TASK.md (summary only; the owner has not sent `p`). #272–#276 stay open until Slice 11 is accepted.
-- Exact next action: **the owner sends `p`.** Opus then writes the prompt for summary 1 in TASK.md: Luna 6 / **max** (owner decision, 2026-09-25; allowed by MODEL_ROUTING §1 after the failed xhigh attempt). It fixes MESP-161, MESP-162 and MESP-163 and corrects the R07 oracle. Then Opus re-reviews Slice 11 under MESP-150 (#265).
+- Exact next action: **the owner reviews the OPEN prompt in TASK.md**, then either asks Opus to revise it or runs it: Luna 6 / **max** (owner decision, 2026-09-25; allowed by MODEL_ROUTING §1 after the failed xhigh attempt). It fixes MESP-161, MESP-162 and MESP-163 and corrects the R07 oracle. Then Opus re-reviews Slice 11 under MESP-150 (#265).
 
 ## 2026-09-25 — Slice 11 test-oracle executor handoff — Luna 6 / xhigh — MESP-156..160 (#272–#276), MESP-161 (#279), MESP-162 (#280)
 

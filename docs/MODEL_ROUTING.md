@@ -1,6 +1,6 @@
 # Model Routing and Operating Model
 
-This file is the single authority for AI roles, effort levels, the `p` gate, the handoff files and the
+This file is the single authority for AI roles, effort levels, prompt release, the handoff files and the
 operating loop. [`AGENTS.md`](../AGENTS.md) points here and holds the executor rules.
 
 The owner installed this model on 2026-09-25 (decisions Q1–Q10 and Q-A–Q-L, recorded in
@@ -77,21 +77,17 @@ authority and Terra was an executor. That governance is archived in
   or policy utility, find the existing pattern that already owns the concern. Examples: approval/SoD,
   idempotency, Tenant authorization, concurrency, audit, money, and persistence. Reuse it.
 
-## 6. The `p` gate
+## 6. Prompt release
 
-- Opus writes exactly **one** full executor or reviewer prompt, and only when the owner's entire
-  trimmed message is the single lowercase character **`p`**.
-  - `P`, `proceed`, `go`, and `yes` do **not** count. Say so and wait.
-  - A `p` sent before Opus has reviewed the previous result is not banked.
-- Before `p`, Opus does everything except the prompt:
-  - plans and designs;
-  - chooses the model and effort;
-  - manages the backlog;
-  - writes a **next-task summary**: work item, model, effort, scope, out of scope, and acceptance.
-
-  Opus never writes the full prompt under any label.
-- One `p` produces one prompt, written into `TASK.md` and committed. The gate resets after Opus
-  reviews the result.
+- After Opus reviews a result, it writes the next full executor or reviewer prompt into `TASK.md`
+  (Status `OPEN`) **in the same session** and commits it. No `p` or other trigger message is needed.
+  The owner removed the `p` gate on 2026-09-25 (Q-M).
+- The owner reviews the prompt in `TASK.md`:
+  - if the owner has comments, they tell Opus, and Opus revises the prompt and commits the revision
+    before anything runs;
+  - otherwise the owner hands it to the named executor directly.
+- `TASK.md` holds one prompt at a time. Opus still writes the next-task summaries for the tasks
+  after it.
 - There is **no cap** on prompts per Opus conversation (Q7). The old "Prompt N/10" counter is retired.
 
 ## 7. Handoff files
@@ -136,8 +132,8 @@ state.
 3. The owner opens a fresh Opus session and says: *"Review the latest RESULT.md entry."* Opus then:
    - adds an `ACCEPTED` or `REJECTED` entry with reasons;
    - updates ROADMAP and the tracker;
-   - writes the next-task summary into TASK.md.
-4. The owner types `p`. Opus writes the full next prompt into TASK.md and commits. Back to step 1.
+   - writes the full next prompt into TASK.md and commits it (§6).
+4. The owner reviews the prompt. If they have comments, Opus revises it. Then back to step 1.
 
 **Review checklist for Opus.** These failure patterns have recurred with executors:
 - A PASS reported while the exact requested oracle was only covered indirectly. Check the exact
