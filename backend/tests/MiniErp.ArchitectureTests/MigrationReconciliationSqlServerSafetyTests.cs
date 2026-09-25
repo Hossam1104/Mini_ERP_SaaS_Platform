@@ -249,11 +249,13 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
                 && line.CurrencyCode == (subsidiary.FunctionalCurrencyCode ?? subsidiary.CurrencyCode)
                 && line.TargetAmount == subsidiary.GlControlAmount);
         });
-        var ownerEffectCount = counts.Journals + counts.SourceEffects + counts.OpenItems
-            + counts.StockMovements + counts.ValuationEvents + counts.Handoffs;
         await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
-        Assert.Equal(ownerEffectCount, await db.EconomicRepresentations.Where(item => item.RunId == scenario.RunId)
-            .Select(item => item.EffectId).Distinct().CountAsync());
+        var representedEffectIds = await db.EconomicRepresentations.Where(item => item.RunId == scenario.RunId)
+            .Select(item => item.EffectId).Distinct().ToArrayAsync();
+        var executionEffects = await fixture.Migration.ListEffectsAsync(
+            fixture.Tenant, scenario.RunId, scenario.Execution.AttemptId);
+        Assert.Equal(counts.Effects, representedEffectIds.Length);
+        Assert.All(representedEffectIds, effectId => Assert.Contains(executionEffects, item => item.Id == effectId));
     }
 
     [Fact]
@@ -845,14 +847,13 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
         Guid effectId)
     {
         await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
-        var mapping = await db.EconomicRepresentations.Where(item => item.EffectId == effectId
+        var mappings = await db.EconomicRepresentations.Where(item => item.EffectId == effectId
                 && item.OwnerModule == MigrationEconomicOwnerModule.Finance
                 && item.ControlAccountId.HasValue && item.PostingRuleId.HasValue && item.PostingRuleVersionNumber.HasValue)
-            .OrderByDescending(item => item.Kind == MigrationEconomicRepresentationKind.FinanceOpeningExpectation)
-            .ThenByDescending(item => item.RecordedAt)
             .Select(item => new HistoricalFinanceMapping(item.ControlAccountId!.Value, item.PostingRuleId!.Value, item.PostingRuleVersionNumber!.Value))
-            .FirstAsync();
-        return mapping;
+            .Distinct()
+            .ToArrayAsync();
+        return Assert.Single(mappings);
     }
 
     private static async Task<Dictionary<(string Schema, string Table), long>> ReadSchemaRowCountsAsync(
