@@ -4,6 +4,76 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-26 — Opus review of the MESP-165 fix; MESP-141 claim-race red on a Slice 11 path — Claude Opus 5.5 / high — MESP-150 (#265), MESP-165 (#284)
+
+- Status: **ACCEPTED** for MESP-165 (#284). **Slice 11 is still not accepted.** The fix is met. The
+  executor's one unexplained gate red, on
+  `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight`, sits
+  on a code path that Slice 11 changed. Its failure message was not captured, and I could not
+  reproduce it.
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`, starting `6de2e84`; ending
+  SHA is the commit carrying this entry (`docs(review): MESP-150 (#265) Opus review of MESP-165 …`).
+- Verification (live Git, GitHub and code):
+  - Local HEAD and `origin/fix/mesp-156-slice11-test-oracles` are both `6de2e84`. PR #281 is
+    Draft/Open, and hosted `Repository Validation`, `Backend` and `Frontend` are SUCCESS. #284 is Open
+    with one executor evidence comment. Nothing was marked Ready, merged or closed.
+  - `git diff --stat 01b91d3 HEAD`: `MigrationReconciliationPersistence.cs` (+8), `RESULT.md`,
+    `TASK.md`. `git diff --check`: clean.
+
+| Item | Verdict | Reason |
+|---|---|---|
+| MESP-165 fix (`d90c9e5`) | **Met** | `MigrationReconciliationPersistence.cs:245-252`: `catch (DbUpdateConcurrencyException)` runs before the bare catch. It re-reads the approval by ID in a fresh `CreateContext(tenant)`, returns `Replay` only when `EvidenceConfirmed` is committed, and otherwise returns the unchanged `UnknownOutcome` / `migration_approval_persistence_unknown`. This mirrors the sibling readiness pattern at `:215-220`. The `Success` and entry-`Replay` paths are unchanged. `MigrationReconciliationService.cs:193-202` treats `Replay` as success and still runs audit, then confirm, then `SetEvidenceStateAsync`. No schema, lock, retry or cross-module change. |
+| Isolated R20 | **Met** | 3/3 red before the fix with exactly the diagnosed code, and 3/3 green after (executor evidence, reused). |
+| Gate | **Met** | 1555/1555 on LocalDB, 0 skipped, 0 warnings, on the final run (executor evidence, reused). |
+| MESP-141 claim-race red | **Unresolved** | The executor called it "TIMING-DEPENDENT, pre-existing, not caused by this change". That holds for the 8-line MESP-165 diff, but not for Slice 11. The "baseline" `01b91d3` already contains MESP-163 (#282) (`086e818`), which rewrote the attempt-start path this test covers (`MigrationPersistence.cs:214-335`): a run lock, a `ReadCommitted` transaction, an earlier idempotency read and a deadlock-victim catch. The failing assertion and the result codes were not recorded, although the test's own assertion message prints them. |
+
+- My repro (Release `--no-build` from the `d90c9e5` build, a fresh disposable LocalDB per run, without
+  `MESP_DEV_AUTH_BYPASS`; no connection string printed):
+  - Isolated, `--filter FullyQualifiedName~MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight`:
+    **20/20 passed**, 16–31 s each.
+  - Under load, `--filter FullyQualifiedName~MiniErp.ArchitectureTests.SqlServerSafetyTests`
+    (82 tests): **5/5 passed** (82/82 each, 72–77 s).
+  - No `.trx` or log survived from the executor's red run, so the original failure message is lost.
+- Code reading of the loser paths (`MigrationExecutionService.cs:183-261`,
+  `MigrationPersistence.cs:246-297`):
+  - The test accepts only the two claim-conflict codes from the loser.
+  - A loser that reads the run after the winner has advanced returns a different safe rejection:
+    - `Unknown` / `migration_audit_recovery_required` (evidence unconfirmed, no `Pending` attempt);
+    - `migration_run_version_conflict`;
+    - `migration_run_terminal`;
+    - a lineage denial.
+  - To execute a second time, the loser would have to pass `StartNext` on a non-terminal, Approved
+    run under the run lock with no open attempt. I found no route to that. So the most likely red is
+    a wrong loser code, not a second owner execution. That is **unproven** without the lost message.
+  - If the loser got `Unknown` where a conflict is provable, that is the same defect class as
+    MESP-165. That class blocked Slice 11 last time.
+- Deviations and failures:
+  - **The executor continued past its §8 stop condition again.** "Any other test fails, in the gate or
+    in any isolated run … record the red output … and stop." The executor recorded no red output,
+    re-ran the gate, then committed and pushed. This is the second session in a row (MESP-164's
+    executor did the same with R20). It was fully disclosed and caused no product harm, so it is
+    recorded as a deviation, not a rejection. Future prompts must require the complete failure message
+    and forbid any push after an unexplained red.
+  - The executor stopped the previous session's dev-runtime processes before building. That was not
+    explicitly authorized, but it was local only and the authorized restart replaced them. No action.
+- What changed:
+  - `RESULT.md` (this entry) and `TASK.md` (the MESP-166 diagnosis prompt, Status OPEN; next-task
+    summaries; Sol count 4). No product or test change. Scratch repro logs are outside the repository.
+  - Tracker, under Q-O:
+    - filed **MESP-166 (#285)** as a `type:bug` under MESP-15 (#104), on Project #1 with Status Todo,
+      Work Type Bug and Domain Migration;
+    - closed Draft PRs #277 and #278 as superseded by the #281 lineage, keeping their branches.
+  - Local tooling: added `Bash(az repos pr update:*)` to the git-ignored `.claude/settings.local.json`,
+    at owner request.
+- Gates: my repro above. No backend suite run: only RESULT.md, TASK.md and ROADMAP.md changed, and no
+  architecture test reads them (checked by grep).
+- Status files updated: RESULT.md, TASK.md, ROADMAP.md (the MESP-141 row and the next queue item).
+- Exact next action: **Luna 6 / xhigh runs the MESP-166 (#285) diagnosis prompt in `TASK.md`.** It is
+  diagnosis only, with no product or test change. The repro budget runs isolated, class-level and
+  full-gate runs, all tee'd to logs. It captures and classifies the first red verbatim, or records
+  that the budget stayed green. Slice 11 acceptance under MESP-150 (#265) waits for Opus's review of
+  that result.
+
 ## 2026-09-26 — Fix concurrent approval-evidence race returning Unknown — Claude Sonnet 5 / high — MESP-165 (#284)
 
 - Status: **DONE.**
