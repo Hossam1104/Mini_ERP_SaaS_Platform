@@ -6,7 +6,9 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **CONSUMED** (re-released 2026-09-26; the first run stopped at preflight on a tree Opus left dirty)
+Status: **OPEN** (third release, 2026-09-26. Run 1 stopped at preflight on a tree Opus left dirty. Run 2
+saw a red in Stage A run 1, but its failure message was lost to the capture wrapper. This release
+adds a TRX log file so a red is captured even if the console pipeline breaks.)
 
 Routing: **Luna 6, effort max.** Open a **new session** and select effort **max** in the client.
 - This is diagnosis, not a fix. The red is unreproduced and its message was lost, so the root cause
@@ -29,7 +31,7 @@ Model: Luna 6 — Effort: max — Fresh session
 
 ## 2. Read order
 1. `AGENTS.md`, then this prompt.
-2. `RESULT.md`: the top entry only (the Opus review that filed this bug).
+2. `RESULT.md`: the top two entries, the Opus review and the run-2 STOPPED entry below it.
 3. `gh issue view 285`, read-only. It lists the test's assertions and the suspected failure modes.
 4. Code. **Serena:** call `initial_instructions` once, then `find_symbol`; don't read whole files.
    All read only.
@@ -49,7 +51,7 @@ Model: Luna 6 — Effort: max — Fresh session
 - `git status -sb`: the tree is clean, you are on `fix/mesp-156-slice11-test-oracles`, and it is level
   with `origin/fix/mesp-156-slice11-test-oracles`.
 - HEAD is the Opus commit whose subject starts `docs(review): MESP-150 (#265) Opus review of
-  MESP-166 preflight stop`, and it descends from `9b07d94`.
+  MESP-166 diagnosis stop`, and it descends from `c9a708a`.
 - `gh pr view 281 --json isDraft,state`: Draft, OPEN. `gh issue view 285 --json state`: OPEN.
 - Anything else is a stop (§8). Do not commit someone else's uncommitted work.
 
@@ -58,7 +60,11 @@ Model: Luna 6 — Effort: max — Fresh session
   weaken, skip, retry or re-order any assertion. Stress comes from repetition and load, never from
   editing code.
 - Every run's **complete console output** goes to a log under `$env:TEMP\mesp166\`, outside the
-  repository, via `*>&1 | Tee-Object`. A red without its full failure message counts as not captured.
+  repository, via `*>&1 | Tee-Object`. Stage A and B runs also write a TRX file there. A red counts as
+  captured if its full failure message is in the console log **or** in the TRX file.
+- **Never set `$ErrorActionPreference = 'Stop'`** in the shell that runs the §5.2 block. In Windows
+  PowerShell 5.1, that plus `*>&1` ends the pipeline at the first line `dotnet test` writes to
+  stderr. Run 2 lost its red that way. Use the block exactly as written.
 - Never print, write to a file or commit a connection string or secret. Each run uses a fresh
   disposable LocalDB and removes `MESP_DEV_AUTH_BYPASS` for the process.
 
@@ -71,13 +77,13 @@ Model: Luna 6 — Effort: max — Fresh session
      replaces them. A lock that remains after that is a §8 stop.
 2. **Repro budget.** Run the stages in order. **At the first red, stop running and go to §5.3.**
    For stages A and B, use this block from Windows PowerShell, changing only `$filter` and `$tag`
-   (`$tag` is unique per run):
+   (`$tag` is unique per run: prefix every tag with `r3-`, e.g. `r3-A-01`, so run-2 logs are kept):
    ```powershell
    New-Item -ItemType Directory -Force "$env:TEMP\mesp166" | Out-Null
    $db = "MiniErpFoundation_{0}_{1}" -f (Get-Date -Format 'yyyyMMddHHmmss'), ([Guid]::NewGuid().ToString('N').Substring(0,8))
    $env:MESP_SQLSERVER_SAFETY_CONNECTION_STRING = "Server=(localdb)\MSSQLLocalDB;Database=$db;Integrated Security=True;TrustServerCertificate=True;"
    Remove-Item Env:MESP_DEV_AUTH_BYPASS -ErrorAction SilentlyContinue
-   dotnet test .\backend\tests\MiniErp.ArchitectureTests --configuration Release --no-restore --no-build --filter $filter *>&1 | Tee-Object -FilePath "$env:TEMP\mesp166\$tag.log"
+   dotnet test .\backend\tests\MiniErp.ArchitectureTests --configuration Release --no-restore --no-build --filter $filter --logger "trx;LogFileName=$tag.trx" --results-directory "$env:TEMP\mesp166" *>&1 | Tee-Object -FilePath "$env:TEMP\mesp166\$tag.log"
    Remove-Item Env:MESP_SQLSERVER_SAFETY_CONNECTION_STRING
    ```
    - **Stage A:** 30 isolated runs with
@@ -145,10 +151,16 @@ Model: Luna 6 — Effort: max — Fresh session
   - update-branch, rebase or force-push;
   - any push to `main`;
   - closing or reopening any issue, or any other tracker write.
-- After the push, the PR body edit and the comment, restart the local runtime (`MODEL_ROUTING.md`
-  §4.7) with `.\scripts\Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart`.
-  Never print a connection string or secret. Record the URLs in RESULT.md. Then **STOP.** No further
-  mutation.
+- **Before the commit**, restart the local runtime (`MODEL_ROUTING.md` §4.7). The §5.2 block
+  removed `MESP_DEV_AUTH_BYPASS` from your shell; without it the launcher waits forever on a hidden
+  password prompt, which is why run 2's restart hung. So restore it from the user scope first:
+  ```powershell
+  $env:MESP_DEV_AUTH_BYPASS = [Environment]::GetEnvironmentVariable('MESP_DEV_AUTH_BYPASS','User')
+  .\scripts\Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart -StartupTimeoutSeconds 180
+  ```
+  Never print a connection string or secret. Record the result and URLs in RESULT.md, then commit,
+  push, edit the PR body and post the comment. Then **STOP.** No further mutation, including no
+  further RESULT.md edit.
 
 ## 10. Hand-back
 - One `RESULT.md` entry at the top, per `MODEL_ROUTING.md` §7, with Status `DONE` or `STOPPED`. It
@@ -166,7 +178,7 @@ Model: Luna 6 — Effort: max — Fresh session
 
 ## Next-task summaries (Planner, 2026-09-26)
 
-Executor prompts since the last Sol review: 5 before this one, counting the stopped preflight (Sol window 10–15, MODEL_ROUTING §2).
+Executor prompts since the last Sol review: 6 before this one, counting both stopped runs (Sol window 10–15, MODEL_ROUTING §2).
 
 ### 1. MESP-166 (#285) claim-race diagnosis
 

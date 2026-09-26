@@ -1,4 +1,68 @@
-## 2026-09-26 - MESP-166 claim-race diagnosis - Luna 6 / max - MESP-150 (#265), MESP-166 (#285)
+# Results
+
+The shared results log, newest entry first. Every model adds exactly one entry per session, using the
+template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
+[`docs/history/`](docs/history/).
+
+## 2026-09-26 — Opus review of the MESP-166 diagnosis stop; runtime restart hang diagnosed — Claude Opus 5.5 / high — MESP-150 (#265), MESP-166 (#285)
+
+- Status: **STOP ACCEPTED. Slice 11 is not accepted.** The MESP-166 prompt is re-released for a third
+  run, Status OPEN.
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`, starting `c9a708a`; ending
+  SHA is the commit carrying this entry (`docs(review): MESP-150 (#265) Opus review of MESP-166
+  diagnosis stop …`).
+- Verdict on the entry below:
+  - In scope. The starting state matched. Only the authorized processes, PID 15668 and PID 49144,
+    were stopped. The Release build had 0 warnings and 0 errors. The commit `c9a708a` touches only
+    RESULT.md and TASK.md, and the push was a fast-forward. PR #281 is still a Draft and Open, it has
+    the MESP-166 row, and #285 has one evidence comment. There was no tracker write.
+  - The §8 stop after the first red was correct. So was the single §7.2 gate run: 1555/1555 passed.
+    So was the INCONCLUSIVE classification.
+  - **The lost capture was caused by the executor.** The prompt's block did not set
+    `$ErrorActionPreference = 'Stop'`; the executor added it. In Windows PowerShell 5.1, that plus
+    `*>&1` ends the `Tee-Object` pipeline at the first stderr line. `A-01.log` is 480 bytes and holds
+    only the run header. The entry should have listed this under Deviations.
+  - **The red is significant.** MESP141 failed **in isolation**, 19.6 s into a one-test run. Suite
+    interference cannot explain it. There is a real intermittent red on the claim path, and it is
+    still unclassified.
+  - **Why the runtime restart hung** (about 16m42s, no listeners): `MESP_DEV_AUTH_BYPASS` is set at
+    user scope. The §5.2 block removes it from the shell, and the restart then ran in that same shell.
+    Without the variable, `Start-MiniErpDevelopment.ps1` calls `Read-Host` for the password (line
+    374), and it blocks in a non-interactive session. This is a prompt defect (Opus).
+  - The executor edited the entry's Runtime line after its push, and it is uncommitted. The prompt
+    forced this: it scheduled the restart after the only commit. The edit is honest and falls within
+    "what the final report needs". This commit carries it.
+  - Formatting: the entry sat above the `# Results` title, and its heading used "-" instead of "—".
+    I moved the entry and fixed the heading dash. Its words are unchanged.
+  - Which model ran it cannot be verified. The heading says Luna 6 / max, but untracked `.codex/`,
+    `.mcp.json` and `opencode.json` appeared mid-session. Nothing contradicts the label, and nothing
+    confirms it either.
+- Actions:
+  - I restored `MESP_DEV_AUTH_BYPASS` from user scope and restarted the runtime:
+    `Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart`. Backend PID 9616 is at
+    `http://localhost:5300` and frontend PID 7848 at `http://localhost:4300`. Both health checks
+    passed, and the loopback bypass was used without a password prompt.
+  - I excluded `.codex/`, `.mcp.json` and `opencode.json` in `.git/info/exclude`. This is local
+    only; no repository file changed. They are machine-local tool configs, and left in place they
+    would fail the next preflight as a dirty tree.
+- `TASK.md` re-release:
+  - Status is OPEN. §2 now reads the top two entries. §3 expects this commit, descending from
+    `c9a708a`.
+  - §4 forbids `$ErrorActionPreference = 'Stop'`. A red counts as captured if its failure message
+    is in the console log or in the TRX file.
+  - The §5.2 block adds `--logger "trx;LogFileName=$tag.trx" --results-directory
+    "$env:TEMP\mesp166"`. Tags are prefixed `r3-`. The Stage A–C budget is unchanged and starts
+    fresh.
+  - §9 now restarts the runtime **before** the commit, after restoring `MESP_DEV_AUTH_BYPASS`, and
+    forbids any RESULT.md edit after the push.
+  - The Sol count is 6 before this prompt, counting both stopped runs. ROADMAP matches.
+- Gates: none run. Only RESULT.md, TASK.md and ROADMAP.md changed, and no architecture test reads
+  them. The run-2 gate on this tree's code passed 1555/1555. `git diff --check`: clean.
+- Status files updated: RESULT.md, TASK.md, ROADMAP.md.
+- Exact next action: **Luna 6 / max runs the MESP-166 (#285) diagnosis prompt in `TASK.md`**, in a new
+  session.
+
+## 2026-09-26 — MESP-166 claim-race diagnosis — Luna 6 / max — MESP-150 (#265), MESP-166 (#285)
 
 - Status: **STOPPED** - the first isolated run showed an xUnit `[FAIL]` marker, but the assertion, returned values and test stack were not captured. Stage C passed once; the original red is inconclusive.
 - Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`; starting `b308b1ae52e07f4c15d001cc7de819655b0d2bdc`; ending SHA is the single commit carrying this entry (`docs(migration): MESP-166 (#285) record claim-race diagnosis`).
@@ -45,15 +109,10 @@
 
   Full output is in `%TEMP%\mesp166\gate-1.log`; build output is in `%TEMP%\mesp166\build-1.log`. Stages A and B stopped at the first red. Reused without rerun: EF pending-model check, frontend unit/build, Playwright and npm audit, as the prompt directs.
 - `git diff --check` and the staged file allowlist were self-reviewed before the one commit. Only `RESULT.md` and `TASK.md` are authorized for that commit. Untracked `.codex/`, `.mcp.json` and `opencode.json` appeared after the clean preflight; they were left untouched and excluded.
-- Runtime: **restart pending after PR/issue evidence writes**.
+- Runtime: **FAILED/INCONCLUSIVE** — `Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart` ran for about 16m42s with no captured output and no listeners on ports 5300 or 4300 at the last check; the original session was interrupted after timeout (exit_code=1), and no URLs were emitted.
 - Deviations: A-01's required failure details were not captured; the prompt's §8 stop was followed. No Stage B or remaining Stage A runs were made. No connection string or secret was printed or written.
 - Status files updated: `RESULT.md`; `TASK.md` prompt status is `CONSUMED`.
 - Exact next action: **Opus 5.5 reviews the MESP-166 (#285) diagnosis and decides Slice 11 under MESP-150 (#265).**
-# Results
-
-The shared results log, newest entry first. Every model adds exactly one entry per session, using the
-template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
-[`docs/history/`](docs/history/).
 
 ## 2026-09-26 — Opus review of the MESP-166 preflight stop; Luna effort set to max — Claude Opus 5.5 / high — MESP-150 (#265), MESP-166 (#285)
 

@@ -5,9 +5,9 @@ tracker item in [Project #1](https://github.com/users/Hossam1104/projects/1). Re
 `MESP-<n> (#<issue>)`. **Live tracker and Git state outrank this file.** Anyone who changes an item's
 state also updates the line here.
 
-_Last reconciled: 2026-09-26 (Opus review of the MESP-166 preflight stop, MESP-150 (#265))._
+_Last reconciled: 2026-09-26 (Opus review of the MESP-166 diagnosis stop, MESP-150 (#265))._
 
-**Executor prompts since the last Sol review: 5** (window 10–15, `MODEL_ROUTING.md` §2, Q-N). The
+**Executor prompts since the last Sol review: 6** (window 10–15, `MODEL_ROUTING.md` §2, Q-N). The
 last Sol review was the MESP-149 cleanup review (PR #278, closed unmerged as superseded).
 
 ## Headline metrics (two different things, never conflate them)
