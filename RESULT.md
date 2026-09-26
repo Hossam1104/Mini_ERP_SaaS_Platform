@@ -4,6 +4,25 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-27 — Opus: drop the model line from executor prompts — Claude Opus 5.5 / high — MESP-150 (#265), MESP-166 (#285)
+
+- Status: **DONE.** Owner correction: the executor and effort are recommended to the owner in chat,
+  never written into the prompt. The owner switches models manually.
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`, starting `c062ad6`; ending
+  SHA is the commit carrying this entry.
+- Review of the entry below (my routing-stop review): its verdict stands, but its fix was wrong. It
+  kept the `Model: Luna 6 — Effort: max` line in the prompt, the very line a non-Luna session gates on.
+- Actions:
+  - `TASK.md`: removed the `Model:` line and the Routing block; §1 now tells the executor not to stop
+    over routing; §2 skips every 2026-09-27 entry; §3 expects this commit (descends from `c062ad6`).
+    Scope, budget and `r3-` tags are unchanged.
+  - `docs/MODEL_ROUTING.md` §8 step 1 and §9: the prompt no longer carries model or effort; Opus
+    recommends them in chat.
+- Gates: backend suite (governance doc changed); result below. `git diff --check`: clean.
+- Status files updated: RESULT.md, TASK.md, docs/MODEL_ROUTING.md.
+- Exact next action: **the owner runs the MESP-166 (#285) prompt in `TASK.md`** in a new session with
+  the executor Opus recommended in chat.
+
 ## 2026-09-27 — Opus review of the MESP-166 routing stop — Claude Opus 5.5 / high — MESP-150 (#265), MESP-166 (#285)
 
 - Status: **STOP ACCEPTED. Slice 11 is not accepted.** The MESP-166 prompt is re-released unchanged

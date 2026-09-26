@@ -6,23 +6,18 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **OPEN** (fourth release, 2026-09-27; the third release was consumed by a Codex GPT-6 session that stopped at the routing gate without running anything. Third release, 2026-09-26. Run 1 stopped at preflight on a tree Opus left dirty. Run 2
+Status: **OPEN** (fourth release, 2026-09-27; the third release was consumed by a Codex GPT-6 session that stopped at a model-name routing gate without running anything; the model line is now removed from the prompt. Third release, 2026-09-26. Run 1 stopped at preflight on a tree Opus left dirty. Run 2
 saw a red in Stage A run 1, but its failure message was lost to the capture wrapper. This release
 adds a TRX log file so a red is captured even if the console pipeline breaks.)
 
-Routing: **Luna 6, effort max.** Open a **new session** and select effort **max** in the client.
-- This is diagnosis, not a fix. The red is unreproduced and its message was lost, so the root cause
-  is unclear. MODEL_ROUTING §3: Luna 6 (max) diagnoses first; Sonnet 5 fixes only a bounded,
-  identified root cause.
-- The session makes no product or test change. Its output is evidence: the captured failure, or a
-  recorded run budget that stayed green.
+The owner picks the executor and effort; Opus recommends them in chat, never in the prompt.
 
 ```markdown
 # MESP-166 (#285) — Diagnose the intermittent MESP141 execution claim-race red on the Slice 11 path
-Model: Luna 6 — Effort: max — Fresh session
 
 ## 1. Role and authority
-- You are the **executor, diagnosis only**. Opus 5.5 accepts or rejects your result. `AGENTS.md`
+- You are the **executor, diagnosis only**. The owner chose your model and effort; do not stop over
+  routing. Opus 5.5 accepts or rejects your result. `AGENTS.md`
   binds you, §1 especially. Authorization is positive: every action this prompt does not list is
   forbidden.
 - Work item: MESP-166 (#285), a Bug under MESP-15 (#104), capability MESP-141 (#229). It is the last
@@ -31,7 +26,7 @@ Model: Luna 6 — Effort: max — Fresh session
 
 ## 2. Read order
 1. `AGENTS.md`, then this prompt.
-2. `RESULT.md`: the 2026-09-26 Opus review and the run-2 STOPPED entry below it. Skip the 2026-09-27 routing-stop entry and its Opus review above them; they hold no evidence.
+2. `RESULT.md`: the 2026-09-26 Opus review and the run-2 STOPPED entry below it. Skip every 2026-09-27 entry above them; they hold no evidence.
 3. `gh issue view 285`, read-only. It lists the test's assertions and the suspected failure modes.
 4. Code. **Serena:** call `initial_instructions` once, then `find_symbol`; don't read whole files.
    All read only.
@@ -50,8 +45,8 @@ Model: Luna 6 — Effort: max — Fresh session
 ## 3. Starting-state check (record the output in RESULT.md)
 - `git status -sb`: the tree is clean, you are on `fix/mesp-156-slice11-test-oracles`, and it is level
   with `origin/fix/mesp-156-slice11-test-oracles`.
-- HEAD is the Opus commit whose subject starts `docs(review): MESP-150 (#265) Opus review of
-  MESP-166 routing stop`, and it descends from `9f75e46`.
+- HEAD is the Opus commit whose subject starts `docs(routing): MESP-150 (#265) drop model line
+  from executor prompts`, and it descends from `c062ad6`.
 - `gh pr view 281 --json isDraft,state`: Draft, OPEN. `gh issue view 285 --json state`: OPEN.
 - Anything else is a stop (§8). Do not commit someone else's uncommitted work.
 
@@ -182,7 +177,7 @@ Executor prompts since the last Sol review: 7 before this one, counting all thre
 
 ### 1. MESP-166 (#285) claim-race diagnosis
 
-The prompt is above (Luna 6 / max). Opus then reviews the result:
+The prompt is above. Opus then reviews the result:
 - class (a) or (c): a Sonnet 5 fix prompt, with the captured red as its check;
 - class (b): Opus rules on the oracle;
 - budget green: Opus decides whether the single lost red still blocks Slice 11.

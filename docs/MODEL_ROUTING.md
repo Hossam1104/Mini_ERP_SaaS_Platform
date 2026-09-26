@@ -143,7 +143,8 @@ state.
 
 ## 8. Operating loop
 
-1. The owner opens a fresh executor session with the named model and effort and says: *"Execute the
+1. The owner opens a fresh executor session with the model and effort Opus recommended in chat and
+   says: *"Execute the
    prompt in TASK.md."*
 2. The executor does the work, adds its RESULT.md entry, marks the prompt `CONSUMED`, and commits.
    The executor (Luna 6 or Sonnet 5) then restarts the local backend and frontend (§4.7).
@@ -168,7 +169,6 @@ state.
 ## 9. Writing prompts (they run cold)
 
 **Every prompt contains:**
-- the model and effort;
 - the work item(s) as `MESP-<n> (#<issue>)`, and the branch;
 - a minimal read order with Serena and Context7 hints;
 - a starting-state check;
@@ -181,14 +181,14 @@ state.
 **Starting state.** Never pin it to a SHA that the prompt's own commit will move. Use: "HEAD descends
 from `<sha>`, and `git diff --name-only <sha> HEAD` lists only `<planner files>`".
 
-**Delivery.** State the model, effort, and routing reason, and say "open a new session". Then give
-exactly one fenced Markdown prompt, and nothing after the closing fence.
+**Delivery.** Recommend the model, effort and routing reason to the owner in chat only, and say "open
+a new session". The owner switches manually. The prompt itself never names a model or effort, so no
+executor gates on it. Then give exactly one fenced Markdown prompt, and nothing after the closing fence.
 
 **Skeleton:**
 
 ```markdown
 # <MESP-n (#issue)> — <title>
-Model: <model> — Effort: <effort> — Fresh session
 ## 1. Role and authority        (executor; Opus 5.5 accepts; AGENTS.md rules apply)
 ## 2. Read order                (AGENTS.md → this prompt → owning BRD/ADR sections; Serena/Context7 hints)
 ## 3. Starting-state check      (HEAD descends from <sha>; tree clean; tracker state)
