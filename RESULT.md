@@ -4,6 +4,60 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-27 — Opus review of the MESP-166 routing stop — Claude Opus 5.5 / high — MESP-150 (#265), MESP-166 (#285)
+
+- Status: **STOP ACCEPTED. Slice 11 is not accepted.** The MESP-166 prompt is re-released unchanged
+  in substance (fourth release), Status OPEN.
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`, starting `9f75e46`; ending
+  SHA is the commit carrying this entry.
+- Verdict on the entry below:
+  - Correct stop. The prompt requires Luna 6 / max, and the session was Codex GPT-6. It stopped before
+    any build, run or mutation. I verified the starting state: HEAD and origin are `9f75e46`, PR #281
+    is still Draft/Open with head `9f75e46`, and #285 is Open. There was no commit, push or tracker write.
+  - **Its "Exact next action" is wrong.** No diagnosis exists to review. The right next action is a
+    Luna 6 / max run of the same prompt.
+  - Marking the prompt CONSUMED follows MODEL_ROUTING §11, but no evidence was produced. I re-open it.
+  - How a Codex session got the prompt is an owner routing action. The routing gate worked as intended.
+- Actions: I committed the executor's uncommitted entry unchanged. In `TASK.md`, Status is OPEN, §2
+  skips the two 2026-09-27 entries, §3 expects this commit (descends from `9f75e46`), and the Sol
+  count is 7 (counting all three stopped runs). ROADMAP matches. The Stage A–C budget and `r3-` tags
+  are unchanged, because run 3 never started.
+- Gates: none run. Only RESULT.md, TASK.md and ROADMAP.md changed. `git diff --check`: clean.
+- Status files updated: RESULT.md, TASK.md, ROADMAP.md.
+- Exact next action: **Luna 6 / max runs the MESP-166 (#285) diagnosis prompt in `TASK.md`**, in a new
+  session.
+
+## 2026-09-27 — MESP-166 claim-race diagnosis preflight stop — Codex GPT-6 / effort not exposed — MESP-150 (#265), MESP-166 (#285)
+
+- Status: **STOPPED** — this session cannot satisfy the prompt's required Luna 6 / max routing.
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`; starting and ending local HEAD `9f75e46d2d0fdff439552f69258cb434f0d48a58` (no commit).
+- Starting-state check:
+
+  ```text
+  git status -sb
+  ## fix/mesp-156-slice11-test-oracles...origin/fix/mesp-156-slice11-test-oracles
+  HEAD: 9f75e46d2d0fdff439552f69258cb434f0d48a58
+  origin/fix/mesp-156-slice11-test-oracles: 9f75e46d2d0fdff439552f69258cb434f0d48a58
+  subject: docs(review): MESP-150 (#265) Opus review of MESP-166 diagnosis stop; re-release with TRX capture
+  git merge-base --is-ancestor c9a708a HEAD: exit 0
+  gh pr view 281 --json isDraft,state: {"isDraft":true,"state":"OPEN"}
+  gh issue view 285 --json state: {"state":"OPEN"}
+  ```
+- Routing gate: the prompt requires a fresh **Luna 6 / max** session. This session identifies as **Codex GPT-6 / effort not exposed**, and the client provides no way to select Luna 6 or max here. Stopped before build, code inspection, or any reproduction run.
+- Build and reproduction table:
+
+  | Stage | Budget | Executed | Outcome |
+  |---|---:|---:|---|
+  | Release build | 1 | 0 | NOT RUN — routing stop |
+  | A: isolated claim-race test | 30 | 0 | NOT RUN — routing stop |
+  | B: SQL safety class | 10 | 0 | NOT RUN — routing stop |
+  | C: full backend gate | up to 4 | 0 | NOT RUN — routing stop |
+
+- Gates: no build, tests, or runtime restart was run. `git diff --check` returned no findings, and `git diff --name-only` listed only `RESULT.md` and `TASK.md`. No failure was reproduced or classified. No run logs or disposable database were created.
+- What changed: this STOPPED entry in `RESULT.md`; this prompt's Status in `TASK.md` is **CONSUMED**. No product or test files changed. No commit, push, PR edit, tracker comment, or runtime action was made.
+- Deviations: execution and the remaining delivery steps were not performed because the required model and effort are unavailable in this session.
+- Exact next action: **Opus 5.5 reviews the MESP-166 (#285) diagnosis and decides Slice 11 under MESP-150 (#265).**
+
 ## 2026-09-26 — Opus review of the MESP-166 diagnosis stop; runtime restart hang diagnosed — Claude Opus 5.5 / high — MESP-150 (#265), MESP-166 (#285)
 
 - Status: **STOP ACCEPTED. Slice 11 is not accepted.** The MESP-166 prompt is re-released for a third

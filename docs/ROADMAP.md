@@ -7,7 +7,7 @@ state also updates the line here.
 
 _Last reconciled: 2026-09-26 (Opus review of the MESP-166 diagnosis stop, MESP-150 (#265))._
 
-**Executor prompts since the last Sol review: 6** (window 10–15, `MODEL_ROUTING.md` §2, Q-N). The
+**Executor prompts since the last Sol review: 7** (window 10–15, `MODEL_ROUTING.md` §2, Q-N). The
 last Sol review was the MESP-149 cleanup review (PR #278, closed unmerged as superseded).
 
 ## Headline metrics (two different things, never conflate them)

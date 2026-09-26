@@ -6,7 +6,7 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **OPEN** (third release, 2026-09-26. Run 1 stopped at preflight on a tree Opus left dirty. Run 2
+Status: **OPEN** (fourth release, 2026-09-27; the third release was consumed by a Codex GPT-6 session that stopped at the routing gate without running anything. Third release, 2026-09-26. Run 1 stopped at preflight on a tree Opus left dirty. Run 2
 saw a red in Stage A run 1, but its failure message was lost to the capture wrapper. This release
 adds a TRX log file so a red is captured even if the console pipeline breaks.)
 
@@ -31,7 +31,7 @@ Model: Luna 6 — Effort: max — Fresh session
 
 ## 2. Read order
 1. `AGENTS.md`, then this prompt.
-2. `RESULT.md`: the top two entries, the Opus review and the run-2 STOPPED entry below it.
+2. `RESULT.md`: the 2026-09-26 Opus review and the run-2 STOPPED entry below it. Skip the 2026-09-27 routing-stop entry and its Opus review above them; they hold no evidence.
 3. `gh issue view 285`, read-only. It lists the test's assertions and the suspected failure modes.
 4. Code. **Serena:** call `initial_instructions` once, then `find_symbol`; don't read whole files.
    All read only.
@@ -51,7 +51,7 @@ Model: Luna 6 — Effort: max — Fresh session
 - `git status -sb`: the tree is clean, you are on `fix/mesp-156-slice11-test-oracles`, and it is level
   with `origin/fix/mesp-156-slice11-test-oracles`.
 - HEAD is the Opus commit whose subject starts `docs(review): MESP-150 (#265) Opus review of
-  MESP-166 diagnosis stop`, and it descends from `c9a708a`.
+  MESP-166 routing stop`, and it descends from `9f75e46`.
 - `gh pr view 281 --json isDraft,state`: Draft, OPEN. `gh issue view 285 --json state`: OPEN.
 - Anything else is a stop (§8). Do not commit someone else's uncommitted work.
 
@@ -178,7 +178,7 @@ Model: Luna 6 — Effort: max — Fresh session
 
 ## Next-task summaries (Planner, 2026-09-26)
 
-Executor prompts since the last Sol review: 6 before this one, counting both stopped runs (Sol window 10–15, MODEL_ROUTING §2).
+Executor prompts since the last Sol review: 7 before this one, counting all three stopped runs (Sol window 10–15, MODEL_ROUTING §2).
 
 ### 1. MESP-166 (#285) claim-race diagnosis
 
