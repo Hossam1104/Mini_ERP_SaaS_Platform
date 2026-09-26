@@ -4,6 +4,63 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-26 — Fix concurrent approval-evidence race returning Unknown — Claude Sonnet 5 / high — MESP-165 (#284)
+
+- Status: **DONE.**
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`; starting `01b91d3`, ending
+  this commit.
+- Starting-state check: MATCH. `git status -sb` was clean on `fix/mesp-156-slice11-test-oracles`, level
+  with `origin/fix/mesp-156-slice11-test-oracles`. HEAD was `01b91d3` ("docs(review): MESP-150 (#265)
+  Opus review of MESP-164; file R20 race as MESP-165 (#284)"), which descends from `b8b4858`. PR #281:
+  Draft/OPEN. Issue #284: OPEN.
+- What changed:
+  - `backend/src/MiniErp.Infrastructure/Persistence/Modules/Migration/MigrationReconciliationPersistence.cs`
+    (`ConfirmApprovalEvidenceAsync`, `:228-256`): added a `catch (DbUpdateConcurrencyException)` before
+    the existing bare `catch (DbUpdateException)`. On a lost concurrent update it re-reads the approval
+    by ID in a fresh `DbContext`; if that row exists and `EvidenceConfirmed` is true, it returns
+    `Replay(ToRecord(fresh))`. Otherwise it returns the same `UnknownOutcome` /
+    `migration_approval_persistence_unknown` as before. The fresh-confirm (`Success`) and
+    already-confirmed (`Replay` at entry) paths are untouched; `ApproveCoreAsync` and
+    `SetEvidenceStateAsync` were not touched.
+- Isolated R20 evidence (`dotnet test backend/tests/MiniErp.ArchitectureTests -c Release --no-restore
+  [--no-build] --filter FullyQualifiedName~r20_concurrent`, disposable LocalDB per run):
+  - Before the fix: **3/3 failed**, each on the approvals assertion with exactly
+    `MigrationOperationResult { Kind = UnknownOutcome, Code = migration_approval_evidence_unavailable
+    }` for 2 of the 3 concurrent callers (`MigrationReconciliationSqlServerSafetyTests.cs:701,711`),
+    matching the MESP-165 (#284) diagnosis exactly.
+  - After the fix: **3/3 passed** (9-12 s each).
+- Gate: `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`, final tree: Release build 0 warnings / 0
+  errors; **1555/1555 passed, 0 skipped**; wrapper wall `00:08:21.6428434`; disposable database
+  `MiniErpFoundation_20260926173056_2e6a3b69`; "MESP data is intact".
+- `git diff --check`: clean. `git diff --name-only 01b91d3 HEAD`: only
+  `MigrationReconciliationPersistence.cs` (plus `RESULT.md`/`TASK.md` in the docs commit).
+- Deviations and failures:
+  - One mandated-gate run, before the final one recorded above, failed on
+    `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` (a
+    concurrent claim-race test in `MigrationExecutionService`, unrelated to this fix's file or method).
+    Classified TIMING-DEPENDENT, pre-existing, **not caused by this change**: I reproduced the full
+    gate with the fix stashed (baseline `01b91d3`) and it passed clean 1555/1555 without that failure,
+    and the same test passed on its own, isolated, immediately after the failing gate run on the fixed
+    tree. Per §8 this triggered a stop; I re-verified against baseline before re-running the mandated
+    gate rather than assuming flakiness, since that shortcut is exactly what produced MESP-165. Not
+    filed as a new bug: it falls outside this task's scope and file allowlist, and the baseline
+    reproduction shows it predates this change. Recorded here for the next Slice 11 review to weigh.
+  - Before building, two locally running dev-runtime processes (API PID 34960, frontend PID 48492, both
+    started by the MESP-164 session's runtime restart) locked build output and were stopped to allow
+    the Release build; the runtime restart in this task's §9 replaced them (see below).
+  - No test was skipped, weakened or deleted. No other deviation.
+- GitHub delivery (exactly as authorized by TASK.md §9): one commit `fix(migration): MESP-165 (#284)
+  …`; one `docs(migration): MESP-165 (#284) …` commit for this entry and TASK.md. Fast-forward push of
+  `fix/mesp-156-slice11-test-oracles`, updating Draft PR #281 in place; added a MESP-165 row and this
+  gate result to PR #281's body; one evidence comment on issue #284. PR #281 stays Draft/Open; issue
+  #284 stays Open. No Ready transition, reviewer request, approval, merge, rebase, update-branch,
+  push to `main`, or close/reopen — none of these were authorized.
+- Runtime restart: `Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart` — backend
+  healthy at `http://localhost:5300` (PID 39804); frontend healthy at `http://localhost:4300`
+  (PID 34776); both health checks passed.
+- Status files updated: `RESULT.md` (this entry); `TASK.md` (prompt Status → CONSUMED).
+- Exact next action: **Opus 5.5 re-reviews Slice 11 under MESP-150 (#265).**
+
 ## 2026-09-26 — Opus review of the MESP-164 fix; R20 race filed as MESP-165 — Claude Opus 5.5 / high — MESP-150 (#265), MESP-164 (#283), MESP-165 (#284)
 
 - Status: **ACCEPTED** for MESP-164 (#283). **Slice 11 is still not accepted.** The fix is met, but
