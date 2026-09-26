@@ -18,7 +18,9 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
     Scope, budget and `r3-` tags are unchanged.
   - `docs/MODEL_ROUTING.md` §8 step 1 and §9: the prompt no longer carries model or effort; Opus
     recommends them in chat.
-- Gates: backend suite (governance doc changed); result below. `git diff --check`: clean.
+- Gates: backend suite in **Debug** (the Release build is locked by the running dev API, MSB3026):
+  0 warnings, 0 errors, **1555/1555** passed, 0 skipped, 5 m 48 s, disposable database
+  `MiniErpFoundation_20260927011841_2c562a00`, "MESP data is intact". `git diff --check`: clean.
 - Status files updated: RESULT.md, TASK.md, docs/MODEL_ROUTING.md.
 - Exact next action: **the owner runs the MESP-166 (#285) prompt in `TASK.md`** in a new session with
   the executor Opus recommended in chat.
