@@ -4,6 +4,72 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-26 — Fix stale reconcile replay after Ready-for-Handover — Claude Sonnet 5 / high — MESP-164 (#283)
+
+- Status: **DONE.**
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`; starting `496ca47`, ending
+  `06e6e92`.
+- Starting-state check: a prior Opus planner session had left `AGENTS.md`, `RESULT.md`, `TASK.md`,
+  `docs/DECISIONS.md`, `docs/MODEL_ROUTING.md`, `docs/ROADMAP.md` modified-but-uncommitted (Q-O
+  delegation, Q-P R4 ratification, the Sonnet runtime-restart step), which blocked the required clean
+  tree. Per the owner's explicit choice ("Commit, then run"), these were committed first as
+  `f8ec812` (`docs(governance): ...`), then HEAD (`0675112` → `f8ec812`) descended from `496ca47` as
+  required; PR #281 was Draft/Open at `496ca47`; issue #283 was Open. `fix/mesp-156-slice11-test-oracles`
+  was already fast-forwarded to this history; no further merge was needed.
+- What changed:
+  - `backend/src/MiniErp.App/Modules/Migration/MigrationReconciliationService.cs` — one widened guard
+    condition (`:122-124`, `ReconcileCoreAsync`): a `Replayed` persisted outcome is now also accepted
+    when the run is `ReadyForHandover` or `Closed`, in addition to `Reconciled`. The fresh-save path
+    and every other branch are unchanged.
+  - `backend/tests/MiniErp.ArchitectureTests/MigrationReconciliationSqlServerSafetyTests.cs` — new
+    LocalDB regression `Sql_server_s11_mesp164_stale_reconcile_replay_after_ready_for_handover_is_replayed`
+    (`:639`), placed next to R18: reconciles, approves, creates readiness (run reaches
+    `ReadyForHandover`), then replays the original stale-version reconcile and asserts `Replayed`,
+    the same reconciliation ID, exactly one persisted `Reconciliations` row, and the run status
+    unchanged.
+  - Commits: `f8ec812` (governance docs, committed per owner instruction before this task ran);
+    `06e6e92` (`fix(migration): MESP-164 (#283) accept replayed reconcile after handover readiness`).
+  - No other file touched; allowlist (`MigrationReconciliationService.cs`,
+    `MigrationReconciliationSqlServerSafetyTests.cs`, `RESULT.md`, `TASK.md`) respected.
+- Red evidence (before the fix, isolated `dotnet test --filter` on the new test only): failed with
+  exactly the diagnosed code:
+  ```
+  Failed ...Sql_server_s11_mesp164_stale_reconcile_replay_after_ready_for_handover_is_replayed
+  Error Message: migration_reconciliation_lifecycle_unknown
+  ```
+  (Two earlier drafts of the test failed on `UnknownOutcome`/build errors while the test itself was
+  still being shaped; the final test version's first run against unfixed code produced the code
+  above, matching the diagnosis exactly.)
+- Green evidence, new test only (post-fix, isolated): 1/1 passed, 13s.
+- Gates: `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`, full suite, on the final tree, one
+  mandated run: Release build 0 warnings / 0 errors; **1,555 passed, 0 failed, 0 skipped**; wrapper
+  wall `00:04:58.6110285`; disposable database `MiniErpFoundation_20260926161945_73f1b98f`.
+  1,555 = 1,554 prior baseline + 1 new regression.
+- Deviations and failures:
+  - During diagnosis (isolated/filtered runs, not the full-suite gate), R20
+    (`Sql_server_s11_r20_concurrent_repeated_actions_are_idempotent`) failed deterministically
+    (6/6 attempts: 3 on the untouched baseline via `git stash`, 3 on the fixed tree) with
+    `migration_approval_evidence_unavailable` inside `ApproveAsync`, a method this fix does not
+    touch. The identical baseline reproduction rules out a MESP-164 regression. Consistent with R20's
+    documented timing sensitivity elsewhere in this branch's history, it passed cleanly in every
+    full-suite run this session, including the mandated gate above. Classified TIMING-DEPENDENT,
+    pre-existing; kept as written; no product or test change made for it under this task's
+    allowlist. Not filed as a new bug, since it was not reproduced under the gate's own conditions
+    and TASK.md scoped this session to MESP-164 only.
+  - No other deviation. No test was skipped, weakened or deleted.
+- GitHub delivery (all explicitly authorized by TASK.md §9; nothing beyond it was done): pushed
+  fast-forward `496ca47..06e6e92` to `fix/mesp-156-slice11-test-oracles`, updating Draft PR #281 in
+  place; added the MESP-164 evidence row and gate results to PR #281's body; one evidence comment on
+  issue #283 (https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/283#issuecomment-5846647500).
+  PR #281 remains Draft/Open; issue #283 remains Open. No Ready transition, reviewer request,
+  approval, merge, rebase, update-branch, close/reopen or other tracker lifecycle write was made —
+  none of these were authorized for this task.
+- Runtime restart (mandated regardless of status): `Start-MiniErpDevelopment.ps1 -ApiPort 5300
+  -FrontendPort 4300 -Restart` — backend healthy at `http://localhost:5300` (PID 34960); frontend
+  healthy at `http://localhost:4300` (PID 48492); both health checks passed.
+- Status files updated: `RESULT.md` (this entry); `TASK.md` (prompt Status → CONSUMED).
+- Exact next action: **Opus 5.5 re-reviews Slice 11 under MESP-150 (#265).**
+
 ## 2026-09-26 — Opus review of the Slice 11 execution handoff; routing change Q-N — Claude Opus 5.5 / high — MESP-150 (#265), MESP-156/157 (#272/#273), MESP-161..164 (#279/#280/#282/#283)
 
 - Status: **REJECTED** (narrowly). All five prompt items are met, but the MESP-162 fix introduced one

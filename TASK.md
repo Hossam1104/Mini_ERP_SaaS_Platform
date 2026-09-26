@@ -6,7 +6,7 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **OPEN**
+Status: **CONSUMED**
 
 Routing: **Claude Sonnet 5, effort high.** Open a **new session**.
 - It is a contained, already-diagnosed product regression: one condition in one method, plus one
