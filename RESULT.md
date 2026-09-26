@@ -17,8 +17,17 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
   - Governance, at the owner's instruction (Q-N): `docs/MODEL_ROUTING.md` §1, §2, §4.7, §8, §10;
     `AGENTS.md` §1 and the §4 backend baseline; `docs/DECISIONS.md` Q-N. Routing is now Opus plans
     and accepts, Luna executes, Sonnet fixes diagnosed bugs, and Sol reviews once every 10–15
-    executor prompts (release go/no-go kept as the one exception). Luna restarts the local backend
-    and frontend with `Start-MiniErpDevelopment.ps1 -Restart` at the end of every prompt.
+    executor prompts, with no exception. Luna and Sonnet restart the local backend and frontend
+    with `Start-MiniErpDevelopment.ps1 -Restart` at the end of every prompt; the Sonnet prompt in
+    TASK.md now ends with that step.
+  - Owner delegation (Q-O): Opus 5.5 holds standing authority on GitHub and the repository to
+    accept, close, mark Ready and merge; the owner keeps business corrections and next-task review.
+    Recorded in `docs/DECISIONS.md` (Q-O, amending Q-K), `AGENTS.md` §1 and §1.3, and
+    `docs/MODEL_ROUTING.md` §1 and §10. Executors gain nothing; the ruleset and §5 still bind.
+  - Under Q-O, Q-P ratifies the four-site R4 raw-SQL baseline (`MigrationPersistence.cs:556`,
+    `MigrationReconciliationPersistence.cs:296` and `:301`, plus the `IgnoreQueryFilters` verifier).
+    All three Slice 11 sites are single parameterized, Tenant-scoped `UPDLOCK, HOLDLOCK` selects.
+    This closes MESP-150 A3 / SOL-CL-02; SOL-CL-01 (pin the statement shape) stays queued.
   - Tracker: created MESP-164 (#283) (`type:bug`, Project #1, Jira Key MESP-164,
     `[MESP-15] #104`, Work Type Bug, Domain Migration, Status Todo); one pointer comment on #280.
 - Verification (live Git, GitHub and code):
@@ -53,6 +62,9 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
   - My own tooling error: a first `gh issue create` attempt hung on a stray `cat` reading stdin and
     was stopped before creating anything (verified: the highest issue was still #282).
     AUTOMATION_DEFECT (Planner-introduced), no effect.
+  - Closing the superseded Draft PRs #277 and #278 (decided under Q-O; both heads are ancestors of
+    this branch) was refused by this session's tool permissions. Not attempted another way; left
+    to the owner. ENVIRONMENT.
 - Status files updated: RESULT.md, TASK.md (Status OPEN), ROADMAP.md, tracker (#283 created, #280
   comment).
 - Exact next action: **the owner reviews the OPEN prompt in TASK.md**, then runs it with Claude

@@ -113,12 +113,16 @@ Model: Claude Sonnet 5 — Effort: high — Fresh session
 - One evidence comment on #283 with the commit, `file:line` and the gate result.
 - **NOT authorized:** Ready, reviewers, approval, merge, update-branch, rebase, force-push, push to
   `main`, closing or reopening any issue, any other tracker write.
-- After the push, the PR body edit and the comment: **STOP.** No further mutation.
+- After the push, the PR body edit and the comment, restart the local runtime (`MODEL_ROUTING.md`
+  §4.7): Release build (skip it if the final gate built Release on the final tree), then
+  `.\scripts\Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart`. Never print a
+  connection string or secret. Record the URLs in RESULT.md. It is not a gate; a failure is recorded
+  and classified. Then **STOP.** No further mutation.
 
 ## 10. Hand-back
 - One `RESULT.md` entry at the top, per `MODEL_ROUTING.md` §7, Status `DONE` or `STOPPED`, with:
   the starting-state output; the red-before / green-after evidence; the fix at `file:line`; the gate
-  output and wall time; deviations and classified failures.
+  output and wall time; the runtime restart result and URLs; deviations and classified failures.
 - **Exact next action:** "Opus 5.5 re-reviews Slice 11 under MESP-150 (#265)."
 - `TASK.md`: set this prompt's Status to **CONSUMED**. Leave the next-task summaries untouched.
 ```
@@ -150,10 +154,11 @@ that review. Slice 11 then joins the next periodic Sol review; there is no separ
 | Model / effort | **Luna 6 / xhigh**, ending with the runtime restart (MODEL_ROUTING §4.7) |
 | Work item | A new Task under MESP-145 (#263), created when the prompt is written |
 | Scope | `ModuleBoundaryTests.Allow_listed_raw_sql_is_tenant_scoped_and_lock_only`: pin the complete statement shape (one `SELECT`, the `WITH (UPDLOCK, HOLDLOCK)` hint, a `WHERE [TenantId] = {…} AND [<key>] = {…}` predicate, no `;` and no second statement). Add a negative self-check proving that a multi-statement string is rejected. `MigrationExecutionTests`: add AP and cash-bank fault → `partial` and cancellation → throw tests, mirroring the AR test. |
-| Out of scope | The R4 allowlist itself; it waits for the owner's decision on the three Slice 11 sites. Product code. |
+| Out of scope | The R4 allowlist itself: the four-site baseline is ratified (Q-P). Product code. |
 | Acceptance | Exact assertions. The negative check fails the old shape check and passes the new one. Backend suite green with 0 skipped. |
 
-### Owner decisions pending
-- Ratify or remove the three Slice 11 R4 lock sites (MESP-150 A3 = SOL-CL-02). MESP-163 reuses the
-  existing `LockRunAsync` site; the count is unchanged.
-- Draft PRs #277 and #278, and closing MESP-149 (#264).
+### Owner actions pending
+- None of the former owner decisions remain. The R4 sites are ratified (Q-P). MESP-149 (#264) stays
+  open for follow-up 2; Opus closes it on acceptance (Q-O).
+- Close Draft PRs #277 and #278 as superseded by the #281 lineage, keeping their branches. Opus
+  decided this under Q-O, but the session's tool permissions refused the close.

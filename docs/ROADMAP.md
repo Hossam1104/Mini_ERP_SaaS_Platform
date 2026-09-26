@@ -32,7 +32,7 @@ Finish MESP-141 → Golden Release-1 cycle → stable functional/API baseline �
 | Item | State | Notes |
 |---|---|---|
 | MESP-141 (#229): Release 1 migration and repeatable Tenant onboarding | Active | Slices 1–11 are merged. Slices 1–10 are accepted. **Slice 11** (reconciliation, approval, Ready-for-Handover; PR #262, `ac0309a`) is still **not accepted** (MESP-150 (#265), reviewed 2026-09-26). Draft PR #281 now fixes MESP-161 (#279), MESP-162 (#280) and MESP-163 (#282) and corrects the R04/R05/R07 oracles; all are met. The MESP-162 fix introduced one bounded regression, MESP-164 (#283): a stale reconcile replay after Ready-for-Handover returns `Unknown`. Later slices are not activated. |
-| MESP-149 (#264): full project cleanup, refactor, tracker reconciliation and operating model | In progress | The cleanup is on `main`. The Sol 6 review (Draft PR #278) is done and the Opus verdict is **ACCEPTED**: the cleanup stands, with follow-ups SOL-CL-01/04/05/06/07 (see Next). Closing #264 is the owner's decision. |
+| MESP-149 (#264): full project cleanup, refactor, tracker reconciliation and operating model | In progress | The cleanup is on `main`. The Sol 6 review (Draft PR #278) is done and the Opus verdict is **ACCEPTED**: the cleanup stands, with follow-ups SOL-CL-01/04/05/06/07 (see Next). Opus closes #264 once follow-up 2 is accepted (Q-O). |
 | MESP-23 (#112): Open Questions Register | Living | The register of open business questions. It stays open. |
 
 ## Next (in order)
@@ -41,7 +41,7 @@ Finish MESP-141 → Golden Release-1 cycle → stable functional/API baseline �
 |---|---|---|---|
 | 1 | MESP-164 (#283) on top of Draft PR #281, then an Opus re-review; if it passes, Slice 11 is accepted under MESP-150 (#265) | Sonnet 5 / high | One condition in `ReconcileCoreAsync` plus one LocalDB regression test. The prompt is in `TASK.md`. |
 | 2 | Cleanup follow-ups from the Sol review: governance text (SOL-CL-05, SOL-CL-07) and the BRD byte restore (SOL-CL-06) | Opus 5.5 (governance docs), then the backend suite | Restore "completed" in the immutable-report rule, and authorization, data-loss safeguards and accessibility in the Ponytail guard. Restore tag blob `2a5febc` for `requirements/16_…BRD.md`. |
-| 3 | Test hardening from the Sol review: the R4 SQL shape check (SOL-CL-01) and the AP/cash-bank D-18 tests (SOL-CL-04) | Luna 6 / xhigh | Test-only. It does not change the R4 allowlist; that waits for the owner's decision on the Slice 11 sites. |
+| 3 | Test hardening from the Sol review: the R4 SQL shape check (SOL-CL-01) and the AP/cash-bank D-18 tests (SOL-CL-04) | Luna 6 / xhigh | Test-only. It does not change the R4 allowlist; the four-site baseline is ratified (Q-P). |
 | 4 | Decide whether MESP-141 needs further slices before it closes | Opus 5.5 | M40 exit criteria: completed reconciliation, accepted exceptions, named approvals, a readiness snapshot. |
 | 5 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Luna 6 / xhigh | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
 | 6 | MESP-152 (#267): stable functional/API baseline | Luna 6 / xhigh | The UI work must preserve this baseline. |

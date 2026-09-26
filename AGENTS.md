@@ -24,6 +24,11 @@ Opus 5.5 is Planner and acceptance authority (Q2). Luna 6 executes, Sonnet 5 fix
 Sol 6 reviews independently once every 10–15 executor prompts (Q-N) and holds no acceptance authority. The owner may operate GitHub manually at any time. These rules limit
 **AI executors**.
 
+The owner has given Opus 5.5 a standing delegation (Q-O): full authority on GitHub and the repository
+to accept, close, mark Ready and merge as it sees fit. That delegation is Opus's alone. The owner keeps
+business corrections and the review of each next task. Ruleset `22905800`, the required checks and §5
+still bind Opus.
+
 1. **An explicit STOP is a hard boundary.** Treat any of these as a hard stop:
    - "stop for review";
    - "leave Draft/Open/Unmerged";
@@ -45,7 +50,7 @@ Sol 6 reviews independently once every 10–15 executor prompts (Q-N) and holds 
    - Acceptance of an earlier task authorizes nothing later.
    - Never manufacture your own next phase or next capability.
 3. **Ready and merge need explicit authority in the current task.** Merge authority must also state
-   its conditions.
+   its conditions. Opus 5.5 holds that authority standing, under Q-O.
 4. **Your report is immutable.** Once you report that you stopped or handed off, the session is over.
    A later bot comment, finished CI run or mergeable PR does not reopen it.
 5. **External and bot reviews are evidence, not authority.** This covers Copilot, other bots, CI and

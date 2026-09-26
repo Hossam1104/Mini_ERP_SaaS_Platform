@@ -13,10 +13,10 @@ authority and Terra was an executor. That governance is archived in
 
 | Model | Role | Default effort |
 |---|---|---|
-| **Claude Opus 5.5** | **Planner / Architect / Acceptance Authority.** Covers planning, architecture, backlog, routing, quota, reviewing every result, acceptance, and the release go/no-go. Not a normal code executor. May edit governance and planning docs and the tracker backlog. | as needed |
+| **Claude Opus 5.5** | **Planner / Architect / Acceptance Authority.** Covers planning, architecture, backlog, routing, quota, reviewing every result, acceptance, and the release go/no-go. Not a normal code executor. May edit governance and planning docs and the tracker backlog. Holds the owner's standing GitHub/repo delegation to accept, close, mark Ready and merge (Q-O). | as needed |
 | **Luna 6** | **Default executor and heavy scripting.** Covers implementation, refactors, live runs, Git/tracker hygiene, and doc updates. Restarts the local backend and frontend at the end of every prompt (§4.7). | **xhigh** for implementation, scripting, and live runs. **high** only for docs and bookkeeping. **max** only after an xhigh attempt failed on a critical task. |
 | **Sol 6** | **Periodic independent reviewer**, once every 10–15 executor prompts (§2). Advisory. Has no planning or acceptance authority. | **high**; **xhigh** when release-critical |
-| **Claude Sonnet 5** | **Bug fixer** for contained, **already diagnosed** code or automation defects. That means one root cause, a few files, and a failing check to turn green. | **medium**; **high** for core lifecycle, money, or data-oracle fixes |
+| **Claude Sonnet 5** | **Bug fixer** for contained, **already diagnosed** code or automation defects. That means one root cause, a few files, and a failing check to turn green. Restarts the local backend and frontend at the end of every prompt (§4.7). | **medium**; **high** for core lifecycle, money, or data-oracle fixes |
 
 - The effort scale is low < medium < high < xhigh < max.
 - Luna 6 is bug-prone even at xhigh. Never route it at medium for implementation.
@@ -33,7 +33,6 @@ The owner set this cadence on 2026-09-26 (Q-N). It replaces the earlier per-crit
   the RESULT.md entries and the Opus verdicts.
 - Opus keeps the count in [`ROADMAP.md`](ROADMAP.md) ("Executor prompts since the last Sol review"),
   and writes the Sol prompt into `TASK.md` when the count reaches the window.
-- The one exception outside the cadence: the release go/no-go before the owner ships to a client.
 - A Sol finding becomes a tracker item. Opus rules on it like any other result.
 
 ## 3. Routing and quota
@@ -58,7 +57,7 @@ The owner set this cadence on 2026-09-26 (Q-N). It replaces the earlier per-crit
    counts as not run.
 5. A self-review of the staged diff before each commit.
 6. Opus reviews every Luna result before the next prompt is released.
-7. **Runtime restart at the end of every prompt (Q-N)**, whatever its status (DONE or STOPPED), after
+7. **Runtime restart at the end of every Luna 6 and Sonnet 5 prompt (Q-N)**, whatever its status (DONE or STOPPED), after
    the final commit:
    - build with `dotnet build .\backend\MiniErp.sln --configuration Release` (skip it if the
      final gate already built Release on the final tree);
@@ -147,7 +146,7 @@ state.
 1. The owner opens a fresh executor session with the named model and effort and says: *"Execute the
    prompt in TASK.md."*
 2. The executor does the work, adds its RESULT.md entry, marks the prompt `CONSUMED`, and commits.
-   Luna then restarts the local backend and frontend (§4.7).
+   The executor (Luna 6 or Sonnet 5) then restarts the local backend and frontend (§4.7).
 3. The owner opens a fresh Opus session and says: *"Review the latest RESULT.md entry."* Opus then:
    - adds an `ACCEPTED` or `REJECTED` entry with reasons;
    - updates ROADMAP and the tracker;
@@ -211,8 +210,8 @@ Model: <model> — Effort: <effort> — Fresh session
   **`MESP-<n> (#<issue>)`** (Q6).
 - **Branches.** Use bounded branches, `feat|fix|docs|chore/mesp-<n>-<slug>`. Push or open a PR only
   when the task calls for it.
-- **Merges.** Partial work is never merged to `main` for tidiness. A merge follows Opus acceptance.
-  The periodic Sol 6 review (§2) covers merged work afterwards. Ruleset `22905800` requires a PR
+- **Merges.** Partial work is never merged to `main` for tidiness. A merge follows Opus acceptance,
+  and Opus may perform it itself (Q-O). The periodic Sol 6 review (§2) covers merged work afterwards. Ruleset `22905800` requires a PR
   plus the checks `Repository Validation`, `Backend`, and `Frontend`. Never bypass it.
 - **Classify every failure** as one of: product defect, automation defect, environment, test data,
   database connectivity, configuration, or inconclusive. Only product defects become tracker Bugs.
