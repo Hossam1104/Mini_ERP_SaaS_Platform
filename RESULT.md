@@ -4,6 +4,51 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-26 — Opus review of the MESP-164 fix; R20 race filed as MESP-165 — Claude Opus 5.5 / high — MESP-150 (#265), MESP-164 (#283), MESP-165 (#284)
+
+- Status: **ACCEPTED** for MESP-164 (#283). **Slice 11 is still not accepted.** The fix is met, but
+  the R20 failure that the executor saw in isolation is a real product race, not timing noise. It is
+  filed as MESP-165 (#284) and is now the last open Slice 11 blocker.
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`, starting `b8b4858`; ending
+  SHA: this commit, pushed to Draft PR #281.
+- Verification (live Git, GitHub and code):
+  - PR #281 is Draft/Open at `b8b4858`, and hosted checks `Repository Validation`, `Backend` and
+    `Frontend` are SUCCESS. Hosted CI excludes LocalDB, so the executor's local gate is the provider
+    evidence. #283 is Open with the executor's evidence comment. Nothing was marked Ready, merged or
+    closed.
+  - `git diff --name-only 496ca47 HEAD` lists only the allowlisted product and test files plus the
+    Planner files named in the prompt.
+
+| Item | Verdict | Reason |
+|---|---|---|
+| MESP-164 fix (`06e6e92`) | **Met** | `MigrationReconciliationService.cs:122-124`: `Unknown` is returned only when the status is not `Reconciled` **and** the outcome is not a `Replayed` at `ReadyForHandover`/`Closed`. The fresh-save path still requires `Reconciled`, which its own status gate (:82-84) makes the only reachable case. The audit and evidence steps (:98-105) still run before the check. |
+| Regression test | **Met** | `MigrationReconciliationSqlServerSafetyTests.cs:620`: captured version, key K, reconcile, approve, readiness, and `ReadyForHandover` asserted; then a stale replay asserts `Replayed`, the same `Id`, exactly 1 persisted row from a fresh context, and the status unchanged. Red before the fix with the exact diagnosed code. |
+| Gate | **Met** | 1555/1555 on LocalDB, 0 skipped, 0 warnings (executor evidence, reused). |
+| R20 classification | **Wrong** | The executor called it "TIMING-DEPENDENT, pre-existing". I reproduced it 2/2 in isolation on `b8b4858`; 2 of 3 concurrent approvals return `UnknownOutcome` / `migration_approval_evidence_unavailable`. Cause: `ConfirmApprovalEvidenceAsync` (`MigrationReconciliationPersistence.cs:228-248`) is an unlocked read-modify-write on a rowversioned row, and the bare `catch (DbUpdateException)` turns the losing concurrent update into `Unknown`. The in-process `workflowGates` does not serialize separate instances or nodes. `SetEvidenceStateAsync` is `UPDLOCK, HOLDLOCK`-serialized and is not the source. |
+
+- What changed:
+  - Tracker: created MESP-165 (#284) (`type:bug`, Project #1, Jira Key MESP-165, `[MESP-15] #104`,
+    Work Type Bug, Domain Migration, Status Todo); one verdict comment on #283.
+  - `RESULT.md` (this entry); `TASK.md` (Sonnet 5 / high prompt for MESP-165, Status OPEN; summary 1;
+    Sol count); `docs/ROADMAP.md` (MESP-141 row, queue item 1, Sol count 3).
+- Gates: executor evidence reused for the product change. My own run was isolated R20 on a disposable
+  LocalDB (`dotnet test backend/tests/MiniErp.ArchitectureTests -c Release --no-build --filter
+  FullyQualifiedName~r20_concurrent`): **2/2 failed**, as above. This commit is docs only (no
+  `AGENTS.md` or `MODEL_ROUTING.md` change); hosted CI runs on the push.
+- Deviations and failures:
+  - The executor started from a dirty tree. My previous review session left its Q-O, Q-P and
+    runtime-restart governance edits uncommitted. The owner resolved this by having the executor
+    commit them (`f8ec812`). Classified PLANNER-INTRODUCED; this session commits and pushes before
+    handing off.
+  - Prompt §8 said "any other test fails … stop". R20 failed in the executor's isolated runs and the
+    executor continued. It disclosed the failure fully and reproduced it on the baseline, so no harm
+    was done. It is recorded as a deviation, not a rejection. The MESP-165 prompt now states that
+    isolated failures count and that "passes in the full suite" is not a classification.
+  - Closing the superseded Draft PRs #277 and #278 is still pending (see TASK.md, owner actions).
+- Status files updated: RESULT.md, TASK.md, ROADMAP.md, tracker (#284 created, #283 comment).
+- Exact next action: **the owner reviews the OPEN prompt in TASK.md**, then runs it with Claude
+  Sonnet 5 / high in a new session. Then Opus re-reviews Slice 11 under MESP-150 (#265).
+
 ## 2026-09-26 — Fix stale reconcile replay after Ready-for-Handover — Claude Sonnet 5 / high — MESP-164 (#283)
 
 - Status: **DONE.**
