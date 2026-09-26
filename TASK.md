@@ -6,7 +6,7 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **OPEN** (re-released 2026-09-26; the first run stopped at preflight on a tree Opus left dirty)
+Status: **CONSUMED** (re-released 2026-09-26; the first run stopped at preflight on a tree Opus left dirty)
 
 Routing: **Luna 6, effort max.** Open a **new session** and select effort **max** in the client.
 - This is diagnosis, not a fix. The red is unreproduced and its message was lost, so the root cause

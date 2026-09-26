@@ -1,3 +1,54 @@
+## 2026-09-26 - MESP-166 claim-race diagnosis - Luna 6 / max - MESP-150 (#265), MESP-166 (#285)
+
+- Status: **STOPPED** - the first isolated run showed an xUnit `[FAIL]` marker, but the assertion, returned values and test stack were not captured. Stage C passed once; the original red is inconclusive.
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`; starting `b308b1ae52e07f4c15d001cc7de819655b0d2bdc`; ending SHA is the single commit carrying this entry (`docs(migration): MESP-166 (#285) record claim-race diagnosis`).
+- Starting-state check (captured before runtime or test actions):
+
+  ```text
+  git status -sb
+  ## fix/mesp-156-slice11-test-oracles...origin/fix/mesp-156-slice11-test-oracles
+  HEAD: b308b1ae52e07f4c15d001cc7de819655b0d2bdc
+  origin/fix/mesp-156-slice11-test-oracles: b308b1ae52e07f4c15d001cc7de819655b0d2bdc
+  subject: docs(review): MESP-150 (#265) Opus review of MESP-166 preflight stop; route Luna 6 at max
+  git merge-base --is-ancestor 9b07d94 HEAD: exit 0
+  gh pr view 281 --json isDraft,state: {"isDraft":true,"state":"OPEN"}
+  gh issue view 285 --json state: {"state":"OPEN"}
+  ```
+- What changed: one STOPPED entry in `RESULT.md`; this prompt's status in `TASK.md` is `CONSUMED`. No product or test files changed. Run logs are outside the repository at `%TEMP%\mesp166\`.
+- Build: stopped only the authorized listeners, API PID 15668 on port 5300 and frontend PID 49144 on port 4300; both ports were clear afterward. `dotnet build .\backend\MiniErp.sln --configuration Release --no-restore` succeeded:
+
+  ```text
+  Build succeeded.
+      0 Warning(s)
+      0 Error(s)
+  Time Elapsed 00:01:17.98
+  ```
+
+  Build wall time: 00:01:18.9253568.
+- Reproduction table:
+
+  | Stage | Run | Outcome | Duration |
+  |---|---:|---|---:|
+  | A | 1/30 | FAIL marker observed; full test output incomplete; stop under §8 | 26.27 s command wall; script timer not emitted |
+  | A | 2-30 | NOT RUN - first red | - |
+  | B | 1-10 | NOT RUN - first red | - |
+  | C | 1/4 | PASS, 1555/1555, 0 skipped; one gate run as required after the early red | 11m32s test duration; 11m41.1106307 wall |
+- A-01 capture: console output marked `MiniErp.ArchitectureTests.SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` `[FAIL]` at xUnit time `00:00:19.59`, then reported PowerShell `NativeCommandError`. `%TEMP%\mesp166\A-01.log` is 480 bytes and contains only the test-run header and `A total of 1 test files matched the specified pattern.` No failing assertion line, `Kind:Code:attempt=` values or stack frame were captured. The runner used `$ErrorActionPreference = 'Stop'`; the `NativeCommandError` is recorded as capture-wrapper behavior only and is not the cause classification for the test red.
+- Classification: **INCONCLUSIVE**. The missing assertion and result values prevent assigning class (a), (b), (c) or (d). I did not retry the isolated test or call the red timing-dependent/pre-existing. The green full gate does not reclassify A-01.
+- Stage C gate output:
+
+  ```text
+  Passed!  - Failed:     0, Passed:  1555, Skipped:     0, Total:  1555, Duration: 11 m 32 s - MiniErp.ArchitectureTests.dll (net10.0)
+  Backend suite passed against disposable database MiniErpFoundation_20260926213948_772bc0bb.
+  MESP_SQLSERVER_CONNECTION_STRING (runtime): unchanged. MESP data is intact.
+  ```
+
+  Full output is in `%TEMP%\mesp166\gate-1.log`; build output is in `%TEMP%\mesp166\build-1.log`. Stages A and B stopped at the first red. Reused without rerun: EF pending-model check, frontend unit/build, Playwright and npm audit, as the prompt directs.
+- `git diff --check` and the staged file allowlist were self-reviewed before the one commit. Only `RESULT.md` and `TASK.md` are authorized for that commit. Untracked `.codex/`, `.mcp.json` and `opencode.json` appeared after the clean preflight; they were left untouched and excluded.
+- Runtime: **restart pending after PR/issue evidence writes**.
+- Deviations: A-01's required failure details were not captured; the prompt's §8 stop was followed. No Stage B or remaining Stage A runs were made. No connection string or secret was printed or written.
+- Status files updated: `RESULT.md`; `TASK.md` prompt status is `CONSUMED`.
+- Exact next action: **Opus 5.5 reviews the MESP-166 (#285) diagnosis and decides Slice 11 under MESP-150 (#265).**
 # Results
 
 The shared results log, newest entry first. Every model adds exactly one entry per session, using the
