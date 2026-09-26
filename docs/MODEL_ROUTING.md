@@ -1,6 +1,6 @@
 # Model Routing and Operating Model
 
-This file is the single authority for AI roles, effort levels, the `p` gate, the handoff files and the
+This file is the single authority for AI roles, effort levels, prompt release, the handoff files and the
 operating loop. [`AGENTS.md`](../AGENTS.md) points here and holds the executor rules.
 
 The owner installed this model on 2026-09-25 (decisions Q1–Q10 and Q-A–Q-L, recorded in
@@ -13,21 +13,27 @@ authority and Terra was an executor. That governance is archived in
 
 | Model | Role | Default effort |
 |---|---|---|
-| **Claude Opus 5.5** | **Planner / Architect / Acceptance Authority.** Covers planning, architecture, backlog, routing, quota, reviewing every result, acceptance, and the release go/no-go. Not a normal code executor. May edit governance and planning docs and the tracker backlog. | as needed |
-| **Luna 6** | **Default executor and heavy scripting.** Covers implementation, refactors, live runs, Git/tracker hygiene, and doc updates. | **xhigh** for implementation, scripting, and live runs. **high** only for docs and bookkeeping. **max** only after an xhigh attempt failed on a critical task. |
-| **Sol 6** | **Independent reviewer at critical points only** (§2). Advisory. Has no planning or acceptance authority. | **high**; **xhigh** when release-critical |
-| **Claude Sonnet 5** | **Bug fixer** for contained, **already diagnosed** code or automation defects. That means one root cause, a few files, and a failing check to turn green. | **medium**; **high** for core lifecycle, money, or data-oracle fixes |
+| **Claude Opus 5.5** | **Planner / Architect / Acceptance Authority.** Covers planning, architecture, backlog, routing, quota, reviewing every result, acceptance, and the release go/no-go. Not a normal code executor. May edit governance and planning docs and the tracker backlog. Holds the owner's standing GitHub/repo delegation to accept, close, mark Ready and merge (Q-O). | as needed |
+| **Luna 6** | **Default executor and heavy scripting.** Covers implementation, refactors, live runs, Git/tracker hygiene, and doc updates. Restarts the local backend and frontend at the end of every prompt (§4.7). | **xhigh** for implementation, scripting, and live runs. **high** only for docs and bookkeeping. **max** only after an xhigh attempt failed on a critical task. |
+| **Sol 6** | **Periodic independent reviewer**, once every 10–15 executor prompts (§2). Advisory. Has no planning or acceptance authority. | **high**; **xhigh** when release-critical |
+| **Claude Sonnet 5** | **Bug fixer** for contained, **already diagnosed** code or automation defects. That means one root cause, a few files, and a failing check to turn green. Restarts the local backend and frontend at the end of every prompt (§4.7). | **medium**; **high** for core lifecycle, money, or data-oracle fixes |
 
 - The effort scale is low < medium < high < xhigh < max.
 - Luna 6 is bug-prone even at xhigh. Never route it at medium for implementation.
 - Models not listed here are not routed any work. GPT-5.6 Terra is retired (Q1).
 
-## 2. Sol 6 critical points (the only times Sol is used)
+## 2. Sol 6 review cadence
 
-1. Merging a stabilization or feature line into `main`.
-2. The first implementation of new money, security, Tenant-isolation, or data-integrity logic.
-3. Changes to core lifecycle, identity, authentication, or release-gate logic.
-4. The release go/no-go before the owner ships to a client.
+The owner set this cadence on 2026-09-26 (Q-N). It replaces the earlier per-critical-point reviews.
+
+- Sol 6 reviews **once every 10–15 executor prompts** (Luna 6 and Sonnet 5 prompts; Opus review
+  sessions do not count). Opus picks the point inside that window at a natural boundary, such as the
+  end of a slice or before a merge to `main`.
+- One Sol review covers everything accepted or merged since the previous Sol review: the diff range,
+  the RESULT.md entries and the Opus verdicts.
+- Opus keeps the count in [`ROADMAP.md`](ROADMAP.md) ("Executor prompts since the last Sol review"),
+  and writes the Sol prompt into `TASK.md` when the count reaches the window.
+- A Sol finding becomes a tracker item. Opus rules on it like any other result.
 
 ## 3. Routing and quota
 
@@ -51,6 +57,17 @@ authority and Terra was an executor. That governance is archived in
    counts as not run.
 5. A self-review of the staged diff before each commit.
 6. Opus reviews every Luna result before the next prompt is released.
+7. **Runtime restart at the end of every Luna 6 and Sonnet 5 prompt (Q-N)**, whatever its status (DONE or STOPPED), after
+   the final commit:
+   - build with `dotnet build .\backend\MiniErp.sln --configuration Release` (skip it if the
+     final gate already built Release on the final tree);
+   - run `.\scripts\Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart`
+     from Windows PowerShell, with the owner's existing environment. Never print, set or write the
+     connection string or any secret;
+   - record the API and frontend URLs it prints, or its failure, in the RESULT.md entry. A failed
+     restart is classified and reported; it is never fixed by editing the launcher or `.env*`.
+   - The restart is the only runtime action this rule authorizes. It is not a gate and not a live,
+     destructive or financial operation.
 
 ## 5. Quota-saving plugins (every session, planner and executors)
 
@@ -77,21 +94,17 @@ authority and Terra was an executor. That governance is archived in
   or policy utility, find the existing pattern that already owns the concern. Examples: approval/SoD,
   idempotency, Tenant authorization, concurrency, audit, money, and persistence. Reuse it.
 
-## 6. The `p` gate
+## 6. Prompt release
 
-- Opus writes exactly **one** full executor or reviewer prompt, and only when the owner's entire
-  trimmed message is the single lowercase character **`p`**.
-  - `P`, `proceed`, `go`, and `yes` do **not** count. Say so and wait.
-  - A `p` sent before Opus has reviewed the previous result is not banked.
-- Before `p`, Opus does everything except the prompt:
-  - plans and designs;
-  - chooses the model and effort;
-  - manages the backlog;
-  - writes a **next-task summary**: work item, model, effort, scope, out of scope, and acceptance.
-
-  Opus never writes the full prompt under any label.
-- One `p` produces one prompt, written into `TASK.md` and committed. The gate resets after Opus
-  reviews the result.
+- After Opus reviews a result, it writes the next full executor or reviewer prompt into `TASK.md`
+  (Status `OPEN`) **in the same session** and commits it. No `p` or other trigger message is needed.
+  The owner removed the `p` gate on 2026-09-25 (Q-M).
+- The owner reviews the prompt in `TASK.md`:
+  - if the owner has comments, they tell Opus, and Opus revises the prompt and commits the revision
+    before anything runs;
+  - otherwise the owner hands it to the named executor directly.
+- `TASK.md` holds one prompt at a time. Opus still writes the next-task summaries for the tasks
+  after it.
 - There is **no cap** on prompts per Opus conversation (Q7). The old "Prompt N/10" counter is retired.
 
 ## 7. Handoff files
@@ -133,11 +146,12 @@ state.
 1. The owner opens a fresh executor session with the named model and effort and says: *"Execute the
    prompt in TASK.md."*
 2. The executor does the work, adds its RESULT.md entry, marks the prompt `CONSUMED`, and commits.
+   The executor (Luna 6 or Sonnet 5) then restarts the local backend and frontend (§4.7).
 3. The owner opens a fresh Opus session and says: *"Review the latest RESULT.md entry."* Opus then:
    - adds an `ACCEPTED` or `REJECTED` entry with reasons;
    - updates ROADMAP and the tracker;
-   - writes the next-task summary into TASK.md.
-4. The owner types `p`. Opus writes the full next prompt into TASK.md and commits. Back to step 1.
+   - writes the full next prompt into TASK.md and commits it (§6).
+4. The owner reviews the prompt. If they have comments, Opus revises it. Then back to step 1.
 
 **Review checklist for Opus.** These failure patterns have recurred with executors:
 - A PASS reported while the exact requested oracle was only covered indirectly. Check the exact
@@ -196,9 +210,9 @@ Model: <model> — Effort: <effort> — Fresh session
   **`MESP-<n> (#<issue>)`** (Q6).
 - **Branches.** Use bounded branches, `feat|fix|docs|chore/mesp-<n>-<slug>`. Push or open a PR only
   when the task calls for it.
-- **Merges.** Partial work is never merged to `main` for tidiness. A merge follows Opus acceptance
-  **and** a Sol 6 review (§2). Ruleset `22905800` requires a PR plus the checks `Repository Validation`,
-  `Backend`, and `Frontend`. Never bypass it.
+- **Merges.** Partial work is never merged to `main` for tidiness. A merge follows Opus acceptance,
+  and Opus may perform it itself (Q-O). The periodic Sol 6 review (§2) covers merged work afterwards. Ruleset `22905800` requires a PR
+  plus the checks `Repository Validation`, `Backend`, and `Frontend`. Never bypass it.
 - **Classify every failure** as one of: product defect, automation defect, environment, test data,
   database connectivity, configuration, or inconclusive. Only product defects become tracker Bugs.
 - **Test hygiene.**

@@ -3,7 +3,7 @@
 These rules bind every AI executor and reviewer working in this repository, including Claude Code,
 Codex and any other agent.
 
-- **Roles, efforts, the `p` gate, handoff files and the operating loop** are defined only in
+- **Roles, efforts, prompt release, handoff files and the operating loop** are defined only in
   [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md).
 - **Live project state** is in:
   - [`RESULT.md`](RESULT.md), newest entry first;
@@ -20,9 +20,14 @@ Before you act, read:
 
 ## 1. Executor authorization
 
-Opus 5.5 is Planner and acceptance authority (Q2). Sol 6 reviews independently at critical points and
-holds no acceptance authority. The owner may operate GitHub manually at any time. These rules limit
+Opus 5.5 is Planner and acceptance authority (Q2). Luna 6 executes, Sonnet 5 fixes diagnosed bugs, and
+Sol 6 reviews independently once every 10–15 executor prompts (Q-N) and holds no acceptance authority. The owner may operate GitHub manually at any time. These rules limit
 **AI executors**.
+
+The owner has given Opus 5.5 a standing delegation (Q-O): full authority on GitHub and the repository
+to accept, close, mark Ready and merge as it sees fit. That delegation is Opus's alone. The owner keeps
+business corrections and the review of each next task. Ruleset `22905800`, the required checks and §5
+still bind Opus.
 
 1. **An explicit STOP is a hard boundary.** Treat any of these as a hard stop:
    - "stop for review";
@@ -45,7 +50,7 @@ holds no acceptance authority. The owner may operate GitHub manually at any time
    - Acceptance of an earlier task authorizes nothing later.
    - Never manufacture your own next phase or next capability.
 3. **Ready and merge need explicit authority in the current task.** Merge authority must also state
-   its conditions.
+   its conditions. Opus 5.5 holds that authority standing, under Q-O.
 4. **Your report is immutable.** Once you report that you stopped or handed off, the session is over.
    A later bot comment, finished CI run or mergeable PR does not reopen it.
 5. **External and bot reviews are evidence, not authority.** This covers Copilot, other bots, CI and
@@ -135,7 +140,7 @@ PowerShell.
 
 | Gate | Command | Current baseline |
 |---|---|---|
-| Backend build + full suite (incl. disposable LocalDB SQL safety) | `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` | 0 warnings / 0 errors; **1551/1551** passed |
+| Backend build + full suite (incl. disposable LocalDB SQL safety) | `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` | 0 warnings / 0 errors; **1554/1554** passed |
 | EF pending-model check | `dotnet ef migrations has-pending-model-changes` per context | none pending |
 | Angular unit | `cd frontend; npm test -- --watch=false --no-progress` | 316/316 |
 | Angular production build (also the type check) | `cd frontend; npm run build` | success. Known budget warning: 514.26 kB against 500 kB (MESP-155 (#270)) |

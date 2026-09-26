@@ -3486,6 +3486,37 @@ public sealed class SqlServerSafetyTests
     }
 
     [Fact]
+    public async Task MESP141_sql_server_concurrent_attempt_starts_on_four_runs_yield_one_attempt_per_run()
+    {
+        var (service, _, options) = await CreateMigrationServiceAsync();
+        var tenant = MigrationTenant("sql-attempt-race-four-runs");
+        var request = MigrationRequest(tenant, "tenant.migration.attempt.start");
+        var runs = new List<MigrationRunRecord>();
+        for (var index = 0; index < 4; index++)
+            runs.Add(await PreparedMigrationRunAsync(service, request, $"sql-attempt-run-{Guid.NewGuid():N}"));
+        var keys = runs.Select(_ => $"sql-attempt-race-{Guid.NewGuid():N}").ToArray();
+
+        var results = await Task.WhenAll(runs.SelectMany((run, index) => Enumerable.Range(0, 8)
+            .Select(async _ => (RunId: run.RunId, Result: await service.StartAttemptAsync(
+                request, run.RunId, MigrationOperationKind.Validation, keys[index], $"{keys[index]}-fingerprint")))));
+
+        foreach (var run in runs)
+        {
+            var perRun = results.Where(item => item.RunId == run.RunId).Select(item => item.Result).ToArray();
+            Assert.Equal(8, perRun.Length);
+            Assert.All(perRun, item => Assert.True(item.Succeeded || item.Kind == MigrationResultKind.Replayed, item.Code));
+            Assert.Equal(1, perRun.Count(item => item.Kind == MigrationResultKind.Succeeded));
+            Assert.Equal(7, perRun.Count(item => item.Kind == MigrationResultKind.Replayed));
+            Assert.Single(perRun.Select(item => item.Value!.AttemptId).Distinct());
+            Assert.All(perRun, item => Assert.Equal(1, item.Value!.Sequence));
+        }
+
+        await using var db = new MigrationDbContext(options, tenant);
+        foreach (var run in runs)
+            Assert.Equal(1, await db.Attempts.CountAsync(item => item.RunId == run.RunId));
+    }
+
+    [Fact]
     public async Task MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight()
     {
         var (foundation, _, options) = await CreateMigrationServiceAsync();
