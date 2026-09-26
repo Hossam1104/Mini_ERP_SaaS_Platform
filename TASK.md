@@ -6,7 +6,7 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **OPEN** (fourth release, 2026-09-27; the third release was consumed by a Codex GPT-6 session that stopped at a model-name routing gate without running anything; the model line is now removed from the prompt. Third release, 2026-09-26. Run 1 stopped at preflight on a tree Opus left dirty. Run 2
+Status: **CONSUMED** (fourth release, 2026-09-27; the third release was consumed by a Codex GPT-6 session that stopped at a model-name routing gate without running anything; the model line is now removed from the prompt. Third release, 2026-09-26. Run 1 stopped at preflight on a tree Opus left dirty. Run 2
 saw a red in Stage A run 1, but its failure message was lost to the capture wrapper. This release
 adds a TRX log file so a red is captured even if the console pipeline breaks.)
 

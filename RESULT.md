@@ -4,6 +4,78 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-27 — MESP-166 claim-race diagnosis — Codex GPT-6 / effort not exposed — MESP-150 (#265), MESP-166 (#285)
+
+- Status: **DONE — the full reproduction budget stayed green; Opus review remains required.**
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`; starting `60003c7f52698ee2fa99c2a9a2e55a1a1b061c0f`; ending SHA is the commit carrying this entry.
+- Starting-state output:
+
+  ```text
+  git status -sb
+  ## fix/mesp-156-slice11-test-oracles...origin/fix/mesp-156-slice11-test-oracles
+  HEAD=60003c7f52698ee2fa99c2a9a2e55a1a1b061c0f
+  SUBJECT=docs(routing): MESP-150 (#265) drop model line from executor prompts
+  ORIGIN=60003c7f52698ee2fa99c2a9a2e55a1a1b061c0f
+  ancestor check from c062ad6: exit 0
+  gh pr view 281: Draft=true, state=OPEN, headRefOid=60003c7f52698ee2fa99c2a9a2e55a1a1b061c0f
+  gh issue view 285: state=OPEN
+  ```
+- Build: before the build, stopped only API PID 47960 on port 5300 and frontend PID 27484 on port 4300; confirmed no listeners remained. `dotnet build .\backend\MiniErp.sln --configuration Release --no-restore` exited 0: 0 warnings, 0 errors; wall 40.87s. Full output: `%TEMP%\mesp166\build-r4.log`.
+- Reproduction results (each command wall time):
+
+  | Stage | Run | Result | Wall |
+  |---|---:|---|---:|
+  | A | 01 | PASS — 1/1 | 20.57s |
+  | A | 02 | PASS — 1/1 | 11.96s |
+  | A | 03 | PASS — 1/1 | 11.48s |
+  | A | 04 | PASS — 1/1 | 11.88s |
+  | A | 05 | PASS — 1/1 | 12.08s |
+  | A | 06 | PASS — 1/1 | 11.89s |
+  | A | 07 | PASS — 1/1 | 15.69s |
+  | A | 08 | PASS — 1/1 | 12.01s |
+  | A | 09 | PASS — 1/1 | 12.21s |
+  | A | 10 | PASS — 1/1 | 12.53s |
+  | A | 11 | PASS — 1/1 | 11.52s |
+  | A | 12 | PASS — 1/1 | 13.27s |
+  | A | 13 | PASS — 1/1 | 15.21s |
+  | A | 14 | PASS — 1/1 | 12.80s |
+  | A | 15 | PASS — 1/1 | 13.93s |
+  | A | 16 | PASS — 1/1 | 11.66s |
+  | A | 17 | PASS — 1/1 | 11.66s |
+  | A | 18 | PASS — 1/1 | 11.82s |
+  | A | 19 | PASS — 1/1 | 12.87s |
+  | A | 20 | PASS — 1/1 | 12.92s |
+  | A | 21 | PASS — 1/1 | 11.95s |
+  | A | 22 | PASS — 1/1 | 11.29s |
+  | A | 23 | PASS — 1/1 | 12.03s |
+  | A | 24 | PASS — 1/1 | 12.57s |
+  | A | 25 | PASS — 1/1 | 11.75s |
+  | A | 26 | PASS — 1/1 | 11.44s |
+  | A | 27 | PASS — 1/1 | 11.82s |
+  | A | 28 | PASS — 1/1 | 12.38s |
+  | A | 29 | PASS — 1/1 | 12.28s |
+  | A | 30 | PASS — 1/1 | 11.75s |
+  | B | 01 | PASS — 82/82 | 39.67s |
+  | B | 02 | PASS — 82/82 | 42.31s |
+  | B | 03 | PASS — 82/82 | 36.29s |
+  | B | 04 | PASS — 82/82 | 36.17s |
+  | B | 05 | PASS — 82/82 | 36.24s |
+  | B | 06 | PASS — 82/82 | 36.21s |
+  | B | 07 | PASS — 82/82 | 38.96s |
+  | B | 08 | PASS — 82/82 | 65.40s |
+  | B | 09 | PASS — 82/82 | 96.71s |
+  | B | 10 | PASS — 82/82 | 60.52s |
+  | C | 01 | PASS — 1,555 passed, 0 failed, 0 skipped | 301.48s |
+
+- Stage summaries: A used `FullyQualifiedName~MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight`; all 30 logs reported `Failed: 0, Passed: 1, Skipped: 0, Total: 1`. B used `FullyQualifiedName~MiniErp.ArchitectureTests.SqlServerSafetyTests`; all 10 logs reported `Failed: 0, Passed: 82, Skipped: 0, Total: 82`. C reported `Passed! - Failed: 0, Passed: 1555, Skipped: 0, Total: 1555, Duration: 4 m 55 s`, then `Backend suite passed against disposable database MiniErpFoundation_20260927015033_f231f191.` and `MESP data is intact.`
+- Classification: **budget green; no red was reproduced.** The earlier lost-output red remains for Opus to rule on; this run does not reclassify it. No assertion, stack frame or `Kind:Code:attempt=` values were produced by these green runs.
+- Logs and TRX: all 30 Stage A and 10 Stage B console logs and TRX files are under `%TEMP%\mesp166\` (`r3-A-##` / `r3-B-##`); Stage C output is `gate-1.log`.
+- Runtime restart before commit: passed. Backend PID 57692 at `http://localhost:5300`; frontend PID 34684 at `http://localhost:4300`; both health checks passed. Development loopback bypass restored from user scope; no password prompt.
+- Reused without rerun: EF pending-model, frontend unit/build, Playwright and npm audit, per prompt.
+- Changes: only this `RESULT.md` entry and this prompt's status in `TASK.md`; no product or test files changed. `git diff --check` is clean; `git diff --name-only 60003c7f52698ee2fa99c2a9a2e55a1a1b061c0f HEAD` lists only `RESULT.md` and `TASK.md`.
+- Deviations: none. No test changes, retries after a red, tracker lifecycle write, or secret output.
+- Exact next action: **Opus 5.5 reviews the MESP-166 (#285) diagnosis and decides Slice 11 under MESP-150 (#265).**
+
 ## 2026-09-27 — Opus: drop the model line from executor prompts — Claude Opus 5.5 / high — MESP-150 (#265), MESP-166 (#285)
 
 - Status: **DONE.** Owner correction: the executor and effort are recommended to the owner in chat,
