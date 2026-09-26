@@ -119,7 +119,9 @@ public sealed class MigrationReconciliationService
                             : MigrationOperationResult<MigrationReconciliationRecord>.Failure(reconciled.Code);
                 }
             }
-            else if (current.Value is not { Status: MigrationRunStatus.Reconciled })
+            else if (current.Value is not { Status: MigrationRunStatus.Reconciled }
+                && (saved.Outcome != MigrationPersistenceOutcome.Replayed
+                    || current.Value is not { Status: MigrationRunStatus.ReadyForHandover or MigrationRunStatus.Closed }))
                 return MigrationOperationResult<MigrationReconciliationRecord>.Unknown("migration_reconciliation_lifecycle_unknown");
         }
 

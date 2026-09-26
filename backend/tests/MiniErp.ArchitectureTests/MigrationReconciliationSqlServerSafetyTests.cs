@@ -617,6 +617,33 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
     }
 
     [Fact]
+    public async Task Sql_server_s11_mesp164_stale_reconcile_replay_after_ready_for_handover_is_replayed()
+    {
+        await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
+        var scenario = await ExecuteMixedAsync(fixture, "S11-MESP164");
+        var reviewer = Guid.NewGuid();
+        var service = Service(fixture, new TestApprovalPolicy(ApprovalPolicy(fixture.Request.ActorId!.Value, reviewer)));
+        var capturedVersion = (await fixture.Migration.FindRunAsync(fixture.Tenant, scenario.RunId))!.Version;
+        var reconcileRequest = new MigrationReconcileRequest(scenario.RunId, capturedVersion, "s11-mesp164-reconcile");
+        var reconciliation = await service.ReconcileAsync(fixture.Request, reconcileRequest);
+        Assert.True(reconciliation.Succeeded, reconciliation.Code);
+        var approved = await service.ApproveAsync(RequestForActor(fixture, reviewer), ApprovalRequest(reconciliation.Value!, "s11-mesp164-approve"));
+        Assert.True(approved.Succeeded, approved.Code);
+        var readiness = await service.CreateReadinessAsync(fixture.Request,
+            new MigrationHandoverRequest(scenario.RunId, reconciliation.Value!.Id, reconciliation.Value.Version, "s11-mesp164-ready"));
+        Assert.True(readiness.Succeeded, readiness.Code);
+        Assert.Equal(MigrationRunStatus.ReadyForHandover, (await fixture.Migration.FindRunAsync(fixture.Tenant, scenario.RunId))!.Status);
+
+        var replay = await service.ReconcileAsync(fixture.Request, reconcileRequest);
+
+        Assert.True(replay.Kind == MigrationResultKind.Replayed, replay.Code);
+        Assert.Equal(reconciliation.Value.Id, replay.Value!.Id);
+        await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
+        Assert.Equal(1, await db.Reconciliations.CountAsync(item => item.RunId == scenario.RunId));
+        Assert.Equal(MigrationRunStatus.ReadyForHandover, (await fixture.Migration.FindRunAsync(fixture.Tenant, scenario.RunId))!.Status);
+    }
+
+    [Fact]
     public async Task Sql_server_s11_r19_repeated_reads_use_saved_mapping_without_reinterpreting_current_rules()
     {
         await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
