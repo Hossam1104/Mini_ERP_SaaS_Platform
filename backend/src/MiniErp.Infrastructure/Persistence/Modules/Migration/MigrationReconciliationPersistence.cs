@@ -242,6 +242,14 @@ internal sealed partial class MigrationPersistence
             await db.SaveChangesAsync(cancellationToken);
             return MigrationPersistenceResult<MigrationReconciliationApprovalRecord>.Success(ToRecord(approval));
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            await using var freshDb = CreateContext(tenant);
+            var fresh = await freshDb.ReconciliationApprovals.SingleOrDefaultAsync(item => item.Id == approvalId, cancellationToken);
+            if (fresh is not null && fresh.EvidenceConfirmed)
+                return MigrationPersistenceResult<MigrationReconciliationApprovalRecord>.Replay(ToRecord(fresh));
+            return MigrationPersistenceResult<MigrationReconciliationApprovalRecord>.Denied(MigrationPersistenceOutcome.UnknownOutcome, "migration_approval_persistence_unknown");
+        }
         catch (DbUpdateException)
         {
             return MigrationPersistenceResult<MigrationReconciliationApprovalRecord>.Denied(MigrationPersistenceOutcome.UnknownOutcome, "migration_approval_persistence_unknown");
