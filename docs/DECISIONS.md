@@ -48,6 +48,7 @@ Business decisions (BR/PD rows and the BRDs' open decisions) live with their BRD
 | Q-K | Close no epics. Each epic whose children are all Done gets a review comment and is listed in [`ROADMAP.md`](ROADMAP.md). **Only the owner closes epics.** | — |
 | Q-L | Approve D-18: cancellation now propagates from the migration AP/AR/cash-bank reconciliation reads. | Commit `3cacf79`. |
 | Q-M | Remove the `p` gate. Opus writes the next prompt into `TASK.md` in the same session as its review. The owner reviews it and either asks Opus to revise it or executes it. | `MODEL_ROUTING.md` §6 and §8. It supersedes the `p` gate of the 2026-09-24 operating model. |
+| Q-N | Routing: Opus 5.5 plans and accepts, Luna 6 executes, Sonnet 5 fixes diagnosed bugs, Sol 6 reviews once every 10–15 executor prompts instead of at each critical point (release go/no-go stays). Luna restarts the local backend and frontend at the end of every prompt. | `MODEL_ROUTING.md` §1, §2, §4.7, §8 and §10; `AGENTS.md` §1. Owner decision 2026-09-26. |
 
 ### 1.3 Standing product decisions (still in force)
 
@@ -126,6 +127,7 @@ standalone file in the repository. For those, the row below is the decision of r
     `RESULT.md`. The old files are archived in `history/`.
   - Sol's acceptance authority is superseded by Opus 5.5 (Q2).
   - The `p` gate is superseded by same-session prompt release with owner review (Q-M).
+  - Sol's per-critical-point reviews are superseded by a review every 10–15 executor prompts (Q-N).
 
 ## 5. ADR full texts (embedded verbatim)
 

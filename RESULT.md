@@ -4,6 +4,60 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-26 — Opus review of the Slice 11 execution handoff; routing change Q-N — Claude Opus 5.5 / high — MESP-150 (#265), MESP-156/157 (#272/#273), MESP-161..164 (#279/#280/#282/#283)
+
+- Status: **REJECTED** (narrowly). All five prompt items are met, but the MESP-162 fix introduced one
+  bounded regression, MESP-164 (#283). Slice 11 stays not accepted until it is fixed. No re-work of
+  the accepted items is needed.
+- Branch / starting SHA / ending SHA: `docs/mesp-150-slice11-final-review`, created from
+  `fix/mesp-156-slice11-test-oracles` at `496ca47`. Ending SHA: this commit, local, not pushed.
+- What changed:
+  - `RESULT.md` (this entry), `TASK.md` (Sonnet 5 / high prompt for MESP-164, summaries),
+    `docs/ROADMAP.md` (MESP-141 row, queue item 1, Sol counter).
+  - Governance, at the owner's instruction (Q-N): `docs/MODEL_ROUTING.md` §1, §2, §4.7, §8, §10;
+    `AGENTS.md` §1 and the §4 backend baseline; `docs/DECISIONS.md` Q-N. Routing is now Opus plans
+    and accepts, Luna executes, Sonnet fixes diagnosed bugs, and Sol reviews once every 10–15
+    executor prompts (release go/no-go kept as the one exception). Luna restarts the local backend
+    and frontend with `Start-MiniErpDevelopment.ps1 -Restart` at the end of every prompt.
+  - Tracker: created MESP-164 (#283) (`type:bug`, Project #1, Jira Key MESP-164,
+    `[MESP-15] #104`, Work Type Bug, Domain Migration, Status Todo); one pointer comment on #280.
+- Verification (live Git, GitHub and code):
+  - PR #281 is Draft/Open at `496ca47`; hosted checks `Repository Validation`, `Backend`, `Frontend`
+    are SUCCESS (CI excludes LocalDB, so the executor's two local gates are the provider evidence).
+    #272, #273, #279, #280, #282 are Open with evidence comments. Nothing was marked Ready, merged or
+    closed.
+  - `git diff d410e8d HEAD -- backend` touches only the four allowlisted files. No assertion was
+    removed or relaxed except the R07 owner-artifact sum the prompt ordered replaced. No `Skip`, no
+    new `ExecuteSql*` site, no migration or model change.
+
+| Item | Verdict | Reason |
+|---|---|---|
+| MESP-161 (#279) | **Met** | Detail IDs are `StableId(reconciliationId, domain, scope)` assigned in `CreateRecord` (Svc:610–611, 722–726). The fingerprint keeps the old per-scope ID via `FingerprintDetailId` (Svc:653, 728), so existing records' fingerprints are unchanged. The new test (RT:362–398) checks 2 records, summed counts, v1 unchanged by value, and disjoint IDs. |
+| MESP-162 (#280) | **Met, with regression MESP-164** | The stale-version replay now runs the shared audit + evidence path (Svc:71–80 → :98–105), and a failed transition re-reads and accepts `Reconciled` (Svc:114–120). Both hypotheses are closed in code. **Regression:** that replay now also reaches the clean-record lifecycle check (Svc:122–123), which accepts only `Reconciled`. After readiness the run is `ReadyForHandover`, so a client retrying its original reconcile gets `Unknown("migration_reconciliation_lifecycle_unknown")` where it previously got `Replayed`. Fingerprint and capture do not depend on run status (Svc:641–653, 274–300), so the path is reachable. This breaks TASK §4 ("Unknown only for genuinely unknown outcomes"). No test covered it. |
+| MESP-163 (#282) | **Met** | SQL Server only: `READ COMMITTED` transaction + existing `LockRunAsync` before the run, key and attempt reads (MP:217–221). Replay and lineage-denial paths commit before their fresh-context resolution (MP:237–238, 290–291). Moving the key check ahead of the evidence check is safe: `ResolveAttemptReplayAsync` still fails closed on unconfirmed evidence (MP:817–826). The 1205 catch resolves from committed state only. New 4×8 test (SST:3489–3517). |
+| MESP-157 (#273) R07 | **Met** | Distinct represented `EffectId`s = `counts.Effects`, and each is one of the attempt's execution effects (RT:252–258). |
+| MESP-156 (#272) R04/R05 | **Met** | The helper now reads distinct mappings and requires exactly one (RT:846–856). |
+
+- Gates: executor evidence is reused for the product change (two sequential green LocalDB runs,
+  1554/1554, EF 8/8 no pending changes). My governance gate:
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` on this branch after the governance edits:
+    Release build 0 warnings / 0 errors; **1554 passed, 0 failed, 0 skipped**; xUnit 4m19s, wall
+    00:05:56.9; disposable database `MiniErpFoundation_20260926144633_03b2a651`; "runtime:
+    unchanged. MESP data is intact." It is also a third green run of the executor's final product tree.
+- Deviations and failures:
+  - The executor ran as **Codex GPT-6**, not the routed Luna 6 / max; it said the Luna route was not
+    available in its runtime. The owner launched it. Judged on evidence; recorded as a routing
+    deviation, not a defect.
+  - MESP-164: product defect (regression from `4a9b67c`), found by code review, not yet reproduced;
+    the Sonnet prompt requires red-before evidence.
+  - My own tooling error: a first `gh issue create` attempt hung on a stray `cat` reading stdin and
+    was stopped before creating anything (verified: the highest issue was still #282).
+    AUTOMATION_DEFECT (Planner-introduced), no effect.
+- Status files updated: RESULT.md, TASK.md (Status OPEN), ROADMAP.md, tracker (#283 created, #280
+  comment).
+- Exact next action: **the owner reviews the OPEN prompt in TASK.md**, then runs it with Claude
+  Sonnet 5 / high in a new session. Then Opus re-reviews Slice 11 under MESP-150 (#265).
+
 ## 2026-09-26 — Slice 11 execution handoff — Codex GPT-6 / max — MESP-161..163 (#279/#280/#282), MESP-156/157 (#272/#273)
 
 - Status: **DONE.** The authorized code, test, handoff and delivery actions completed; PR #281 remains Draft/Open.
