@@ -14,12 +14,12 @@ authority and Terra was an executor. That governance is archived in
 | Model | Role | Default effort |
 |---|---|---|
 | **Claude Opus 5.5** | **Planner / Architect / Acceptance Authority.** Covers planning, architecture, backlog, routing, quota, reviewing every result, acceptance, and the release go/no-go. Not a normal code executor. May edit governance and planning docs and the tracker backlog. Holds the owner's standing GitHub/repo delegation to accept, close, mark Ready and merge (Q-O). | as needed |
-| **Luna 6** | **Default executor and heavy scripting.** Covers implementation, refactors, live runs, Git/tracker hygiene, and doc updates. Restarts the local backend and frontend at the end of every prompt (§4.7). | **xhigh** for implementation, scripting, and live runs. **high** only for docs and bookkeeping. **max** only after an xhigh attempt failed on a critical task. |
+| **Luna 6** | **Default executor and heavy scripting.** Covers implementation, refactors, live runs, Git/tracker hygiene, and doc updates. Restarts the local backend and frontend at the end of every prompt (§4.7). | **max**, always (owner ruling, 2026-09-26). |
 | **Sol 6** | **Periodic independent reviewer**, once every 10–15 executor prompts (§2). Advisory. Has no planning or acceptance authority. | **high**; **xhigh** when release-critical |
 | **Claude Sonnet 5** | **Bug fixer** for contained, **already diagnosed** code or automation defects. That means one root cause, a few files, and a failing check to turn green. Restarts the local backend and frontend at the end of every prompt (§4.7). | **medium**; **high** for core lifecycle, money, or data-oracle fixes |
 
 - The effort scale is low < medium < high < xhigh < max.
-- Luna 6 is bug-prone even at xhigh. Never route it at medium for implementation.
+- Luna 6 is bug-prone even at high effort. Never route it below max.
 - Models not listed here are not routed any work. GPT-5.6 Terra is retired (Q1).
 
 ## 2. Sol 6 review cadence
@@ -39,7 +39,7 @@ The owner set this cadence on 2026-09-26 (Q-N). It replaces the earlier per-crit
 
 - Route work to Luna 6 unless a rule says otherwise. Opus and Sol stay out of execution.
 - Use Sonnet 5 only for a classified defect with an identified, bounded root cause. If the diagnosis
-  is unclear, Luna 6 (xhigh) diagnoses first.
+  is unclear, Luna 6 (max) diagnoses first.
 - Product defects become tracker **Bugs**. They are never "fixed" in test code.
 - Batch related work into one prompt when its files and gates overlap, because each fresh session
   pays the read cost again. Where it is safe, validate several independent offline changes in one

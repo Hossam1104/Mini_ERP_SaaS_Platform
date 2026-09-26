@@ -4,6 +4,81 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-26 — Opus review of the MESP-166 preflight stop; Luna effort set to max — Claude Opus 5.5 / high — MESP-150 (#265), MESP-166 (#285)
+
+- Status: **STOP ACCEPTED as correct. The MESP-166 prompt is re-released, Status OPEN.** Slice 11 is
+  still not accepted.
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`, starting `9b07d94`; ending
+  SHA is the commit carrying this entry (`docs(review): MESP-150 (#265) Opus review of MESP-166
+  preflight stop …`).
+- Verdict on the entry below:
+  - The stop was **required** by §3 and §8. The dirty tree was **Opus's error**: I had left the owner's
+    Luna-effort ruling (below) uncommitted in four files.
+  - The executor made no out-of-scope mutation. Local HEAD and origin were both still `9b07d94`, and
+    its only edits were its RESULT.md entry and the TASK.md Status line. No GitHub or tracker write.
+  - The session identified itself as "Codex GPT-6 / effort not exposed". The re-run must be Luna 6
+    with effort **max** selected in the client.
+  - The entry's code fence was malformed, and its blank lines had trailing whitespace, which fails
+    `git diff --check`. I repaired the fence and whitespace only. Its words are unchanged.
+- Owner ruling, 2026-09-26: **Luna 6 always runs at effort max.** It replaces "xhigh for
+  implementation, high for docs, max only after a failed xhigh attempt".
+  - `docs/MODEL_ROUTING.md`: the §2 Luna row, the §2 note, and the §3 diagnosis rule.
+  - `docs/DECISIONS.md` Q1.
+  - `docs/ROADMAP.md`: every Luna row.
+  - `TASK.md`: the MESP-166 prompt.
+  - `docs/history/` is unchanged.
+- Other changes in `TASK.md`:
+  - Status back to OPEN.
+  - §3 now expects this commit as HEAD, descending from `9b07d94`.
+  - §5.1 now tells the executor to stop the dev runtime before the Release build. The runtime runs
+    out of `MiniErp.Api\bin\Release`, so it locks those DLLs (MSB3026). My first gate attempt failed
+    to build on that lock, and the executor's §5.1 build would have failed too.
+  - The Sol count is 5 before this prompt, counting the stopped run. ROADMAP matches.
+- Gates, required because governance docs changed:
+  - I stopped the dev API, PID 39804, to clear the lock.
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build with 0 warnings and 0 errors.
+    **1555/1555 passed**, 0 skipped, test duration 46 m 36 s, wall 47 m 52 s. Disposable database
+    `MiniErpFoundation_20260926202856_13f1f740`. "MESP data is intact".
+  - This full gate includes the MESP141 claim-race test, and it passed. That is one more green data
+    point for MESP-166. It does not replace the diagnosis.
+  - `git diff --check`: clean.
+- Status files updated: RESULT.md, TASK.md, ROADMAP.md, MODEL_ROUTING.md, DECISIONS.md.
+- Exact next action: **Luna 6 / max runs the MESP-166 (#285) diagnosis prompt in `TASK.md`**, in a new
+  session.
+
+## 2026-09-26 — MESP-166 diagnosis preflight stop — Codex GPT-6 / effort not exposed — MESP-166 (#285)
+
+- Status: **STOPPED**.
+- Branch / starting SHA / ending SHA: fix/mesp-156-slice11-test-oracles; starting and ending local HEAD 9b07d94aeaba0f284112234adf7b07add6279595 (no commit).
+- Starting-state check (captured before report changes):
+
+  ```text
+  ## fix/mesp-156-slice11-test-oracles...origin/fix/mesp-156-slice11-test-oracles
+   M TASK.md
+   M docs/DECISIONS.md
+   M docs/MODEL_ROUTING.md
+   M docs/ROADMAP.md
+  ```
+
+  Local HEAD and origin/fix/mesp-156-slice11-test-oracles both equaled 9b07d94aeaba0f284112234adf7b07add6279595. The latest subject starts docs(review): MESP-150 (#265) Opus review of MESP-165.
+- What changed: added this STOPPED entry and changed this prompt status in TASK.md from OPEN to CONSUMED. Existing changes in the four initially modified files were preserved. No product or test files were changed.
+- Build: **NOT RUN** because the prompt requires stopping when the starting state does not match.
+- Reproduction budget:
+
+  | Stage | Budget | Executed | Outcome |
+  |---|---:|---:|---|
+  | A: isolated claim-race test | 30 | 0 | NOT RUN — starting-state stop |
+  | B: SQL safety test class | 10 | 0 | NOT RUN — starting-state stop |
+  | C: full backend gate | up to 4 | 0 | NOT RUN — starting-state stop |
+
+- Gate output and wall time: build, repro stages, full gate, git diff --check, and final-tree gate were not run. No gate duration or test output is available.
+- Evidence: no MESP-166 run logs or disposable LocalDB were created. gh issue view 285 and gh pr view 281 were not run.
+- Runtime: not restarted; no URLs were recorded because the starting-state stop prevented the authorized execution sequence.
+- Deviations from the prompt: this session identifies as Codex GPT-6 with effort not exposed; the prompt requests a fresh Luna 6 / max session. No code inspection, GitHub write, commit, push, evidence comment, or runtime action was performed after the precondition failed.
+- Failures and classification: no test failure was reproduced, so there is no class (a)–(d) result. The work stopped on the dirty starting tree under §8.
+- Status files updated: RESULT.md; TASK.md prompt status is now CONSUMED.
+- Exact next action: **Opus 5.5 reviews the MESP-166 (#285) diagnosis and decides Slice 11 under MESP-150 (#265).**
+
 ## 2026-09-26 — Opus review of the MESP-165 fix; MESP-141 claim-race red on a Slice 11 path — Claude Opus 5.5 / high — MESP-150 (#265), MESP-165 (#284)
 
 - Status: **ACCEPTED** for MESP-165 (#284). **Slice 11 is still not accepted.** The fix is met. The

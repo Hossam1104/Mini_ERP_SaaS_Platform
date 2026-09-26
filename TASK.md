@@ -6,18 +6,18 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **OPEN**
+Status: **OPEN** (re-released 2026-09-26; the first run stopped at preflight on a tree Opus left dirty)
 
-Routing: **Luna 6, effort xhigh.** Open a **new session**.
+Routing: **Luna 6, effort max.** Open a **new session** and select effort **max** in the client.
 - This is diagnosis, not a fix. The red is unreproduced and its message was lost, so the root cause
-  is unclear. MODEL_ROUTING §3: Luna 6 (xhigh) diagnoses first; Sonnet 5 fixes only a bounded,
+  is unclear. MODEL_ROUTING §3: Luna 6 (max) diagnoses first; Sonnet 5 fixes only a bounded,
   identified root cause.
 - The session makes no product or test change. Its output is evidence: the captured failure, or a
   recorded run budget that stayed green.
 
 ```markdown
 # MESP-166 (#285) — Diagnose the intermittent MESP141 execution claim-race red on the Slice 11 path
-Model: Luna 6 — Effort: xhigh — Fresh session
+Model: Luna 6 — Effort: max — Fresh session
 
 ## 1. Role and authority
 - You are the **executor, diagnosis only**. Opus 5.5 accepts or rejects your result. `AGENTS.md`
@@ -48,8 +48,8 @@ Model: Luna 6 — Effort: xhigh — Fresh session
 ## 3. Starting-state check (record the output in RESULT.md)
 - `git status -sb`: the tree is clean, you are on `fix/mesp-156-slice11-test-oracles`, and it is level
   with `origin/fix/mesp-156-slice11-test-oracles`.
-- HEAD is the Opus review commit whose subject starts `docs(review): MESP-150 (#265) Opus review of
-  MESP-165`, and it descends from `6de2e84`.
+- HEAD is the Opus commit whose subject starts `docs(review): MESP-150 (#265) Opus review of
+  MESP-166 preflight stop`, and it descends from `9b07d94`.
 - `gh pr view 281 --json isDraft,state`: Draft, OPEN. `gh issue view 285 --json state`: OPEN.
 - Anything else is a stop (§8). Do not commit someone else's uncommitted work.
 
@@ -65,6 +65,10 @@ Model: Luna 6 — Effort: xhigh — Fresh session
 ## 5. Scope and file allowlist
 1. **Build once:** `dotnet build .\backend\MiniErp.sln --configuration Release --no-restore`, with 0
    warnings and 0 errors.
+   - The dev runtime from the last restart runs out of `MiniErp.Api\bin\Release` and locks its DLLs
+     (MSB3026 "locked by MiniErp.Api"). Before building, stop only the `MiniErp.Api` process listening
+     on port 5300 and the frontend process on port 4300, and record their PIDs. The §9 restart
+     replaces them. A lock that remains after that is a §8 stop.
 2. **Repro budget.** Run the stages in order. **At the first red, stop running and go to §5.3.**
    For stages A and B, use this block from Windows PowerShell, changing only `$filter` and `$tag`
    (`$tag` is unique per run):
@@ -162,11 +166,11 @@ Model: Luna 6 — Effort: xhigh — Fresh session
 
 ## Next-task summaries (Planner, 2026-09-26)
 
-Executor prompts since the last Sol review: 4 before this one (Sol window 10–15, MODEL_ROUTING §2).
+Executor prompts since the last Sol review: 5 before this one, counting the stopped preflight (Sol window 10–15, MODEL_ROUTING §2).
 
 ### 1. MESP-166 (#285) claim-race diagnosis
 
-The prompt is above (Luna 6 / xhigh). Opus then reviews the result:
+The prompt is above (Luna 6 / max). Opus then reviews the result:
 - class (a) or (c): a Sonnet 5 fix prompt, with the captured red as its check;
 - class (b): Opus rules on the oracle;
 - budget green: Opus decides whether the single lost red still blocks Slice 11.
@@ -188,7 +192,7 @@ If nothing blocks, Slice 11 is accepted under MESP-150 (#265). That review close
 
 | | |
 |---|---|
-| Model / effort | **Luna 6 / xhigh**, ending with the runtime restart (MODEL_ROUTING §4.7) |
+| Model / effort | **Luna 6 / max**, ending with the runtime restart (MODEL_ROUTING §4.7) |
 | Work item | A new Task under MESP-145 (#263), created when the prompt is written |
 | Scope | `ModuleBoundaryTests.Allow_listed_raw_sql_is_tenant_scoped_and_lock_only`: pin the complete statement shape (one `SELECT`, the `WITH (UPDLOCK, HOLDLOCK)` hint, a `WHERE [TenantId] = {…} AND [<key>] = {…}` predicate, no `;` and no second statement). Add a negative self-check proving that a multi-statement string is rejected. `MigrationExecutionTests`: add AP and cash-bank fault → `partial` and cancellation → throw tests, mirroring the AR test. |
 | Out of scope | The R4 allowlist itself: the four-site baseline is ratified (Q-P). Product code. |

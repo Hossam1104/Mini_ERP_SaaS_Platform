@@ -5,9 +5,9 @@ tracker item in [Project #1](https://github.com/users/Hossam1104/projects/1). Re
 `MESP-<n> (#<issue>)`. **Live tracker and Git state outrank this file.** Anyone who changes an item's
 state also updates the line here.
 
-_Last reconciled: 2026-09-26 (Opus review of the MESP-165 fix, MESP-150 (#265))._
+_Last reconciled: 2026-09-26 (Opus review of the MESP-166 preflight stop, MESP-150 (#265))._
 
-**Executor prompts since the last Sol review: 4** (window 10–15, `MODEL_ROUTING.md` §2, Q-N). The
+**Executor prompts since the last Sol review: 5** (window 10–15, `MODEL_ROUTING.md` §2, Q-N). The
 last Sol review was the MESP-149 cleanup review (PR #278, closed unmerged as superseded).
 
 ## Headline metrics (two different things, never conflate them)
@@ -39,13 +39,13 @@ Finish MESP-141 → Golden Release-1 cycle → stable functional/API baseline �
 
 | # | Item | Model / effort (planned) | Notes |
 |---|---|---|---|
-| 1 | MESP-166 (#285) claim-race diagnosis on Draft PR #281, then an Opus review; if nothing blocks, Slice 11 is accepted under MESP-150 (#265) | Luna 6 / xhigh | Diagnosis only. Capture and classify the red verbatim over a repro budget (isolated, class-level, full gate), or record that the budget stayed green. The prompt is in `TASK.md`. |
+| 1 | MESP-166 (#285) claim-race diagnosis on Draft PR #281, then an Opus review; if nothing blocks, Slice 11 is accepted under MESP-150 (#265) | Luna 6 / max | Diagnosis only. Capture and classify the red verbatim over a repro budget (isolated, class-level, full gate), or record that the budget stayed green. The prompt is in `TASK.md`. |
 | 2 | Cleanup follow-ups from the Sol review: governance text (SOL-CL-05, SOL-CL-07) and the BRD byte restore (SOL-CL-06) | Opus 5.5 (governance docs), then the backend suite | Restore "completed" in the immutable-report rule, and authorization, data-loss safeguards and accessibility in the Ponytail guard. Restore tag blob `2a5febc` for `requirements/16_…BRD.md`. |
-| 3 | Test hardening from the Sol review: the R4 SQL shape check (SOL-CL-01) and the AP/cash-bank D-18 tests (SOL-CL-04) | Luna 6 / xhigh | Test-only. It does not change the R4 allowlist; the four-site baseline is ratified (Q-P). |
+| 3 | Test hardening from the Sol review: the R4 SQL shape check (SOL-CL-01) and the AP/cash-bank D-18 tests (SOL-CL-04) | Luna 6 / max | Test-only. It does not change the R4 allowlist; the four-site baseline is ratified (Q-P). |
 | 4 | Decide whether MESP-141 needs further slices before it closes | Opus 5.5 | M40 exit criteria: completed reconciliation, accepted exceptions, named approvals, a readiness snapshot. |
-| 5 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Luna 6 / xhigh | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
-| 6 | MESP-152 (#267): stable functional/API baseline | Luna 6 / xhigh | The UI work must preserve this baseline. |
-| 7 | MESP-153 (#268): total UI/UX modernization | Luna 6 / xhigh | No hard-coded Wafra behavior. Branding is configuration (ADR-019). |
+| 5 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Luna 6 / max | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
+| 6 | MESP-152 (#267): stable functional/API baseline | Luna 6 / max | The UI work must preserve this baseline. |
+| 7 | MESP-153 (#268): total UI/UX modernization | Luna 6 / max | No hard-coded Wafra behavior. Branding is configuration (ADR-019). |
 | 8 | MESP-142 (#230): Release 1 stabilization, regression, performance, UAT and release candidate | — | **Not Activated.** It needs positive activation authority. |
 
 ## Backlog (Release 1, not yet sequenced)

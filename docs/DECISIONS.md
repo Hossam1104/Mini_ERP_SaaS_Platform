@@ -21,7 +21,7 @@ Business decisions (BR/PD rows and the BRDs' open decisions) live with their BRD
 
 | # | Decision | Consequence |
 |---|---|---|
-| Q1 | Opus 5.5 is Planner/Architect. Luna 6 (xhigh) is the default executor. Sol 6 reviews at critical points only. Sonnet 5 fixes bugs. **GPT-5.6 Terra is retired.** | [`MODEL_ROUTING.md`](MODEL_ROUTING.md) §1–§2. |
+| Q1 | Opus 5.5 is Planner/Architect. Luna 6 (max) is the default executor. Sol 6 reviews at critical points only. Sonnet 5 fixes bugs. **GPT-5.6 Terra is retired.** | [`MODEL_ROUTING.md`](MODEL_ROUTING.md) §1–§2. |
 | Q2 | **Opus 5.5 replaces Sol as acceptance authority.** | `AGENTS.md` § Executor authorization. |
 | Q3 | Keep the CI pipeline and ruleset `22905800` until the app is published to a server. CD waits. | `.github/workflows/ci.yml` is unchanged. |
 | Q4 | Handoff files: single-prompt `TASK.md`, the `RESULT.md` log, and a routing file. | The old TASK.md is archived verbatim in `history/`. |
