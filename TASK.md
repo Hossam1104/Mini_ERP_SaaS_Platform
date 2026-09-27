@@ -173,17 +173,12 @@ The owner picks the executor and effort; Opus recommends them in chat, never in 
 
 ## Next-task summaries (Planner, 2026-09-26)
 
-Executor prompts since the last Sol review: 7 before this one, counting all three stopped runs (Sol window 10–15, MODEL_ROUTING §2).
+Accepted Executor cycles since the last Sol review: 1 (`ORCHESTRATION_STATE.yaml`; MODEL_ROUTING §2).
 
-### 1. MESP-166 (#285) claim-race diagnosis
+### 1. MESP-166 (#285) claim-race diagnosis — DONE
 
-The prompt is above. Opus then reviews the result:
-- class (a) or (c): a Sonnet 5 fix prompt, with the captured red as its check;
-- class (b): Opus rules on the oracle;
-- budget green: Opus decides whether the single lost red still blocks Slice 11.
-
-If nothing blocks, Slice 11 is accepted under MESP-150 (#265). That review closes #272, #273, #279,
-#280, #282, #283, #284 and #285. Slice 11 then joins the next periodic Sol review.
+Accepted by Opus on 2026-09-27: budget green, and the lost red is non-blocking. Slice 11 is accepted
+under MESP-150 (#265), and PR #281 is merged. #285 stays open as a watch item. See RESULT.md.
 
 ### 2. Cleanup follow-ups: governance text and BRD byte restore (SOL-CL-05, -06, -07)
 

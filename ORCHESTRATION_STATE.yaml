@@ -1,9 +1,9 @@
 status: ACTIVE
 
-current_cycle: 0
+current_cycle: 1
 
-accepted_luna_cycles_since_sol_review: 0
-total_accepted_luna_cycles: 0
+accepted_luna_cycles_since_sol_review: 1
+total_accepted_luna_cycles: 1
 last_sol_review_cycle: 0
 
 sol_review:
@@ -21,7 +21,7 @@ current_executor:
   agent_id: NONE
   workspace: NONE
 
-current_result: NONE
+current_result: ACCEPTED MESP-166 (#285) diagnosis; Slice 11 accepted under MESP-150 (#265)
 
 owner_clarification_required: false
 

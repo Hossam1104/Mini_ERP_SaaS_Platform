@@ -4,6 +4,43 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-27 — Opus acceptance of the MESP-166 diagnosis and Slice 11 — Claude Opus 5.5 / medium — MESP-150 (#265), MESP-166 (#285)
+
+- Status: **ACCEPTED.** MESP-166 diagnosis accepted; **Slice 11 of MESP-141 (#229) accepted** under
+  MESP-150 (#265). This is a fresh Paseo Planner session. I checked the transferred handoff against
+  live state before acting.
+- Branch / starting SHA / ending SHA: `fix/mesp-156-slice11-test-oracles`, starting `09e0d93` (the
+  owner's orchestration commit: `ORCHESTRATION_STATE.yaml`, `paseo.json`, `MODEL_ROUTING.md`); ending
+  SHA is the commit carrying this entry. PR #281 then merges to `main`.
+- Review of the entry below:
+  - Scope held. `git diff --name-only 60003c7 1af6a4c` lists only `RESULT.md` and `TASK.md`.
+  - Budget green: 30/30 isolated, 10/10 class (82/82 each), full gate 1555/1555 with 0 skipped. The
+    gate used a disposable LocalDB and reported "MESP data is intact".
+  - Ruling: the single lost-output red is **non-blocking**. It never reproduced in 25 Opus runs or 41
+    Luna runs. Its test asserts the safety property (one winner, a deterministic loser code), and
+    that test is green. #285 stays **open as a watch item**: if it recurs, the capture recipe in
+    `TASK.md` history applies.
+- Slice 11 acceptance: every MESP-150 blocker is met on #281.
+  - Oracles: MESP-156 (#272) and MESP-157 (#273) corrected; MESP-158 (#274) via the MESP-161
+    regression; MESP-159 (#275) with the strongest available oracle (no M27 lifecycle store exists);
+    MESP-160 (#276) met.
+  - Product fixes: MESP-161..165 (#279, #280, #282, #283, #284), each with a LocalDB regression.
+  - The transferred close list omitted #274–#276. The 2026-09-25 review rulings show them met, so I
+    close them too.
+- No critical-point Sol review before the merge. These are defect fixes to existing Slice 11 logic, not
+  a first implementation, and no authority requires a pre-merge review (`MODEL_ROUTING.md` §2, §11).
+  Slice 11 joins the next periodic review.
+- Actions under Q-O:
+  - `AGENTS.md` backend baseline 1554 → 1555;
+  - ROADMAP and TASK summary reconciled;
+  - `ORCHESTRATION_STATE.yaml` counter +1, for this accepted MESP-166 Executor cycle only;
+  - PR #281 Ready, then a merge commit (not a squash), so the per-fix SHAs cited here stay valid;
+  - closed #265, #272–#276, #279, #280 and #282–#284 as completed. #285 stays open.
+- Gates: this commit is governance docs only, so the backend suite is re-run. Its result is in the
+  merge record below.
+- Exact next action: **Opus applies cleanup follow-up 1 (SOL-CL-05/-06/-07, MESP-149 (#264)), then
+  releases the SOL-CL-01/-04 test-hardening prompt to the Executor.**
+
 ## 2026-09-27 — MESP-166 claim-race diagnosis — Codex GPT-6 / effort not exposed — MESP-150 (#265), MESP-166 (#285)
 
 - Status: **DONE — the full reproduction budget stayed green; Opus review remains required.**
