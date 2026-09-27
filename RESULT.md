@@ -4,6 +4,51 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-27 — MESP-167 (#286) R4 shape pin and D-18 AP/cash-bank tests — Luna 6 / max — MESP-167 (#286)
+
+- Status: **DONE**; Opus 5.5 review pending.
+- Branch / starting SHA / ending SHA: `chore/mesp-167-r4-shape-d18-tests` from `origin/main` at
+  `e6f0ba83c540a4e6ee3067b4fdd247dfd8bca4d4`; starting tree clean; `6d14af7` is an ancestor; issue
+  #286 was OPEN. Starting-state command evidence: `git status --short --branch` printed only the
+  branch line; `git rev-parse HEAD` and `git rev-parse origin/main` both printed the starting SHA;
+  `git merge-base --is-ancestor 6d14af7 HEAD` returned 0; `gh issue view 286 --json state` printed
+  `{"state":"OPEN"}`. Ending SHA is the commit carrying this entry.
+- Changes: code/test commit `124e23fac92169e74d647202f0334c251424ab68` changes only the two allowed
+  test files. This hand-back changes only `RESULT.md` and `TASK.md`.
+- A1: `ModuleBoundaryTests.cs:612-618` uses an anchored `\A...\z` predicate pinning one interpolated
+  SELECT/FROM, `(UPDLOCK, HOLDLOCK)`, TenantId and key predicates, and no trailing SQL; the three-site
+  assertion remains at line 610.
+- A2: `ModuleBoundaryTests.cs:618,625-631` applies the predicate to all three real statements and
+  rejects the multi-statement, missing-HOLDLOCK and missing-TenantId examples.
+- A3: `ModuleBoundaryTests.cs:620-623` records an old-check false positive: `$"SELECT [RunId] FROM
+  [migration].[MigrationRuns] WITH (UPDLOCK, HOLDLOCK) WHERE [TenantId] = {tenant.TenantId} AND
+  [RunId] = {runId}; DELETE FROM [migration].[MigrationRuns]"`. The old prefix/substring assertions
+  accept it; the anchored predicate rejects the appended DELETE.
+- A4: `MigrationExecutionTests.cs:195-228` and `:231-262` add AP and cash-bank execution evidence.
+  Fault assertions require `partial` and respectively
+  `finance_ap_opening_evidence_not_reconciled` /
+  `finance_cash_bank_opening_evidence_not_reconciled`; cancellation asserts an
+  `OperationCanceledException`. Existing AR assertions at `:175-192` remain intact.
+- A5: `git diff --name-only origin/main HEAD` after hand-back lists only the two test files,
+  `RESULT.md`, and `TASK.md`; no product code changed and no existing assertion was weakened.
+- A6 / backend gate: `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` completed successfully;
+  1555 baseline + 2 added Facts = **1557 passed, 0 failed, 0 skipped**, 0 warnings / 0 errors.
+  Captured output tail: `Build succeeded. 0 Warning(s). 0 Error(s). Passed! - Failed: 0, Passed:
+  1557, Skipped: 0, Total: 1557, Duration: 00:03:10. Disposable database:
+  MiniErpFoundation_20260927125523_b21826b1. MESP data is intact.` Wall time: **217.65 seconds**.
+  `git diff --check`: clean. EF pending-model, frontend, Playwright and npm-audit gates were not rerun
+  as directed because this change does not cover them.
+- Runtime restart: attempted the required `Start-MiniErpDevelopment.ps1` command after the test commit.
+  It stopped at the ownership guard: port 5300 belongs to PID 57692 (`MiniErp.Api.exe`) and port
+  4300 to PID 34684 (`node`); the API listener path was unavailable. No process was terminated and
+  the launcher returned no URLs. Deviation: runtime restart remains blocked by those listeners;
+  the build was not locked, so the task's MSB3026 process-stop exception did not apply.
+- Draft PR: [#288](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/288), titled as
+  requested and targeting `main`. One evidence comment was posted on [#286](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/286#issuecomment-5854916644).
+- Deviations: Context7 was unavailable; no uncertain Roslyn API was used. Runtime restart and URLs
+  are unavailable as recorded above. No other deviations.
+- Exact next action: **Opus 5.5 reviews MESP-167 (#286).**
+
 ## 2026-09-27 — Opus: Slice 11 merge record, cleanup follow-up 1, MESP-167 release — Claude Opus 5.5 / medium — MESP-150 (#265), MESP-149 (#264), MESP-167 (#286)
 
 - Status: **DONE.**
