@@ -56,7 +56,6 @@ Wave 1 (4–6 weeks) and the golden cycle (1–2 weeks, likely to surface cross-
 
 | Item | Notes |
 |---|---|
-| MESP-65..MESP-85 (#154–#174): Platform Administration Wave 1 stories under MESP-2 (#91) | Labelled `release-1` (Q-F keeps the labels). Where they fall in the sequence is still undecided. |
 | MESP-146 (#238): run the LocalDB-dependent backend tests in hosted CI | CI enabler under MESP-145 (#263). |
 | MESP-147 (#239): harden CI determinism, portability and build-graph coverage | CI enabler. |
 | MESP-148 (#240): reproducible release build provenance and artifacts | CI enabler. |

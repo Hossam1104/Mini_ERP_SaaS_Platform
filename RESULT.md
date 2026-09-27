@@ -36,7 +36,10 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
   on hold. The estimate to QA is about 10–14 weeks.
 - **Created MESP-168 (#289)**: a Task under `[MESP-15] #104`, Migration, Todo. The prompt is in
   `TASK.md`.
-- Gates: the backend suite runs on this branch (governance docs changed). The result is in the PR and CI.
+- Gates (governance docs changed): `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false -Configuration Debug`
+  (Debug because the dev API locks Release). Build 0 warnings / 0 errors. **1557/1557** passed, 0
+  skipped. Disposable database `MiniErpFoundation_20260927134539_df9bd034`; "MESP data is intact". Wall
+  3 m 46 s. `git diff --check` clean.
 - Exact next action: **merge this PR, launch the Executor on MESP-168 (#289).**
 
 ## 2026-09-27 — MESP-167 (#286) R4 shape pin and D-18 AP/cash-bank tests — Luna 6 / max — MESP-167 (#286)

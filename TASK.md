@@ -22,7 +22,7 @@ this contract verbatim (`MODEL_ROUTING.md` §6, §10).
 ## 2. Read order
 1. `AGENTS.md`, then this prompt, then `gh issue view 289` (read-only).
 2. `docs/requirements/40_Data_Migration_and_Tenant_Onboarding_BRD.md`:
-   - §8 (`M40-REQ-*`, about 86 rows);
+   - §8 (`M40-REQ-001`..`M40-REQ-043`, 43 rows; §29 repeats these IDs);
    - §23 (the MESP-141 implementation contract);
    - §26 (open decisions);
    - §27 (acceptance criteria);
