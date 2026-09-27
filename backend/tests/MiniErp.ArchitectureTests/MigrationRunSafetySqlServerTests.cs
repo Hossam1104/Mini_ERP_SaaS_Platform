@@ -71,6 +71,12 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.False(preview.ReadinessCreated);
         Assert.False(preview.RunStateChanged);
         Assert.Equal(2, preview.ExpectedAdditions);
+        Assert.Equal(0, preview.DuplicateOutcomes);
+        Assert.Equal(dryRun.Value.UnresolvedDependencyCount, preview.UnresolvedDependencies);
+        Assert.Equal(
+            dryRun.Value.ControlTotals.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray(),
+            preview.ControlTotals.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray());
+        Assert.Equal(dryRun.Value.ExceptionCount, preview.Exceptions);
         Assert.Equal(2, preview.Rows.Count);
         AssertOwnerSnapshotUnchanged(before, connection.ConnectionString, tenant);
 
