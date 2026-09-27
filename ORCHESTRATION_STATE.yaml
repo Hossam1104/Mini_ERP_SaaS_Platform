@@ -14,7 +14,8 @@ sol_review:
   mandatory_trigger: 15
 
 current_task:
-  status: NOT_STARTED
+  status: OPEN
+  id: MESP-167 (#286)
 
 current_executor:
   profile: NONE

@@ -5,7 +5,7 @@ tracker item in [Project #1](https://github.com/users/Hossam1104/projects/1). Re
 `MESP-<n> (#<issue>)`. **Live tracker and Git state outrank this file.** Anyone who changes an item's
 state also updates the line here.
 
-_Last reconciled: 2026-09-27 (Opus acceptance of Slice 11, MESP-150 (#265); PR #281 merged)._
+_Last reconciled: 2026-09-27 (Slice 11 accepted and PR #281 merged; MESP-149 (#264) follow-ups closed; MESP-167 (#286) released)._
 
 **Accepted Executor cycles since the last Sol review: 1** (counter in `ORCHESTRATION_STATE.yaml`,
 `MODEL_ROUTING.md` §2; the owner reset it to 0 on 2026-09-27). The last Sol review was the MESP-149
@@ -33,20 +33,18 @@ Finish MESP-141 → Golden Release-1 cycle → stable functional/API baseline �
 | Item | State | Notes |
 |---|---|---|
 | MESP-141 (#229): Release 1 migration and repeatable Tenant onboarding | Active | Slices 1–11 are merged and **accepted**. Slice 11 was accepted under MESP-150 (#265) on 2026-09-27 after PR #281 merged; that PR fixed MESP-161..165 (#279, #280, #282–#284) and corrected the MESP-156..160 (#272–#276) oracles. MESP-166 (#285) stays open as a **watch item**: one full-gate red on the attempt-start path, whose output was lost, never reproduced (Opus 25/25; Luna 30 isolated, 10 class and 1 full-gate runs, all green). If it recurs, capture it and classify it under #285. Later slices are not activated. |
-| MESP-149 (#264): full project cleanup, refactor, tracker reconciliation and operating model | In progress | The cleanup is on `main`. The Sol 6 review (PR #278, closed as superseded) is done and the Opus verdict is **ACCEPTED**: the cleanup stands, with follow-ups SOL-CL-01/04/05/06/07 (see Next). Opus closes #264 once follow-up 2 is accepted (Q-O). |
 | MESP-23 (#112): Open Questions Register | Living | The register of open business questions. It stays open. |
 
 ## Next (in order)
 
 | # | Item | Model / effort (planned) | Notes |
 |---|---|---|---|
-| 1 | Cleanup follow-ups from the Sol review: governance text (SOL-CL-05, SOL-CL-07) and the BRD byte restore (SOL-CL-06) | Opus 5.5 (governance docs), then the backend suite | Restore "completed" in the immutable-report rule, and authorization, data-loss safeguards and accessibility in the Ponytail guard. Restore tag blob `2a5febc` for `requirements/16_…BRD.md`. |
-| 2 | Test hardening from the Sol review: the R4 SQL shape check (SOL-CL-01) and the AP/cash-bank D-18 tests (SOL-CL-04) | Luna 6 / max | Test-only. It does not change the R4 allowlist; the four-site baseline is ratified (Q-P). |
-| 3 | Decide whether MESP-141 needs further slices before it closes | Opus 5.5 | M40 exit criteria: completed reconciliation, accepted exceptions, named approvals, a readiness snapshot. |
-| 4 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Luna 6 / max | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
-| 5 | MESP-152 (#267): stable functional/API baseline | Luna 6 / max | The UI work must preserve this baseline. |
-| 6 | MESP-153 (#268): total UI/UX modernization | Luna 6 / max | No hard-coded Wafra behavior. Branding is configuration (ADR-019). |
-| 7 | MESP-142 (#230): Release 1 stabilization, regression, performance, UAT and release candidate | — | **Not Activated.** It needs positive activation authority. |
+| 1 | MESP-167 (#286): the R4 SQL shape pin (SOL-CL-01) and the AP/cash-bank D-18 tests (SOL-CL-04) | Executor | Test-only. The R4 allowlist is unchanged; the four-site baseline is ratified (Q-P). The prompt is in `TASK.md`. |
+| 2 | Decide whether MESP-141 needs further slices before it closes | Opus 5.5 | M40 exit criteria: completed reconciliation, accepted exceptions, named approvals, a readiness snapshot. |
+| 3 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Luna 6 / max | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
+| 4 | MESP-152 (#267): stable functional/API baseline | Luna 6 / max | The UI work must preserve this baseline. |
+| 5 | MESP-153 (#268): total UI/UX modernization | Luna 6 / max | No hard-coded Wafra behavior. Branding is configuration (ADR-019). |
+| 6 | MESP-142 (#230): Release 1 stabilization, regression, performance, UAT and release candidate | — | **Not Activated.** It needs positive activation authority. |
 
 ## Backlog (Release 1, not yet sequenced)
 
@@ -118,6 +116,7 @@ Epics that stay open because they have open children:
 | Reporting and cross-cutting | MESP-139 (#227) reporting catalogue. MESP-140 (#228) security/audit/files/notifications/localization/support. |
 | Entry model | MESP-143 (#231): Tenant-aware entry routing and Overview-first context (ADR-019). |
 | Governance | MESP-144 (#232) repository health checkpoint. GitHub Actions CI (#235). |
+| Cleanup and operating model | MESP-149 (#264): cleanup on `main` (PR #271); Sol review accepted; follow-ups SOL-CL-05/06/07 applied 2026-09-27, SOL-CL-01/04 moved to MESP-167 (#286). MESP-150 (#265): Slice 11 accepted, PR #281 merged at `6d14af7`. |
 
 ## Known non-blocking findings
 
