@@ -141,7 +141,7 @@ PowerShell.
 
 | Gate | Command | Current baseline |
 |---|---|---|
-| Backend build + full suite (incl. disposable LocalDB SQL safety) | `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` | 0 warnings / 0 errors; **1557/1557** passed |
+| Backend build + full suite (incl. disposable LocalDB SQL safety) | `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` | 0 warnings / 0 errors; **1563/1563** passed |
 | EF pending-model check | `dotnet ef migrations has-pending-model-changes` per context | none pending |
 | Angular unit | `cd frontend; npm test -- --watch=false --no-progress` | 316/316 |
 | Angular production build (also the type check) | `cd frontend; npm run build` | success. Known budget warning: 514.26 kB against 500 kB (MESP-155 (#270)) |
