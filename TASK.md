@@ -107,12 +107,15 @@ this contract verbatim (`MODEL_ROUTING.md` §6, §10).
 - Push the branch normally and open a **Draft** PR to `main` titled
   `test: MESP-167 (#286) R4 shape pin and D-18 AP/cash-bank tests`. Its body has the A1–A6 evidence.
 - One evidence comment on #286.
-- **Before the final commit**, restart the local runtime (`MODEL_ROUTING.md` §4.7):
+- **After your last commit that changes code or tests**, restart the local runtime (`MODEL_ROUTING.md`
+  §4.7), so the runtime reflects the final code tree. Only the RESULT.md/TASK.md hand-back commit may
+  follow it:
   ```powershell
   $env:MESP_DEV_AUTH_BYPASS = [Environment]::GetEnvironmentVariable('MESP_DEV_AUTH_BYPASS','User')
   .\scripts\Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart -StartupTimeoutSeconds 180
   ```
-  Never print a connection string or secret. Record the result and URLs in RESULT.md.
+  Never print a connection string or secret. Record the result and URLs in RESULT.md, then make the
+  hand-back commit and push.
 - **NOT authorized:**
   - Ready, reviewers, approval or merge;
   - rebase, force-push or any push to `main`;
