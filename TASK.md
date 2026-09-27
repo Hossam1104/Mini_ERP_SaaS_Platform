@@ -54,15 +54,21 @@ session and the main checkout (Q-T), and passes this contract verbatim (`MODEL_R
   metadata, real mapping, OpenAPI with a stable `operationId`, and a contract test.
 
 ## 5. Scope
-1. **Validation-only / preview / dry-run no-effect (M40-REQ-027; M40-AC-014, -015, -016).**
-   - Each mode returns a distinguishable, labelled result.
-   - SQL-backed tests prove that validation-only, preview and dry-run leave every authoritative
-     business store unchanged: Master Data, Finance journals and subledgers, Inventory ledger and
-     operational documents. Compare before and after row counts per owner table through the owners'
-     test seams.
+1. **The four non-authoritative outcomes (M40-REQ-027; M40-AC-014, -015, -016).**
+   - Validation-only, preview, dry-run and reconciliation-preview each return a distinguishable,
+     labelled outcome, and none is an authoritative import. Reuse the existing machinery. Preview may
+     be computed from the dry-run plan, and reconciliation-preview from the reconciliation computation
+     over dry-run evidence, with no approval, readiness or run-state effect. The label and result
+     must still be distinct. If mapping any of the four needs a business choice the BRD does not make,
+     stop that item (§10).
    - Preview exposes expected additions, duplicate outcomes, dependencies, control totals and
-     exceptions (AC-015). If the current dry-run already is the BRD "preview", prove it and say so;
-     do not add a redundant mode.
+     exceptions (AC-015).
+   - SQL-backed tests prove each of the four leaves every authoritative business store unchanged:
+     Master Data, Finance journals and subledgers, Inventory ledger and operational documents. **Row
+     counts are not enough.** Before and after each operation, capture a stable-key/value snapshot
+     of the owner rows (ordered keys plus the business columns and row version, or a hash of them)
+     through the owners' test seams. Assert the snapshots are equal, which also catches an update or
+     a delete followed by an insert.
 2. **Pre-commit cancellation (M40-AC-033; M40-REQ-040 cancellation part).**
    - A public cancel operation for a run with no committed owner effect. It records a required reason
      and moves the run to `Cancelled`. It is idempotent, audited and Tenant/scope-checked.
@@ -87,7 +93,7 @@ session and the main checkout (Q-T), and passes this contract verbatim (`MODEL_R
 ## 7. Acceptance matrix (Opus checks each)
 | # | Criterion |
 |---|---|
-| A1 | The three modes have distinct labelled results; SQL tests prove no authoritative business-store change for each. |
+| A1 | All four outcomes (validation-only, preview, dry-run, reconciliation-preview) have distinct labelled results. For each, SQL tests prove through stable-key/value snapshots, not only counts, that no authoritative business store changed. |
 | A2 | Cancel: pre-commit only, reason retained, idempotent, audited, Tenant/scope fail-closed; rejected after a commit or Outcome Unknown. Tests cover each branch. |
 | A3 | Cancel meets the REST/API DoD: catalogue, mapping, OpenAPI `operationId`, contract test. |
 | A4 | Corrected retry processes only corrected eligible rows, creates no duplicate effect for accepted IDs, and keeps rejection history. There are SQL tests. |
@@ -130,7 +136,7 @@ session and the main checkout (Q-T), and passes this contract verbatim (`MODEL_R
 ## 10. Stop conditions (write a `STOPPED` entry; do not improvise)
 - The starting state does not match.
 - A required behavior needs a business rule the BRD does not give: a cancel permission, the
-  correction-owner semantics, or a preview behavior beyond the dry-run. Record the exact question and
+  correction-owner semantics, or the mapping of one of the four outcomes. Record the exact question and
   the options, then stop that item only. Finish and deliver the rest.
 - The change would weaken Tenant isolation, idempotency or the Outcome Unknown stop, or would need an
   allowlist to grow.
@@ -155,8 +161,8 @@ Accepted Executor cycles since the last Sol review: 3 (`ORCHESTRATION_STATE.yaml
 
 1. **MESP-169 (#292)**: the prompt above.
 2. **MESP-170 (#293)**: Slice 13, covering the source contract, lineage and validation coverage.
-3. **MESP-171 (#294)**: Slice 14, covering the authority matrix, readiness review and reporting. Then Opus
-   decides MESP-141 closure.
+3. **MESP-171 (#294)**: Slice 14, covering the authority matrix, readiness review and reporting.
+   MESP-141 closes only after Slices 12–15. Slice 15 (MESP-172, UI lane) blocks closure.
 4. **MESP-151 (#266)**: the golden cycle. After it, Wave 1 (Q-Q).
 5. **UI lane (Q-R)**: MESP-153 and MESP-172 wait for the owner's reference UI example.
 

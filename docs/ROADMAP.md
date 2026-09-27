@@ -43,7 +43,7 @@ Backend path, run serially. The UI lane is parallel but waits for the owner's re
 |---|---|---|---|
 | 1 | MESP-169 (#292): MESP-141 Slice 12, covering the preview/dry-run no-effect contract, pre-commit cancellation and corrected-row retry | Executor | Audit gap groups 3–4. The prompt is in `TASK.md`. |
 | 1b | MESP-170 (#293): Slice 13, covering the source contract, lineage and validation coverage | Executor | Gap groups 1–2, within M40-DEC-003. |
-| 1c | MESP-171 (#294): Slice 14, covering the authority matrix, readiness review and report completeness | Executor | Gap group 5, within M40-DEC-006. Then Opus decides MESP-141 closure; the Depends-on rows (M27, Wave 1, MESP-28/30/38) are outside it. |
+| 1c | MESP-171 (#294): Slice 14, covering the authority matrix, readiness review and report completeness | Executor | Gap group 5, within M40-DEC-006. MESP-141 closes only after Slices 12–15. **Slice 15, MESP-172 (UI lane), blocks closure**; the Depends-on rows (M27, Wave 1, MESP-28/30/38) are outside it. |
 | 2 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Executor | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
 | 3 | Platform Administration Wave 1: MESP-65..85 (#154–#174) under MESP-2 (#91) | Executor | **In the QA build (Q-Q).** 21 stories; Opus batches them into prompts. |
 | 4 | MESP-152 (#267): stable functional/API baseline | Executor | Covers Wave 1. The UI feature screens must preserve it. |

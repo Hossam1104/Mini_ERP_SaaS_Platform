@@ -22,8 +22,8 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
   - Created MESP-169 (#292) Slice 12 (gap groups 3–4), MESP-170 (#293) Slice 13 (groups 1–2), MESP-171
     (#294) Slice 14 (group 5) and MESP-172 (#295) Slice 15 (group 6, UI lane, waits for Q-R).
   - All four are Tasks under MESP-15, Migration, Todo.
-  - After Slice 14, the Depends-on rows (M27, Wave 1, MESP-28/30/38) are the only remaining
-    exclusions.
+  - MESP-141 closes only after Slices 12–15. Slice 15 (UI lane) blocks closure. The Depends-on rows
+    (M27, Wave 1, MESP-28/30/38) are outside it.
 - **Runtime restart (Q-S)**, from the main checkout at `d2de6e8`: stopped `MiniErp.Api` PID 49852;
   Release build 0 warnings / 0 errors; launcher `-Restart` succeeded. `http://localhost:4300`,
   `http://tenant.localhost:4300`, `http://admin.localhost:4300`; API `http://localhost:5300`.
