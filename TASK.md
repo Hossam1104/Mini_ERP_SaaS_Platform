@@ -157,7 +157,8 @@ Accepted Executor cycles since the last Sol review: 4 (`ORCHESTRATION_STATE.yaml
 2. **MESP-171 (#294)**: Slice 14, covering the authority matrix, readiness review and reporting.
    MESP-141 closes only after Slices 12–15. Slice 15 (MESP-172, UI lane) blocks closure.
 3. **MESP-151 (#266)**: the golden cycle. After it, Wave 1 (Q-Q).
-4. **UI lane (Q-R)**: the owner supplied the reference UI on 2026-09-27; the Planner is preparing design
+4. **Sol critical-point review of MESP-169** (§2 point 3): runs beside MESP-170; reconciled before MESP-170 acceptance.
+5. **UI lane (Q-R)**: the owner supplied the reference UI on 2026-09-27; the Planner is preparing design
    mockups for owner approval before MESP-153 and MESP-172 start.
 
 ### Owner actions pending

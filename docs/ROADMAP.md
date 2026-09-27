@@ -37,7 +37,7 @@ Finish MESP-141 → Golden Release-1 cycle → stable functional/API baseline �
 
 ## Next (in order)
 
-Backend path, run serially. The UI lane is parallel but waits for the owner's reference example (Q-R).
+Backend path, run serially. The UI lane is parallel: the reference UI arrived 2026-09-27 and mockups await owner approval (Q-R). A Sol critical-point review of MESP-169 (MODEL_ROUTING §2 point 3, run-lifecycle change) runs beside MESP-170; findings are reconciled before MESP-170 is accepted.
 
 | # | Item | Model / effort (planned) | Notes |
 |---|---|---|---|
