@@ -4,6 +4,36 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-27 — Opus: Slice 11 merge record, cleanup follow-up 1, MESP-167 release — Claude Opus 5.5 / medium — MESP-150 (#265), MESP-149 (#264), MESP-167 (#286)
+
+- Status: **DONE.**
+- Branch / starting SHA / ending SHA: `docs/mesp-149-sol-cleanup-followups` from `main` at `6d14af7`;
+  ending SHA is the commit carrying this entry.
+- Merge record for the entry below, all under Q-O:
+  - Gate on `152602a`, `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false -Configuration Debug`
+    (Release is locked by the dev API): 0 warnings / 0 errors; **1555 passed, 0 failed, 0 skipped**;
+    wall 5 m 02 s; disposable database `MiniErpFoundation_20260927120555_114c4f1e`; "MESP data is
+    intact".
+  - Hosted CI on `152602a`: Repository Validation, Backend and Frontend all passed.
+  - PR #281 was marked Ready and merged with a merge commit (head pinned to `152602a`): `6d14af7`.
+  - Closed as completed: #265, #272–#276, #279, #280, #282–#284. Project #1 auto-set them to Done.
+    #285 is commented and stays Todo/Open as the watch item.
+- Cleanup follow-up 1 (Sol review of MESP-149):
+  - SOL-CL-05: `AGENTS.md` §1.4 now reads "stopped, completed or handed off".
+  - SOL-CL-07: the Ponytail guard in `AGENTS.md` §1.6 and `MODEL_ROUTING.md` §5 adds authorization,
+    data-loss safeguards and accessibility.
+  - SOL-CL-06: `docs/requirements/16_Master_Data_and_Product_Catalog_BRD.md` is restored byte for
+    byte. `git rev-parse :<path>` = `2a5febcdf0f7…`, the tag blob. Its last link again points to
+    `19_Supplier_…` as tagged, a known stale link that Sol accepted as the byte-identical option.
+  - No other rule changed, and no rule widened. MESP-149 (#264) closes when this merges (Q-O).
+- Created MESP-167 (#286): a Technical Enabler under `[MESP-145] #263` with Todo, Medium, Release 1
+  and Platform. It carries SOL-CL-01/-04. Its prompt is in `TASK.md`, Status OPEN.
+- Gates: the backend suite runs on this branch (architecture tests read governance files); the result
+  is in the PR and CI. `git diff --check`: clean.
+- Status files updated: RESULT.md, TASK.md, ROADMAP.md, AGENTS.md, MODEL_ROUTING.md,
+  ORCHESTRATION_STATE.yaml.
+- Exact next action: **merge this PR, then launch the Executor on MESP-167 (#286) in a Paseo worktree.**
+
 ## 2026-09-27 — Opus acceptance of the MESP-166 diagnosis and Slice 11 — Claude Opus 5.5 / medium — MESP-150 (#265), MESP-166 (#285)
 
 - Status: **ACCEPTED.** MESP-166 diagnosis accepted; **Slice 11 of MESP-141 (#229) accepted** under

@@ -51,13 +51,14 @@ still bind Opus.
    - Never manufacture your own next phase or next capability.
 3. **Ready and merge need explicit authority in the current task.** Merge authority must also state
    its conditions. Opus 5.5 holds that authority standing, under Q-O.
-4. **Your report is immutable.** Once you report that you stopped or handed off, the session is over.
+4. **Your report is immutable.** Once you report that you stopped, completed or handed off, the session is
+   over.
    A later bot comment, finished CI run or mergeable PR does not reopen it.
 5. **External and bot reviews are evidence, not authority.** This covers Copilot, other bots, CI and
    scanners. If a bot review is unavailable, that never licenses your own Ready or merge decision.
 6. **Ponytail is never authority.** It cannot override a STOP. It cannot authorize a commit, Ready,
-   merge or tracker change. It cannot weaken security, Tenant isolation, accounting integrity, audit,
-   concurrency or acceptance gates.
+   merge or tracker change. It cannot weaken security, authorization, Tenant isolation, accounting
+   integrity, audit, concurrency, data-loss safeguards, accessibility or acceptance gates.
 7. **Tracker lifecycle writes are mutations.** These need positive authority in the current task:
    - closing or reopening an issue;
    - changing `Status` or `Capability State`;

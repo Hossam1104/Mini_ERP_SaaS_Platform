@@ -2,206 +2,153 @@
 
 This file holds one executor prompt at a time, plus the Planner's next-task summary. It never holds
 results; those go in [`RESULT.md`](RESULT.md). The rules are in
-[`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §6–§7.
+[`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §6–§7 and §10.
 
 ## Next executor prompt
 
-Status: **CONSUMED** (fourth release, 2026-09-27; the third release was consumed by a Codex GPT-6 session that stopped at a model-name routing gate without running anything; the model line is now removed from the prompt. Third release, 2026-09-26. Run 1 stopped at preflight on a tree Opus left dirty. Run 2
-saw a red in Stage A run 1, but its failure message was lost to the capture wrapper. This release
-adds a TRX log file so a red is captured even if the console pipeline breaks.)
-
-The owner picks the executor and effort; Opus recommends them in chat, never in the prompt.
+Status: **OPEN** (first release, 2026-09-27). The Planner launches the child through Paseo and passes
+this contract verbatim (`MODEL_ROUTING.md` §6, §10).
 
 ```markdown
-# MESP-166 (#285) — Diagnose the intermittent MESP141 execution claim-race red on the Slice 11 path
+# MESP-167 (#286) — Harden the R4 raw-SQL shape check and add the AP/cash-bank D-18 execution tests
 
 ## 1. Role and authority
-- You are the **executor, diagnosis only**. The owner chose your model and effort; do not stop over
-  routing. Opus 5.5 accepts or rejects your result. `AGENTS.md`
-  binds you, §1 especially. Authorization is positive: every action this prompt does not list is
-  forbidden.
-- Work item: MESP-166 (#285), a Bug under MESP-15 (#104), capability MESP-141 (#229). It is the last
-  open question before Slice 11 acceptance under MESP-150 (#265).
-- Branch: `fix/mesp-156-slice11-test-oracles` (Draft PR #281).
+- You are the **executor, test-only**. Opus 5.5 accepts or rejects your result. `AGENTS.md` binds you,
+  §1 and §5 especially. Authorization is positive: every action this prompt does not list is forbidden.
+- Work item: MESP-167 (#286), a Technical Enabler under MESP-145 (#263). Its source is the Sol review of
+  MESP-149 (#264): findings SOL-CL-01 and SOL-CL-04.
 
 ## 2. Read order
 1. `AGENTS.md`, then this prompt.
-2. `RESULT.md`: the 2026-09-26 Opus review and the run-2 STOPPED entry below it. Skip every 2026-09-27 entry above them; they hold no evidence.
-3. `gh issue view 285`, read-only. It lists the test's assertions and the suspected failure modes.
-4. Code. **Serena:** call `initial_instructions` once, then `find_symbol`; don't read whole files.
-   All read only.
-   - Test: `backend/tests/MiniErp.ArchitectureTests/SqlServerSafetyTests.cs`,
-     `MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` (~3520), and its double
-     `SqlClaimOwnerGateway` (~4087).
-   - `backend/src/MiniErp.App/Modules/Migration/MigrationExecutionService.cs`, `ExecuteCoreAsync`
-     (~171–261): every early return a loser can take.
-   - `backend/src/MiniErp.Infrastructure/Persistence/Modules/Migration/MigrationPersistence.cs`, the
-     attempt-start path (~214–335), including `ResolveConcurrentAttemptAsync` (~879) and the
-     SqlException 1205 catch. `MigrationAttempt.StartNext` in `MigrationApplicationContracts.cs`
-     (~730).
-- **Context7:** not needed. **Ponytail:** full; it never trims failure output, gate output or the
-  RESULT.md entry. If a plugin is missing, say so in one line and continue.
+2. `gh issue view 286`, read-only.
+3. Code. **Serena:** call `initial_instructions` once, then `find_symbol` / `get_symbols_overview`;
+   don't read whole files.
+   - `backend/tests/MiniErp.ArchitectureTests/ModuleBoundaryTests.cs`:
+     `Allow_listed_raw_sql_is_tenant_scoped_and_lock_only` (~598) and its path constants.
+   - The three `ExecuteSqlInterpolatedAsync` sites it parses, in
+     `backend/src/MiniErp.Infrastructure/Persistence/Modules/Migration/MigrationPersistence.cs` and
+     `MigrationReconciliationPersistence.cs`.
+   - `backend/tests/MiniErp.ArchitectureTests/MigrationExecutionTests.cs`:
+     `Ar_reconciliation_read_fault_is_partial_but_cancellation_propagates` (~175) and the test
+     doubles it uses.
+   - The product code that reads AP and cash-bank reconciliation evidence during execution (find it
+     from the AR path). Read only.
+- **Context7:** only if you touch a Roslyn API you are unsure of. **Ponytail:** full; it never trims
+  assertions, gate output or the RESULT.md entry. If a plugin is missing, say so in one line and
+  continue.
 
 ## 3. Starting-state check (record the output in RESULT.md)
-- `git status -sb`: the tree is clean, you are on `fix/mesp-156-slice11-test-oracles`, and it is level
-  with `origin/fix/mesp-156-slice11-test-oracles`.
-- HEAD is the Opus commit whose subject starts `docs(routing): MESP-150 (#265) drop model line
-  from executor prompts`, and it descends from `c062ad6`.
-- `gh pr view 281 --json isDraft,state`: Draft, OPEN. `gh issue view 285 --json state`: OPEN.
-- Anything else is a stop (§8). Do not commit someone else's uncommitted work.
+- You are in a fresh worktree created from `origin/main`. HEAD descends from `6d14af7` (the PR #281
+  merge), and the tree is clean.
+- `gh issue view 286 --json state`: OPEN.
+- Anything else is a stop (§10).
 
 ## 4. Rules to preserve
-- **No product or test change of any kind**, not even a temporary one left in the tree. Do not
-  weaken, skip, retry or re-order any assertion. Stress comes from repetition and load, never from
-  editing code.
-- Every run's **complete console output** goes to a log under `$env:TEMP\mesp166\`, outside the
-  repository, via `*>&1 | Tee-Object`. Stage A and B runs also write a TRX file there. A red counts as
-  captured if its full failure message is in the console log **or** in the TRX file.
-- **Never set `$ErrorActionPreference = 'Stop'`** in the shell that runs the §5.2 block. In Windows
-  PowerShell 5.1, that plus `*>&1` ends the pipeline at the first line `dotnet test` writes to
-  stderr. Run 2 lost its red that way. Use the block exactly as written.
-- Never print, write to a file or commit a connection string or secret. Each run uses a fresh
-  disposable LocalDB and removes `MESP_DEV_AUTH_BYPASS` for the process.
+- **No product code change.** If an AP or cash-bank fault/cancellation path does not behave like AR,
+  that is a product finding: record it and stop (§10). Never shape a test around a defect.
+- Never weaken, skip or delete an existing assertion. The R4 allowlist stays exactly three raw-SQL
+  sites (the four-site baseline is ratified as Q-P). The ratchet only shrinks.
+- No fixed sleeps. No hard-coded environment data or secrets.
 
 ## 5. Scope and file allowlist
-1. **Build once:** `dotnet build .\backend\MiniErp.sln --configuration Release --no-restore`, with 0
-   warnings and 0 errors.
-   - The dev runtime from the last restart runs out of `MiniErp.Api\bin\Release` and locks its DLLs
-     (MSB3026 "locked by MiniErp.Api"). Before building, stop only the `MiniErp.Api` process listening
-     on port 5300 and the frontend process on port 4300, and record their PIDs. The §9 restart
-     replaces them. A lock that remains after that is a §8 stop.
-2. **Repro budget.** Run the stages in order. **At the first red, stop running and go to §5.3.**
-   For stages A and B, use this block from Windows PowerShell, changing only `$filter` and `$tag`
-   (`$tag` is unique per run: prefix every tag with `r3-`, e.g. `r3-A-01`, so run-2 logs are kept):
-   ```powershell
-   New-Item -ItemType Directory -Force "$env:TEMP\mesp166" | Out-Null
-   $db = "MiniErpFoundation_{0}_{1}" -f (Get-Date -Format 'yyyyMMddHHmmss'), ([Guid]::NewGuid().ToString('N').Substring(0,8))
-   $env:MESP_SQLSERVER_SAFETY_CONNECTION_STRING = "Server=(localdb)\MSSQLLocalDB;Database=$db;Integrated Security=True;TrustServerCertificate=True;"
-   Remove-Item Env:MESP_DEV_AUTH_BYPASS -ErrorAction SilentlyContinue
-   dotnet test .\backend\tests\MiniErp.ArchitectureTests --configuration Release --no-restore --no-build --filter $filter --logger "trx;LogFileName=$tag.trx" --results-directory "$env:TEMP\mesp166" *>&1 | Tee-Object -FilePath "$env:TEMP\mesp166\$tag.log"
-   Remove-Item Env:MESP_SQLSERVER_SAFETY_CONNECTION_STRING
-   ```
-   - **Stage A:** 30 isolated runs with
-     `$filter = "FullyQualifiedName~MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight"`.
-   - **Stage B:** 10 class-level runs with
-     `$filter = "FullyQualifiedName~MiniErp.ArchitectureTests.SqlServerSafetyTests"`.
-   - **Stage C:** up to 4 runs of the full gate,
-     `.\scripts\Test-MiniErpBackend.ps1 *>&1 | Tee-Object -FilePath "$env:TEMP\mesp166\gate-<n>.log"`
-     (Release is already built). The original red happened here.
-   - Record a table in RESULT.md with the stage, run number, pass or fail, and duration.
-3. **If a red is captured**, record these verbatim in RESULT.md:
-   - the failing test name;
-   - the failing assertion line;
-   - the full assertion message, including both `Kind:Code:attempt=` values;
-   - the stack frame inside the test.
+1. **SOL-CL-01: R4 shape.** In `Allow_listed_raw_sql_is_tenant_scoped_and_lock_only`, replace the
+   prefix/substring checks with a complete-shape check. Every statement must be:
+   - exactly one `SELECT … FROM [schema].[table] WITH (UPDLOCK, HOLDLOCK) WHERE [TenantId] = {…} AND
+     [<key>] = {…}`;
+   - with no `;`, no second statement, and no other clause or keyword after the predicate.
 
-   Then classify the red with a `file:line` reading of the code:
-   - **(a) Wrong loser code.** The loser returned `Unknown`, although committed state proves a
-     conflict. This is a product defect in the MESP-165 class. Name the return site.
-   - **(b) Correct but unlisted loser code.** The loser returned a safe, deterministic rejection that
-     the test does not accept: `migration_run_version_conflict`, `migration_run_terminal`, or a
-     lineage denial. This is an oracle question for Opus. **Do not edit the test.**
-   - **(c) Zero winners, or two owner executions.** A claim-safety defect. Name the interleaving.
-   - **(d) Other**, such as infrastructure, a deadlock victim surfaced as a failure, or LocalDB. Say
-     what it is, with the evidence.
+   Use one anchored regex or an equivalent single predicate. Keep `Assert.Equal(3, statements.Length)`.
+   Add a **negative self-check**, in the same test or in one new `[Fact]`: the new shape predicate
+   rejects at least these strings:
+   - a multi-statement string (`…; DELETE …`);
+   - a string without `HOLDLOCK`;
+   - a string without the `[TenantId]` predicate.
 
-   A red in a different test is also a finding. Record it the same way and stop.
-4. **If the whole budget stays green**, record the table and say so plainly. Do not re-classify the
-   original red; that decision is Opus's.
-5. File allowlist: `RESULT.md` (one new top entry) and `TASK.md` (Status → CONSUMED). No other file.
-   Logs stay in `$env:TEMP\mesp166\`; paste only the relevant excerpts.
+   It must also accept each real statement. Record in RESULT.md one string that the **old** checks
+   would have accepted and the new one rejects.
+2. **SOL-CL-04: D-18.** In `MigrationExecutionTests`, add AP and cash-bank equivalents of
+   `Ar_reconciliation_read_fault_is_partial_but_cancellation_propagates`. They cover the same two
+   facts:
+   - a read fault gives `partial`;
+   - cancellation propagates as a throw.
+
+   Reuse the existing doubles and helpers. A `[Theory]` over the three domains is acceptable if it
+   keeps every AR assertion.
+3. File allowlist: the two test files above, `RESULT.md` (one new top entry) and `TASK.md` (Status →
+   CONSUMED). No other file.
 
 ## 6. Out of scope
-- Any fix, even an obvious one.
-- Any change to the test, the owner gateway double, product code, governance docs, ROADMAP or the
-  Sol follow-ups.
-- Closing or reopening any issue, or any Status or Capability State change. Jira in any form.
+- Product code, the allowlist contents, other tests and governance docs.
+- The MESP-166 (#285) watch item, the golden cycle, UI.
+- Any tracker write except the one evidence comment in §9. Jira in any form.
 
-## 7. Gates (paste the output tail and the wall time)
-1. The §5.1 build result and the §5.2 run table, with each run's result line.
-2. At least one Stage C full-gate run on the final tree, whatever its result. Report 0 warnings,
-   0 errors, the pass count, the disposable-database line and "MESP data is intact".
-   - If Stage C ran, its runs count.
-   - If a red stopped the budget earlier, run the gate once more and report the result as it is.
-3. `git diff --check` is clean, and `git diff --name-only <review commit> HEAD` lists only §5.5 files.
-- Reused, not re-run: the EF pending-model check (no model change), frontend, npm audit, Playwright.
+## 7. Acceptance matrix (Opus checks each)
+| # | Criterion |
+|---|---|
+| A1 | The shape check is anchored and complete: one statement, hint, both predicates, nothing after. |
+| A2 | The negative self-check rejects the three bad strings and accepts all three real statements. |
+| A3 | A string the old check accepted is shown to be rejected by the new one. |
+| A4 | The AP and cash-bank tests assert `partial` on fault and a throw on cancellation, with exact values. |
+| A5 | The diff touches only the §5.3 files; no assertion is weakened. |
+| A6 | Backend gate green with 0 skipped; the count equals 1555 plus the tests you added, stated exactly. |
 
-## 8. Stop conditions (write a `STOPPED` entry; do not improvise)
-- The starting state does not match, or the build is not clean.
-- Continuing would need a change to a file outside §5.5.
-- A red appears whose full output you did not capture. Record that fact. Do not re-run beyond the
-  remaining budget to "get a better one".
-- **After a red, commit only RESULT.md and TASK.md.** Never push anything else. Never call a red
-  "timing-dependent" or "pre-existing" without the §5.3 classification.
+## 8. Gates (paste the output tail and the wall time)
+1. `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` from Windows PowerShell: 0 warnings / 0
+   errors, pass count, 0 skipped, the disposable-database line and "MESP data is intact". If the Release
+   build is locked by a running dev API (MSB3026), stop only the `MiniErp.Api` process on port 5300 and
+   the frontend on port 4300, record their PIDs, and let the §9 restart replace them.
+2. `git diff --check` is clean. `git diff --name-only origin/main HEAD` lists only §5.3 files.
+- Not re-run, because nothing they cover changes: EF pending-model, frontend, Playwright, npm audit.
 
 ## 9. Git / PR delivery (positive authority, exactly this)
-- One commit, `docs(migration): MESP-166 (#285) record claim-race diagnosis`, containing RESULT.md and
-  TASK.md. Self-review the staged diff first.
-- A normal fast-forward push of `fix/mesp-156-slice11-test-oracles`, which updates Draft PR #281. Add
-  a MESP-166 row with the outcome to PR #281's body. The PR stays a Draft.
-- One evidence comment on #285, with the run table, the captured failure (or "budget green") and the
-  classification.
-- **NOT authorized:**
-  - Ready, reviewers, approval or merge;
-  - update-branch, rebase or force-push;
-  - any push to `main`;
-  - closing or reopening any issue, or any other tracker write.
-- **Before the commit**, restart the local runtime (`MODEL_ROUTING.md` §4.7). The §5.2 block
-  removed `MESP_DEV_AUTH_BYPASS` from your shell; without it the launcher waits forever on a hidden
-  password prompt, which is why run 2's restart hung. So restore it from the user scope first:
+- Branch `chore/mesp-167-r4-shape-d18-tests` from `origin/main`.
+- Self-review the staged diff, then make commits with the prefix `test(architecture)` or
+  `test(migration)`. Reference `MESP-167 (#286)`.
+- Push the branch normally and open a **Draft** PR to `main` titled
+  `test: MESP-167 (#286) R4 shape pin and D-18 AP/cash-bank tests`. Its body has the A1–A6 evidence.
+- One evidence comment on #286.
+- **Before the final commit**, restart the local runtime (`MODEL_ROUTING.md` §4.7):
   ```powershell
   $env:MESP_DEV_AUTH_BYPASS = [Environment]::GetEnvironmentVariable('MESP_DEV_AUTH_BYPASS','User')
   .\scripts\Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart -StartupTimeoutSeconds 180
   ```
-  Never print a connection string or secret. Record the result and URLs in RESULT.md, then commit,
-  push, edit the PR body and post the comment. Then **STOP.** No further mutation, including no
-  further RESULT.md edit.
+  Never print a connection string or secret. Record the result and URLs in RESULT.md.
+- **NOT authorized:**
+  - Ready, reviewers, approval or merge;
+  - rebase, force-push or any push to `main`;
+  - closing or reopening an issue, or a Status or Capability State change.
+- Then **STOP.**
 
-## 10. Hand-back
-- One `RESULT.md` entry at the top, per `MODEL_ROUTING.md` §7, with Status `DONE` or `STOPPED`. It
-  contains:
-  - the starting-state output and the build result;
-  - the run table;
-  - the captured failure, verbatim, with its §5.3 class, or "budget green";
+## 10. Stop conditions (write a `STOPPED` entry; do not improvise)
+- The starting state does not match, or the build is not clean.
+- The change would need a file outside §5.3, or a product change.
+- The AP or cash-bank path does not behave like AR (not `partial` on fault, or cancellation swallowed).
+  Record the file:line evidence as a product finding.
+- A real statement fails the new shape check. Record it; do not loosen the pattern to fit.
+- Any unrelated red in the gate: capture the full failure (console + TRX), classify it and stop.
+
+## 11. Hand-back
+- One `RESULT.md` entry at the top per `MODEL_ROUTING.md` §7, Status `DONE` or `STOPPED`. It holds:
+  - the starting-state output;
+  - the A1–A6 evidence with file:line;
+  - the old-vs-new rejection example;
   - the gate output and wall time;
   - the runtime restart result and URLs;
+  - the PR URL;
   - deviations.
-- **Exact next action:** "Opus 5.5 reviews the MESP-166 (#285) diagnosis and decides Slice 11 under
-  MESP-150 (#265)."
-- `TASK.md`: set this prompt's Status to **CONSUMED**. Leave the next-task summaries untouched.
+- **Exact next action:** "Opus 5.5 reviews MESP-167 (#286)."
+- `TASK.md`: set this prompt's Status to **CONSUMED**. Leave the summaries untouched.
 ```
 
-## Next-task summaries (Planner, 2026-09-26)
+## Next-task summaries (Planner, 2026-09-27)
 
 Accepted Executor cycles since the last Sol review: 1 (`ORCHESTRATION_STATE.yaml`; MODEL_ROUTING §2).
 
-### 1. MESP-166 (#285) claim-race diagnosis — DONE
-
-Accepted by Opus on 2026-09-27: budget green, and the lost red is non-blocking. Slice 11 is accepted
-under MESP-150 (#265), and PR #281 is merged. #285 stays open as a watch item. See RESULT.md.
-
-### 2. Cleanup follow-ups: governance text and BRD byte restore (SOL-CL-05, -06, -07)
-
-| | |
-|---|---|
-| Model / effort | **Opus 5.5** (governance docs are Planner-owned), then the backend suite, because the architecture tests read `AGENTS.md`. |
-| Work item | MESP-149 (#264) |
-| Scope | `AGENTS.md` §1.4: restore "stopped, **completed** or handed off". `AGENTS.md` §1.6 and `MODEL_ROUTING.md` §5: Ponytail never weakens **authorization, data-loss safeguards or accessibility**, in addition to the current list. `docs/requirements/16_Master_Data_and_Product_Catalog_BRD.md`: restore the tag blob `2a5febc` byte for byte. |
-| Out of scope | Any other rule change. No rule widens. |
-| Acceptance | `git diff` shows only these lines. `git rev-parse HEAD:docs/requirements/16_Master_Data_and_Product_Catalog_BRD.md` = `2a5febc…`. Backend suite green with 0 skipped. |
-
-### 3. Test hardening: R4 SQL shape and the D-18 AP/cash-bank tests (SOL-CL-01, SOL-CL-04)
-
-| | |
-|---|---|
-| Model / effort | **Luna 6 / max**, ending with the runtime restart (MODEL_ROUTING §4.7) |
-| Work item | A new Task under MESP-145 (#263), created when the prompt is written |
-| Scope | `ModuleBoundaryTests.Allow_listed_raw_sql_is_tenant_scoped_and_lock_only`: pin the complete statement shape (one `SELECT`, the `WITH (UPDLOCK, HOLDLOCK)` hint, a `WHERE [TenantId] = {…} AND [<key>] = {…}` predicate, no `;` and no second statement). Add a negative self-check proving that a multi-statement string is rejected. `MigrationExecutionTests`: add AP and cash-bank fault → `partial` and cancellation → throw tests, mirroring the AR test. |
-| Out of scope | The R4 allowlist itself: the four-site baseline is ratified (Q-P). Product code. |
-| Acceptance | Exact assertions. The negative check fails the old shape check and passes the new one. Backend suite green with 0 skipped. |
+1. **MESP-167 (#286)**: the prompt above. Opus reviews it and, on acceptance, merges it under Q-O.
+2. **Decide whether MESP-141 (#229) needs further slices before it closes** (Opus). The M40 exit
+   criteria are completed reconciliation, accepted exceptions, named approvals and a readiness
+   snapshot. This is a Planner judgment against BRD 40.
+3. **MESP-151 (#266): Golden Release-1 end-to-end cycle** (Executor), after item 2.
 
 ### Owner actions pending
-- None. The R4 sites are ratified (Q-P). MESP-149 (#264) stays open for follow-up 2; Opus closes it on
-  acceptance (Q-O).
-- Opus closed Draft PRs #277 and #278 on 2026-09-26 as superseded by the #281 lineage. Their branches
-  are kept.
+- None.

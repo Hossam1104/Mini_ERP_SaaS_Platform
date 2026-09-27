@@ -123,7 +123,9 @@ Planner reconciles and accepts/rejects.
   - pasted gate output and evidence;
   - input validation at trust boundaries;
   - fail-closed checks;
-  - security, Tenant-isolation, and accounting rules.
+  - security, authorization, Tenant-isolation, and accounting rules;
+  - data-loss safeguards;
+  - accessibility.
 
   Ponytail is never authority.
 - A harness without a plugin records that in its RESULT.md entry and falls back to targeted
