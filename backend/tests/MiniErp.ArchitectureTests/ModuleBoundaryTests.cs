@@ -608,12 +608,27 @@ public sealed class ModuleBoundaryTests
             .ToArray();
 
         Assert.Equal(3, statements.Length);
-        Assert.All(statements, sql =>
+
+        const string shape = @"\A\$""SELECT \[[A-Za-z_][A-Za-z0-9_]*\] FROM \[[A-Za-z_][A-Za-z0-9_]*\]\.\[[A-Za-z_][A-Za-z0-9_]*\] WITH \(UPDLOCK, HOLDLOCK\) WHERE \[TenantId\] = \{[^{};]+\} AND \[[A-Za-z_][A-Za-z0-9_]*\] = \{[^{};]+\}""\z";
+        bool HasExpectedShape(string sql) => System.Text.RegularExpressions.Regex.IsMatch(
+            sql,
+            shape,
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        Assert.All(statements, sql => Assert.True(HasExpectedShape(sql), sql));
+
+        const string multiStatement = "$\"SELECT [RunId] FROM [migration].[MigrationRuns] WITH (UPDLOCK, HOLDLOCK) WHERE [TenantId] = {tenant.TenantId} AND [RunId] = {runId}; DELETE FROM [migration].[MigrationRuns]\"";
+        Assert.StartsWith("$\"SELECT ", multiStatement, StringComparison.Ordinal);
+        Assert.Contains("WITH (UPDLOCK", multiStatement, StringComparison.Ordinal);
+        Assert.Contains("[TenantId] = {", multiStatement, StringComparison.Ordinal);
+
+        var invalidStatements = new[]
         {
-            Assert.StartsWith("$\"SELECT ", sql, StringComparison.Ordinal);
-            Assert.Contains("WITH (UPDLOCK", sql, StringComparison.Ordinal);
-            Assert.Contains("[TenantId] = {", sql, StringComparison.Ordinal);
-        });
+            multiStatement,
+            "$\"SELECT [RunId] FROM [migration].[MigrationRuns] WITH (UPDLOCK) WHERE [TenantId] = {tenant.TenantId} AND [RunId] = {runId}\"",
+            "$\"SELECT [RunId] FROM [migration].[MigrationRuns] WITH (UPDLOCK, HOLDLOCK) WHERE [RunId] = {runId}\""
+        };
+        Assert.All(invalidStatements, sql => Assert.False(HasExpectedShape(sql), sql));
     }
 
     [Fact]

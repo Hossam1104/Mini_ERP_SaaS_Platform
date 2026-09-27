@@ -191,6 +191,76 @@ public sealed class MigrationExecutionTests
         await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Service.ReadAsync(fixture.Request, prepared.Run.RunId));
     }
 
+    [Fact]
+    public async Task Ap_reconciliation_read_fault_is_partial_but_cancellation_propagates()
+    {
+        var proxy = DispatchProxy.Create<IFinanceSettlementPersistence, ArFinanceProxy>();
+        var finance = (ArFinanceProxy)(object)proxy;
+        await using var fixture = await ExecutionFixture.CreateAsync(apFinance: proxy);
+        var companyId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var sourceReference = "AP-UNIT-FAULT";
+        var payload = JsonSerializer.Serialize(new
+        {
+            companyId,
+            supplierId,
+            sourceReference,
+            documentDate = new DateOnly(2026, 1, 10),
+            openingDate = new DateOnly(2026, 1, 15),
+            amount = 100m,
+            currencyCode = "SAR",
+            dueDate = new DateOnly(2026, 2, 14)
+        });
+        var prepared = await fixture.PrepareAsync(
+            [fixture.Record(MigrationCanonicalRecordType.ApOpening, payload)],
+            [MigrationPlannedAction.Create]);
+        var executed = await fixture.Service.ExecuteAsync(fixture.Request, prepared.Run.RunId, "ap-fault-key", prepared.Run.Version);
+        Assert.True(executed.Succeeded, executed.Code);
+
+        finance.ReadFault = new InvalidOperationException("finance read fault");
+        var faulted = await fixture.Service.ReadAsync(fixture.Request, prepared.Run.RunId);
+        var row = Assert.Single(faulted!.ApEconomicReconciliations!);
+        Assert.Equal("partial", row.Status);
+        Assert.Equal("finance_ap_opening_evidence_not_reconciled", row.SafeCode);
+
+        finance.ReadFault = new OperationCanceledException();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Service.ReadAsync(fixture.Request, prepared.Run.RunId));
+    }
+
+    [Fact]
+    public async Task Cash_bank_reconciliation_read_fault_is_partial_but_cancellation_propagates()
+    {
+        var proxy = DispatchProxy.Create<IFinanceSettlementPersistence, ArFinanceProxy>();
+        var finance = (ArFinanceProxy)(object)proxy;
+        await using var fixture = await ExecutionFixture.CreateAsync(cashBankFinance: proxy);
+        var companyId = Guid.NewGuid();
+        var cashAccountId = Guid.NewGuid();
+        var sourceReference = "CASH-UNIT-FAULT";
+        var payload = JsonSerializer.Serialize(new
+        {
+            companyId,
+            cashAccountId,
+            sourceReference,
+            openingDate = new DateOnly(2026, 1, 15),
+            amount = 100m,
+            currencyCode = "SAR"
+        });
+        var prepared = await fixture.PrepareAsync(
+            [fixture.Record(MigrationCanonicalRecordType.CashBankOpening, payload)],
+            [MigrationPlannedAction.Create]);
+        var executed = await fixture.Service.ExecuteAsync(fixture.Request, prepared.Run.RunId, "cash-bank-fault-key", prepared.Run.Version);
+        Assert.True(executed.Succeeded, executed.Code);
+
+        finance.ReadFault = new InvalidOperationException("finance read fault");
+        var faulted = await fixture.Service.ReadAsync(fixture.Request, prepared.Run.RunId);
+        var row = Assert.Single(faulted!.CashBankEconomicReconciliations!);
+        Assert.Equal("partial", row.Status);
+        Assert.Equal("finance_cash_bank_opening_evidence_not_reconciled", row.SafeCode);
+
+        finance.ReadFault = new OperationCanceledException();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Service.ReadAsync(fixture.Request, prepared.Run.RunId));
+    }
+
     private static async Task<PreparedRun> PrepareArAsync(ExecutionFixture fixture, Guid companyId, Guid customerId, string sourceReference, decimal amount)
     {
         var payload = JsonSerializer.Serialize(new
@@ -694,7 +764,9 @@ public sealed class MigrationExecutionTests
             OwnerGateway owner,
             InMemoryValidationPersistence validation,
             TestReferenceAuthority references,
-            IFinanceSettlementPersistence? arFinance)
+            IFinanceSettlementPersistence? arFinance,
+            IFinanceSettlementPersistence? apFinance,
+            IFinanceSettlementPersistence? cashBankFinance)
         {
             this.connection = connection;
             Tenant = tenant;
@@ -705,6 +777,8 @@ public sealed class MigrationExecutionTests
             Validation = validation;
             References = references;
             ArFinance = arFinance;
+            ApFinance = apFinance;
+            CashBankFinance = cashBankFinance;
         }
 
         internal TenantContext Tenant { get; }
@@ -716,6 +790,9 @@ public sealed class MigrationExecutionTests
         internal TestReferenceAuthority References { get; }
         internal IFinanceSettlementPersistence? ArFinance { get; }
 
+        internal IFinanceSettlementPersistence? ApFinance { get; }
+        internal IFinanceSettlementPersistence? CashBankFinance { get; }
+
         internal static async Task<ExecutionFixture> CreateAsync(
             IReadOnlySet<OwnerResourceKind>? failingKinds = null,
             bool hideEvidenceAfterExecute = false,
@@ -723,7 +800,9 @@ public sealed class MigrationExecutionTests
             bool blockFirstOwnerExecute = false,
             bool failOwnerCreate = false,
             MigrationReferenceState referenceState = MigrationReferenceState.NotApplicable,
-            IFinanceSettlementPersistence? arFinance = null)
+            IFinanceSettlementPersistence? arFinance = null,
+            IFinanceSettlementPersistence? apFinance = null,
+            IFinanceSettlementPersistence? cashBankFinance = null)
         {
             var connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
@@ -757,8 +836,10 @@ public sealed class MigrationExecutionTests
                 owner,
                 references,
                 null,
-                arFinance is null ? null : new MigrationArOpeningExecutionCoordinator(persistence, references, arFinance));
-            return new ExecutionFixture(connection, tenant, request, persistence, service, owner, validation, references, arFinance);
+                arFinance is null ? null : new MigrationArOpeningExecutionCoordinator(persistence, references, arFinance),
+                apFinance is null ? null : new MigrationApOpeningExecutionCoordinator(persistence, references, apFinance),
+                cashBankOpeningCoordinator: cashBankFinance is null ? null : new MigrationCashBankOpeningExecutionCoordinator(persistence, references, cashBankFinance));
+            return new ExecutionFixture(connection, tenant, request, persistence, service, owner, validation, references, arFinance, apFinance, cashBankFinance);
         }
 
         internal MigrationExecutionService NewService(IFoundationAuditEvidenceSink? auditSink = null) => new(
@@ -771,7 +852,9 @@ public sealed class MigrationExecutionTests
             Owner,
             References,
             null,
-            ArFinance is null ? null : new MigrationArOpeningExecutionCoordinator(Persistence, References, ArFinance));
+            ArFinance is null ? null : new MigrationArOpeningExecutionCoordinator(Persistence, References, ArFinance),
+            ApFinance is null ? null : new MigrationApOpeningExecutionCoordinator(Persistence, References, ApFinance),
+            cashBankOpeningCoordinator: CashBankFinance is null ? null : new MigrationCashBankOpeningExecutionCoordinator(Persistence, References, CashBankFinance));
 
         internal MigrationStagedRecord Record(MigrationCanonicalRecordType type, string payload)
         {
@@ -1118,6 +1201,8 @@ public sealed class MigrationExecutionTests
         internal bool HideReadback { get; set; }
         internal Exception? ReadFault { get; set; }
         private FinanceMigrationArOpeningEvidence? evidence;
+        private FinanceMigrationApOpeningEvidence? apEvidence;
+        private FinanceMigrationCashBankOpeningEvidence? cashBankEvidence;
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
@@ -1126,12 +1211,24 @@ public sealed class MigrationExecutionTests
                 nameof(IFinanceSettlementPersistence.PreflightMigrationArOpeningAsync) => Preflight((FinanceRequestContext)args![0]!, (FinanceMigrationArOpeningCommand)args[1]!),
                 nameof(IFinanceSettlementPersistence.CreateMigrationArOpeningAsync) => Create((FinanceRequestContext)args![0]!, (FinanceMigrationArOpeningCommand)args[1]!),
                 nameof(IFinanceSettlementPersistence.ReadMigrationArOpeningAsync) => Read(),
+                nameof(IFinanceSettlementPersistence.PreflightMigrationApOpeningAsync) => PreflightAp((FinanceMigrationApOpeningCommand)args![1]!),
+                nameof(IFinanceSettlementPersistence.CreateMigrationApOpeningAsync) => CreateAp((FinanceRequestContext)args![0]!, (FinanceMigrationApOpeningCommand)args[1]!),
+                nameof(IFinanceSettlementPersistence.ReadMigrationApOpeningAsync) => ReadAp(),
+                nameof(IFinanceSettlementPersistence.PreflightMigrationCashBankOpeningAsync) => PreflightCashBank((FinanceMigrationCashBankOpeningCommand)args![1]!),
+                nameof(IFinanceSettlementPersistence.CreateMigrationCashBankOpeningAsync) => CreateCashBank((FinanceRequestContext)args![0]!, (FinanceMigrationCashBankOpeningCommand)args[1]!),
+                nameof(IFinanceSettlementPersistence.ReadMigrationCashBankOpeningAsync) => ReadCashBank(),
                 _ => DefaultTask(targetMethod?.ReturnType ?? typeof(Task))
             };
         }
 
         private static Task<FinanceArOpeningPreflightResult> Preflight(FinanceRequestContext context, FinanceMigrationArOpeningCommand command) =>
             Task.FromResult(new FinanceArOpeningPreflightResult(true, "ready", "SAR", FinanceApprovalRequirement.NotRequired, command.DueDate, null));
+
+        private static Task<FinanceApOpeningPreflightResult> PreflightAp(FinanceMigrationApOpeningCommand command) =>
+            Task.FromResult(new FinanceApOpeningPreflightResult(true, "ready", command.CurrencyCode, FinanceApprovalRequirement.NotRequired, command.DueDate, null));
+
+        private static Task<FinanceCashBankOpeningPreflightResult> PreflightCashBank(FinanceMigrationCashBankOpeningCommand command) =>
+            Task.FromResult(new FinanceCashBankOpeningPreflightResult(true, "ready", command.CurrencyCode, FinanceApprovalRequirement.NotRequired, null, null));
 
         private Task<FinanceOperationResult<FinanceOpenItemRecord>> Create(FinanceRequestContext context, FinanceMigrationArOpeningCommand command)
         {
@@ -1143,6 +1240,141 @@ public sealed class MigrationExecutionTests
 
         private Task<FinanceMigrationArOpeningEvidence?> Read() =>
             ReadFault is not null ? Task.FromException<FinanceMigrationArOpeningEvidence?>(ReadFault) : Task.FromResult(HideReadback ? null : evidence);
+
+        private Task<FinanceOperationResult<FinanceOpenItemRecord>> CreateAp(FinanceRequestContext context, FinanceMigrationApOpeningCommand command)
+        {
+            CreateCalls++;
+            apEvidence ??= BuildApEvidence(context, command);
+            return Task.FromResult(FinanceOperationResult<FinanceOpenItemRecord>.Success(apEvidence.OpenItem));
+        }
+
+        private Task<FinanceMigrationApOpeningEvidence?> ReadAp() =>
+            ReadFault is not null ? Task.FromException<FinanceMigrationApOpeningEvidence?>(ReadFault) : Task.FromResult(apEvidence);
+
+        private Task<FinanceOperationResult<FinanceJournalRecord>> CreateCashBank(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command)
+        {
+            CreateCalls++;
+            cashBankEvidence ??= BuildCashBankEvidence(context, command);
+            return Task.FromResult(FinanceOperationResult<FinanceJournalRecord>.Success(cashBankEvidence.RecognitionJournal));
+        }
+
+        private Task<FinanceMigrationCashBankOpeningEvidence?> ReadCashBank() =>
+            ReadFault is not null ? Task.FromException<FinanceMigrationCashBankOpeningEvidence?>(ReadFault) : Task.FromResult(cashBankEvidence);
+
+        private static FinanceMigrationApOpeningEvidence BuildApEvidence(FinanceRequestContext context, FinanceMigrationApOpeningCommand command)
+        {
+            var baseEvidence = BuildEvidence(context, new FinanceMigrationArOpeningCommand(
+                command.CompanyId,
+                Guid.NewGuid(),
+                command.SourceReference,
+                command.DocumentDate,
+                command.OpeningDate,
+                command.Amount,
+                command.CurrencyCode,
+                command.DueDate,
+                command.PaymentTermId,
+                command.SourcePayloadFingerprint,
+                command.IdempotencyKey,
+                command.RequestFingerprint,
+                command.SourceRecordId));
+            var openItem = baseEvidence.OpenItem with
+            {
+                Kind = FinanceOpenItemKind.Payable,
+                SupplierId = command.SupplierId,
+                CustomerId = null,
+                SourceContract = "migration-ap-opening.v1",
+                Reference = command.SourceReference,
+                DocumentDate = command.DocumentDate,
+                DueDate = command.DueDate ?? baseEvidence.OpenItem.DueDate,
+                CurrencyCode = command.CurrencyCode,
+                OriginalAmount = command.Amount,
+                FunctionalCurrencyCode = command.CurrencyCode,
+                OriginalFunctionalAmount = command.Amount
+            };
+            var journal = baseEvidence.RecognitionJournal with
+            {
+                CompanyId = command.CompanyId,
+                PostingDate = command.OpeningDate,
+                TransactionCurrencyCode = command.CurrencyCode,
+                SourceContract = "migration-ap-opening.v1",
+                SourceEvidenceId = openItem.SourceEvidenceId,
+                SourceEvidenceVersion = openItem.SourceEvidenceVersion
+            };
+            var sourceEffect = baseEvidence.SourceEffect with
+            {
+                CompanyId = command.CompanyId,
+                SourceContract = "migration-ap-opening.v1",
+                SourceEvidenceId = openItem.SourceEvidenceId,
+                SourceEvidenceVersion = openItem.SourceEvidenceVersion,
+                JournalId = journal.Id
+            };
+            return new FinanceMigrationApOpeningEvidence(openItem, journal, sourceEffect);
+        }
+
+        private static FinanceMigrationCashBankOpeningEvidence BuildCashBankEvidence(FinanceRequestContext context, FinanceMigrationCashBankOpeningCommand command)
+        {
+            var baseEvidence = BuildEvidence(context, new FinanceMigrationArOpeningCommand(
+                command.CompanyId,
+                Guid.NewGuid(),
+                command.SourceReference,
+                command.OpeningDate,
+                command.OpeningDate,
+                command.Amount,
+                command.CurrencyCode,
+                command.OpeningDate,
+                null,
+                command.SourcePayloadFingerprint,
+                command.IdempotencyKey,
+                command.RequestFingerprint,
+                command.SourceRecordId));
+            var contract = "migration-cash-bank-opening.v1";
+            var journal = baseEvidence.RecognitionJournal with
+            {
+                CompanyId = command.CompanyId,
+                PostingDate = command.OpeningDate,
+                TransactionCurrencyCode = command.CurrencyCode,
+                SourceContract = contract
+            };
+            var sourceEffect = baseEvidence.SourceEffect with
+            {
+                CompanyId = command.CompanyId,
+                SourceContract = contract,
+                JournalId = journal.Id
+            };
+            var linkedAccountId = Guid.NewGuid();
+            var cashAccount = new FinanceCashAccountRecord(
+                command.CashAccountId,
+                context.TenantId.Value,
+                command.CompanyId,
+                "TEST-CASH",
+                "Test cash",
+                null,
+                default,
+                command.CurrencyCode,
+                linkedAccountId,
+                "TEST-LINK",
+                null,
+                default,
+                command.OpeningDate,
+                null,
+                Guid.NewGuid().ToByteArray());
+            var linkedAccount = new FinanceAccountRecord(
+                linkedAccountId,
+                context.TenantId.Value,
+                command.CompanyId,
+                "TEST-LINK",
+                "Test linked account",
+                null,
+                null,
+                default,
+                true,
+                default,
+                default,
+                command.OpeningDate,
+                null,
+                Guid.NewGuid().ToByteArray());
+            return new FinanceMigrationCashBankOpeningEvidence(cashAccount, linkedAccount, journal, sourceEffect);
+        }
 
         private static FinanceMigrationArOpeningEvidence BuildEvidence(FinanceRequestContext context, FinanceMigrationArOpeningCommand command)
         {
