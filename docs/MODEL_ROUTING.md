@@ -11,29 +11,67 @@ authority and Terra was an executor. That governance is archived in
 
 ## 1. Roles and efforts
 
-| Model | Role | Default effort |
+| Paseo profile / model | Role | Default effort |
 |---|---|---|
-| **Claude Opus 5.5** | **Planner / Architect / Acceptance Authority.** Covers planning, architecture, backlog, routing, quota, reviewing every result, acceptance, and the release go/no-go. Not a normal code executor. May edit governance and planning docs and the tracker backlog. Holds the owner's standing GitHub/repo delegation to accept, close, mark Ready and merge (Q-O). | as needed |
-| **Luna 6** | **Default executor and heavy scripting.** Covers implementation, refactors, live runs, Git/tracker hygiene, and doc updates. Restarts the local backend and frontend at the end of every prompt (§4.7). | **max**, always (owner ruling, 2026-09-26). |
-| **Sol 6** | **Periodic independent reviewer**, once every 10–15 executor prompts (§2). Advisory. Has no planning or acceptance authority. | **high**; **xhigh** when release-critical |
-| **Claude Sonnet 5** | **Bug fixer** for contained, **already diagnosed** code or automation defects. That means one root cause, a few files, and a failing check to turn green. Restarts the local backend and frontend at the end of every prompt (§4.7). | **medium**; **high** for core lifecycle, money, or data-oracle fixes |
+| Planner — Claude Opus 5.5 | Planner, architect, project-state authority, backlog authority, router, normal reviewer, acceptance authority, release go/no-go coordinator, and orchestration controller. Not a normal code executor. | `medium` |
+| Executor — GPT-6 Luna | Default implementation agent for features, refactors, repository-heavy investigation, scripting, tests, Git/tracker hygiene when authorized, and easy/normal/medium technical defects. | `max` |
+| Hard Bug — Claude Sonnet 5 | Protected specialist for genuinely difficult technical defects only. | `high` |
+| Independent Review — GPT-6 Sol | Independent project-wide and critical-point reviewer. Advisory; no normal implementation and no final acceptance authority. | `high` |
 
-- The effort scale is low < medium < high < xhigh < max.
-- Luna 6 is bug-prone even at high effort. Never route it below max.
-- Models not listed here are not routed any work. GPT-5.6 Terra is retired (Q1).
+- Executor/Luna is the default technical worker.
+- Opus spends quota on planning, architecture, routing and acceptance rather
+  than mechanical repository work.
+- Business severity alone does not justify Hard Bug routing.
+- An ordinary Executor mistake returns to Executor as a focused correction.
+- Hard Bug is reserved for evidence-backed difficulty such as:
+  - concurrency or nondeterminism;
+  - deep lifecycle/state corruption;
+  - difficult cross-layer root causes;
+  - architecture-sensitive defects;
+  - security/Tenant/accounting/data-integrity-sensitive recovery;
+  - or competent Executor failure where another ordinary attempt is unlikely
+    to be economical.
+- Independent Review challenges Planner decisions but does not replace Planner
+  authority.
 
-## 2. Sol 6 review cadence
+## 2. Independent Review cadence and critical points
 
-The owner set this cadence on 2026-09-26 (Q-N). It replaces the earlier per-critical-point reviews.
+A periodic review cycle counts only when an Executor/Luna implementation cycle
+is ACCEPTED by Planner.
 
-- Sol 6 reviews **once every 10–15 executor prompts** (Luna 6 and Sonnet 5 prompts; Opus review
-  sessions do not count). Opus picks the point inside that window at a natural boundary, such as the
-  end of a slice or before a merge to `main`.
-- One Sol review covers everything accepted or merged since the previous Sol review: the diff range,
-  the RESULT.md entries and the Opus verdicts.
-- Opus keeps the count in [`ROADMAP.md`](ROADMAP.md) ("Executor prompts since the last Sol review"),
-  and writes the Sol prompt into `TASK.md` when the count reaches the window.
-- A Sol finding becomes a tracker item. Opus rules on it like any other result.
+Rejected attempts and focused correction attempts do not independently
+increment the counter.
+
+Planner records the durable counter in `ORCHESTRATION_STATE.yaml`.
+
+Periodic triggers:
+
+- normal review: 12 accepted Executor cycles since the previous Sol review;
+- early review: 8–10 accepted cycles when material architectural risk,
+  repeated failure, major scope change, data-integrity work, or accumulated
+  uncertainty warrants it;
+- mandatory review: 15 accepted cycles.
+
+At 15, no further normal implementation begins until Independent Review has
+completed and Planner has reconciled its findings.
+
+Independent Review is also triggered regardless of the periodic counter at
+these MESP critical points:
+
+1. review before merging a stabilization or major feature line to `main`
+   when existing project authority requires independent review;
+2. first implementation of new money, security, Tenant-isolation, or
+   data-integrity logic;
+3. material changes to core lifecycle, identity, authentication, authorization,
+   or release-gate logic;
+4. release go/no-go before owner delivery;
+5. any additional owner-requested independent review.
+
+A critical-point review does not grant merge, Ready, release, tracker, or
+capability authority.
+
+Sol reports findings.
+Planner reconciles and accepts/rejects.
 
 ## 3. Routing and quota
 
@@ -94,18 +132,46 @@ The owner set this cadence on 2026-09-26 (Q-N). It replaces the earlier per-crit
   or policy utility, find the existing pattern that already owns the concern. Examples: approval/SoD,
   idempotency, Tenant authorization, concurrency, audit, money, and persistence. Reuse it.
 
-## 6. Prompt release
+## 6. Autonomous task release
 
-- After Opus reviews a result, it writes the next full executor or reviewer prompt into `TASK.md`
-  (Status `OPEN`) **in the same session** and commits it. No `p` or other trigger message is needed.
-  The owner removed the `p` gate on 2026-09-25 (Q-M).
-- The owner reviews the prompt in `TASK.md`:
-  - if the owner has comments, they tell Opus, and Opus revises the prompt and commits the revision
-    before anything runs;
-  - otherwise the owner hands it to the named executor directly.
-- `TASK.md` holds one prompt at a time. Opus still writes the next-task summaries for the tasks
-  after it.
-- There is **no cap** on prompts per Opus conversation (Q7). The old "Prompt N/10" counter is retired.
+There is no routine owner `p` gate.
+
+Planner owns `TASK.md`.
+
+After accepting or reconciling the previous result, Planner:
+
+1. determines the next task that is positively authorized by current project
+   authority;
+2. writes exactly one self-contained `Status: OPEN` executable contract into
+   `TASK.md`;
+3. creates/selects the appropriate Paseo execution workspace;
+4. launches the configured child profile;
+5. waits for completion;
+6. reviews the result;
+7. continues automatically when the next action is already authorized.
+
+When Executor operates in a Paseo Git worktree, Planner must pass the complete
+authoritative TASK.md contract in the child-agent instruction because an
+uncommitted Planner-side TASK.md may not exist in the worktree.
+
+Autonomy does not create authority.
+
+The absence of a prohibition is not permission.
+
+Planner must stop for owner/current-task authority when required for:
+
+- Ready transition;
+- merge;
+- issue close/reopen;
+- tracker Status or Capability State mutation;
+- capability activation;
+- production, destructive, financial or external action;
+- unresolved business decision;
+- material architecture or scope decision;
+- credentials or infrastructure;
+- any explicit STOP in current authority.
+
+Routine technical implementation and correction do not require owner relay.
 
 ## 7. Handoff files
 
@@ -141,32 +207,114 @@ The owner set this cadence on 2026-09-26 (Q-N). It replaces the earlier per-crit
 Live Git and the tracker outrank every Markdown file for mutable facts such as branch, PR, and issue
 state.
 
-## 8. Operating loop
+## 8. Autonomous Paseo operating loop
 
-1. The owner opens a fresh executor session with the model and effort Opus recommended in chat and
-   says: *"Execute the
-   prompt in TASK.md."*
-2. The executor does the work, adds its RESULT.md entry, marks the prompt `CONSUMED`, and commits.
-   The executor (Luna 6 or Sonnet 5) then restarts the local backend and frontend (§4.7).
-3. The owner opens a fresh Opus session and says: *"Review the latest RESULT.md entry."* Opus then:
-   - adds an `ACCEPTED` or `REJECTED` entry with reasons;
-   - updates ROADMAP and the tracker;
-   - writes the full next prompt into TASK.md and commits it (§6).
-4. The owner reviews the prompt. If they have comments, Opus revises it. Then back to step 1.
+1. Planner reconciles:
+   - live Git state;
+   - GitHub tracker state;
+   - AGENTS.md;
+   - TASK.md;
+   - newest RESULT.md entries;
+   - ORCHESTRATION_STATE.yaml;
+   - docs/ROADMAP.md;
+   - applicable requirements, ADRs and architecture authority.
 
-**Review checklist for Opus.** These failure patterns have recurred with executors:
-- A PASS reported while the exact requested oracle was only covered indirectly. Check the exact
-  assertions and the public read path, not adjacent tests or the mere presence of a schema.
-- An executor stopping too early on an open Production decision when the BRD explicitly allows a
-  bounded, decision-neutral slice.
-- An executor missing persisted owner evidence and asking for a new cross-module interface. Inspect the
-  historical evidence first.
-- Hosted CI accepted as provider evidence (CI excludes LocalDB), or expensive full suites re-run where
-  reused evidence is enough. State which one applies.
-- Static state text trusted over live Git and tracker state.
-- Generated directories deleted without first proving what is at the exact path.
+2. Live Git and the tracker outrank Markdown for mutable facts.
 
-## 9. Writing prompts (they run cold)
+3. Planner determines the next positively authorized task.
+
+4. Planner writes exactly one executable TASK.md contract.
+
+5. Planner launches the configured `Executor` profile unless routing evidence
+   requires another protected profile.
+
+6. Executor performs the task, required gates, RESULT.md hand-back,
+   TASK.md consumption, and only the Git/tracker delivery explicitly authorized.
+
+7. Planner reviews:
+   - TASK.md;
+   - completion report;
+   - RESULT.md;
+   - git diff;
+   - changed files;
+   - required local gates;
+   - applicable hosted CI evidence;
+   - business/architecture acceptance criteria;
+   - GitHub issue/PR state.
+
+8. Planner returns:
+   - ACCEPT;
+   - REJECT;
+   - BLOCKED.
+
+9. Straightforward technical rejection:
+   → focused Executor correction.
+
+10. Genuine difficult technical defect:
+    → Hard Bug / Sonnet 5 High.
+
+11. ACCEPT:
+    - update permitted roadmap/tracker state;
+    - increment accepted Luna-cycle counter;
+    - evaluate periodic and critical-point Independent Review triggers;
+    - determine the next already-authorized task;
+    - continue automatically.
+
+12. When Independent Review is due:
+    - launch `Independent Review`;
+    - reconcile findings;
+    - route corrections;
+    - reset the periodic counter after review closure.
+
+13. An explicit STOP remains a hard boundary.
+    Do not automatically proceed past:
+    - Draft/Open/Unmerged;
+    - do-not-mark-Ready;
+    - do-not-merge;
+    - await-acceptance;
+    - no-further-mutation;
+    - or equivalent task authority.
+
+14. Never infer Ready, merge, issue closure, capability activation or release
+    authority merely from passing tests, CI, reviews, or acceptance.
+
+## 9. Executor session lifecycle
+
+One Luna Executor session normally owns one complete `TASK.md` contract.
+
+A new TASK.md contract normally starts a fresh Executor session.
+
+Do not replace Executor merely because Codex automatically compacted its
+context.
+
+Continue the same Luna session while:
+
+- the objective is unchanged;
+- execution remains coherent;
+- completed work is not being repeated;
+- repository/worktree state remains clear;
+- and useful progress continues.
+
+Start a replacement Luna session for the SAME task only when:
+
+- repeated compaction causes material loss of state;
+- Luna rereads or repeats completed work;
+- the session becomes materially confused or contradictory;
+- context/session exhaustion cannot recover through normal compaction;
+- or a clean phase boundary allows safe bounded continuation.
+
+Before replacement:
+
+1. preserve the existing worktree and Git state;
+2. write a bounded checkpoint of completed work, remaining work, validations
+   and failures;
+3. retain the same TASK.md authority;
+4. launch the new Executor against the same worktree when safe;
+5. instruct it to perform only remaining scope.
+
+Planner does not micromanage normal automatic compaction.
+
+## 10. Writing prompts (they run cold)
 
 **Every prompt contains:**
 - the work item(s) as `MESP-<n> (#<issue>)`, and the branch;
@@ -181,9 +329,17 @@ state.
 **Starting state.** Never pin it to a SHA that the prompt's own commit will move. Use: "HEAD descends
 from `<sha>`, and `git diff --name-only <sha> HEAD` lists only `<planner files>`".
 
-**Delivery.** Recommend the model, effort and routing reason to the owner in chat only, and say "open
-a new session". The owner switches manually. The prompt itself never names a model or effort, so no
-executor gates on it. Then give exactly one fenced Markdown prompt, and nothing after the closing fence.
+**Delivery.** The Planner selects the appropriate configured Paseo profile and
+effort at the orchestration layer.
+
+The executable `TASK.md` contract remains model-neutral: it does not name or
+instruct the child about its model or effort.
+
+Planner launches the selected child agent through Paseo and passes the complete
+authoritative TASK.md contract to it.
+
+The owner does not manually relay routine executor prompts between Planner and
+Executor.
 
 **Skeleton:**
 
@@ -202,7 +358,7 @@ executor gates on it. Then give exactly one fenced Markdown prompt, and nothing 
 ## 11. Hand-back                (RESULT.md entry, TASK.md → CONSUMED, tracker evidence)
 ```
 
-## 10. Working decisions
+## 11. Working decisions
 
 - **Code is the fact.** If two governing docs conflict, don't pick one. Record the conflict and ask
   the owner.
@@ -225,7 +381,7 @@ executor gates on it. Then give exactly one fenced Markdown prompt, and nothing 
 - **Record your own mistakes** in RESULT.md with a classification, e.g. `AUTOMATION_DEFECT
   (Planner-introduced)`.
 
-## 11. Tracker conventions (GitHub Issues + Project #1)
+## 12. Tracker conventions (GitHub Issues + Project #1)
 
 - **Tracker.** The tracker is GitHub Issues plus Project
   [`MESP — Mini ERP SaaS Platform`](https://github.com/users/Hossam1104/projects/1). **Jira is
