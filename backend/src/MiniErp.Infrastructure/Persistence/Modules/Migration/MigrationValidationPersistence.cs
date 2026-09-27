@@ -321,7 +321,12 @@ internal sealed partial class MigrationPersistence
                 item.SourceSequence,
                 item.RecordType,
                 item.Disposition,
-                ReadList(item.FindingCodesJson))).ToArray(),
+                ReadList(item.FindingCodesJson),
+                item.SourceRecordId,
+                item.CanonicalPayload,
+                item.CorrectionOwner,
+                item.ErrorClass,
+                item.ActionableMessage)).ToArray(),
             entity.CompletedAt);
     }
 
@@ -378,7 +383,12 @@ internal sealed partial class MigrationPersistence
         && left.SourceSequence == right.SourceSequence
         && left.RecordType == right.RecordType
         && left.Disposition == right.Disposition
-        && left.FindingCodes.SequenceEqual(right.FindingCodes, StringComparer.Ordinal);
+        && left.FindingCodes.SequenceEqual(right.FindingCodes, StringComparer.Ordinal)
+        && left.SourceRecordId == right.SourceRecordId
+        && left.CanonicalPayload == right.CanonicalPayload
+        && left.CorrectionOwner == right.CorrectionOwner
+        && left.ErrorClass == right.ErrorClass
+        && left.ActionableMessage == right.ActionableMessage;
 
     private static bool SameDryRun(MigrationDryRunPreview stored, MigrationDryRunPreview requested) =>
         stored.TenantId == requested.TenantId

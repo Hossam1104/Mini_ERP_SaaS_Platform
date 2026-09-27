@@ -17,16 +17,40 @@ internal static class MigrationValidationResultPolicy
         IReadOnlyList<MigrationStagedRecord> staged,
         IReadOnlyDictionary<int, (MigrationRecordDisposition Disposition, List<string> Codes)> results,
         IReadOnlyList<MigrationValidationFinding> findings,
-        DateTimeOffset completedAt)
+        DateTimeOffset completedAt,
+        IReadOnlyDictionary<int, MigrationParsedCanonicalRow>? parsedRows = null,
+        IReadOnlyDictionary<Guid, MigrationValidationRecordResult>? previousRecords = null)
     {
+        var findingByRecord = findings
+            .Where(item => item.StagedRecordId is not null)
+            .GroupBy(item => item.StagedRecordId!.Value)
+            .ToDictionary(group => group.Key, group => group
+                .OrderByDescending(item => item.Severity)
+                .ThenBy(item => item.Code, StringComparer.Ordinal)
+                .First());
         var records = staged
             .OrderBy(item => item.SourceSequence)
-            .Select(item => new MigrationValidationRecordResult(
-                item.StagedRecordId,
-                item.SourceSequence,
-                item.RecordType,
-                results[item.SourceSequence].Disposition,
-                results[item.SourceSequence].Codes.ToArray()))
+            .Select(item =>
+            {
+                MigrationParsedCanonicalRow? parsed = null;
+                if (parsedRows is not null)
+                    parsedRows.TryGetValue(item.SourceSequence, out parsed);
+                findingByRecord.TryGetValue(item.StagedRecordId, out var finding);
+                MigrationValidationRecordResult? previous = null;
+                if (previousRecords is not null)
+                    previousRecords.TryGetValue(item.StagedRecordId, out previous);
+                return new MigrationValidationRecordResult(
+                    item.StagedRecordId,
+                    item.SourceSequence,
+                    item.RecordType,
+                    results[item.SourceSequence].Disposition,
+                    results[item.SourceSequence].Codes.ToArray(),
+                    item.SourceRecordId,
+                    parsed?.PayloadJson ?? item.CanonicalPayload,
+                    parsed?.CorrectionOwner,
+                    finding?.Category.ToString() ?? previous?.ErrorClass,
+                    finding?.Message ?? previous?.ActionableMessage);
+            })
             .ToArray();
         return new(
             Guid.NewGuid(),
@@ -79,7 +103,8 @@ internal static class MigrationValidationResultPolicy
         IReadOnlyList<MigrationStagedRecord> staged,
         MigrationAttemptRecord attempt,
         IDictionary<int, (MigrationRecordDisposition Disposition, List<string> Codes)> results,
-        ICollection<MigrationValidationFinding> findings)
+        ICollection<MigrationValidationFinding> findings,
+        IReadOnlySet<int>? evaluateOnly = null)
     {
         var groups = rows
             .Where(item => item.Payload is MigrationGlOpeningPayload gl
@@ -99,7 +124,10 @@ internal static class MigrationValidationResultPolicy
             if (Math.Abs(group.Sum(item => item.Payload.Debit!.Value) - group.Sum(item => item.Payload.Credit!.Value)) <= 0.00000001m)
                 continue;
 
-            foreach (var item in group)
+            var affected = group.Where(item => evaluateOnly is null || evaluateOnly.Contains(item.Row.SourceSequence)).ToArray();
+            if (affected.Length == 0)
+                continue;
+            foreach (var item in affected)
                 results[item.Row.SourceSequence] = (
                     MigrationRecordDisposition.Rejected,
                     [.. results[item.Row.SourceSequence].Codes, "migration_gl_opening_imbalanced"]);
@@ -126,7 +154,8 @@ internal static class MigrationValidationResultPolicy
         IReadOnlyList<MigrationStagedRecord> staged,
         MigrationAttemptRecord attempt,
         IDictionary<int, (MigrationRecordDisposition Disposition, List<string> Codes)> results,
-        ICollection<MigrationValidationFinding> findings)
+        ICollection<MigrationValidationFinding> findings,
+        IReadOnlySet<int>? evaluateOnly = null)
     {
         var groups = rows
             .Where(item => item.Payload is MigrationGlOpeningPayload gl
@@ -147,7 +176,7 @@ internal static class MigrationValidationResultPolicy
             {
                 foreach (var duplicate in candidates.Where(candidate => candidate.Count() > 1))
                 {
-                    foreach (var row in duplicate)
+                    foreach (var row in duplicate.Where(item => evaluateOnly is null || evaluateOnly.Contains(item.SourceSequence)))
                     {
                         results[row.SourceSequence] = (MigrationRecordDisposition.Rejected, [.. results[row.SourceSequence].Codes, code]);
                         var stagedRow = staged.Single(item => item.SourceSequence == row.SourceSequence);

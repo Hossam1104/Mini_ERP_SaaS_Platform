@@ -56,6 +56,8 @@ internal sealed class MigrationRunEntity : ITenantOwned
 
     internal DateTimeOffset UpdatedAt { get; private set; }
 
+    internal string? CancellationReason { get; private set; }
+
     internal bool EvidenceConfirmed { get; private set; }
 
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
@@ -73,7 +75,7 @@ internal sealed class MigrationRunEntity : ITenantOwned
     /// stays the single authority, and it is evaluated against the persisted
     /// <see cref="Status"/> rather than any value the caller passes in.
     /// </remarks>
-    internal void ApplyDomainTransition(MigrationRunStatus target, DateTimeOffset updatedAt)
+    internal void ApplyDomainTransition(MigrationRunStatus target, DateTimeOffset updatedAt, string? cancellationReason = null)
     {
         if (!MigrationRun.IsTransitionAllowed(Status, target))
         {
@@ -81,7 +83,15 @@ internal sealed class MigrationRunEntity : ITenantOwned
                 "A migration run cannot be moved outside the domain transition map.");
         }
 
+        if (target == MigrationRunStatus.Cancelled
+            && (string.IsNullOrWhiteSpace(cancellationReason)
+                || cancellationReason.Trim().Length > 512
+                || cancellationReason.Any(char.IsControl)))
+            throw new InvalidOperationException("A pre-commit cancellation requires a bounded reason.");
+
         Status = target;
+        if (target == MigrationRunStatus.Cancelled)
+            CancellationReason = cancellationReason!.Trim();
         UpdatedAt = updatedAt;
         Version = Guid.NewGuid().ToByteArray();
         EvidenceConfirmed = false;
@@ -380,6 +390,11 @@ internal sealed class MigrationValidationRecordEntity : ITenantOwned
         RecordType = result.RecordType;
         Disposition = result.Disposition;
         FindingCodesJson = System.Text.Json.JsonSerializer.Serialize(result.FindingCodes);
+        SourceRecordId = result.SourceRecordId;
+        CanonicalPayload = result.CanonicalPayload;
+        CorrectionOwner = result.CorrectionOwner;
+        ErrorClass = result.ErrorClass;
+        ActionableMessage = result.ActionableMessage;
     }
 
     public TenantId TenantId { get; private set; }
@@ -390,6 +405,11 @@ internal sealed class MigrationValidationRecordEntity : ITenantOwned
     internal MigrationCanonicalRecordType RecordType { get; private set; }
     internal MigrationRecordDisposition Disposition { get; private set; }
     internal string FindingCodesJson { get; private set; } = "[]";
+    internal string? SourceRecordId { get; private set; }
+    internal string? CanonicalPayload { get; private set; }
+    internal string? CorrectionOwner { get; private set; }
+    internal string? ErrorClass { get; private set; }
+    internal string? ActionableMessage { get; private set; }
 }
 
 internal sealed class MigrationValidationFindingEntity : ITenantOwned

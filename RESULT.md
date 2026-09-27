@@ -4,6 +4,26 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-27 — MESP-169 (#292) MESP-141 Slice 12 — GPT-6 Luna / max — MESP-169 (#292), MESP-141 (#229)
+
+- Status: **DONE**; Opus 5.5 review pending.
+- Branch / starting SHA / ending SHA: `feat/mesp-169-migration-run-safety` from `main` at `98b1850b3e5413bf65aeeebaa42c42970b82f352`; code/test commits `d46dbdcd6d72d523a9a21315ea83ae4603c6bfcc` and `6b050fe`; the hand-back commit carrying this entry follows `6b050fe`.
+- Starting state: `git status --short --branch` showed clean `main`; `HEAD` and `origin/main` were `98b1850b3e5413bf65aeeebaa42c42970b82f352`; `git merge-base --is-ancestor d2de6e8 HEAD` returned 0; issue #292 was OPEN.
+- What changed: `d46dbdc` implements the four non-authoritative outcomes, pre-commit cancellation, quarantine metadata and corrected-row retry, additive MigrationDbContext migration, REST contracts and SQL/contract tests (26 files). `6b050fe` asserts all five preview projections against the dry-run plan and corrects the AC-015 evidence note. Draft PR #297 created; one evidence comment posted on #292.
+- A1: **PASS** — distinct validation-only, dry-run, preview and reconciliation-preview results; `MigrationRunSafetySqlServerTests.cs:31-101` snapshots stable keys and mapped values across Master Data, Business Parties, Procurement, Inventory, Finance and Sales. Preview projections are compared to the dry-run plan at `MigrationRunSafetySqlServerTests.cs:66-81`; snapshot implementation is at `:364-424`.
+- A2: **PASS** — `MigrationRunSafetySqlServerTests.cs:105-184` covers reason retention, replay/conflict, audit, foreign Tenant, wrong scope and Outcome Unknown. `MigrationOwnerExecutionSqlServerIntegrationTests.cs:100-106` rejects cancellation after committed owner effects.
+- A3: **PASS** — cancellation catalogue metadata at `FoundationRestContracts.cs:346`, route mapping at `MigrationEndpoints.cs:247-259`, and OpenAPI contract test at `RestFoundationTests.cs:128-151`.
+- A4: **PASS** — corrected retry and eligibility checks at `MigrationValidationApplication.cs:481-620`; SQL lineage, accepted-row protection, unchanged staged identity, preserved finding and replay assertions at `MigrationRunSafetySqlServerTests.cs:187-255`.
+- A5: **PASS** — persisted quarantine fields at `MigrationEntities.cs:383-420`; SQL assertions for all five fields and missing-metadata rejection at `MigrationRunSafetySqlServerTests.cs:258-296`.
+- A6: **PASS** — only M40-REQ-027/-031/-032/-040 and M40-AC-014/-015/-016/-021/-033 changed. Counts: Met 38, Partial 25, Not met 0, Deferred-by-authority 5, Depends-on 12 (80 total), `docs/audit/mesp-141-m40-traceability.md:5-14`. M40-REQ-040 remains Partial because compensation, reset and production recovery are out of scope under M40-DEC-005.
+- A7: **PASS** — final `Test-MiniErpBackend.ps1 -NoBuild:$false`: **1,563 passed, 0 failed, 0 skipped** (baseline 1,557 + 6), duration **5 m 26 s**; Release build 0 warnings / 0 errors. Disposable DB `MiniErpFoundation_20260927170543_c76fcc0f`; output: `MESP_SQLSERVER_CONNECTION_STRING (runtime): unchanged. MESP data is intact.` `MigrationDbContext` pending-model check: `No changes have been made to the model since the last migration.` `git diff --check`: clean. No frontend files changed; frontend gates not run.
+- Runtime restart after final code/test commit `6b050fe`: first Release build reported MSB3026/MSB3027 locks held by `MiniErp.Api` PID 23224. Stopped only that repository API process; retry `dotnet build .\backend\MiniErp.sln --configuration Release --no-restore` succeeded, 0 warnings / 0 errors, 27.18 s. `Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart -StartupTimeoutSeconds 180` passed API and Angular health checks (API PID 60116; Angular PID 36128). URLs: `http://localhost:5300`, `http://localhost:4300`, `http://tenant.localhost:4300`, `http://admin.localhost:4300`.
+- Evidence: Draft PR [#297](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/297); single issue evidence comment [#292](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/292#issuecomment-5856533800).
+- Deviations: Context7 was unavailable; no uncertain EF Core or ASP.NET API behavior required lookup. The AC-015 assertion/evidence correction added commit `6b050fe` before the final backend gate and restart.
+- Failures and classification: earlier in-scope implementation/test attempts exposed defects that were corrected before the final green gate; no unrelated red remained. Restart build lock was an environment lock by the authorized running API process, resolved by stopping only PID 23224 and successfully rebuilding/restarting.
+- Status files updated: `docs/audit/mesp-141-m40-traceability.md`, `RESULT.md`, `TASK.md`.
+- Exact next action: **Opus 5.5 reviews MESP-169 (#292).**
+
 ## 2026-09-27 — Opus: accept MESP-168, create Slices 12–15, Q-T, release MESP-169 — Claude Opus 5.5 / medium — MESP-168 (#289), MESP-169 (#292)
 
 - Status: **ACCEPTED** (MESP-168) and **DONE** (state updates).

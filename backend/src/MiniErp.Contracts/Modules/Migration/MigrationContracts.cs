@@ -61,7 +61,8 @@ public enum MigrationOperationKind
 {
     Validation = 1,
     DryRun = 2,
-    Execution = 3
+    Execution = 3,
+    Cancellation = 4
 }
 
 /// <summary>Safe result classification for the migration foundation.</summary>

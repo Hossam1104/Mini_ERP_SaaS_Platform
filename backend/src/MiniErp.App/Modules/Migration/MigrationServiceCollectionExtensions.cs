@@ -16,6 +16,7 @@ public static class MigrationServiceCollectionExtensions
         services.AddSingleton<MigrationFoundationService>();
         services.AddSingleton<MigrationIntakeService>();
         services.AddSingleton<MigrationValidationService>();
+        services.AddSingleton<MigrationRunSafetyService>();
         services.AddSingleton<MigrationInventoryOpeningExecutionCoordinator>();
         services.AddSingleton<MigrationArOpeningExecutionCoordinator>();
         services.AddSingleton<MigrationApOpeningExecutionCoordinator>();

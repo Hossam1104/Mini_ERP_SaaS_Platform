@@ -125,6 +125,51 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
     }
 
     [Fact]
+    public async Task Mesp169_cancellation_is_catalogued_and_published_with_a_typed_openapi_contract()
+    {
+        var descriptor = FoundationOperationCatalog.GetRequired("migration.run.cancel");
+        Assert.Equal("POST", descriptor.HttpMethod);
+        Assert.Equal("/api/v1/migrations/{runId:guid}/cancel", descriptor.Route);
+        Assert.Equal("tenant.migration.execute", descriptor.ExactPermissionCode);
+        Assert.Equal(FoundationScopePolicy.Tenant, descriptor.ScopePolicy);
+        Assert.True(descriptor.RequiresAntiforgery);
+        Assert.True(descriptor.RequiresMandatoryAudit);
+        Assert.True(descriptor.IsUnsafe);
+        Assert.Equal(FoundationConcurrencyPolicy.IfMatch, descriptor.Concurrency);
+        Assert.Equal(FoundationIdempotencyPolicy.Required, descriptor.Idempotency);
+
+        using var client = factory.CreateClient();
+        using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
+        var operation = document.RootElement.GetProperty("paths")
+            .GetProperty("/api/v1/migrations/{runId}/cancel")
+            .GetProperty("post");
+        Assert.Equal("migration.run.cancel", operation.GetProperty("operationId").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(operation.GetProperty("summary").GetString()));
+        var description = operation.GetProperty("description").GetString()!;
+        Assert.Contains("Cancellation requires a reason", description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("before execution starts", description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("200", operation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("400", operation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("403", operation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("409", operation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+
+        var requestProperties = new HashSet<string>(StringComparer.Ordinal);
+        CollectOpenApiProperties(
+            operation.GetProperty("requestBody").GetProperty("content").GetProperty("application/json").GetProperty("schema"),
+            document.RootElement,
+            requestProperties);
+        Assert.Contains("reason", requestProperties);
+        var responseProperties = new HashSet<string>(StringComparer.Ordinal);
+        CollectOpenApiProperties(
+            operation.GetProperty("responses").GetProperty("200").GetProperty("content").GetProperty("application/json").GetProperty("schema"),
+            document.RootElement,
+            responseProperties);
+        Assert.Contains("runId", responseProperties);
+        Assert.Contains("runStatus", responseProperties);
+        Assert.Contains("reason", responseProperties);
+    }
+
+    [Fact]
     public void Mesp133_settlement_operations_keep_tenant_and_mutation_security_contract()
     {
         var operationIds = new[]

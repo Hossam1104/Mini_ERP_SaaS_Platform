@@ -12,6 +12,36 @@ namespace MiniErp.ArchitectureTests;
 public sealed class MigrationApiContractTests
 {
     [Fact]
+    public void Mesp169_validation_and_dry_run_responses_are_labeled_and_never_claim_authoritative_import()
+    {
+        var tenantId = new TenantId(Guid.NewGuid());
+        var validation = new MigrationValidationSummary(
+            Guid.NewGuid(), tenantId, Guid.NewGuid(), Guid.NewGuid(), "package-hash", "source-hash",
+            0, 0, 0, 0, new Dictionary<string, int>(), [], DateTimeOffset.UtcNow);
+        var dryRun = new MigrationDryRunPreview(
+            Guid.NewGuid(), tenantId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "package-hash", "source-hash",
+            0, 0, 0, 0, new Dictionary<string, int>(), new Dictionary<string, decimal>(), 0, 0, [], DateTimeOffset.UtcNow);
+
+        var validationResponse = Project("ToValidationResponse", validation);
+        Assert.Equal("validation-only", validationResponse.GetProperty("outcome").GetString());
+        Assert.False(validationResponse.GetProperty("authoritativeImport").GetBoolean());
+
+        var dryRunResponse = Project("ToDryRunResponse", dryRun);
+        Assert.Equal("dry-run", dryRunResponse.GetProperty("outcome").GetString());
+        Assert.False(dryRunResponse.GetProperty("authoritativeImport").GetBoolean());
+
+        static JsonElement Project(string methodName, object value)
+        {
+            var method = typeof(MigrationEndpoints).GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.NotNull(method);
+            using var document = JsonDocument.Parse(JsonSerializer.Serialize(
+                method!.Invoke(null, [value]),
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+            return document.RootElement.Clone();
+        }
+    }
+
+    [Fact]
     public void Execution_response_exposes_cash_bank_reconciliation_and_preserves_existing_fields()
     {
         var reconciliation = new MigrationCashBankEconomicReconciliationRecord(
