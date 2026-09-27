@@ -54,6 +54,7 @@ Business decisions (BR/PD rows and the BRDs' open decisions) live with their BRD
 | Q-Q | Platform Administration Wave 1, MESP-65..85 (#154–#174) under MESP-2 (#91), is **in the Release 1 QA build**. | Sequenced after the golden cycle MESP-151 (#266) and before the API baseline MESP-152 (#267), so the baseline covers it. Owner decision 2026-09-27. |
 | Q-R | The total UI rework MESP-153 (#268) waits for a **reference UI example from the owner**; no AI starts it alone. Once the example arrives, it may run as a parallel lane beside the backend path. | Feature-screen rebuilds still follow the API baseline. Owner decision 2026-09-27. |
 | Q-S | Restart the backend and frontend after **every** Luna prompt finishes. | `MODEL_ROUTING.md` §4.7: in a Paseo worktree the Planner does it from the main checkout. Owner decision 2026-09-27. |
+| Q-T | Paseo child agents (Luna, Sonnet, Sol) run **inside the Planner's session and the main checkout**, not in a separate worktree workspace. | The Planner calls `create_agent` without a `workspaceId`. The tree must be clean on `main` at launch, and the Planner does not edit files while a child runs. The executor restarts the runtime itself (Q-S). This overrides the worktree default in the `AGENTS.md` orchestration section. Owner decision 2026-09-27. |
 
 ### 1.3 Standing product decisions (still in force)
 
