@@ -5,9 +5,9 @@ tracker item in [Project #1](https://github.com/users/Hossam1104/projects/1). Re
 `MESP-<n> (#<issue>)`. **Live tracker and Git state outrank this file.** Anyone who changes an item's
 state also updates the line here.
 
-_Last reconciled: 2026-09-27 (MESP-167 (#286) merged; owner decisions Q-Q, Q-R, Q-S; MESP-168 (#289) released)._
+_Last reconciled: 2026-09-27 (MESP-168 (#289) accepted; MESP-141 Slices 12–15 created as MESP-169..172 (#292–#295); Q-T)._
 
-**Accepted Executor cycles since the last Sol review: 2** (counter in `ORCHESTRATION_STATE.yaml`,
+**Accepted Executor cycles since the last Sol review: 3** (counter in `ORCHESTRATION_STATE.yaml`,
 `MODEL_ROUTING.md` §2; the owner reset it to 0 on 2026-09-27). The last Sol review was the MESP-149
 cleanup review (PR #278, closed unmerged as superseded).
 
@@ -32,7 +32,7 @@ Finish MESP-141 → Golden Release-1 cycle → stable functional/API baseline �
 
 | Item | State | Notes |
 |---|---|---|
-| MESP-141 (#229): Release 1 migration and repeatable Tenant onboarding | Active | Slices 1–11 are merged and **accepted**. Slice 11 was accepted under MESP-150 (#265) on 2026-09-27 after PR #281 merged; that PR fixed MESP-161..165 (#279, #280, #282–#284) and corrected the MESP-156..160 (#272–#276) oracles. MESP-166 (#285) stays open as a **watch item**: one full-gate red on the attempt-start path, whose output was lost, never reproduced (Opus 25/25; Luna 30 isolated, 10 class and 1 full-gate runs, all green). If it recurs, capture it and classify it under #285. Later slices are not activated. |
+| MESP-141 (#229): Release 1 migration and repeatable Tenant onboarding | Active | Slices 1–11 are merged and **accepted**. Slice 11 was accepted under MESP-150 (#265) on 2026-09-27 after PR #281 merged; that PR fixed MESP-161..165 (#279, #280, #282–#284) and corrected the MESP-156..160 (#272–#276) oracles. MESP-166 (#285) stays open as a **watch item**: one full-gate red on the attempt-start path, whose output was lost, never reproduced (Opus 25/25; Luna 30 isolated, 10 class and 1 full-gate runs, all green). If it recurs, capture it and classify it under #285. The MESP-168 (#289) audit (`docs/audit/mesp-141-m40-traceability.md`) found 80 rows: Met 30, Partial 32, Not met 1, Deferred-by-authority 5, Depends-on 12. So MESP-141 stays open until Slices 12–15 close the Partial and Not met rows. |
 | MESP-23 (#112): Open Questions Register | Living | The register of open business questions. It stays open. |
 
 ## Next (in order)
@@ -41,12 +41,14 @@ Backend path, run serially. The UI lane is parallel but waits for the owner's re
 
 | # | Item | Model / effort (planned) | Notes |
 |---|---|---|---|
-| 1 | MESP-168 (#289): MESP-141 closure audit, tracing BRD 40 requirements to code and tests | Executor | Read-only. One audit file. The prompt is in `TASK.md`. Opus then decides whether MESP-141 closes or which slices remain. |
+| 1 | MESP-169 (#292): MESP-141 Slice 12, covering the preview/dry-run no-effect contract, pre-commit cancellation and corrected-row retry | Executor | Audit gap groups 3–4. The prompt is in `TASK.md`. |
+| 1b | MESP-170 (#293): Slice 13, covering the source contract, lineage and validation coverage | Executor | Gap groups 1–2, within M40-DEC-003. |
+| 1c | MESP-171 (#294): Slice 14, covering the authority matrix, readiness review and report completeness | Executor | Gap group 5, within M40-DEC-006. Then Opus decides MESP-141 closure; the Depends-on rows (M27, Wave 1, MESP-28/30/38) are outside it. |
 | 2 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Executor | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
 | 3 | Platform Administration Wave 1: MESP-65..85 (#154–#174) under MESP-2 (#91) | Executor | **In the QA build (Q-Q).** 21 stories; Opus batches them into prompts. |
 | 4 | MESP-152 (#267): stable functional/API baseline | Executor | Covers Wave 1. The UI feature screens must preserve it. |
 | 5 | MESP-142 (#230): Release 1 stabilization, regression, performance, UAT and release candidate for QA | — | **Not Activated.** It needs positive activation authority. |
-| UI | MESP-153 (#268): total UI/UX modernization | Executor | **Waits for the owner's reference UI (Q-R).** The design system and shell can run beside items 2–4. Feature screens follow item 4. No Wafra-specific behavior (ADR-019). |
+| UI | MESP-153 (#268): total UI/UX modernization, plus MESP-172 (#295) bilingual Migration review (Slice 15) | Executor | **Waits for the owner's reference UI (Q-R).** The design system and shell can run beside items 2–4. Feature screens follow item 4. No Wafra-specific behavior (ADR-019). |
 
 **Estimate to a QA-ready build (2026-09-27, Planner):** about 10–14 weeks, so mid-December 2026 to
 early January 2027. It assumes the UI reference arrives within about 2 weeks. The biggest risks are
@@ -121,6 +123,7 @@ Epics that stay open because they have open children:
 | Reporting and cross-cutting | MESP-139 (#227) reporting catalogue. MESP-140 (#228) security/audit/files/notifications/localization/support. |
 | Entry model | MESP-143 (#231): Tenant-aware entry routing and Overview-first context (ADR-019). |
 | Governance | MESP-144 (#232) repository health checkpoint. GitHub Actions CI (#235). |
+| Migration audit | MESP-168 (#289): BRD 40 traceability audit, PR #291 at `d2de6e8`. |
 | Cleanup and operating model | MESP-149 (#264): cleanup on `main` (PR #271); Sol review accepted; follow-ups SOL-CL-05/06/07 applied 2026-09-27, SOL-CL-01/04 done in MESP-167 (#286), PR #288 at `1d2b75a`. MESP-150 (#265): Slice 11 accepted, PR #281 merged at `6d14af7`. |
 
 ## Known non-blocking findings

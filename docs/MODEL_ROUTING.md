@@ -104,11 +104,11 @@ Planner reconciles and accepts/rejects.
      connection string or any secret;
    - record the API and frontend URLs it prints, or its failure, in the RESULT.md entry. A failed
      restart is classified and reported; it is never fixed by editing the launcher or `.env*`.
-   - **Paseo worktrees (Q-S).** The running runtime belongs to the main checkout, and the launcher's
-     ownership guard blocks a restart from a worktree. There the executor records "restart: Planner
-     (worktree)" and skips it. After every Luna prompt finishes, DONE or STOPPED and merged or not, the
-     Planner restarts from the main checkout. It stops only the `MiniErp.Api` listener on port 5300,
-     builds Release, runs the launcher with `-Restart`, and records the URLs in its RESULT.md entry.
+   - **Every Luna prompt (Q-S, Q-T).** Executors run in the main checkout (Q-T), so the executor
+     restarts after its last code commit, DONE or STOPPED. The launcher does not build: stop only the
+     `MiniErp.Api` listener on port 5300, build Release, then run the launcher with `-Restart`. If a
+     child ever runs in a worktree, the launcher's ownership guard blocks the restart there. The child
+     records "restart: Planner (worktree)", and the Planner restarts from the main checkout.
    - The restart is the only runtime action this rule authorizes. It is not a gate and not a live,
      destructive or financial operation.
 

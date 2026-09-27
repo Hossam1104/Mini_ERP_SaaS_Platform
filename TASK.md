@@ -6,96 +6,121 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **CONSUMED** (first release, 2026-09-27). The Planner launches the child through Paseo and passes
-this contract verbatim (`MODEL_ROUTING.md` §6, §10).
+Status: **OPEN** (first release, 2026-09-27). The Planner launches the child through Paseo inside its own
+session and the main checkout (Q-T), and passes this contract verbatim (`MODEL_ROUTING.md` §6, §10).
 
 ```markdown
-# MESP-168 (#289) — MESP-141 closure audit: trace BRD 40 to implementation and tests
+# MESP-169 (#292) — MESP-141 Slice 12: preview no-effect, pre-commit cancellation, corrected retry
 
 ## 1. Role and authority
-- You are the **executor, read-only audit**. Opus 5.5 accepts or rejects your result and alone decides
-  whether MESP-141 (#229) closes. `AGENTS.md` binds you, §1 and §5 especially. Authorization is
-  positive: every action this prompt does not list is forbidden.
-- Work item: MESP-168 (#289), a Task under MESP-15 (#104), for capability MESP-141 (#229). Slices 1–11
-  are merged and accepted on `main`.
+- You are the **executor**. Opus 5.5 accepts or rejects your result. `AGENTS.md` binds you, §1, §2 and
+  §5 especially. Authorization is positive: every action this prompt does not list is forbidden.
+- Work item: MESP-169 (#292), a Task under MESP-15 (#104), for capability MESP-141 (#229). Source: the
+  accepted MESP-168 (#289) audit, `docs/audit/mesp-141-m40-traceability.md`, gap groups 3 and 4.
+- You run **in the main checkout** (Q-T), not in a worktree. The Planner does not edit files while you
+  run.
 
 ## 2. Read order
-1. `AGENTS.md`, then this prompt, then `gh issue view 289` (read-only).
-2. `docs/requirements/40_Data_Migration_and_Tenant_Onboarding_BRD.md`:
-   - §8 (`M40-REQ-001`..`M40-REQ-043`, 43 rows; §29 repeats these IDs);
-   - §23 (the MESP-141 implementation contract);
-   - §26 (open decisions);
-   - §27 (acceptance criteria);
-   - §29 (traceability).
-3. `docs/ROADMAP.md` MESP-141 row; `docs/DECISIONS.md` for anything that defers or narrows M40 scope.
-4. Code, read-only. **Serena:** call `initial_instructions` once, then `find_symbol` /
-   `get_symbols_overview` / `find_referencing_symbols`; never read whole files. Main areas:
-   - `backend/src/MiniErp.App/Modules/Migration/`;
+1. `AGENTS.md`, then this prompt, then `gh issue view 292` (read-only).
+2. `docs/audit/mesp-141-m40-traceability.md`: the rows for M40-REQ-027, -031, -032, -040 and M40-AC-014,
+   -015, -016, -021, -033.
+3. `docs/requirements/40_Data_Migration_and_Tenant_Onboarding_BRD.md`: those rows in §8 and §27, the
+   rules they cite in §29 (M40-RULE-013, -015, -016, -017, -018, -028; WF-02..WF-06), §23 and §26
+   (M40-DEC-005).
+4. Code. **Serena** first (`initial_instructions` once, then symbol tools); targeted line reads if C#
+   symbol lookup is namespace-only. Main areas:
+   - `backend/src/MiniErp.App/Modules/Migration/`: `MigrationValidationApplication`,
+     `MigrationValidationPolicy`, `MigrationExecutionService`, `MigrationApplicationContracts`
+     (run lifecycle);
    - `backend/src/MiniErp.Infrastructure/Persistence/Modules/Migration/`;
-   - the Migration API mappings;
-   - `backend/tests/MiniErp.ArchitectureTests/Migration*Tests.cs`;
-   - the Migration parts of `SqlServerSafetyTests.cs`;
-   - any Migration UI under `frontend/src/app/features/`.
-- **Context7:** not needed. **Ponytail:** full; it never trims evidence. If a plugin is missing, say so
-  in one line and continue.
+   - `backend/src/MiniErp.Api/MigrationEndpoints.cs` and the Foundation operation catalogue;
+   - the `Migration*Tests.cs` files and the Migration parts of `SqlServerSafetyTests`.
+- **Context7:** for EF Core or ASP.NET APIs you are unsure of. **Ponytail:** full, within `AGENTS.md`
+  §1.6. If a plugin is missing, say so in one line and continue.
 
 ## 3. Starting-state check (record the output in RESULT.md)
-- A fresh worktree from `origin/main`. HEAD descends from `1d2b75a` (the PR #288 merge), and the tree is
-  clean.
-- `gh issue view 289 --json state` and `gh issue view 229 --json state`: both OPEN.
+- `git status` clean, on `main`, HEAD descends from `d2de6e8` (the PR #291 merge).
+- `gh issue view 292 --json state`: OPEN.
 - Anything else is a stop (§10).
 
 ## 4. Rules to preserve
-- **Read-only.** No code, test, BRD, governance or tracker change beyond §9.
-- **Evidence, not inference.** "Met" needs a production file:line **and** a test that asserts it.
-  Code without a test is "Partial"; a test without matching code is not evidence.
-- Never invent a business rule or decide an open question. Open M40 decisions (e.g. M40-DEC-001) are
-  recorded as "Deferred-by-authority" with their source.
+- Tenant isolation, fail-closed scope checks, idempotency, the Outcome Unknown hard stop, and "Finance
+  owns accounting" (no journal is fabricated). Modules call each other only through public contracts.
+- Never weaken, skip or delete an existing assertion. Ratcheted allowlists only shrink.
+- **Never invent a business rule.** Production correction and recovery stay open under M40-DEC-005:
+  do not build or imply them. Where the BRD leaves a behavior undecided, fail closed and record it.
+- Migrations are additive and module-owned. Every EF context reports no pending model changes.
+- Every new public REST operation meets the `AGENTS.md` §2 REST/API Definition of Done: catalogue
+  metadata, real mapping, OpenAPI with a stable `operationId`, and a contract test.
 
-## 5. Scope and file allowlist
-1. Create `docs/audit/mesp-141-m40-traceability.md` with:
-   - **One table row per requirement:** every §8 `M40-REQ-*` and every §27 acceptance criterion.
-     Columns: `ID | Requirement (≤ 15 words) | Status | Implementation file:line | Test(s) | Notes`.
-     Status is one of `Met`, `Partial`, `Not met`, `Deferred-by-authority`, or
-     `Depends-on:<capability>`. Examples of the last: M27 Tenant lifecycle; Platform Administration
-     Wave 1, MESP-2 (#91) / MESP-65..85; MESP-48; MESP-50.
-   - **Counts** per status.
-   - **Gap groups:** the `Partial` and `Not met` rows grouped into candidate slices. Give each a
-     one-line scope and name the owning module. Keep `Depends-on` rows in their own group.
-   - **§29 check:** every ID in the BRD §29 matrix appears in your table. List any the BRD references
-     but never defines.
-2. `RESULT.md` (one new top entry) and `TASK.md` (Status → CONSUMED). No other file.
+## 5. Scope
+1. **Validation-only / preview / dry-run no-effect (M40-REQ-027; M40-AC-014, -015, -016).**
+   - Each mode returns a distinguishable, labelled result.
+   - SQL-backed tests prove that validation-only, preview and dry-run leave every authoritative
+     business store unchanged: Master Data, Finance journals and subledgers, Inventory ledger and
+     operational documents. Compare before and after row counts per owner table through the owners'
+     test seams.
+   - Preview exposes expected additions, duplicate outcomes, dependencies, control totals and
+     exceptions (AC-015). If the current dry-run already is the BRD "preview", prove it and say so;
+     do not add a redundant mode.
+2. **Pre-commit cancellation (M40-AC-033; M40-REQ-040 cancellation part).**
+   - A public cancel operation for a run with no committed owner effect. It records a required reason
+     and moves the run to `Cancelled`. It is idempotent, audited and Tenant/scope-checked.
+   - It is rejected once any owner effect is committed or the outcome is unknown.
+   - **Permission:** reuse an existing Migration permission whose holder the BRD treats as the run's
+     authorized owner. If none fits without a new authorization rule, stop (§10) and list the options.
+3. **Quarantine and corrected retry (M40-REQ-031, -032; M40-AC-021).**
+   - Quarantined rows carry a row outcome, an error class, an actionable message, the source ID and the
+     correction owner.
+   - A linked retry processes only corrected eligible rows. Accepted source IDs stay protected (no
+     duplicate effect), and the original rejection history stays visible.
+   - Reuse the existing intake/attempt lineage. If the BRD does not define who the correction owner is,
+     record the field as supplied data, not an inferred rule.
+4. Update `docs/audit/mesp-141-m40-traceability.md` for the rows you change: set their Status, add
+   file:line and test evidence, and update the counts.
 
 ## 6. Out of scope
-- Fixing anything, creating Bugs or Tasks, and changing Capability State or Status.
-- Proposing business rules.
-- Running live migrations or any database write.
+- Production correction and recovery (M40-DEC-005), compensation and reset flows.
+- Gap groups 1, 2, 5 and 6 (MESP-170..172). UI.
+- Any tracker write except the one evidence comment in §9. Jira in any form.
 
 ## 7. Acceptance matrix (Opus checks each)
 | # | Criterion |
 |---|---|
-| A1 | Every §8 `M40-REQ-*` and every §27 criterion has exactly one row. The counts reconcile to the BRD's own row counts (state them). |
-| A2 | Every `Met` row cites a production file:line and a named test. Opus spot-checks at least 10. |
-| A3 | Every `Deferred-by-authority` row cites its authority (BRD section, decision ID or issue). |
-| A4 | Gap groups are coherent candidate slices with owning modules; `Depends-on` rows are separated. |
-| A5 | The diff is exactly the audit file, `RESULT.md` and `TASK.md`. |
+| A1 | The three modes have distinct labelled results; SQL tests prove no authoritative business-store change for each. |
+| A2 | Cancel: pre-commit only, reason retained, idempotent, audited, Tenant/scope fail-closed; rejected after a commit or Outcome Unknown. Tests cover each branch. |
+| A3 | Cancel meets the REST/API DoD: catalogue, mapping, OpenAPI `operationId`, contract test. |
+| A4 | Corrected retry processes only corrected eligible rows, creates no duplicate effect for accepted IDs, and keeps rejection history. There are SQL tests. |
+| A5 | Quarantine rows carry all five M40-REQ-031 fields; a test asserts them. |
+| A6 | The audit file rows and counts are updated with evidence. No other row changes. |
+| A7 | All gates are green with 0 skipped; the backend count is 1557 plus the added tests, stated exactly. |
 
-## 8. Gates
-1. `git diff --check` is clean. `git diff --name-only origin/main HEAD` lists only §5 files.
-2. Backend suite: `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`, because a `docs/` file is added
-   and the architecture tests read repository files. Report 0 warnings / 0 errors, the pass count
-   (baseline **1557**), 0 skipped, the disposable-database line and "MESP data is intact", with wall
-   time. If the Release build is locked by the running dev API (MSB3026), run it with
-   `-Configuration Debug` instead and say so. **Do not stop or kill the dev runtime.**
+## 8. Gates (paste the output tail and the wall time)
+1. `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`: 0 warnings / 0 errors, the pass count, 0
+   skipped, the disposable-database line and "MESP data is intact". If the Release build is locked
+   by the running dev API (MSB3027/MSB3026), stop only the `MiniErp.Api` process on port 5300, record its
+   PID, and let the §9 restart replace it.
+2. `dotnet ef migrations has-pending-model-changes` for every context you touch: none pending.
+3. `git diff --check` is clean.
+4. The frontend gates are not run unless a frontend file changes; none should.
 
 ## 9. Git / PR delivery (positive authority, exactly this)
-- Branch `docs/mesp-168-m40-traceability` from `origin/main`. Self-review the staged diff.
-- Commit `docs(migration): MESP-168 (#289) BRD 40 traceability audit`; push normally.
-- Open a **Draft** PR to `main` titled `docs(migration): MESP-168 (#289) MESP-141 closure audit`. Its
-  body carries the status counts and gap groups.
-- One evidence comment on #289 with the counts.
-- **Runtime restart:** you are in a Paseo worktree, so record "restart: Planner (worktree)"
-  (`MODEL_ROUTING.md` §4.7, Q-S). Do not run the launcher.
+- Branch `feat/mesp-169-migration-run-safety` from `origin/main`. Self-review the staged diff, then make
+  conventional commits scoped `migration`, referencing `MESP-169 (#292)`.
+- Push normally and open a **Draft** PR to `main` titled
+  `feat(migration): MESP-169 (#292) MESP-141 Slice 12 run safety`. Its body carries the A1–A7 evidence.
+- One evidence comment on #292.
+- **After your last commit that changes code or tests**, restart the runtime from this checkout
+  (`MODEL_ROUTING.md` §4.7, Q-S):
+  ```powershell
+  # stop only the MiniErp.Api listener on 5300 if it is running, then:
+  dotnet build .\backend\MiniErp.sln --configuration Release --no-restore
+  $env:MESP_DEV_AUTH_BYPASS = [Environment]::GetEnvironmentVariable('MESP_DEV_AUTH_BYPASS','User')
+  .\scripts\Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart -StartupTimeoutSeconds 180
+  ```
+  Never print a connection string or secret. Record the result and URLs in RESULT.md. Only the
+  RESULT.md/TASK.md hand-back commit may follow.
+- Finally `git switch main` so the checkout is left on `main`, clean.
 - **NOT authorized:**
   - Ready, reviewers, approval or merge;
   - rebase, force-push or any push to `main`;
@@ -104,33 +129,36 @@ this contract verbatim (`MODEL_ROUTING.md` §6, §10).
 
 ## 10. Stop conditions (write a `STOPPED` entry; do not improvise)
 - The starting state does not match.
-- The change would need a file outside §5.
-- The BRD is internally inconsistent in a way that blocks classification. Record the conflicting
-  lines and stop the affected rows only; classify the rest.
-- Any red in the gate: capture the full failure, classify it and stop.
+- A required behavior needs a business rule the BRD does not give: a cancel permission, the
+  correction-owner semantics, or a preview behavior beyond the dry-run. Record the exact question and
+  the options, then stop that item only. Finish and deliver the rest.
+- The change would weaken Tenant isolation, idempotency or the Outcome Unknown stop, or would need an
+  allowlist to grow.
+- Any unrelated red in the gate: capture the full failure (console + TRX), classify it and stop.
 
 ## 11. Hand-back
 - One `RESULT.md` entry at the top per `MODEL_ROUTING.md` §7, Status `DONE` or `STOPPED`. It holds:
   - the starting state;
-  - the status counts;
-  - the gap-group summary;
+  - the A1–A7 evidence with file:line;
+  - the updated audit counts;
   - the gate output and wall time;
+  - the restart result and URLs;
   - the PR URL;
   - deviations.
-- **Exact next action:** "Opus 5.5 reviews MESP-168 (#289) and decides MESP-141 closure or remaining
-  slices."
+- **Exact next action:** "Opus 5.5 reviews MESP-169 (#292)."
 - `TASK.md`: set this prompt's Status to **CONSUMED**. Leave the summaries untouched.
 ```
 
 ## Next-task summaries (Planner, 2026-09-27)
 
-Accepted Executor cycles since the last Sol review: 2 (`ORCHESTRATION_STATE.yaml`; MODEL_ROUTING §2).
+Accepted Executor cycles since the last Sol review: 3 (`ORCHESTRATION_STATE.yaml`; MODEL_ROUTING §2).
 
-1. **MESP-168 (#289)**: the prompt above. Opus then decides whether MESP-141 closes or which slices
-   remain.
-2. **MESP-151 (#266): Golden Release-1 end-to-end cycle** (Executor).
-3. **Platform Administration Wave 1 (Q-Q)**: MESP-65..85, batched by Opus.
-4. **UI lane (Q-R)**: waits for the owner's reference UI example.
+1. **MESP-169 (#292)**: the prompt above.
+2. **MESP-170 (#293)**: Slice 13, covering the source contract, lineage and validation coverage.
+3. **MESP-171 (#294)**: Slice 14, covering the authority matrix, readiness review and reporting. Then Opus
+   decides MESP-141 closure.
+4. **MESP-151 (#266)**: the golden cycle. After it, Wave 1 (Q-Q).
+5. **UI lane (Q-R)**: MESP-153 and MESP-172 wait for the owner's reference UI example.
 
 ### Owner actions pending
 - Provide the reference UI example for MESP-153 (#268) (Q-R).
