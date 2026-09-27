@@ -1230,7 +1230,12 @@ public sealed class MigrationFoundationTests
             MigrationRunRecord run,
             MigrationRunStatus target)
         {
-            var applied = await Service.TransitionRunAsync(Request, run.RunId, target, run.Version);
+            var applied = await Service.TransitionRunAsync(
+                Request,
+                run.RunId,
+                target,
+                run.Version,
+                cancellationReason: target == MigrationRunStatus.Cancelled ? "Test cancellation" : null);
             Assert.True(applied.Succeeded, applied.Code);
             return applied.Value!;
         }

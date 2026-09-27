@@ -497,6 +497,12 @@ public sealed class MigrationRun : ITenantOwned
             MigrationOperationKind.Execution =>
                 Status is MigrationRunStatus.Approved or MigrationRunStatus.Executing or MigrationRunStatus.PartiallyCompleted,
 
+            // Cancellation is an attempt only before the execution boundary.
+            MigrationOperationKind.Cancellation =>
+                Status is MigrationRunStatus.Draft or MigrationRunStatus.Prepared or MigrationRunStatus.Validating
+                    or MigrationRunStatus.ValidationFailed or MigrationRunStatus.Validated
+                    or MigrationRunStatus.AwaitingApproval or MigrationRunStatus.Approved,
+
             _ => false
         };
     }
@@ -1081,7 +1087,8 @@ public sealed record MigrationRunRecord(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     byte[] Version,
-    bool EvidenceConfirmed = false);
+    bool EvidenceConfirmed = false,
+    string? CancellationReason = null);
 
 /// <summary>Persistence record for one explicit retry-lineage attempt.</summary>
 public sealed record MigrationAttemptRecord(
@@ -1146,7 +1153,8 @@ public sealed record StartMigrationAttemptCommand(
 public sealed record ApplyMigrationRunTransitionCommand(
     Guid RunId,
     MigrationRunStatus Target,
-    byte[] ExpectedVersion);
+    byte[] ExpectedVersion,
+    string? CancellationReason = null);
 
 /// <summary>
 /// Records the single terminal outcome of one Pending attempt under optimistic
@@ -1537,7 +1545,8 @@ public sealed class MigrationFoundationService
         Guid runId,
         MigrationRunStatus target,
         byte[] expectedVersion,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? cancellationReason = null)
     {
         ArgumentNullException.ThrowIfNull(requestContext);
         ArgumentNullException.ThrowIfNull(expectedVersion);
@@ -1551,6 +1560,12 @@ public sealed class MigrationFoundationService
             return MigrationOperationResult<MigrationRunRecord>.Rejected("migration_run_id_invalid");
         }
 
+        if (target == MigrationRunStatus.Cancelled
+            && (string.IsNullOrWhiteSpace(cancellationReason)
+                || cancellationReason.Trim().Length > 512
+                || cancellationReason.Any(char.IsControl)))
+            return MigrationOperationResult<MigrationRunRecord>.Rejected("migration_cancellation_reason_invalid");
+
         var before = await persistence.FindRunAsync(tenantContext, runId, cancellationToken);
         if (before is null)
         {
@@ -1559,17 +1574,19 @@ public sealed class MigrationFoundationService
 
         var saved = await persistence.ApplyRunTransitionAsync(
             tenantContext,
-            new ApplyMigrationRunTransitionCommand(runId, target, expectedVersion),
+            new ApplyMigrationRunTransitionCommand(runId, target, expectedVersion,
+                target == MigrationRunStatus.Cancelled ? cancellationReason!.Trim() : null),
             cancellationToken);
 
         var run = MigrationRun.Rehydrate(saved.Value ?? before);
         var metadata = MigrationAuditMetadata.Create()
             .With("from", before.Status.ToString())
             .With("to", target.ToString());
+        var operationId = target == MigrationRunStatus.Cancelled ? "migration.run.cancel" : TransitionOperationId;
         var evidence = await AppendAsync(
             requestContext,
             run,
-            TransitionOperationId,
+            operationId,
             saved,
             attempt: null,
             idempotencyKey: null,
@@ -1689,6 +1706,26 @@ public sealed class MigrationFoundationService
             ? MigrationOperationResult<MigrationRunRecord>.Rejected("migration_run_not_found")
             : MigrationOperationResult<MigrationRunRecord>.Success(run);
     }
+
+    public Task<IReadOnlyList<MigrationAttemptRecord>> ListAttemptsAsync(
+        TenantContext tenantContext,
+        Guid runId,
+        CancellationToken cancellationToken = default) =>
+        persistence.ListAttemptsAsync(tenantContext, runId, cancellationToken);
+
+    public Task<MigrationIdempotencyRecord?> FindIdempotencyAsync(
+        TenantContext tenantContext,
+        MigrationOperationKind operation,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        persistence.FindIdempotencyAsync(tenantContext, operation, idempotencyKey, cancellationToken);
+
+    public Task<MigrationAttemptRecord?> FindAttemptAsync(
+        TenantContext tenantContext,
+        Guid runId,
+        Guid attemptId,
+        CancellationToken cancellationToken = default) =>
+        persistence.FindAttemptAsync(tenantContext, runId, attemptId, cancellationToken);
 
     /// <summary>
     /// Appends exactly one evidence record describing the persisted outcome.

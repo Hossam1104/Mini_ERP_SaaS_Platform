@@ -135,7 +135,8 @@ public sealed record MigrationCanonicalRow(
     int SourceSequence,
     string? SourceRecordId,
     string RecordType,
-    JsonElement Payload);
+    JsonElement Payload,
+    string? CorrectionOwner = null);
 
 public abstract record MigrationCanonicalPayload;
 
@@ -234,7 +235,8 @@ public sealed record MigrationParsedCanonicalRow(
     MigrationCanonicalPayload Payload,
     string PayloadJson,
     bool HasForbiddenControlAccountId = false,
-    bool HasForbiddenMonetaryInput = false);
+    bool HasForbiddenMonetaryInput = false,
+    string? CorrectionOwner = null);
 
 /// <summary>Length-prefixed SHA-256 encoding shared by Migration operations.</summary>
 internal static class MigrationFingerprintEncoder
@@ -279,6 +281,21 @@ public static class MigrationValidationFingerprint
             intake.Source.Sha256,
             intake.Source.Length.ToString(CultureInfo.InvariantCulture),
             intake.Source.ConcurrencyVersion.ToString(CultureInfo.InvariantCulture)));
+
+    public static MigrationRequestFingerprint ForCorrectedValidation(
+        MigrationRunRecord run,
+        MigrationIntakeRecord intake,
+        string correctionFingerprint) =>
+        new(MigrationFingerprintEncoder.Compute(
+            Version,
+            "corrected-validation",
+            run.RunId.ToString("D", CultureInfo.InvariantCulture),
+            run.TenantId.Value.ToString("D", CultureInfo.InvariantCulture),
+            intake.Source.ObjectId.ToString("D", CultureInfo.InvariantCulture),
+            intake.Source.Sha256,
+            intake.Source.Length.ToString(CultureInfo.InvariantCulture),
+            intake.Source.ConcurrencyVersion.ToString(CultureInfo.InvariantCulture),
+            correctionFingerprint));
 
     public static MigrationRequestFingerprint ForDryRun(MigrationRunRecord run, MigrationValidationSummary validation) =>
         new(MigrationFingerprintEncoder.Compute(
@@ -354,6 +371,13 @@ public static class MigrationCanonicalPackageParser
             var rows = new List<MigrationParsedCanonicalRow>(package.Records.Count);
             foreach (var row in package.Records)
             {
+                if (!IsValidCorrectionOwner(row.CorrectionOwner))
+                {
+                    return MigrationCanonicalPackageParseResult.Failure(
+                        "migration_correction_owner_invalid",
+                        "A correction owner must be at most 128 characters and contain no control characters.");
+                }
+
                 if (!Enum.TryParse<MigrationCanonicalRecordType>(row.RecordType, ignoreCase: true, out var type)
                     || !Enum.IsDefined(type))
                 {
@@ -382,7 +406,8 @@ public static class MigrationCanonicalPackageParser
                     payload,
                     JsonSerializer.Serialize(payload, payload.GetType(), Options),
                     HasForbiddenControlAccountId: hasForbiddenControlAccountId,
-                    HasForbiddenMonetaryInput: hasForbiddenMonetaryInput));
+                    HasForbiddenMonetaryInput: hasForbiddenMonetaryInput,
+                    CorrectionOwner: BoundedCorrectionOwner(row.CorrectionOwner)));
             }
 
             return new(package, rows, null, null);
@@ -430,6 +455,78 @@ public static class MigrationCanonicalPackageParser
             Options);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
     }
+
+    public static bool TryParsePayload(
+        int sourceSequence,
+        string? sourceRecordId,
+        MigrationCanonicalRecordType type,
+        string payloadJson,
+        string? correctionOwner,
+        out MigrationParsedCanonicalRow? row)
+    {
+        row = null;
+        if (sourceSequence < 1
+            || string.IsNullOrWhiteSpace(payloadJson)
+            || payloadJson.Length > 2_000_000
+            || (correctionOwner is not null
+                && (correctionOwner.Trim().Length is 0 or > 128
+                    || correctionOwner.Any(char.IsControl))))
+            return false;
+
+        try
+        {
+            using var document = JsonDocument.Parse(payloadJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || DeserializePayload(type, document.RootElement) is not { } payload)
+                return false;
+
+            var isOpening = type is MigrationCanonicalRecordType.InventoryOpening
+                or MigrationCanonicalRecordType.ArOpening
+                or MigrationCanonicalRecordType.ApOpening
+                or MigrationCanonicalRecordType.CashBankOpening
+                or MigrationCanonicalRecordType.GlOpening;
+            var hasForbiddenControlAccountId = isOpening && document.RootElement.EnumerateObject().Any(item =>
+                string.Equals(item.Name, "controlAccountId", StringComparison.OrdinalIgnoreCase)
+                && item.Value.ValueKind != JsonValueKind.Null);
+            var hasForbiddenMonetaryInput = isOpening && document.RootElement.EnumerateObject().Any(item =>
+                ForbiddenSourceMonetaryFields.Contains(item.Name)
+                && item.Value.ValueKind != JsonValueKind.Null);
+
+            row = new MigrationParsedCanonicalRow(
+                sourceSequence,
+                sourceRecordId,
+                type,
+                payload,
+                JsonSerializer.Serialize(payload, payload.GetType(), Options),
+                hasForbiddenControlAccountId,
+                hasForbiddenMonetaryInput,
+                correctionOwner?.Trim());
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+        catch (OverflowException)
+        {
+            return false;
+        }
+    }
+
+    private static string? BoundedCorrectionOwner(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        return value.Trim();
+    }
+
+    private static bool IsValidCorrectionOwner(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+        || value.Trim().Length <= 128 && !value.Any(char.IsControl);
 
     private static JsonElement ParseElement(string json)
     {
@@ -492,7 +589,12 @@ public sealed record MigrationValidationRecordResult(
     int SourceSequence,
     MigrationCanonicalRecordType RecordType,
     MigrationRecordDisposition Disposition,
-    IReadOnlyList<string> FindingCodes);
+    IReadOnlyList<string> FindingCodes,
+    string? SourceRecordId = null,
+    string? CanonicalPayload = null,
+    string? CorrectionOwner = null,
+    string? ErrorClass = null,
+    string? ActionableMessage = null);
 
 public sealed record MigrationValidationSummary(
     Guid ValidationResultId,
@@ -510,6 +612,10 @@ public sealed record MigrationValidationSummary(
     DateTimeOffset CompletedAt)
 {
     public bool IsValid => RejectedCount == 0 && QuarantinedCount == 0;
+
+    public string Outcome => "validation-only";
+
+    public byte[]? RunVersion { get; init; }
 }
 
 public sealed record MigrationPreviewRow(
@@ -537,7 +643,30 @@ public sealed record MigrationDryRunPreview(
     int UnresolvedDependencyCount,
     int ExceptionCount,
     IReadOnlyList<MigrationPreviewRow> Rows,
-    DateTimeOffset CompletedAt);
+    DateTimeOffset CompletedAt)
+{
+    public string Outcome => "dry-run";
+}
+
+public sealed record MigrationNonAuthoritativePreview(
+    Guid RunId,
+    TenantId TenantId,
+    string Outcome,
+    int ExpectedAdditions,
+    int DuplicateOutcomes,
+    int UnresolvedDependencies,
+    IReadOnlyDictionary<string, decimal> ControlTotals,
+    int Exceptions,
+    bool AuthoritativeImport,
+    bool ApprovalCreated,
+    bool ReadinessCreated,
+    bool RunStateChanged,
+    IReadOnlyList<MigrationPreviewRow> Rows);
+
+public sealed record MigrationCorrectionSubmission(
+    Guid StagedRecordId,
+    string CorrectedPayload,
+    string CorrectionOwner);
 
 public sealed record StageMigrationPackageCommand(
     Guid RunId,

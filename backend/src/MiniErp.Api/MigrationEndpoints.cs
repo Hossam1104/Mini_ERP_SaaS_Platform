@@ -8,6 +8,63 @@ using MiniErp.Contracts.Modules.Migration;
 
 namespace MiniErp.Api;
 
+public sealed record MigrationCancelRequest(string? Reason);
+
+public sealed record MigrationCorrectedRetryRequest(IReadOnlyList<MigrationCorrectionSubmission>? Corrections);
+
+public sealed record MigrationValidationRecordResponse(
+    Guid StagedRecordId,
+    int SourceSequence,
+    string? SourceRecordId,
+    MigrationCanonicalRecordType RecordType,
+    MigrationRecordDisposition RowOutcome,
+    IReadOnlyList<string> FindingCodes,
+    string? ErrorClass,
+    string? ActionableMessage,
+    string? CorrectionOwner);
+
+public sealed record MigrationValidationResponse(
+    Guid ValidationResultId,
+    Guid TenantId,
+    Guid RunId,
+    Guid AttemptId,
+    string PackageHash,
+    string SourceSnapshotHash,
+    int TotalStagedRecords,
+    int AcceptedCount,
+    int RejectedCount,
+    int QuarantinedCount,
+    IReadOnlyDictionary<string, int> FindingCounts,
+    IReadOnlyList<MigrationValidationRecordResponse> Records,
+    bool IsValid,
+    DateTimeOffset CompletedAt,
+    string Outcome,
+    bool AuthoritativeImport,
+    byte[]? RunVersion);
+
+public sealed record MigrationNonAuthoritativePreviewResponse(
+    Guid RunId,
+    Guid TenantId,
+    string Outcome,
+    int ExpectedAdditions,
+    int DuplicateOutcomes,
+    int UnresolvedDependencies,
+    IReadOnlyDictionary<string, decimal> ControlTotals,
+    int Exceptions,
+    bool AuthoritativeImport,
+    bool ApprovalCreated,
+    bool ReadinessCreated,
+    bool RunStateChanged,
+    IReadOnlyList<MigrationPreviewRow> Rows);
+
+public sealed record MigrationCancellationResponse(
+    Guid RunId,
+    Guid TenantId,
+    Guid AttemptId,
+    MigrationRunStatus RunStatus,
+    string Reason,
+    byte[] Version);
+
 public sealed record MigrationExecutionResponse(
     Guid RunId,
     Guid TenantId,
@@ -114,6 +171,20 @@ public static class MigrationEndpoints
             .WithName("migration.validation.start")
             .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.validation.start")));
 
+        endpoints.MapPost(
+            "/api/v1/migrations/{runId:guid}/corrections/retry",
+            async (Guid runId, MigrationCorrectedRetryRequest? request, HttpContext httpContext,
+                ITrustedRequestContextResolver resolver, MigrationValidationService service) =>
+                await ExecuteMutationAsync(runId, request, httpContext, resolver, service))
+            .WithName("migration.validation.corrected-retry")
+            .WithSummary("Retry corrected eligible migration rows")
+            .WithDescription("Revalidates only the supplied rejected or quarantined source rows, retains prior findings, and keeps accepted source identities unchanged.")
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.validation.corrected-retry")))
+            .Produces<MigrationValidationResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
         endpoints.MapGet(
             "/api/v1/migrations/{runId:guid}/validation",
             async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationValidationService service) =>
@@ -148,6 +219,45 @@ public static class MigrationEndpoints
                 await ExecuteDryRunReadAsync(runId, httpContext, resolver, service))
             .WithName("migration.dry-run.read")
             .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.dry-run.read")));
+
+        endpoints.MapGet(
+            "/api/v1/migrations/{runId:guid}/preview",
+            async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationValidationService service) =>
+                await ExecutePreviewReadAsync(runId, httpContext, resolver, service))
+            .WithName("migration.preview.read")
+            .WithSummary("Read a non-authoritative migration preview")
+            .WithDescription("Projects expected additions, duplicate outcomes, dependencies, control totals, and exceptions from the stored dry-run plan without importing data or changing run state.")
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.preview.read")))
+            .Produces<MigrationNonAuthoritativePreviewResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        endpoints.MapGet(
+            "/api/v1/migrations/{runId:guid}/reconciliation-preview",
+            async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver,
+                MigrationValidationService validation, MigrationReconciliationService service) =>
+                await ExecuteReconciliationPreviewReadAsync(runId, httpContext, resolver, validation, service))
+            .WithName("migration.reconciliation-preview.read")
+            .WithSummary("Read a non-authoritative reconciliation preview")
+            .WithDescription("Projects reconciliation controls from dry-run evidence only; it does not observe owner effects, create reconciliation evidence, request approval, or change readiness or run state.")
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.reconciliation-preview.read")))
+            .Produces<MigrationNonAuthoritativePreviewResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        endpoints.MapPost(
+            "/api/v1/migrations/{runId:guid}/cancel",
+            async (Guid runId, MigrationCancelRequest? request, HttpContext httpContext,
+                ITrustedRequestContextResolver resolver, MigrationRunSafetyService service) =>
+                await ExecuteMutationAsync(runId, request, httpContext, resolver, service))
+            .WithName("migration.run.cancel")
+            .WithSummary("Cancel a migration run before execution")
+            .WithDescription("Records a required cancellation reason and cancels a tenant-scoped run before the execution effect boundary. Runs with committed, in-flight, or unknown owner effects are rejected.")
+            .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.run.cancel")))
+            .Produces<MigrationCancellationResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         endpoints.MapPost(
             "/api/v1/migrations/{runId:guid}/execution",
@@ -301,7 +411,9 @@ public static class MigrationEndpoints
         if (!FoundationCorrelation.IsValid(key))
             return Problem(httpContext, 400, "idempotency_key_invalid", "Invalid idempotency key", "A valid Idempotency-Key is required for this mutation.", operationId);
         var result = await service.ValidateAsync(context.Value!, runId, key!, httpContext.RequestAborted);
-        return MutationResponse(httpContext, result, operationId, "Migration validation failed", value => ToValidationResponse(value));
+        if (result.Value?.RunVersion is { Length: > 0 } version)
+            httpContext.Response.Headers.ETag = $"\"{Convert.ToBase64String(version)}\"";
+        return MutationResponse(httpContext, result, operationId, "Migration validation failed", ToValidationResponse);
     }
 
     private static Task<IResult> ExecuteMutationAsync(
@@ -337,7 +449,11 @@ public static class MigrationEndpoints
         if (!await service.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
             return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", "migration.validation.read");
         var value = await service.ReadValidationAsync(context.Value!.TenantContext!, runId, httpContext.RequestAborted);
-        return value is null ? Problem(httpContext, 404, "migration_validation_not_found", "Not found", "The migration validation result was not found.", "migration.validation.read") : Results.Json(ToValidationResponse(value));
+        if (value is null)
+            return Problem(httpContext, 404, "migration_validation_not_found", "Not found", "The migration validation result was not found.", "migration.validation.read");
+        if (value.RunVersion is { Length: > 0 } version)
+            httpContext.Response.Headers.ETag = $"\"{Convert.ToBase64String(version)}\"";
+        return Results.Json(ToValidationResponse(value));
     }
 
     private static async Task<IResult> ExecuteFindingsReadAsync(Guid runId, int offset, int pageSize, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationValidationService service)
@@ -368,6 +484,87 @@ public static class MigrationEndpoints
             return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", "migration.dry-run.read");
         var value = await service.ReadDryRunAsync(context.Value!.TenantContext!, runId, httpContext.RequestAborted);
         return value is null ? Problem(httpContext, 404, "migration_dry_run_not_found", "Not found", "The migration dry-run preview was not found.", "migration.dry-run.read") : Results.Json(ToDryRunResponse(value));
+    }
+
+    private static async Task<IResult> ExecuteMutationAsync(
+        Guid runId,
+        MigrationCorrectedRetryRequest? request,
+        HttpContext httpContext,
+        ITrustedRequestContextResolver resolver,
+        MigrationValidationService service)
+    {
+        const string operationId = "migration.validation.corrected-retry";
+        if (request?.Corrections is null)
+            return Problem(httpContext, 400, "migration_correction_request_invalid", "Validation failed", "At least one corrected row is required.", operationId);
+        var context = await ResolveMutationContextAsync(httpContext, resolver, operationId);
+        if (context.Error is not null) return context.Error;
+        if (!TryReadExpectedVersion(httpContext, out var expectedVersion))
+            return Problem(httpContext, 400, "if_match_required", "If-Match required", "A valid If-Match run version is required.", operationId);
+        var key = httpContext.Request.Headers["Idempotency-Key"].FirstOrDefault();
+        if (!FoundationCorrelation.IsValid(key))
+            return Problem(httpContext, 400, "idempotency_key_invalid", "Invalid idempotency key", "A valid Idempotency-Key is required for this mutation.", operationId);
+        var result = await service.RetryCorrectedAsync(
+            context.Value!, runId, key!, expectedVersion, request.Corrections, httpContext.RequestAborted);
+        if (result.Value?.RunVersion is { Length: > 0 } version)
+            httpContext.Response.Headers.ETag = $"\"{Convert.ToBase64String(version)}\"";
+        return MutationResponse(httpContext, result, operationId, "Corrected migration validation failed", ToValidationResponse);
+    }
+
+    private static async Task<IResult> ExecutePreviewReadAsync(
+        Guid runId,
+        HttpContext httpContext,
+        ITrustedRequestContextResolver resolver,
+        MigrationValidationService service)
+    {
+        const string operationId = "migration.preview.read";
+        var context = await ResolveReadContextAsync(httpContext, resolver, operationId);
+        if (context.Error is not null) return context.Error;
+        var value = await service.ReadPreviewAsync(context.Value!.TenantContext!, runId, httpContext.RequestAborted);
+        return value is null
+            ? Problem(httpContext, 404, "migration_preview_not_found", "Not found", "A stored dry-run plan is required for preview.", operationId)
+            : Results.Json(ToPreviewResponse(value));
+    }
+
+    private static async Task<IResult> ExecuteReconciliationPreviewReadAsync(
+        Guid runId,
+        HttpContext httpContext,
+        ITrustedRequestContextResolver resolver,
+        MigrationValidationService validation,
+        MigrationReconciliationService service)
+    {
+        const string operationId = "migration.reconciliation-preview.read";
+        var context = await ResolveReadContextAsync(httpContext, resolver, operationId);
+        if (context.Error is not null) return context.Error;
+        if (!await validation.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", operationId);
+        var value = await service.ReadPreviewAsync(context.Value!, runId, httpContext.RequestAborted);
+        return value is null
+            ? Problem(httpContext, 404, "migration_reconciliation_preview_not_found", "Not found", "A stored dry-run plan is required for reconciliation preview.", operationId)
+            : Results.Json(ToPreviewResponse(value));
+    }
+
+    private static async Task<IResult> ExecuteMutationAsync(
+        Guid runId,
+        MigrationCancelRequest? request,
+        HttpContext httpContext,
+        ITrustedRequestContextResolver resolver,
+        MigrationRunSafetyService service)
+    {
+        const string operationId = "migration.run.cancel";
+        if (request is null)
+            return Problem(httpContext, 400, "migration_cancellation_request_invalid", "Validation failed", "A cancellation reason is required.", operationId);
+        var context = await ResolveMutationContextAsync(httpContext, resolver, operationId);
+        if (context.Error is not null) return context.Error;
+        if (!TryReadExpectedVersion(httpContext, out var expectedVersion))
+            return Problem(httpContext, 400, "if_match_required", "If-Match required", "A valid If-Match run version is required.", operationId);
+        var key = httpContext.Request.Headers["Idempotency-Key"].FirstOrDefault();
+        if (!FoundationCorrelation.IsValid(key))
+            return Problem(httpContext, 400, "idempotency_key_invalid", "Invalid idempotency key", "A valid Idempotency-Key is required for this mutation.", operationId);
+        var result = await service.CancelAsync(
+            context.Value!, runId, key!, expectedVersion, request.Reason, httpContext.RequestAborted);
+        if (result.Value is { Version.Length: > 0 } value)
+            httpContext.Response.Headers.ETag = $"\"{Convert.ToBase64String(value.Version)}\"";
+        return MutationResponse(httpContext, result, operationId, "Migration cancellation failed", ToCancellationResponse);
     }
 
     private static async Task<IResult> ExecuteMutationAsync(
@@ -530,10 +727,9 @@ public static class MigrationEndpoints
             operationId);
     }
 
-    private static object ToValidationResponse(MigrationValidationSummary value) => new
-    {
+    private static MigrationValidationResponse ToValidationResponse(MigrationValidationSummary value) => new(
         value.ValidationResultId,
-          tenantId = value.TenantId.Value,
+        value.TenantId.Value,
         value.RunId,
         value.AttemptId,
         value.PackageHash,
@@ -543,10 +739,21 @@ public static class MigrationEndpoints
         value.RejectedCount,
         value.QuarantinedCount,
         value.FindingCounts,
-        value.Records,
+        value.Records.Select(item => new MigrationValidationRecordResponse(
+            item.StagedRecordId,
+            item.SourceSequence,
+            item.SourceRecordId,
+            item.RecordType,
+            item.Disposition,
+            item.FindingCodes,
+            item.ErrorClass,
+            item.ActionableMessage,
+            item.CorrectionOwner)).ToArray(),
         value.IsValid,
-        value.CompletedAt
-    };
+        value.CompletedAt,
+        value.Outcome,
+        AuthoritativeImport: false,
+        RunVersion: value.RunVersion);
 
     private static object ToDryRunResponse(MigrationDryRunPreview value) => new
     {
@@ -567,8 +774,33 @@ public static class MigrationEndpoints
         value.ExceptionCount,
         value.Rows,
         value.CompletedAt,
+        outcome = value.Outcome,
+        authoritativeImport = false,
         zeroAuthoritativeBusinessEffect = true
     };
+
+    private static MigrationNonAuthoritativePreviewResponse ToPreviewResponse(MigrationNonAuthoritativePreview value) => new(
+        value.RunId,
+        value.TenantId.Value,
+        value.Outcome,
+        value.ExpectedAdditions,
+        value.DuplicateOutcomes,
+        value.UnresolvedDependencies,
+        value.ControlTotals,
+        value.Exceptions,
+        value.AuthoritativeImport,
+        value.ApprovalCreated,
+        value.ReadinessCreated,
+        value.RunStateChanged,
+        value.Rows);
+
+    private static MigrationCancellationResponse ToCancellationResponse(MigrationCancellationResult value) => new(
+        value.RunId,
+        value.TenantId.Value,
+        value.AttemptId,
+        value.RunStatus,
+        value.Reason,
+        value.Version);
 
     private static MigrationExecutionResponse ToExecutionResponse(MigrationExecutionResult value) => new(
         value.RunId,

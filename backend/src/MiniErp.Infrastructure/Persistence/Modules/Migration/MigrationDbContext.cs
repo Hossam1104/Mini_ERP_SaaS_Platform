@@ -70,6 +70,7 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         run.Property(item => item.Status).IsRequired();
         run.Property(item => item.CreatedAt).IsRequired();
         run.Property(item => item.UpdatedAt).IsRequired();
+        run.Property(item => item.CancellationReason).HasMaxLength(512).IsRequired(false);
         run.Property(item => item.EvidenceConfirmed).IsRequired();
         ConfigureVersion(run.Property(item => item.Version));
         run.HasIndex(item => new { item.TenantId, item.RunId }).IsUnique();
@@ -220,6 +221,13 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         validationRecord.Property(item => item.RecordType).IsRequired();
         validationRecord.Property(item => item.Disposition).IsRequired();
         validationRecord.Property(item => item.FindingCodesJson).HasMaxLength(32_000).IsRequired();
+        validationRecord.Property(item => item.SourceRecordId).HasMaxLength(512).IsRequired(false);
+        var canonicalPayload = validationRecord.Property(item => item.CanonicalPayload).IsRequired(false);
+        if (Database.ProviderName == "Microsoft.EntityFrameworkCore.SqlServer")
+            canonicalPayload.HasColumnType("nvarchar(max)");
+        validationRecord.Property(item => item.CorrectionOwner).HasMaxLength(128).IsRequired(false);
+        validationRecord.Property(item => item.ErrorClass).HasMaxLength(128).IsRequired(false);
+        validationRecord.Property(item => item.ActionableMessage).HasMaxLength(512).IsRequired(false);
         validationRecord.HasOne<MigrationValidationResultEntity>().WithMany()
             .HasForeignKey(item => new { item.TenantId, item.RunId, item.AttemptId })
             .HasPrincipalKey(item => new { item.TenantId, item.RunId, item.AttemptId })

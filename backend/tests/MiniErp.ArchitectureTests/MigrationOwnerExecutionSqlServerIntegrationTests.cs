@@ -87,6 +87,25 @@ public sealed class MigrationOwnerExecutionSqlServerSafetyTests
             Assert.NotEmpty(await fixture.Imports.ListAuditAsync(fixture.Tenant, effect.OwnerBatchId));
         }
 
+        var cancellationFoundation = new MigrationFoundationService(fixture.Migration, new NoopAuditSink());
+        var cancellationValidation = new MigrationValidationService(
+            cancellationFoundation,
+            fixture.Migration,
+            new InMemoryPrivateObjectStorage(),
+            new TenantWideScopeResolver(),
+            new NoopReferenceAuthority(),
+            new TenantWideScopeResolver());
+        var cancellation = new MigrationRunSafetyService(cancellationFoundation, cancellationValidation, fixture.Migration);
+        var completedRun = (await fixture.Migration.FindRunAsync(fixture.Tenant, prepared.Run.RunId))!;
+        var afterCommit = await cancellation.CancelAsync(
+            fixture.Request,
+            prepared.Run.RunId,
+            "cancel-after-committed-owner-effects",
+            completedRun.Version,
+            "late cancellation request");
+        Assert.Equal("migration_cancellation_effect_boundary_crossed", afterCommit.Code);
+        Assert.Equal(MigrationRunStatus.Completed, (await fixture.Migration.FindRunAsync(fixture.Tenant, prepared.Run.RunId))!.Status);
+
         var batchCount = (await fixture.Imports.ListBatchesAsync(fixture.Tenant)).Count;
         var replay = await fixture.Execution.ExecuteAsync(
             fixture.Request,
@@ -450,5 +469,14 @@ public sealed class MigrationOwnerExecutionSqlServerSafetyTests
     private sealed class NoopAuditSink : IFoundationAuditEvidenceSink
     {
         public ValueTask AppendAsync(FoundationAuditEvidence evidence, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+    }
+
+    private sealed class NoopReferenceAuthority : IMigrationReferenceAuthority
+    {
+        public Task<IReadOnlyList<MigrationReferenceCheck>> ValidateAsync(
+            FoundationRequestContext requestContext,
+            MigrationParsedCanonicalRow row,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MigrationReferenceCheck>>([]);
     }
 }

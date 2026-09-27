@@ -143,6 +143,18 @@ public sealed class MigrationReconciliationService
         return saved with { IsCurrent = current, Readiness = run.Status == MigrationRunStatus.ReadyForHandover && run.EvidenceConfirmed ? saved.Readiness : null };
     }
 
+    public async Task<MigrationNonAuthoritativePreview?> ReadPreviewAsync(
+        FoundationRequestContext requestContext,
+        Guid runId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryCaller(requestContext, out var tenant, out _)
+            || !await validation.IsResourceAuthorizedAsync(requestContext, runId, cancellationToken))
+            return null;
+        var preview = await validation.ReadPreviewAsync(tenant, runId, cancellationToken);
+        return preview is null ? null : preview with { Outcome = "reconciliation-preview" };
+    }
+
     public Task<MigrationOperationResult<MigrationReconciliationApprovalRecord>> ApproveAsync(
         FoundationRequestContext requestContext, MigrationApprovalRequest request, CancellationToken cancellationToken = default) =>
         WithRunGateAsync(requestContext, request.RunId, () => ApproveCoreAsync(requestContext, request, cancellationToken), cancellationToken);

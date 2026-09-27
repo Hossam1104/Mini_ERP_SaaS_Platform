@@ -196,6 +196,10 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         "master-data.import.audit.read" => "Read Master Data import audit evidence",
         "master-data.import.evidence.read" => "Read complete Master Data import evidence",
         "master-data.import.replay" => "Replay one quarantined Master Data import row",
+        "migration.validation.corrected-retry" => "Retry corrected eligible migration rows",
+        "migration.preview.read" => "Read a non-authoritative migration preview",
+        "migration.reconciliation-preview.read" => "Read a non-authoritative reconciliation preview",
+        "migration.run.cancel" => "Cancel a migration run before execution",
         "procurement.organization-scope.list" => "List server-authorized Purchase Request organization scopes",
         "procurement.purchase-request.list" => "List Tenant-scoped Purchase Requests",
         "procurement.purchase-request.read" => "Read one Purchase Request",
@@ -313,6 +317,17 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
             + $"Idempotency contract: {descriptor.Idempotency}. "
             + $"Effective-date contract: {descriptor.EffectiveDate}. "
             + "Tenant and actor authority are derived by the server; request fields cannot select a foreign Tenant or broaden scope. ";
+
+        var migrationBoundary = descriptor.OperationId switch
+        {
+            "migration.validation.corrected-retry" => "A corrected retry revalidates only supplied rejected or quarantined source rows. It preserves the staged source package, accepted source identities, and prior findings; it creates no execution attempt or owner effect.",
+            "migration.preview.read" => "The preview projects expected additions, duplicate outcomes, dependencies, control totals, and exceptions from stored dry-run evidence. It is not an authoritative import and does not create approval or readiness or change run state.",
+            "migration.reconciliation-preview.read" => "The reconciliation preview projects controls from dry-run evidence only. It does not observe owner effects, create reconciliation evidence, request approval, create readiness, or change run state.",
+            "migration.run.cancel" => "Cancellation requires a reason and the current run version. It is permitted only before execution starts; committed, in-flight, or unknown owner effects are rejected. The reason and audit evidence are retained, and cancellation performs no compensation or reset.",
+            _ => null
+        };
+        if (migrationBoundary is not null)
+            return contextRules + migrationBoundary;
 
         if (descriptor.OperationId.StartsWith("master-data.tax", StringComparison.Ordinal))
         {

@@ -635,10 +635,14 @@ public sealed class MigrationExecutionService
                 || !previewById.TryGetValue(record.StagedRecordId, out var preview)
                 || validationRow.SourceSequence != record.SourceSequence
                 || validationRow.RecordType != record.RecordType
+                || (validationRow.SourceRecordId is not null && validationRow.SourceRecordId != record.SourceRecordId)
                 || preview.SourceSequence != record.SourceSequence
                 || preview.RecordType != record.RecordType)
                 return PlanGate.Failure("migration_execution_authoritative_snapshot_mismatch");
-            if (!TryParse(record, out var parsed))
+            var effectiveRecord = validationRow.CanonicalPayload is null
+                ? record
+                : record with { CanonicalPayload = validationRow.CanonicalPayload };
+            if (!TryParse(effectiveRecord, out var parsed))
                 return PlanGate.Failure("migration_execution_payload_invalid");
             if (parsed!.HasForbiddenControlAccountId)
                 return PlanGate.Failure(parsed.RecordType switch
@@ -653,7 +657,7 @@ public sealed class MigrationExecutionService
                 return PlanGate.Failure("migration_execution_owner_action_invalid");
             if (preview.PlannedAction is not (MigrationPlannedAction.Create or MigrationPlannedAction.MatchReference or MigrationPlannedAction.Skip))
                 return PlanGate.Failure("migration_execution_plan_invalid");
-            plan.Add(new MigrationExecutionPlanRow(record, preview, parsed!));
+            plan.Add(new MigrationExecutionPlanRow(effectiveRecord, preview, parsed!));
         }
 
         var scope = scopeResolver.ResolveCurrent(tenant);

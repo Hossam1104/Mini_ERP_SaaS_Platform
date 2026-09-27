@@ -416,7 +416,7 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
                 transition.Code);
         }
 
-        entity.ApplyDomainTransition(run.Status, run.UpdatedAt);
+        entity.ApplyDomainTransition(run.Status, run.UpdatedAt, command.CancellationReason);
 
         try
         {
@@ -1022,7 +1022,8 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
         entity.CreatedAt,
         entity.UpdatedAt,
         entity.Version,
-        entity.EvidenceConfirmed);
+        entity.EvidenceConfirmed,
+        entity.CancellationReason);
 
     private static MigrationAttemptRecord ToRecord(MigrationAttemptEntity entity) => new(
         entity.AttemptId,
