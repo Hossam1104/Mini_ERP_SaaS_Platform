@@ -126,6 +126,11 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
         Assert.NotNull(ar.ControlAccountId);
         Assert.NotNull(ar.PostingRuleId);
         Assert.NotNull(ar.PostingRuleVersionNumber);
+        Assert.NotNull(ar.EffectId);
+        var arMapping = await ReadHistoricalFinanceMappingAsync(fixture, ar.EffectId.Value);
+        Assert.Equal(arMapping.ControlAccountId, ar.ControlAccountId);
+        Assert.Equal(arMapping.PostingRuleId, ar.PostingRuleId);
+        Assert.Equal(arMapping.PostingRuleVersionNumber, ar.PostingRuleVersionNumber);
         Assert.Equal(journalsBefore, await fixture.CountFinanceRowsAsync("migration-ar-opening.v1", journals: true));
         Assert.Equal(0, await fixture.CountFinanceRowsAsync("migration-gl-opening.v1", journals: true));
     }
@@ -150,6 +155,11 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
         Assert.NotNull(ap.ControlAccountId);
         Assert.NotNull(ap.PostingRuleId);
         Assert.NotNull(ap.PostingRuleVersionNumber);
+        Assert.NotNull(ap.EffectId);
+        var apMapping = await ReadHistoricalFinanceMappingAsync(fixture, ap.EffectId.Value);
+        Assert.Equal(apMapping.ControlAccountId, ap.ControlAccountId);
+        Assert.Equal(apMapping.PostingRuleId, ap.PostingRuleId);
+        Assert.Equal(apMapping.PostingRuleVersionNumber, ap.PostingRuleVersionNumber);
         Assert.Equal(journalsBefore, await fixture.CountFinanceRowsAsync("migration-ap-opening.v1", journals: true));
         Assert.Equal(0, await fixture.CountFinanceRowsAsync("migration-gl-opening.v1", journals: true));
     }
@@ -196,6 +206,56 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
         Assert.Equal(1, counts.StockMovements);
         Assert.Equal(1, counts.ValuationEvents);
         Assert.Equal(1, counts.Handoffs);
+
+        var reconciliation = await ReconcileAsync(fixture,
+            Service(fixture, new UnconfiguredMigrationReconciliationApprovalPolicy()), scenario.RunId, "s11-r07-reconcile");
+        Assert.True(reconciliation.Succeeded, reconciliation.Code);
+        Assert.Equal(MigrationReconciliationStatus.Reconciled, reconciliation.Value!.Status);
+        var subsidiaryDetails = reconciliation.Value.Details.Where(item => item.Domain is
+            MigrationReconciliationDomain.Ar or MigrationReconciliationDomain.Ap
+                or MigrationReconciliationDomain.CashBank or MigrationReconciliationDomain.Inventory).ToArray();
+        Assert.NotEmpty(subsidiaryDetails);
+        Assert.Contains(subsidiaryDetails, item => item.Domain == MigrationReconciliationDomain.Ar);
+        Assert.Contains(subsidiaryDetails, item => item.Domain == MigrationReconciliationDomain.Ap);
+        Assert.Contains(subsidiaryDetails, item => item.Domain == MigrationReconciliationDomain.CashBank);
+        Assert.Contains(subsidiaryDetails, item => item.Domain == MigrationReconciliationDomain.Inventory);
+        Assert.All(subsidiaryDetails, item =>
+        {
+            Assert.False(item.IsBlocking);
+            Assert.Equal(0m, item.Variance);
+        });
+        var glControlDetails = reconciliation.Value.Details.Where(item => item.Domain == MigrationReconciliationDomain.Gl
+            && item.ScopeKey.StartsWith("control:", StringComparison.Ordinal)).ToArray();
+        Assert.NotEmpty(glControlDetails);
+        Assert.All(glControlDetails, item =>
+        {
+            Assert.NotNull(item.ControlAccountId);
+            Assert.False(item.IsBlocking);
+            Assert.Equal(0m, item.Variance);
+        });
+        var glControlLines = reconciliation.Value.Details.Where(item => item.Domain == MigrationReconciliationDomain.Gl
+            && item.ScopeKey.StartsWith("line:", StringComparison.Ordinal) && item.ControlAccountId.HasValue).ToArray();
+        Assert.NotEmpty(glControlLines);
+        Assert.All(glControlLines, item =>
+        {
+            Assert.False(item.IsBlocking);
+            Assert.Equal(0m, item.Variance);
+        });
+        Assert.All(subsidiaryDetails, subsidiary =>
+        {
+            Assert.NotNull(subsidiary.ControlAccountId);
+            Assert.Contains(glControlLines, line => line.ControlAccountId == subsidiary.ControlAccountId
+                && line.CompanyId == subsidiary.CompanyId && line.OpeningDate == subsidiary.OpeningDate
+                && line.CurrencyCode == (subsidiary.FunctionalCurrencyCode ?? subsidiary.CurrencyCode)
+                && line.TargetAmount == subsidiary.GlControlAmount);
+        });
+        await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
+        var representedEffectIds = await db.EconomicRepresentations.Where(item => item.RunId == scenario.RunId)
+            .Select(item => item.EffectId).Distinct().ToArrayAsync();
+        var executionEffects = await fixture.Migration.ListEffectsAsync(
+            fixture.Tenant, scenario.RunId, scenario.Execution.AttemptId);
+        Assert.Equal(counts.Effects, representedEffectIds.Length);
+        Assert.All(representedEffectIds, effectId => Assert.Contains(executionEffects, item => item.Id == effectId));
     }
 
     [Fact]
@@ -299,6 +359,45 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
     }
 
     [Fact]
+    public async Task Sql_server_s11_r12_reconciliation_details_are_unique_and_prior_rows_are_unchanged()
+    {
+        await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
+        var scenario = await ExecuteMixedAsync(fixture, "S11-R12-DETAIL-ID");
+        var policy = ApprovalPolicy(fixture.Request.ActorId!.Value, Guid.NewGuid());
+        var first = await ReconcileAsync(fixture, Service(fixture, new TestApprovalPolicy(policy)),
+            scenario.RunId, "s11-r12-detail-first");
+        Assert.True(first.Succeeded, first.Code);
+        var firstRecord = first.Value!;
+        MigrationReconciliationDetail[] firstDetailsBefore;
+        await using (var firstDb = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant))
+        {
+            firstDetailsBefore = await ReadReconciliationDetailsAsync(firstDb, firstRecord.Id);
+        }
+        Assert.NotEmpty(firstDetailsBefore);
+
+        var requirement = policy.Requirements.Single();
+        var changedPolicy = policy with
+        {
+            Requirements = [requirement with { EligibleActorIds = [.. requirement.EligibleActorIds, Guid.NewGuid()] }]
+        };
+        var second = await ReconcileAsync(fixture, Service(fixture, new TestApprovalPolicy(changedPolicy)),
+            scenario.RunId, "s11-r12-detail-second");
+        Assert.True(second.Succeeded, second.Code);
+        var secondRecord = second.Value!;
+        Assert.NotEqual(firstRecord.Id, secondRecord.Id);
+        Assert.NotEqual(firstRecord.EvidenceFingerprint, secondRecord.EvidenceFingerprint);
+
+        await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
+        Assert.Equal(2, await db.Reconciliations.CountAsync(item => item.RunId == scenario.RunId));
+        var firstDetailsAfter = await ReadReconciliationDetailsAsync(db, firstRecord.Id);
+        var secondDetails = await ReadReconciliationDetailsAsync(db, secondRecord.Id);
+        Assert.Equal(firstDetailsBefore, firstDetailsAfter);
+        Assert.Equal(firstDetailsAfter.Length + secondDetails.Length,
+            await db.ReconciliationDetails.CountAsync(item => item.RunId == scenario.RunId));
+        Assert.Empty(firstDetailsAfter.Select(item => item.Id).Intersect(secondDetails.Select(item => item.Id)));
+    }
+
+    [Fact]
     public async Task Sql_server_s11_r12_changed_owner_evidence_invalidates_prior_approval()
     {
         await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
@@ -311,12 +410,49 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
         Assert.True(approval.Succeeded, approval.Code);
         await MutateFinanceJournalAsync(fixture, "migration-ar-opening.v1", 101m);
 
+        var staleRead = await service.ReadAsync(fixture.Request, scenario.RunId);
+        Assert.NotNull(staleRead);
+        Assert.Equal(reconciliation.Value!.Id, staleRead!.Id);
+        Assert.False(staleRead.IsCurrent);
+
         var readiness = await service.CreateReadinessAsync(fixture.Request,
             new MigrationHandoverRequest(scenario.RunId, reconciliation.Value!.Id, reconciliation.Value.Version, "s11-r12-ready"));
 
         Assert.Equal("migration_reconciliation_stale", readiness.Code);
         await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
         Assert.Equal(0, await db.HandoverReadiness.CountAsync(item => item.RunId == scenario.RunId));
+
+        await using var approvalFixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
+        var approvalScenario = await ExecuteMixedAsync(approvalFixture, "S11-R12-APPROVAL");
+        var approvalReviewer = Guid.NewGuid();
+        var approvalPolicy = ApprovalPolicy(approvalFixture.Request.ActorId!.Value, approvalReviewer);
+        var approvalService = Service(approvalFixture, new TestApprovalPolicy(approvalPolicy));
+        var approvedReconciliation = await ReconcileAsync(approvalFixture, approvalService, approvalScenario.RunId, "s11-r12-approval-reconcile");
+        Assert.True(approvedReconciliation.Succeeded, approvedReconciliation.Code);
+        var priorApproval = await approvalService.ApproveAsync(RequestForActor(approvalFixture, approvalReviewer),
+            ApprovalRequest(approvedReconciliation.Value!, "s11-r12-approval-approve"));
+        Assert.True(priorApproval.Succeeded, priorApproval.Code);
+
+        var expandedEligibleActors = approvalPolicy.Requirements.Single() with
+        {
+            EligibleActorIds = [.. approvalPolicy.Requirements.Single().EligibleActorIds, Guid.NewGuid()]
+        };
+        var currentPolicy = approvalPolicy with { Requirements = [expandedEligibleActors] };
+        var currentService = Service(approvalFixture, new TestApprovalPolicy(currentPolicy));
+        var currentReconciliation = await ReconcileAsync(approvalFixture, currentService, approvalScenario.RunId, "s11-r12-current-reconcile");
+        Assert.True(currentReconciliation.Succeeded, currentReconciliation.Code);
+        Assert.Equal(MigrationReconciliationStatus.Reconciled, currentReconciliation.Value!.Status);
+        Assert.NotEqual(approvedReconciliation.Value!.Id, currentReconciliation.Value!.Id);
+        Assert.NotEqual(approvedReconciliation.Value!.EvidenceFingerprint, currentReconciliation.Value.EvidenceFingerprint);
+        var currentReadiness = await currentService.CreateReadinessAsync(approvalFixture.Request,
+            new MigrationHandoverRequest(approvalScenario.RunId, currentReconciliation.Value.Id,
+                currentReconciliation.Value.Version, "s11-r12-current-ready"));
+        Assert.Equal("migration_approval_required", currentReadiness.Code);
+        await using var approvalDb = new MigrationDbContext(approvalFixture.MigrationOptions, approvalFixture.Tenant);
+        var persistedApproval = await approvalDb.ReconciliationApprovals.SingleAsync(item => item.RunId == approvalScenario.RunId);
+        Assert.Equal(approvedReconciliation.Value.Id, persistedApproval.ReconciliationId);
+        Assert.Equal(approvedReconciliation.Value.EvidenceFingerprint, persistedApproval.EvidenceFingerprint);
+        Assert.Equal(0, await approvalDb.HandoverReadiness.CountAsync(item => item.RunId == approvalScenario.RunId));
     }
 
     [Fact]
@@ -456,11 +592,54 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
         Assert.True(reconciliation.Succeeded, reconciliation.Code);
         var approved = await service.ApproveAsync(RequestForActor(fixture, reviewer), ApprovalRequest(reconciliation.Value!, "s11-r18-approve"));
         Assert.True(approved.Succeeded, approved.Code);
+        var schemaCountsBefore = await ReadSchemaRowCountsAsync(fixture);
         var readiness = await service.CreateReadinessAsync(fixture.Request,
             new MigrationHandoverRequest(scenario.RunId, reconciliation.Value!.Id, reconciliation.Value.Version, "s11-r18-ready"));
+        var schemaCountsAfter = await ReadSchemaRowCountsAsync(fixture);
 
         Assert.True(readiness.Succeeded, readiness.Code);
         Assert.False(readiness.Value!.TenantActivationPerformed);
+        Assert.Equal(MigrationRunStatus.ReadyForHandover, (await fixture.Migration.FindRunAsync(fixture.Tenant, scenario.RunId))!.Status);
+        await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
+        var persistedReadiness = await db.HandoverReadiness.SingleAsync(item => item.RunId == scenario.RunId);
+        Assert.False(persistedReadiness.TenantActivationPerformed);
+        Assert.False(persistedReadiness.ProductionReady);
+        Assert.False(persistedReadiness.Mesp48Complete);
+        Assert.False(persistedReadiness.Mesp50Complete);
+        var otherSchemasBefore = schemaCountsBefore.Where(item => item.Key.Schema != "migration")
+            .OrderBy(item => item.Key.Schema, StringComparer.Ordinal).ThenBy(item => item.Key.Table, StringComparer.Ordinal).ToArray();
+        var otherSchemasAfter = schemaCountsAfter.Where(item => item.Key.Schema != "migration")
+            .OrderBy(item => item.Key.Schema, StringComparer.Ordinal).ThenBy(item => item.Key.Table, StringComparer.Ordinal).ToArray();
+        Assert.Equal(otherSchemasBefore, otherSchemasAfter);
+        Assert.DoesNotContain(typeof(MigrationReconciliationService).GetConstructors().Single().GetParameters(), parameter =>
+            parameter.ParameterType.Namespace?.StartsWith("MiniErp.App.Modules.Platform", StringComparison.Ordinal) == true
+            || parameter.ParameterType.Namespace?.StartsWith("MiniErp.App.Modules.Identity", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
+    public async Task Sql_server_s11_mesp164_stale_reconcile_replay_after_ready_for_handover_is_replayed()
+    {
+        await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
+        var scenario = await ExecuteMixedAsync(fixture, "S11-MESP164");
+        var reviewer = Guid.NewGuid();
+        var service = Service(fixture, new TestApprovalPolicy(ApprovalPolicy(fixture.Request.ActorId!.Value, reviewer)));
+        var capturedVersion = (await fixture.Migration.FindRunAsync(fixture.Tenant, scenario.RunId))!.Version;
+        var reconcileRequest = new MigrationReconcileRequest(scenario.RunId, capturedVersion, "s11-mesp164-reconcile");
+        var reconciliation = await service.ReconcileAsync(fixture.Request, reconcileRequest);
+        Assert.True(reconciliation.Succeeded, reconciliation.Code);
+        var approved = await service.ApproveAsync(RequestForActor(fixture, reviewer), ApprovalRequest(reconciliation.Value!, "s11-mesp164-approve"));
+        Assert.True(approved.Succeeded, approved.Code);
+        var readiness = await service.CreateReadinessAsync(fixture.Request,
+            new MigrationHandoverRequest(scenario.RunId, reconciliation.Value!.Id, reconciliation.Value.Version, "s11-mesp164-ready"));
+        Assert.True(readiness.Succeeded, readiness.Code);
+        Assert.Equal(MigrationRunStatus.ReadyForHandover, (await fixture.Migration.FindRunAsync(fixture.Tenant, scenario.RunId))!.Status);
+
+        var replay = await service.ReconcileAsync(fixture.Request, reconcileRequest);
+
+        Assert.True(replay.Kind == MigrationResultKind.Replayed, replay.Code);
+        Assert.Equal(reconciliation.Value.Id, replay.Value!.Id);
+        await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
+        Assert.Equal(1, await db.Reconciliations.CountAsync(item => item.RunId == scenario.RunId));
         Assert.Equal(MigrationRunStatus.ReadyForHandover, (await fixture.Migration.FindRunAsync(fixture.Tenant, scenario.RunId))!.Status);
     }
 
@@ -509,24 +688,70 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
         await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
         var scenario = await ExecuteMixedAsync(fixture, "S11-R20");
         var reviewer = Guid.NewGuid();
-        var service = Service(fixture, new TestApprovalPolicy(ApprovalPolicy(fixture.Request.ActorId!.Value, reviewer)));
+        var policy = ApprovalPolicy(fixture.Request.ActorId!.Value, reviewer);
         var currentRun = (await fixture.Migration.FindRunAsync(fixture.Tenant, scenario.RunId))!;
         var reconcileRequest = new MigrationReconcileRequest(scenario.RunId, currentRun.Version, "s11-r20-reconcile");
-        var reconciliations = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => service.ReconcileAsync(fixture.Request, reconcileRequest)));
+        var reconciliations = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ =>
+            Service(fixture, new TestApprovalPolicy(policy)).ReconcileAsync(fixture.Request, reconcileRequest)));
         Assert.All(reconciliations, item => Assert.True(item.Succeeded || item.Kind == MigrationResultKind.Replayed, item.Code));
         Assert.Single(reconciliations.Select(item => item.Value!.Id).Distinct());
         var reconciliation = reconciliations[0].Value!;
-        var approvals = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => service.ApproveAsync(RequestForActor(fixture, reviewer), ApprovalRequest(reconciliation, "s11-r20-approve"))));
+        var approvals = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ =>
+            Service(fixture, new TestApprovalPolicy(policy)).ApproveAsync(RequestForActor(fixture, reviewer), ApprovalRequest(reconciliation, "s11-r20-approve"))));
         Assert.All(approvals, item => Assert.True(item.Succeeded || item.Kind == MigrationResultKind.Replayed, item.Code));
         Assert.Single(approvals.Select(item => item.Value!.Id).Distinct());
         var readinessRequest = new MigrationHandoverRequest(scenario.RunId, reconciliation.Id, reconciliation.Version, "s11-r20-ready");
-        var snapshots = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => service.CreateReadinessAsync(fixture.Request, readinessRequest)));
+        var snapshots = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ =>
+            Service(fixture, new TestApprovalPolicy(policy)).CreateReadinessAsync(fixture.Request, readinessRequest)));
         Assert.All(snapshots, item => Assert.True(item.Succeeded || item.Kind == MigrationResultKind.Replayed, item.Code));
         Assert.Single(snapshots.Select(item => item.Value!.Id).Distinct());
         await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
         Assert.Equal(1, await db.Reconciliations.CountAsync(item => item.RunId == scenario.RunId));
         Assert.Equal(1, await db.ReconciliationApprovals.CountAsync(item => item.RunId == scenario.RunId));
         Assert.Equal(1, await db.HandoverReadiness.CountAsync(item => item.RunId == scenario.RunId));
+    }
+
+    [Fact]
+    public async Task Sql_server_s11_a5_stale_versions_are_rejected_without_persisting_records()
+    {
+        await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
+        var scenario = await ExecuteMixedAsync(fixture, "S11-A5");
+        var currentRun = (await fixture.Migration.FindRunAsync(fixture.Tenant, scenario.RunId))!;
+        var reconciliationCountBeforeReconcile = await ReconciliationCountAsync(fixture, scenario.RunId);
+        var approvalCountBeforeReconcile = await ApprovalCountAsync(fixture, scenario.RunId);
+        var readinessCountBeforeReconcile = await ReadinessCountAsync(fixture, scenario.RunId);
+        var staleReconcile = await Service(fixture, new UnconfiguredMigrationReconciliationApprovalPolicy()).ReconcileAsync(
+            fixture.Request, new MigrationReconcileRequest(scenario.RunId, StaleVersion(currentRun.Version), "s11-a5-stale-reconcile"));
+        Assert.Equal("migration_run_version_conflict", staleReconcile.Code);
+        Assert.Equal(reconciliationCountBeforeReconcile, await ReconciliationCountAsync(fixture, scenario.RunId));
+        Assert.Equal(approvalCountBeforeReconcile, await ApprovalCountAsync(fixture, scenario.RunId));
+        Assert.Equal(readinessCountBeforeReconcile, await ReadinessCountAsync(fixture, scenario.RunId));
+
+        var reviewer = Guid.NewGuid();
+        var service = Service(fixture, new TestApprovalPolicy(ApprovalPolicy(fixture.Request.ActorId!.Value, reviewer)));
+        var reconciliation = await ReconcileAsync(fixture, service, scenario.RunId, "s11-a5-current-reconcile");
+        Assert.True(reconciliation.Succeeded, reconciliation.Code);
+        var currentReconciliation = reconciliation.Value!;
+        var reconciliationCountBeforeApproval = await ReconciliationCountAsync(fixture, scenario.RunId);
+        var approvalCountBeforeApproval = await ApprovalCountAsync(fixture, scenario.RunId);
+        var readinessCountBeforeApproval = await ReadinessCountAsync(fixture, scenario.RunId);
+
+        var staleApproval = await service.ApproveAsync(RequestForActor(fixture, reviewer),
+            ApprovalRequest(currentReconciliation, "s11-a5-stale-approve") with { ExpectedVersion = StaleVersion(currentReconciliation.Version) });
+        Assert.Equal("migration_reconciliation_version_conflict", staleApproval.Code);
+        Assert.Equal(reconciliationCountBeforeApproval, await ReconciliationCountAsync(fixture, scenario.RunId));
+        Assert.Equal(approvalCountBeforeApproval, await ApprovalCountAsync(fixture, scenario.RunId));
+        Assert.Equal(readinessCountBeforeApproval, await ReadinessCountAsync(fixture, scenario.RunId));
+
+        var reconciliationCountBeforeReadiness = await ReconciliationCountAsync(fixture, scenario.RunId);
+        var approvalCountBeforeReadiness = await ApprovalCountAsync(fixture, scenario.RunId);
+        var readinessCountBeforeReadiness = await ReadinessCountAsync(fixture, scenario.RunId);
+        var staleReadiness = await service.CreateReadinessAsync(fixture.Request,
+            new MigrationHandoverRequest(scenario.RunId, currentReconciliation.Id, StaleVersion(currentReconciliation.Version), "s11-a5-stale-ready"));
+        Assert.Equal("migration_reconciliation_version_conflict", staleReadiness.Code);
+        Assert.Equal(reconciliationCountBeforeReadiness, await ReconciliationCountAsync(fixture, scenario.RunId));
+        Assert.Equal(approvalCountBeforeReadiness, await ApprovalCountAsync(fixture, scenario.RunId));
+        Assert.Equal(readinessCountBeforeReadiness, await ReadinessCountAsync(fixture, scenario.RunId));
     }
 
     private sealed record ExecutedScenario(Guid RunId, IReadOnlyList<MigrationStagedRecord> Staged, MigrationExecutionResult Execution);
@@ -607,6 +832,83 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
     {
         await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
         return await db.Reconciliations.CountAsync(item => item.RunId == runId);
+    }
+
+    private static async Task<int> ApprovalCountAsync(
+        MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture fixture,
+        Guid runId)
+    {
+        await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
+        return await db.ReconciliationApprovals.CountAsync(item => item.RunId == runId);
+    }
+
+    private static async Task<int> ReadinessCountAsync(
+        MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture fixture,
+        Guid runId)
+    {
+        await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
+        return await db.HandoverReadiness.CountAsync(item => item.RunId == runId);
+    }
+
+    private sealed record HistoricalFinanceMapping(Guid ControlAccountId, Guid PostingRuleId, int PostingRuleVersionNumber);
+
+    private static async Task<MigrationReconciliationDetail[]> ReadReconciliationDetailsAsync(
+        MigrationDbContext db, Guid reconciliationId) =>
+        await db.ReconciliationDetails.AsNoTracking().Where(item => item.ReconciliationId == reconciliationId)
+            .OrderBy(item => item.Id)
+            .Select(item => new MigrationReconciliationDetail(item.Id, item.Domain, item.ScopeKey,
+                item.CompanyId, item.OpeningDate, item.CurrencyCode, item.TransactionCurrencyCode, item.FunctionalCurrencyCode,
+                item.SourceCount, item.SourceDebit, item.SourceCredit, item.TargetDebit, item.TargetCredit,
+                item.Variance, item.SourceAmount, item.TargetAmount, item.AmountVariance, item.OwnerRoundingDifference,
+                item.TransactionAmount, item.FunctionalAmount, item.SubsidiaryEstablishedAmount, item.GlControlAmount,
+                item.ExchangeRateId, item.ExchangeRateVersionId, item.ExchangeRateVersionNumber, item.AppliedRate,
+                item.SourceQuantity, item.TargetQuantity, item.QuantityVariance, item.ControlAccountId, item.PostingRuleId,
+                item.PostingRuleVersionNumber, item.OwnerSourceId, item.WarehouseId, item.ProductId, item.UnitOfMeasureId,
+                item.SourceContract, item.SourceEvent, item.RoundingPolicyId, item.RoundingPolicyVersionNumber,
+                item.RoundingScale, item.RoundingMode, item.IsBlocking, item.FindingCode, item.Explanation,
+                item.EffectId, item.OwnerReferenceId, item.LinkedAccountId))
+            .ToArrayAsync();
+
+    private static async Task<HistoricalFinanceMapping> ReadHistoricalFinanceMappingAsync(
+        MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture fixture,
+        Guid effectId)
+    {
+        await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
+        var mappings = await db.EconomicRepresentations.Where(item => item.EffectId == effectId
+                && item.OwnerModule == MigrationEconomicOwnerModule.Finance
+                && item.ControlAccountId.HasValue && item.PostingRuleId.HasValue && item.PostingRuleVersionNumber.HasValue)
+            .Select(item => new HistoricalFinanceMapping(item.ControlAccountId!.Value, item.PostingRuleId!.Value, item.PostingRuleVersionNumber!.Value))
+            .Distinct()
+            .ToArrayAsync();
+        return Assert.Single(mappings);
+    }
+
+    private static async Task<Dictionary<(string Schema, string Table), long>> ReadSchemaRowCountsAsync(
+        MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture fixture)
+    {
+        await using var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant);
+        await db.Database.OpenConnectionAsync();
+        await using var command = db.Database.GetDbConnection().CreateCommand();
+        command.CommandText = """
+            SELECT schema_name.name, table_name.name, SUM(p.rows)
+            FROM sys.tables AS table_name
+            INNER JOIN sys.schemas AS schema_name ON schema_name.schema_id = table_name.schema_id
+            INNER JOIN sys.partitions AS p ON p.object_id = table_name.object_id
+            WHERE table_name.is_ms_shipped = 0 AND p.index_id IN (0, 1)
+            GROUP BY schema_name.name, table_name.name
+            """;
+        await using var reader = await command.ExecuteReaderAsync();
+        var counts = new Dictionary<(string Schema, string Table), long>();
+        while (await reader.ReadAsync())
+            counts.Add((reader.GetString(0), reader.GetString(1)), reader.GetInt64(2));
+        return counts;
+    }
+
+    private static byte[] StaleVersion(byte[] version)
+    {
+        var stale = version.ToArray();
+        stale[^1] ^= 0xFF;
+        return stale;
     }
 
     private static MigrationReconciliationService Service(

@@ -1,0 +1,28 @@
+status: ACTIVE
+
+current_cycle: 1
+
+accepted_luna_cycles_since_sol_review: 1
+total_accepted_luna_cycles: 1
+last_sol_review_cycle: 0
+
+sol_review:
+  normal_trigger: 12
+  early_window:
+    min: 8
+    max: 10
+  mandatory_trigger: 15
+
+current_task:
+  status: NOT_STARTED
+
+current_executor:
+  profile: NONE
+  agent_id: NONE
+  workspace: NONE
+
+current_result: ACCEPTED MESP-166 (#285) diagnosis; Slice 11 accepted under MESP-150 (#265)
+
+owner_clarification_required: false
+
+last_updated_by: Planner

@@ -1,0 +1,42 @@
+{
+  "scripts": {
+    "backend-full": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\Test-MiniErpBackend.ps1 -NoBuild:$false"
+    },
+    "frontend-test": {
+      "command": "npm --prefix frontend test -- --watch=false --no-progress"
+    },
+    "frontend-build": {
+      "command": "npm --prefix frontend run build"
+    },
+    "e2e-chromium": {
+      "command": "npm --prefix frontend run test:e2e -- --project=chromium"
+    },
+    "audit-production": {
+      "command": "npm --prefix frontend audit --omit=dev --audit-level=high"
+    },
+    "audit-full": {
+      "command": "npm --prefix frontend audit --audit-level=high"
+    },
+    "diff-check": {
+      "command": "git diff --check"
+    },
+    "dev-start": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\Start-MiniErpDevelopment.ps1"
+    },
+    "dev-runtime-check": {
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\Test-MiniErpDevelopmentRuntime.ps1"
+    }
+  },
+  "metadataGeneration": {
+    "branchName": {
+      "instructions": "Use the repository branch convention exactly:\n\nfeat|fix|docs|chore/mesp-<n>-<short-slug>\n\nRespect the current TASK.md and GitHub work-item authority.\nDo not invent a branch when the task requires an existing branch or main.\nOne bounded concern per branch."
+    },
+    "commitMessage": {
+      "instructions": "Use one concise Conventional Commit subject.\n\nReference the owning work item as:\nMESP-<n> (#<issue>)\n\nUse the module/area as the conventional scope where useful.\n\nNo body unless materially necessary."
+    },
+    "pullRequest": {
+      "instructions": "Keep concise.\n\nInclude only:\n- Summary\n- MESP work item / GitHub Issue\n- Validation\n- LocalDB/SQL evidence when applicable\n- Risks/blockers\n- Explicit STOP / Ready / merge authority\n\nNever infer Ready or merge authority from passing tests or reviews.\nDo not repeat full task history."
+    }
+  }
+}

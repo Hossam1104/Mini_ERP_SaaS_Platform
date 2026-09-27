@@ -214,12 +214,33 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
         ArgumentNullException.ThrowIfNull(command);
 
         await using var db = CreateContext(tenantContext);
+        await using var transaction = db.Database.IsSqlServer()
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken)
+            : null;
+        if (transaction is not null)
+            await LockRunAsync(db, tenantContext, command.RunId, cancellationToken);
         var runEntity = await db.Runs.SingleOrDefaultAsync(item => item.RunId == command.RunId, cancellationToken);
         if (runEntity is null)
         {
             return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
                 MigrationPersistenceOutcome.NotFound,
                 "migration_run_not_found");
+        }
+
+        var existingKey = await FindIdempotencyEntityAsync(
+            db,
+            command.Operation,
+            command.IdempotencyKey.Value,
+            cancellationToken);
+        if (existingKey is not null)
+        {
+            if (transaction is not null)
+                await transaction.CommitAsync(cancellationToken);
+            return await ResolveAttemptReplayAsync(
+                tenantContext,
+                existingKey,
+                command,
+                cancellationToken);
         }
 
         if (!runEntity.EvidenceConfirmed)
@@ -238,20 +259,6 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
             return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
                 MigrationPersistenceOutcome.UnknownOutcome,
                 "migration_audit_recovery_required");
-        }
-
-        var existingKey = await FindIdempotencyEntityAsync(
-            db,
-            command.Operation,
-            command.IdempotencyKey.Value,
-            cancellationToken);
-        if (existingKey is not null)
-        {
-            return await ResolveAttemptReplayAsync(
-                tenantContext,
-                existingKey,
-                command,
-                cancellationToken);
         }
 
         // Lineage is derived here, from the durable attempts of exactly this
@@ -280,6 +287,8 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
             // writes the attempt and its idempotency row in one transaction, so
             // re-checking the key proves which case this is: a committed row
             // replays, and a free key keeps the genuine lineage denial.
+            if (transaction is not null)
+                await transaction.CommitAsync(cancellationToken);
             return await ResolveLineageDenialAsync(
                 tenantContext,
                 command,
@@ -304,14 +313,23 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
         try
         {
             await db.SaveChangesAsync(cancellationToken);
+            if (transaction is not null)
+                await transaction.CommitAsync(cancellationToken);
             return MigrationPersistenceResult<MigrationAttemptRecord>.Success(ToRecord(entity));
         }
         catch (DbUpdateException exception) when (IsUniqueViolation(exception))
         {
+            if (transaction is not null)
+                await transaction.RollbackAsync(cancellationToken);
             // Either a concurrent caller used the same idempotency key, or two
             // callers derived the same lineage sequence for this run. Both are
             // resolved from a fresh context so the winner's committed attempt
             // can be replayed instead of rejected.
+            return await ResolveConcurrentAttemptAsync(tenantContext, command, cancellationToken);
+        }
+        catch (Exception exception) when (exception.GetBaseException() is Microsoft.Data.SqlClient.SqlException { Number: 1205 })
+        {
+            // SQL Server rolls back a deadlock victim; resolve from committed state.
             return await ResolveConcurrentAttemptAsync(tenantContext, command, cancellationToken);
         }
         catch (DbUpdateException)

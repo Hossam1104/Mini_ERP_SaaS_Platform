@@ -309,3 +309,10 @@ the same target:
 ```powershell
 .\scripts\Test-MiniErpDevelopmentRuntime.ps1
 ```
+
+<!--
+** FOR HOSSAM ONLY **
+
+Execute the prompt in TASK.md.
+Review the latest RESULT.md entry.
+-->
