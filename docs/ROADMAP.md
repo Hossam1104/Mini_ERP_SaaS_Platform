@@ -5,9 +5,9 @@ tracker item in [Project #1](https://github.com/users/Hossam1104/projects/1). Re
 `MESP-<n> (#<issue>)`. **Live tracker and Git state outrank this file.** Anyone who changes an item's
 state also updates the line here.
 
-_Last reconciled: 2026-09-27 (Slice 11 accepted and PR #281 merged; MESP-149 (#264) follow-ups closed; MESP-167 (#286) released)._
+_Last reconciled: 2026-09-27 (MESP-167 (#286) merged; owner decisions Q-Q, Q-R, Q-S; MESP-168 (#289) released)._
 
-**Accepted Executor cycles since the last Sol review: 1** (counter in `ORCHESTRATION_STATE.yaml`,
+**Accepted Executor cycles since the last Sol review: 2** (counter in `ORCHESTRATION_STATE.yaml`,
 `MODEL_ROUTING.md` §2; the owner reset it to 0 on 2026-09-27). The last Sol review was the MESP-149
 cleanup review (PR #278, closed unmerged as superseded).
 
@@ -37,20 +37,25 @@ Finish MESP-141 → Golden Release-1 cycle → stable functional/API baseline �
 
 ## Next (in order)
 
+Backend path, run serially. The UI lane is parallel but waits for the owner's reference example (Q-R).
+
 | # | Item | Model / effort (planned) | Notes |
 |---|---|---|---|
-| 1 | MESP-167 (#286): the R4 SQL shape pin (SOL-CL-01) and the AP/cash-bank D-18 tests (SOL-CL-04) | Executor | Test-only. The R4 allowlist is unchanged; the four-site baseline is ratified (Q-P). The prompt is in `TASK.md`. |
-| 2 | Decide whether MESP-141 needs further slices before it closes | Opus 5.5 | M40 exit criteria: completed reconciliation, accepted exceptions, named approvals, a readiness snapshot. |
-| 3 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Luna 6 / max | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
-| 4 | MESP-152 (#267): stable functional/API baseline | Luna 6 / max | The UI work must preserve this baseline. |
-| 5 | MESP-153 (#268): total UI/UX modernization | Luna 6 / max | No hard-coded Wafra behavior. Branding is configuration (ADR-019). |
-| 6 | MESP-142 (#230): Release 1 stabilization, regression, performance, UAT and release candidate | — | **Not Activated.** It needs positive activation authority. |
+| 1 | MESP-168 (#289): MESP-141 closure audit, tracing BRD 40 requirements to code and tests | Executor | Read-only. One audit file. The prompt is in `TASK.md`. Opus then decides whether MESP-141 closes or which slices remain. |
+| 2 | MESP-151 (#266): prove one Golden Release-1 end-to-end business cycle | Executor | Setup → Master Data → Supplier → Purchase → Goods Receipt → Inventory → Customer/B2B Sale → Receivable → Payment/Cash → Payable/Settlement → GL → reconciliation/reporting. |
+| 3 | Platform Administration Wave 1: MESP-65..85 (#154–#174) under MESP-2 (#91) | Executor | **In the QA build (Q-Q).** 21 stories; Opus batches them into prompts. |
+| 4 | MESP-152 (#267): stable functional/API baseline | Executor | Covers Wave 1. The UI feature screens must preserve it. |
+| 5 | MESP-142 (#230): Release 1 stabilization, regression, performance, UAT and release candidate for QA | — | **Not Activated.** It needs positive activation authority. |
+| UI | MESP-153 (#268): total UI/UX modernization | Executor | **Waits for the owner's reference UI (Q-R).** The design system and shell can run beside items 2–4. Feature screens follow item 4. No Wafra-specific behavior (ADR-019). |
+
+**Estimate to a QA-ready build (2026-09-27, Planner):** about 10–14 weeks, so mid-December 2026 to
+early January 2027. It assumes the UI reference arrives within about 2 weeks. The biggest risks are
+Wave 1 (4–6 weeks) and the golden cycle (1–2 weeks, likely to surface cross-module defects).
 
 ## Backlog (Release 1, not yet sequenced)
 
 | Item | Notes |
 |---|---|
-| MESP-65..MESP-85 (#154–#174): Platform Administration Wave 1 stories under MESP-2 (#91) | Labelled `release-1` (Q-F keeps the labels). Where they fall in the sequence is still undecided. |
 | MESP-146 (#238): run the LocalDB-dependent backend tests in hosted CI | CI enabler under MESP-145 (#263). |
 | MESP-147 (#239): harden CI determinism, portability and build-graph coverage | CI enabler. |
 | MESP-148 (#240): reproducible release build provenance and artifacts | CI enabler. |
@@ -116,7 +121,7 @@ Epics that stay open because they have open children:
 | Reporting and cross-cutting | MESP-139 (#227) reporting catalogue. MESP-140 (#228) security/audit/files/notifications/localization/support. |
 | Entry model | MESP-143 (#231): Tenant-aware entry routing and Overview-first context (ADR-019). |
 | Governance | MESP-144 (#232) repository health checkpoint. GitHub Actions CI (#235). |
-| Cleanup and operating model | MESP-149 (#264): cleanup on `main` (PR #271); Sol review accepted; follow-ups SOL-CL-05/06/07 applied 2026-09-27, SOL-CL-01/04 moved to MESP-167 (#286). MESP-150 (#265): Slice 11 accepted, PR #281 merged at `6d14af7`. |
+| Cleanup and operating model | MESP-149 (#264): cleanup on `main` (PR #271); Sol review accepted; follow-ups SOL-CL-05/06/07 applied 2026-09-27, SOL-CL-01/04 done in MESP-167 (#286), PR #288 at `1d2b75a`. MESP-150 (#265): Slice 11 accepted, PR #281 merged at `6d14af7`. |
 
 ## Known non-blocking findings
 

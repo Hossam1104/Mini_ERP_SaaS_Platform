@@ -4,6 +4,44 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-27 — Opus: accept MESP-167, owner decisions Q-Q/Q-R/Q-S, release MESP-168 — Claude Opus 5.5 / medium — MESP-167 (#286), MESP-168 (#289)
+
+- Status: **ACCEPTED** (MESP-167) and **DONE** (state updates).
+- Branch / starting SHA / ending SHA: `docs/mesp-168-owner-decisions-and-audit-release` from `main` at
+  `1d2b75a`; ending SHA is the commit carrying this entry.
+- **MESP-167 review of the entry below: ACCEPT.**
+  - A1–A2: the anchored `\A…\z` regex pins one `SELECT … FROM [s].[t] WITH (UPDLOCK, HOLDLOCK) WHERE
+    [TenantId] = {…} AND [k] = {…}`, and `Assert.Equal(3, …)` is kept. The three bad strings are
+    rejected.
+  - A3: the `…; DELETE …` string passes the old asserts in-test and fails the new one.
+  - A4: the AP and cash-bank tests assert `partial` plus
+    `finance_ap_opening_evidence_not_reconciled` / `finance_cash_bank_opening_evidence_not_reconciled`,
+    and that `OperationCanceledException` propagates.
+  - A5: only the two test files plus RESULT/TASK.
+  - A6: 1557/1557, 0 skipped. CI is green on `a21c17d`.
+  - Deviation accepted: the worktree restart was blocked by the launcher's ownership guard (see Q-S).
+  - Under Q-O: #288 Ready and merged (`1d2b75a`); #286 closed. Cycle counter → 2.
+- **Runtime restart (Q-S), from the main checkout at `1d2b75a`.**
+  - My first Release build ran while the API held its DLLs: 6 MSB3027 lock errors, and the launcher
+    restarted the old binaries. `AUTOMATION_DEFECT (Planner-introduced)`.
+  - Redone correctly: stopped only `MiniErp.Api` PID 27008 on port 5300; Release build 0 errors;
+    `Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart`. Both health checks
+    passed: backend `http://localhost:5300`, frontend `http://localhost:4300`. Wall 2 m 59 s.
+- **Owner decisions** (chat, 2026-09-27), recorded in `DECISIONS.md`:
+  - Q-Q: Platform Administration Wave 1 (MESP-65..85) is in the QA build.
+  - Q-R: the UI rework waits for the owner's reference example, then may run in parallel.
+  - Q-S: restart after every Luna prompt; `MODEL_ROUTING.md` §4.7 now says the Planner does it from
+    the main checkout when Luna runs in a worktree.
+- **ROADMAP** resequenced: MESP-168 → golden cycle → Wave 1 → API baseline → MESP-142, with a UI lane
+  on hold. The estimate to QA is about 10–14 weeks.
+- **Created MESP-168 (#289)**: a Task under `[MESP-15] #104`, Migration, Todo. The prompt is in
+  `TASK.md`.
+- Gates (governance docs changed): `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false -Configuration Debug`
+  (Debug because the dev API locks Release). Build 0 warnings / 0 errors. **1557/1557** passed, 0
+  skipped. Disposable database `MiniErpFoundation_20260927134539_df9bd034`; "MESP data is intact". Wall
+  3 m 46 s. `git diff --check` clean.
+- Exact next action: **merge this PR, launch the Executor on MESP-168 (#289).**
+
 ## 2026-09-27 — MESP-167 (#286) R4 shape pin and D-18 AP/cash-bank tests — Luna 6 / max — MESP-167 (#286)
 
 - Status: **DONE**; Opus 5.5 review pending.
