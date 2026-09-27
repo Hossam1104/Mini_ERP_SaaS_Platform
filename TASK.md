@@ -6,7 +6,7 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **OPEN** (first release, 2026-09-27). The Planner launches the child through Paseo and passes
+Status: **CONSUMED** (first release, 2026-09-27). The Planner launches the child through Paseo and passes
 this contract verbatim (`MODEL_ROUTING.md` §6, §10).
 
 ```markdown
