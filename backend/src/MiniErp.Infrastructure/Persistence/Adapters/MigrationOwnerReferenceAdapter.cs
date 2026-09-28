@@ -122,6 +122,13 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
                     => MigrationBusinessIdentityResolution.Valid($"supplier:{SupplierValuePolicy.ComparisonKey(supplier.Code)}"),
                 MigrationCustomerPayload customer when !string.IsNullOrWhiteSpace(customer.Code)
                     => MigrationBusinessIdentityResolution.Valid($"customer:{CustomerValuePolicy.ComparisonKey(customer.Code)}"),
+                MigrationOrganizationPayload organization when organization.CompanyId is { } companyId
+                    => MigrationBusinessIdentityResolution.Valid("organization:" + JsonSerializer.Serialize(new
+                    {
+                        CompanyId = companyId,
+                        organization.BranchId,
+                        organization.WarehouseId
+                    })),
                 MigrationInventoryOpeningPayload inventory when inventory.CompanyId is { } companyId
                     && inventory.WarehouseId is { } warehouseId
                     && inventory.ProductId is { } productId

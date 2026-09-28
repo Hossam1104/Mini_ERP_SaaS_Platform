@@ -178,6 +178,34 @@ public sealed class MigrationOwnerReferenceAdapterTests
     }
 
     [Fact]
+    public void Organization_business_duplicates_use_the_exact_hierarchical_tuple()
+    {
+        var (tenant, _) = Context();
+        var adapter = Create(tenant, new ConfiguredFinanceCompanyProvider([]));
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var rows = new[]
+        {
+            Row(1, new MigrationOrganizationPayload(companyId)),
+            Row(2, new MigrationOrganizationPayload(companyId)),
+            Row(3, new MigrationOrganizationPayload(companyId, branchId)),
+            Row(4, new MigrationOrganizationPayload(companyId, branchId)),
+            Row(5, new MigrationOrganizationPayload(companyId, branchId, warehouseId)),
+            Row(6, new MigrationOrganizationPayload(companyId, branchId, warehouseId)),
+            Row(7, new MigrationOrganizationPayload(Guid.NewGuid(), branchId))
+        };
+        var identities = rows.ToDictionary(row => row.SourceSequence, adapter.ResolveBusinessIdentity);
+
+        Assert.All(identities.Values, identity => Assert.Equal(MigrationBusinessIdentityState.Valid, identity.State));
+        Assert.Equal(new[] { 1, 2, 3, 4, 5, 6 }, MigrationValidationService.DuplicateBusinessKeySequences(identities).Order().ToArray());
+        Assert.NotEqual(identities[3].Key, identities[7].Key);
+
+        static MigrationParsedCanonicalRow Row(int sequence, MigrationOrganizationPayload payload) =>
+            new(sequence, $"organization-{sequence}", MigrationCanonicalRecordType.Organization, payload, "{}");
+    }
+
+    [Fact]
     public void Tax_reference_identity_includes_the_effective_owner_version_date()
     {
         var (tenant, _) = Context();

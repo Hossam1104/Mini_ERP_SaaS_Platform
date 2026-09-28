@@ -37,10 +37,16 @@ public sealed class MigrationValidationTests
         var package = Package("{\"sourceSequence\":1,\"sourceRecordId\":\"product-1\",\"recordType\":\"Product\",\"payload\":{\"sku\":\"A\"}}")
             .Replace("migration-product-v1", "migration-product-v9", StringComparison.Ordinal);
         var result = MigrationCanonicalPackageParser.Parse(Encoding.UTF8.GetBytes(package));
+        var staleOrganizationContract = Package("{\"sourceSequence\":1,\"sourceRecordId\":\"company-1\",\"recordType\":\"Organization\",\"payload\":{\"companyId\":\"11111111-1111-1111-1111-111111111111\"}}")
+            .Replace("migration-organization-v2", "migration-organization-v1", StringComparison.Ordinal);
+        var staleResult = MigrationCanonicalPackageParser.Parse(Encoding.UTF8.GetBytes(staleOrganizationContract));
 
         Assert.False(result.Succeeded);
         Assert.Equal("migration_package_domain_contract_incompatible", result.ErrorCode);
         Assert.Empty(result.Rows);
+        Assert.False(staleResult.Succeeded);
+        Assert.Equal("migration_package_domain_contract_incompatible", staleResult.ErrorCode);
+        Assert.Empty(staleResult.Rows);
     }
 
     [Fact]
@@ -139,7 +145,7 @@ public sealed class MigrationValidationTests
         var recordTypes = new[]
         {
             MigrationCanonicalRecordType.Product, MigrationCanonicalRecordType.Supplier, MigrationCanonicalRecordType.Customer,
-            MigrationCanonicalRecordType.Currency, MigrationCanonicalRecordType.Tax, MigrationCanonicalRecordType.PaymentTerm,
+            MigrationCanonicalRecordType.Organization, MigrationCanonicalRecordType.Currency, MigrationCanonicalRecordType.Tax, MigrationCanonicalRecordType.PaymentTerm,
             MigrationCanonicalRecordType.UnitOfMeasure, MigrationCanonicalRecordType.PriceList, MigrationCanonicalRecordType.ExchangeRate,
             MigrationCanonicalRecordType.InventoryOpening, MigrationCanonicalRecordType.GlOpening, MigrationCanonicalRecordType.ApOpening,
             MigrationCanonicalRecordType.ArOpening, MigrationCanonicalRecordType.CashBankOpening

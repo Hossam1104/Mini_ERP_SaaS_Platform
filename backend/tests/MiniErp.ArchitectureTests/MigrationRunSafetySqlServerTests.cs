@@ -243,7 +243,16 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         {
             new { SourceSequence = index * 2 + 1, SourceRecordId = $"source-{index}-a", RecordType = domain.Type.ToString(), Payload = domain.First },
             new { SourceSequence = index * 2 + 2, SourceRecordId = $"source-{index}-b", RecordType = domain.Type.ToString(), Payload = domain.Second }
-        }).Cast<object>().ToArray();
+        }).Cast<object>().Concat(new object[]
+        {
+            new { SourceSequence = 29, SourceRecordId = "org-company-a", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = companyId, BranchId = (Guid?)null, WarehouseId = (Guid?)null } },
+            new { SourceSequence = 30, SourceRecordId = "org-company-b", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = companyId, BranchId = (Guid?)null, WarehouseId = (Guid?)null } },
+            new { SourceSequence = 31, SourceRecordId = "org-branch-a", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = (Guid?)companyId, BranchId = (Guid?)branchId, WarehouseId = (Guid?)null } },
+            new { SourceSequence = 32, SourceRecordId = "org-branch-b", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = (Guid?)companyId, BranchId = (Guid?)branchId, WarehouseId = (Guid?)null } },
+            new { SourceSequence = 33, SourceRecordId = "org-warehouse-a", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = (Guid?)companyId, BranchId = (Guid?)branchId, WarehouseId = (Guid?)warehouseId } },
+            new { SourceSequence = 34, SourceRecordId = "org-warehouse-b", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = (Guid?)companyId, BranchId = (Guid?)branchId, WarehouseId = (Guid?)warehouseId } },
+            new { SourceSequence = 35, SourceRecordId = "org-other-company-same-branch", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = (Guid?)Guid.NewGuid(), BranchId = (Guid?)branchId, WarehouseId = (Guid?)null } }
+        }).ToArray();
         var content = Package(objectId, records);
         var storage = Storage(tenant, objectId, content);
         var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
@@ -255,9 +264,21 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
 
         Assert.Equal("migration_validation_failed", result.Code);
         Assert.NotNull(summary);
-        Assert.Equal(domains.Length * 2, summary!.RejectedCount);
-        Assert.Equal(domains.Length * 2, summary.Records.Sum(item => item.FindingCodes.Count(code => code == "migration_duplicate_source_identity")));
-        Assert.All(summary.Records, item => Assert.Contains("migration_duplicate_source_identity", item.FindingCodes));
+        Assert.Equal(domains.Length * 2 + 6, summary!.RejectedCount);
+        Assert.Equal(1, summary.AcceptedCount);
+        Assert.Equal(domains.Length * 2 + 6, summary.Records.Count(item => item.FindingCodes.Contains("migration_duplicate_source_identity", StringComparer.Ordinal)));
+        var organizationDuplicates = summary.Records.Where(item => item.RecordType == MigrationCanonicalRecordType.Organization && item.SourceRecordId != "org-other-company-same-branch").ToArray();
+        Assert.Equal(6, organizationDuplicates.Length);
+        Assert.All(organizationDuplicates, item =>
+        {
+            Assert.Equal(MigrationRecordDisposition.Rejected, item.Disposition);
+            Assert.Contains("migration_duplicate_source_identity", item.FindingCodes);
+            Assert.Equal(MigrationFindingCategory.Duplicate.ToString(), item.ErrorClass);
+            Assert.False(string.IsNullOrWhiteSpace(item.ActionableMessage));
+        });
+        var differentCompany = Assert.Single(summary.Records, item => item.SourceRecordId == "org-other-company-same-branch");
+        Assert.Equal(MigrationRecordDisposition.Accepted, differentCompany.Disposition);
+        Assert.DoesNotContain("migration_duplicate_source_identity", differentCompany.FindingCodes);
         Assert.Equal(tenant.ActorId, summary.OwnerActorId);
         Assert.Equal(MigrationRunStatus.ValidationFailed, summary.StageStatus);
         Assert.Equal(MigrationAttemptOutcome.KnownFailure, summary.AttemptOutcome);
@@ -269,6 +290,12 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
             MigrationProductPayload item => $"Product:{item.Sku}",
             MigrationSupplierPayload item => $"Supplier:{item.Code}",
             MigrationCustomerPayload item => $"Customer:{item.Code}",
+            MigrationOrganizationPayload item => "Organization:" + System.Text.Json.JsonSerializer.Serialize(new
+            {
+                CompanyId = item.CompanyId,
+                item.BranchId,
+                item.WarehouseId
+            }),
             MigrationReferencePayload item when row.RecordType == MigrationCanonicalRecordType.Tax =>
                 $"Tax:{item.Code}:{item.EffectiveDate}",
             MigrationReferencePayload item when row.RecordType == MigrationCanonicalRecordType.ExchangeRate =>
