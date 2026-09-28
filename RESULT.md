@@ -27,6 +27,9 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
 - Status files: this RESULT entry, the M40 audit rows/counts and gap-group summary were updated. TASK.md prompt remains CONSUMED from 2026-09-28; next-task summaries were left unchanged.
 - Exact next action: **Opus 5.5 reviews MESP-170 (#293).**
 
+- Planner review correction resumed on `feat/mesp-170-migration-source-contract` at `ac1c129fa0129f84f7be89a72f84e7fd1c1c0066` with seven tracked files changed (+301/-19). Commit `9243c1d9d04283348ceea39172ad61d237e1bee1` checks Payment Term effective version/base-date rules and fails closed with `migration_payment_term_due_date_unverifiable` because validation has no authorized due-date calculation contract; M40-REQ-018 records the Finance-owned gap. It also rejects SourceRecordId values over 256 without SQL truncation and requires active source/target Currency masters for ExchangeRate rows.
+- Correction validation: backend gate **1,589 passed, 0 failed, 0 skipped** (6m32s), Release build 0 warnings/0 errors, disposable database `MiniErpFoundation_20260928160046_c033b72d`, runtime data intact; `git diff --check` clean and no EF model changed. The first gate build was locked by confirmed repo API PID 31400 on 5300; only that process was stopped before the passing rerun. Q-S restart then passed its Release build (0 warnings/0 errors) and health checks: API PID 29120 at http://localhost:5300, Angular PID 60092 at http://localhost:4300. All three PR #304 review threads were replied to with commit `9243c1d9d04283348ceea39172ad61d237e1bee1` and resolved. PR #304 remains OPEN/Ready and unmerged.
+
 ## 2026-09-28 - MESP-170 (#293) execution stopped - GPT-6 Codex / effort unreported - MESP-170 (#293), MESP-141 (#229)
 
 - Status: **STOPPED** under TASK.md section 10 after the required backend gate reported an unrelated red.
