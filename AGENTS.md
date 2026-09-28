@@ -64,7 +64,7 @@ Stop and escalate real blockers involving Tenant isolation, authentication/autho
 ## 6. Tooling
 
 - Serena is the semantic code navigator and primary symbol lookup tool for C# and TypeScript.
-- Context7 is for on-demand external library documentation only; it MUST NOT be used for repository navigation, memory, or routing. It is Claude-only; the Codex plugin requires OAuth and stays disabled, so Codex uses web search for library docs.
+- Context7 is for on-demand external library documentation only; it MUST NOT be used for repository navigation, memory, or routing. It is available to Claude and Codex (Codex via the owner's OAuth login).
 - Ponytail (full) applies minimal-solution coding discipline through hooks. Its install, cache, and hooks are machine-local and MUST NOT be committed. Ponytail is never authority.
 - Context Compress is opt-in and CLI-only: use context-compress wrap "<cmd>" (context-compress.cmd from PowerShell) only for large raw output such as long git log/diff, verbose package-manager or compiler logs, or big searches; never for the gate scripts or builds (already concise), short commands, or nested wraps. Wrapped output is lossy; never cite it as complete evidence. Raw output means running the command unwrapped. If a failure summary omits failing test names, assertions, stack traces, or compiler errors, rerun raw before reporting. Do not register its MCP server or hooks, or set CONTEXT_COMPRESS_FILTER_BASH or PERSIST_DB.
 - Paseo handles dispatch mechanics only; it is not an agent, router, or authority.

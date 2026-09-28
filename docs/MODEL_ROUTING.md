@@ -78,7 +78,7 @@ Planner reconciles and accepts/rejects.
 |---|---|---|
 | Serena (MCP) | Symbol-level navigation and edits: `get_symbols_overview`, `find_symbol`, `find_referencing_symbols`, `replace_symbol_body`, `insert_after_symbol`. Call `initial_instructions` once first. | Reading whole files, or grepping for callers by hand |
 | Ponytail (hook/skill, **full**) | Minimal-diff discipline: reuse, no speculative abstractions, the shortest working change, short prose | Over-built code and long prose |
-| Context7 (MCP, Claude only) | Current docs for any library, framework, or CLI you touch (`resolve-library-id` → `query-docs`). Codex/Luna has no Context7 (OAuth-gated plugin disabled) and uses web search; prompts to Luna must not require it. | Web search or guessing the API |
+| Context7 (MCP) | Current docs for any library, framework, or CLI you touch (`resolve-library-id` → `query-docs`) | Web search or guessing the API |
 
 - Check availability at session start. If a plugin is missing or failing, say so in one line and
   continue with targeted reads. Install nothing.
