@@ -3,6 +3,47 @@
 The shared results log, newest entry first. Every model adds exactly one entry per session, using the
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
+
+## 2026-09-28 — MESP-174 Harness context footprint + tool integration — GPT-6 Luna / max — MESP-174 (#300)
+
+## RESULT
+PARTIAL
+
+## TASK
+Implement the bounded harness contract in isolated worktree chore/mesp-174-harness-context.
+
+## ROOT CAUSE
+N/A — governance and tool-integration task.
+
+## CHANGES
+- Consolidated AGENTS.md to 11,972 bytes / 96 lines. MODEL_ROUTING.md now points to AGENTS.md §7 for duplicated role, cadence, and routing authority; procedural sections remain.
+- Added typescript to .serena/project.yml; Codex Serena direct MCP uses --context codex.
+- Main project Claude local settings disable Azure; permissions are byte-preserved. Backups: C:\Users\Win11\.codex\config.toml.bak-harness-20260927 and D:\AI Tools\Active Projects\Mini_ERP_SaaS_Platform\.claude\settings.local.json.bak-harness-20260927.
+- Context Compress remains CLI-only. Codex Context7 was restored to disabled after its query returned OAuth AuthRequired.
+
+## VALIDATION
+- Backend gate raw and wrapped: 1563/1563 passed, 0 skipped, 0 warnings/errors; disposable LocalDB data intact.
+- Frontend npm ci succeeded; npm run build succeeded with known 514.26 kB / 500 kB budget warning.
+- git diff --check clean. Required docs grep found only the root AGENTS.md existence assertion.
+- Context Compress failure smoke preserved exit 1, test name, assertion, stack marker, and stack path.
+- Serena 1.7.0 CLI; direct MCP server reported 1.28.1. In the worktree with --context codex, find_symbol found catch() callback in frontend/src/main.ts and CategoryUomEndpoints in C#. A fresh codex exec session did not expose Serena tools.
+- Fresh Codex Context7 query returned OAuth AuthRequired; the toggle was reverted. Claude per-server tool counts remain unavailable from the CLI.
+
+| Command output | Raw lines / bytes | Wrapped lines / bytes | Exit |
+|---|---:|---:|---:|
+| Backend gate | 24 / 3,580 | 24 / 3,580 | 0 / 0 |
+| Frontend build | 41 / 5,982 | 41 / 6,070 | 0 / 0 |
+| git log --stat -200 | 4,093 / 393,500 | 2,218 / 208,916 | 0 / 0 |
+
+## DEFECTS OR GAPS
+Codex Context7 needs OAuth credentials; none were added. Codex CLI Serena tool exposure was not proven even though the worktree MCP symbol smoke passed.
+
+## REPOSITORY STATE
+Worktree branch chore/mesp-174-harness-context, based on origin/main 7f569cef. Concurrent tracked changes in the main checkout were left untouched.
+
+## NEXT ACTION
+Commit, push, and open a Draft PR for Opus review, then stop.
+
 ## 2026-09-27 — Opus: accept MESP-169, release MESP-170 — Claude Opus 5.5 / medium — MESP-169 (#292), MESP-170 (#293)
 
 - Status: **ACCEPTED** (MESP-169) and **DONE** (state updates).
