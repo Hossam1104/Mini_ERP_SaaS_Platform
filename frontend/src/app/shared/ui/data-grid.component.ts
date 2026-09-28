@@ -55,21 +55,6 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
                       <button class="grid-sort" type="button" (click)="sortBy(column)" [class.is-sorted]="sortKey() === column.key" [attr.aria-label]="sortLabel(column)">{{ column.label }}<svg class="icon sort-icon" [class.is-sorted]="sortKey() === column.key" aria-hidden="true"><use [attr.href]="'#icon-' + sortMark(column)" /></svg></button>
                       @if (column.filter) {
                         <button class="grid-filter-button" type="button" [id]="filterTriggerId(column)" [class.is-filtered]="filterIsActive(column.key)" [attr.aria-label]="filterLabel(column)" aria-haspopup="dialog" [attr.aria-expanded]="filterColumn() === column.key" [attr.aria-controls]="filterColumn() === column.key ? filterPopoverId(column) : null" (click)="toggleFilter(column.key, $event)"><svg class="icon" aria-hidden="true"><use href="#icon-filter" /></svg></button>
-                        @if (filterColumn() === column.key) {
-                          <div class="grid-filter-popover" role="dialog" [attr.id]="filterPopoverId(column)" [attr.aria-label]="filterLabel(column)" [style.top.px]="filterPopoverPosition().top" [style.left.px]="filterPopoverPosition().left" (keydown.escape)="closeFilter(column.key, true)">
-                            @if (column.filter === 'text') {
-                              <label><span>{{ filterInputLabel }}</span><input type="search" [value]="textFilterValue(column.key)" [attr.aria-label]="filterInputLabel + ' ' + column.label" (input)="setTextFilter(column.key, $any($event.target).value)" /></label>
-                            } @else if (column.filter === 'select') {
-                              <label><span>{{ filterInputLabel }}</span><select [value]="textFilterValue(column.key)" [attr.aria-label]="filterInputLabel + ' ' + column.label" (change)="setTextFilter(column.key, $any($event.target).value)"><option value="">{{ allValuesLabel }}</option>@for (option of optionsFor(column); track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
-                            } @else {
-                              <div class="grid-range-fields">
-                                <label><span>{{ fromLabel }}</span><input [type]="column.filter === 'date-range' ? 'date' : 'number'" [attr.aria-label]="fromLabel + ' ' + column.label" [value]="rangeFilterValue(column.key, 'from')" (input)="setRangeFilter(column.key, 'from', $any($event.target).value)" /></label>
-                                <label><span>{{ toLabel }}</span><input [type]="column.filter === 'date-range' ? 'date' : 'number'" [attr.aria-label]="toLabel + ' ' + column.label" [value]="rangeFilterValue(column.key, 'to')" (input)="setRangeFilter(column.key, 'to', $any($event.target).value)" /></label>
-                              </div>
-                            }
-                            <button class="grid-filter-clear" type="button" (click)="clearFilter(column.key)">{{ clearFiltersLabel }}</button>
-                          </div>
-                        }
                       }
                       <span class="grid-resize-handle" role="separator" aria-orientation="vertical" tabindex="0" [attr.aria-label]="resizeLabel(column)" [attr.aria-valuemin]="112" [attr.aria-valuemax]="520" [attr.aria-valuenow]="columnWidth(column)" (mousedown)="startResize($event, column)" (keydown)="resizeByKeyboard($event, column)"></span>
                     </div>
@@ -119,11 +104,26 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
           <span class="pager-size">{{ pageSize }} {{ perPageLabel }}</span>
         </footer>
       }
+      @if (activeFilterColumn(); as column) {
+        <div class="grid-filter-popover" role="dialog" [attr.id]="filterPopoverId(column)" [attr.aria-label]="filterLabel(column)" [style.top.px]="filterPopoverPosition().top" [style.left.px]="filterPopoverPosition().left" (keydown.escape)="closeFilter(column.key, true)">
+          @if (column.filter === 'text') {
+            <label><span>{{ filterInputLabel }}</span><input type="search" [value]="textFilterValue(column.key)" [attr.aria-label]="filterInputLabel + ' ' + column.label" (input)="setTextFilter(column.key, $any($event.target).value)" /></label>
+          } @else if (column.filter === 'select') {
+            <label><span>{{ filterInputLabel }}</span><select [value]="textFilterValue(column.key)" [attr.aria-label]="filterInputLabel + ' ' + column.label" (change)="setTextFilter(column.key, $any($event.target).value)"><option value="">{{ allValuesLabel }}</option>@for (option of optionsFor(column); track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
+          } @else {
+            <div class="grid-range-fields">
+              <label><span>{{ fromLabel }}</span><input [type]="column.filter === 'date-range' ? 'date' : 'number'" [attr.aria-label]="fromLabel + ' ' + column.label" [value]="rangeFilterValue(column.key, 'from')" (input)="setRangeFilter(column.key, 'from', $any($event.target).value)" /></label>
+              <label><span>{{ toLabel }}</span><input [type]="column.filter === 'date-range' ? 'date' : 'number'" [attr.aria-label]="toLabel + ' ' + column.label" [value]="rangeFilterValue(column.key, 'to')" (input)="setRangeFilter(column.key, 'to', $any($event.target).value)" /></label>
+            </div>
+          }
+          <button class="grid-filter-clear" type="button" (click)="clearFilter(column.key)">{{ clearFiltersLabel }}</button>
+        </div>
+      }
     </section>
   `,
   styles: `
     :host { display: block; min-width: 0; }
-    .data-grid-card { min-width: 0; overflow: visible; border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line)); border-radius: var(--radius-card); background: linear-gradient(145deg, var(--surface-glass), var(--surface-raised)); box-shadow: var(--shadow-card); backdrop-filter: blur(12px) saturate(140%); }
+    .data-grid-card { position: relative; min-width: 0; overflow: visible; border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line)); border-radius: var(--radius-card); background: linear-gradient(145deg, var(--surface-glass), var(--surface-raised)); box-shadow: var(--shadow-card); backdrop-filter: blur(12px) saturate(140%); }
     .data-grid-toolbar { display: flex; min-height: 56px; align-items: center; justify-content: space-between; gap: 1rem; border-block-end: 1px solid var(--line); padding: .65rem 1rem; }
     .data-grid-total { display: inline-flex; align-items: center; gap: .5rem; border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line)); border-radius: 999px; padding: .4rem .8rem; color: var(--accent-strong); background: var(--accent-soft); font-size: .9rem; white-space: nowrap; }
     .data-grid-total strong { color: var(--ink-strong); font-size: 1rem; }
@@ -161,7 +161,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
     .grid-filter-button { display: inline-grid; width: 40px; height: 40px; place-items: center; flex: none; border: 1px solid transparent; border-radius: 10px; color: var(--ink-muted); background: transparent; font-size: 14px; }
     .grid-filter-button .icon { width: 15px; height: 15px; }
     .grid-filter-button:hover, .grid-filter-button.is-filtered, .grid-filter-button[aria-expanded='true'] { border-color: color-mix(in srgb, var(--accent) 26%, var(--line)); color: var(--accent); background: var(--accent-soft); }
-    .grid-filter-popover { position: fixed; z-index: 70; display: grid; width: min(260px, calc(100vw - 24px)); gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 14px; padding: .8rem; color: var(--ink); background: var(--surface-glass); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); backdrop-filter: blur(18px) saturate(150%); }
+    .grid-filter-popover { position: absolute; z-index: 70; display: grid; width: min(260px, calc(100vw - 24px)); gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 14px; padding: .8rem; color: var(--ink); background: var(--surface-glass); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); backdrop-filter: blur(18px) saturate(150%); }
     .grid-filter-popover label, .grid-range-fields label { display: grid; min-width: 0; gap: .35rem; color: var(--ink-muted); font-size: 14px; font-weight: 700; }
     .grid-filter-popover input, .grid-filter-popover select { width: 100%; min-width: 0; min-height: 44px; }
     .grid-range-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
@@ -260,6 +260,11 @@ export class DataGridComponent<T extends object> {
     return this.sortKey() !== column.key ? 'arrow-up-down' : this.sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down';
   }
 
+  activeFilterColumn(): DataGridColumn<T> | null {
+    const key = this.filterColumn();
+    return key ? this.columns().find((column) => column.key === key) ?? null : null;
+  }
+
   badgeClass(value: string | number | null): string {
     const tone = String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '');
     return tone ? `data-grid-badge--${tone}` : 'data-grid-badge--neutral';
@@ -297,12 +302,19 @@ export class DataGridComponent<T extends object> {
     const trigger = event?.currentTarget as HTMLElement | null;
     if (trigger) {
       const rect = trigger.getBoundingClientRect();
-      const width = Math.min(260, window.innerWidth - 24);
-      const desiredLeft = document.documentElement.dir === 'rtl' ? rect.right - width : rect.left;
-      this.filterPopoverPosition.set({ top: Math.max(12, Math.min(rect.bottom + 6, window.innerHeight - 220)), left: Math.max(12, Math.min(desiredLeft, window.innerWidth - width - 12)) });
+      const cardRect = trigger.closest<HTMLElement>('.data-grid-card')?.getBoundingClientRect();
+      if (cardRect) {
+        const width = Math.min(260, document.documentElement.clientWidth - 24);
+        const maxLeft = document.documentElement.clientWidth - width - 12;
+        const desiredLeft = document.documentElement.dir === 'rtl' ? rect.right - width : rect.left;
+        const left = Math.max(12, Math.min(desiredLeft, maxLeft));
+        const below = rect.bottom + 6;
+        const top = below + 220 <= window.innerHeight - 12 ? below : Math.max(12, rect.top - 226);
+        this.filterPopoverPosition.set({ top: top - cardRect.top, left: left - cardRect.left });
+      }
     }
     this.filterColumn.set(key);
-    queueMicrotask(() => document.getElementById(this.filterPopoverId(this.columns().find((column) => column.key === key)!))?.querySelector<HTMLElement>('input, select')?.focus());
+    queueMicrotask(() => document.getElementById(this.filterPopoverId(this.columns().find((column) => column.key === key)!))?.querySelector<HTMLElement>('input, select')?.focus({ preventScroll: true }));
   }
 
   closeFilter(key: string, restoreFocus = false): void {

@@ -182,7 +182,7 @@ interface ConfirmationLineDraft {
     .inline-error { margin-block: .9rem; border: 1px solid; border-radius: var(--radius-sm); padding: .65rem .8rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); font-size: 14px; }
     .spinner { width: 2rem; height: 2rem; border: 3px solid var(--line); border-top-color: var(--accent-strong); border-radius: 50%; animation: po-spin 1s linear infinite; }
     @keyframes po-spin { to { transform: rotate(360deg); } }
-    .ledger-panel { padding: 0; overflow: hidden; }
+    .ledger-panel { padding: 0; overflow: visible; }
     .filter-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: .7rem; padding: .85rem 1rem; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface-glass)); }
     .filter-search { position: relative; display: block; min-height: 44px; min-width: min(100%, 18rem); flex: 1 1 16rem; color: var(--accent); }
     .filter-search .icon { position: absolute; z-index: 1; inset-block-start: 50%; inset-inline-start: .8rem; width: 18px; height: 18px; pointer-events: none; transform: translateY(-50%); }

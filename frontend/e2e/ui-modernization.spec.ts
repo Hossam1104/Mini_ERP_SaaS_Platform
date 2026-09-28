@@ -106,6 +106,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'teal');
     await expect(page.locator('.topbar__brand')).not.toHaveClass(/light-backplate/);
     await expect(page.locator('.topbar__mesp-logo img')).toHaveAttribute('src', /Logo_16_9_BG_Removed_Dark\.png/);
+    await expect(page.locator('.module-card--procurement .module-card__banner').first()).toHaveCSS('background-color', 'rgb(26, 34, 48)');
 
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'teal');
@@ -115,6 +116,47 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  });
+
+  test('keeps the full-height sticky rail in LTR and RTL while scrolling', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 600 });
+    await page.goto('/app/procurement/purchase-orders');
+    await page.locator('#main-content').evaluate((element) => { (element as HTMLElement).style.minHeight = '1400px'; });
+    const sidebar = page.locator('#app-sidebar');
+    const measure = () => sidebar.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, height: rect.height, position: getComputedStyle(element).position };
+    });
+    const scrollRange = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+    expect(scrollRange).toBeGreaterThan(0);
+    await page.evaluate(() => window.scrollTo(0, 100));
+    await expect.poll(async () => measure()).toEqual({ top: 0, bottom: 600, height: 600, position: 'sticky' });
+
+    await page.locator('.language-button').click();
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await page.evaluate(() => window.scrollTo(0, 200));
+    await expect.poll(async () => measure()).toEqual({ top: 0, bottom: 600, height: 600, position: 'sticky' });
+  });
+
+  test('keeps the Arabic hero orbit inside its card', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.goto('/app');
+    await page.locator('.language-button').click();
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    const bounds = await page.locator('.overview-hero').evaluate((hero) => {
+      const card = hero.getBoundingClientRect();
+      const orbit = [...hero.querySelectorAll<HTMLElement>('.hero-orbit')].map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+      });
+      return { card: { left: card.left, right: card.right, top: card.top, bottom: card.bottom }, orbit };
+    });
+    for (const orbit of bounds.orbit) {
+      expect(orbit.left).toBeGreaterThanOrEqual(bounds.card.left);
+      expect(orbit.right).toBeLessThanOrEqual(bounds.card.right);
+      expect(orbit.top).toBeGreaterThanOrEqual(bounds.card.top);
+      expect(orbit.bottom).toBeLessThanOrEqual(bounds.card.bottom);
+    }
   });
 
   test('aligns numeric grid headers in both directions and reduces glass motion', async ({ page }) => {
@@ -160,8 +202,28 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(supplierFilter).toHaveAttribute('aria-controls', 'grid-filter-supplierName');
     await filterDialog.getByRole('searchbox').fill('Cedar');
     await expect(grid.locator('tbody tr')).toHaveCount(1);
+    await expect(filterDialog.getByRole('searchbox')).toHaveValue('Cedar');
+    await expect(page.locator('.filter-toolbar')).toBeVisible();
     await expect(supplierFilter).toHaveClass(/is-filtered/);
     await expect(grid.locator('tbody tr').first()).toHaveAttribute('data-row-id', 'po-3');
+    const filteredLayout = await page.evaluate(() => {
+      const toolbar = document.querySelector('.filter-toolbar')!.getBoundingClientRect();
+      const card = document.querySelector('app-data-grid .data-grid-card')!.getBoundingClientRect();
+      const pager = document.querySelector('app-data-grid .data-grid-pager')!.getBoundingClientRect();
+      const popover = document.querySelector('app-data-grid .grid-filter-popover')!.getBoundingClientRect();
+      return {
+        toolbarTop: toolbar.top,
+        cardHeight: card.height,
+        pagerGap: card.bottom - pager.bottom,
+        popoverInViewport: popover.left >= 0 && popover.right <= window.innerWidth && popover.top >= 0 && popover.bottom <= window.innerHeight,
+        tableScrollTop: document.querySelector('app-data-grid .data-grid-scroll')!.scrollTop,
+      };
+    });
+    expect(filteredLayout.toolbarTop).toBeLessThan(500);
+    expect(filteredLayout.cardHeight).toBeLessThan(350);
+    expect(filteredLayout.pagerGap).toBeLessThanOrEqual(2);
+    expect(filteredLayout.popoverInViewport).toBe(true);
+    expect(filteredLayout.tableScrollTop).toBe(0);
     await filterDialog.getByRole('button', { name: 'Clear filter' }).click();
 
     const resize = page.getByRole('separator', { name: 'Resize Supplier' });
