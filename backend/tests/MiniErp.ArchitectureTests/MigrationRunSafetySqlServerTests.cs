@@ -6,8 +6,10 @@ using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.BuildingBlocks.Work;
 using MiniErp.App.Modules.Audit;
+using MiniErp.App.Modules.Finance;
 using MiniErp.App.Modules.Migration;
 using MiniErp.Contracts.Modules.Audit;
+using MiniErp.Contracts.Modules.Finance;
 using MiniErp.Contracts.Modules.Migration;
 using MiniErp.Infrastructure.Persistence;
 using MiniErp.Infrastructure.Persistence.Modules.BusinessParties;
@@ -365,16 +367,23 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         var audit = new CapturingAuditSink();
         var resolver = new MutableScopeResolver(TenantWorkScopeRequest.TenantWide());
         var objectId = Guid.NewGuid();
+        var glCompanyId = Guid.NewGuid();
         var content = Package(objectId,
             new { SourceSequence = 1, SourceRecordId = "product-1", RecordType = "Product", Payload = new { Sku = "M169-P1", NameEnglish = "Preview product 1" } },
-            new { SourceSequence = 2, SourceRecordId = "product-2", RecordType = "Product", Payload = new { Sku = "M169-P2", NameEnglish = "Preview product 2" } });
+            new { SourceSequence = 2, SourceRecordId = "product-2", RecordType = "Product", Payload = new { Sku = "M169-P2", NameEnglish = "Preview product 2" } },
+            new { SourceSequence = 3, SourceRecordId = "gl-debit", RecordType = "GlOpening", Payload = new { CompanyId = glCompanyId, AccountId = Guid.NewGuid(), Debit = 125m, Credit = 0m, CurrencyCode = "SAR", OpeningDate = new DateOnly(2026, 9, 29), SourceLineReference = "opening-debit" } },
+            new { SourceSequence = 4, SourceRecordId = "gl-credit", RecordType = "GlOpening", Payload = new { CompanyId = glCompanyId, AccountId = Guid.NewGuid(), Debit = 0m, Credit = 125m, CurrencyCode = "SAR", OpeningDate = new DateOnly(2026, 9, 29), SourceLineReference = "opening-credit" } });
         var storage = Storage(tenant, objectId, content);
         var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
         Assert.True(intake.Succeeded, intake.Code);
         var runId = intake.Value!.Run.RunId;
         var service = ValidationService(persistence, storage, resolver, new RecordingReferenceAuthority());
 
+        await SeedOwnerRowsAsync(connection.ConnectionString, tenant);
         var before = SnapshotOwnerStores(connection.ConnectionString, tenant);
+        Assert.NotEmpty(before.Rows);
+        Assert.NotEmpty(before.AuditRows);
+        Assert.Empty(before.OutboxRows);
         var validation = await service.ValidateAsync(request, runId, "mesp169-validation-only");
         Assert.True(validation.Succeeded, validation.Code);
         Assert.Equal("validation-only", validation.Value!.Outcome);
@@ -400,14 +409,14 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.False(preview.ApprovalCreated);
         Assert.False(preview.ReadinessCreated);
         Assert.False(preview.RunStateChanged);
-        Assert.Equal(2, preview.ExpectedAdditions);
+        Assert.Equal(4, preview.ExpectedAdditions);
         Assert.Equal(0, preview.DuplicateOutcomes);
         Assert.Equal(dryRun.Value.UnresolvedDependencyCount, preview.UnresolvedDependencies);
         Assert.Equal(
             dryRun.Value.ControlTotals.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray(),
             preview.ControlTotals.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray());
         Assert.Equal(dryRun.Value.ExceptionCount, preview.Exceptions);
-        Assert.Equal(2, preview.Rows.Count);
+        Assert.Equal(4, preview.Rows.Count);
         AssertOwnerSnapshotUnchanged(before, connection.ConnectionString, tenant);
 
         var reconciliation = new MigrationReconciliationService(
@@ -420,6 +429,8 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
             approvalPolicy: null!,
             audit: audit);
         before = SnapshotOwnerStores(connection.ConnectionString, tenant);
+        var runBeforeReconciliationPreview = await persistence.FindRunAsync(tenant, runId);
+        var attemptsBeforeReconciliationPreview = await persistence.ListAttemptsAsync(tenant, runId);
         var reconciliationPreview = await reconciliation.ReadPreviewAsync(request, runId);
         Assert.NotNull(reconciliationPreview);
         Assert.Equal("reconciliation-preview", reconciliationPreview!.Outcome);
@@ -428,6 +439,18 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.False(reconciliationPreview.ReadinessCreated);
         Assert.False(reconciliationPreview.RunStateChanged);
         Assert.Equal(preview.Rows, reconciliationPreview.Rows);
+        Assert.Empty(preview.ReconciliationControls);
+        Assert.Equal(125m, preview.ControlTotals["glDebit"]);
+        Assert.Equal(125m, preview.ControlTotals["glCredit"]);
+        Assert.Equal(0m, reconciliationPreview.ReconciliationControls["glBalanceDifference"]);
+        var runAfterReconciliationPreview = await persistence.FindRunAsync(tenant, runId);
+        Assert.Equal(runBeforeReconciliationPreview!.Status, runAfterReconciliationPreview!.Status);
+        Assert.Equal(
+            Convert.ToBase64String(runBeforeReconciliationPreview.Version),
+            Convert.ToBase64String(runAfterReconciliationPreview.Version));
+        Assert.Equal(
+            attemptsBeforeReconciliationPreview.Select(item => item.AttemptId).ToArray(),
+            (await persistence.ListAttemptsAsync(tenant, runId)).Select(item => item.AttemptId).ToArray());
         AssertOwnerSnapshotUnchanged(before, connection.ConnectionString, tenant);
     }
 
@@ -585,6 +608,79 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
     }
 
     [Fact]
+    public async Task MESP173_sql_server_upgrade_path_retries_legacy_rows_from_immutable_staging()
+    {
+        await using var connection = await fixture.OpenConnectionAsync();
+        var options = SqlServerMigrationConfiguration.Configure(
+            connection.ConnectionString,
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = NewTenant("mesp173-legacy-retry");
+        var request = Request(tenant);
+        var persistence = new MigrationPersistence(options);
+        var audit = new CapturingAuditSink();
+        var resolver = new MutableScopeResolver(TenantWorkScopeRequest.TenantWide());
+        var objectId = Guid.NewGuid();
+        var content = Package(objectId,
+            new { SourceSequence = 1, SourceRecordId = "legacy-rejected-product", RecordType = "Product", Payload = new { Sku = "M173-R1", NameEnglish = (string?)null } },
+            new { SourceSequence = 2, SourceRecordId = "legacy-accepted-product", RecordType = "Product", Payload = new { Sku = "M173-A1", NameEnglish = "Already accepted" } });
+        var storage = Storage(tenant, objectId, content);
+        var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
+        Assert.True(intake.Succeeded, intake.Code);
+        var service = ValidationService(persistence, storage, resolver, new RecordingReferenceAuthority());
+        var first = await service.ValidateAsync(request, intake.Value!.Run.RunId, "mesp173-legacy-initial-validation");
+        Assert.Equal("migration_validation_failed", first.Code);
+
+        var runId = intake.Value.Run.RunId;
+        var initial = (await persistence.FindLatestValidationAsync(tenant, runId))!;
+        var rejected = Assert.Single(initial.Records, item => item.Disposition == MigrationRecordDisposition.Rejected);
+        var accepted = Assert.Single(initial.Records, item => item.Disposition == MigrationRecordDisposition.Accepted);
+        var acceptedStaged = Assert.Single(
+            await persistence.ListStagedRecordsAsync(tenant, runId, 0, int.MaxValue),
+            item => item.StagedRecordId == accepted.StagedRecordId);
+
+        await using (var legacyDb = new MigrationDbContext(options, tenant))
+        {
+            var legacyValidation = await legacyDb.Set<MigrationValidationRecordEntity>().SingleAsync(item =>
+                item.RunId == runId && item.AttemptId == initial.AttemptId && item.StagedRecordId == accepted.StagedRecordId);
+            var missingStagePayload = await legacyDb.Set<MigrationStagedRecordEntity>().SingleAsync(item =>
+                item.RunId == runId && item.StagedRecordId == accepted.StagedRecordId);
+            legacyDb.Entry(legacyValidation).Property(item => item.CanonicalPayload).CurrentValue = null;
+            legacyDb.Entry(missingStagePayload).Property(item => item.CanonicalPayload).CurrentValue = string.Empty;
+            await legacyDb.SaveChangesAsync();
+        }
+
+        var failedRun = (await persistence.FindRunAsync(tenant, runId))!;
+        var correction = new MigrationCorrectionSubmission(
+            rejected.StagedRecordId,
+            "{\"sku\":\"M173-R1\",\"nameEnglish\":\"Corrected product\"}",
+            "Owner supplied");
+        var preflight = await service.RetryCorrectedAsync(
+            request, runId, "mesp173-legacy-preflight", failedRun.Version, [correction]);
+        Assert.Equal("migration_correction_snapshot_invalid", preflight.Code);
+        var attemptsAfterPreflight = await persistence.ListAttemptsAsync(tenant, runId);
+        Assert.Single(attemptsAfterPreflight, item => item.Operation == MigrationOperationKind.Validation);
+        Assert.DoesNotContain(attemptsAfterPreflight, item => item.Outcome == MigrationAttemptOutcome.Pending);
+
+        await using (var restoreDb = new MigrationDbContext(options, tenant))
+        {
+            var staged = await restoreDb.Set<MigrationStagedRecordEntity>().SingleAsync(item =>
+                item.RunId == runId && item.StagedRecordId == accepted.StagedRecordId);
+            restoreDb.Entry(staged).Property(item => item.CanonicalPayload).CurrentValue = acceptedStaged.CanonicalPayload;
+            await restoreDb.SaveChangesAsync();
+        }
+
+        var retried = await service.RetryCorrectedAsync(
+            request, runId, "mesp173-legacy-staged-fallback", failedRun.Version, [correction]);
+        Assert.True(retried.Succeeded, retried.Code);
+        Assert.Equal(2, retried.Value!.AcceptedCount);
+        var unchanged = Assert.Single(retried.Value.Records, item => item.StagedRecordId == accepted.StagedRecordId);
+        Assert.Equal(acceptedStaged.CanonicalPayload, unchanged.CanonicalPayload);
+        Assert.DoesNotContain(
+            await persistence.ListAttemptsAsync(tenant, runId),
+            item => item.Outcome == MigrationAttemptOutcome.Pending);
+    }
+
+    [Fact]
     public async Task MESP169_sql_server_quarantine_persists_all_five_required_fields()
     {
         await using var connection = await fixture.OpenConnectionAsync();
@@ -648,6 +744,63 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
             new MigrationIntakeRegistrationRequest(Definition, Profile, MigrationOperationKind.Validation, objectId),
             $"mesp169-intake-{Guid.NewGuid():N}");
 
+    private static async Task SeedOwnerRowsAsync(string connectionString, TenantContext tenant)
+    {
+        var occurredAt = DateTimeOffset.UtcNow;
+        var date = DateOnly.FromDateTime(occurredAt.UtcDateTime);
+        var companyId = Guid.NewGuid();
+        var categoryId = Guid.NewGuid();
+        var unitId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var openingBalanceId = Guid.NewGuid();
+        var actorId = tenant.ActorId!.Value;
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+
+        using (var masterData = new MasterDataDbContext(
+                   SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.MasterDataHistoryTable), tenant))
+        {
+            masterData.Categories.Add(new MasterDataCategoryEntity(
+                categoryId, tenant.TenantId, $"MESP173-CAT-{suffix}", new($"MESP173 category {suffix}", null), null));
+            masterData.UnitsOfMeasure.Add(new MasterDataUnitOfMeasureEntity(
+                unitId, tenant.TenantId, $"MESP173-EA-{suffix}", new("Each", null)));
+            masterData.Products.Add(new MasterDataProductEntity(
+                Guid.NewGuid(), tenant.TenantId, $"MESP173-{suffix}", new($"MESP173 product {suffix}", null),
+                null, categoryId, unitId, null, true, false, true));
+            await masterData.SaveChangesAsync();
+        }
+
+        using (var finance = new FinanceDbContext(
+                   SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.FinanceHistoryTable), tenant))
+        {
+            finance.Accounts.Add(new FinanceAccountEntity(
+                tenant.TenantId,
+                accountId,
+                new FinanceAccountCommand(
+                    companyId, $"MESP173-{suffix}", "MESP173 seed account", null, null,
+                    FinanceAccountType.Asset, true, FinanceCurrencyBehavior.FunctionalOnly,
+                    date, null, accountId, null, $"seed-{suffix}", $"seed-{suffix}")));
+            finance.AuditEvents.Add(new FinanceAuditEntity(
+                tenant.TenantId, Guid.NewGuid(), "MESP173.seed", "Account", accountId,
+                actorId, Guid.NewGuid(), "seeded", null, $"MESP173-{suffix}", null, occurredAt));
+            await finance.SaveChangesAsync();
+        }
+
+        using (var inventory = new InventoryDbContext(
+                   SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.InventoryHistoryTable), tenant))
+        {
+            inventory.OpeningBalances.Add(new InventoryOpeningBalanceEntity(
+                tenant.TenantId, openingBalanceId, companyId, null, warehouseId,
+                $"MESP173-WH-{suffix}", "MESP173 seed warehouse", date,
+                "MESP173 test", "MESP173", occurredAt, null, actorId, occurredAt));
+            inventory.Audit.Add(new InventoryAuditEntity(
+                tenant.TenantId, Guid.NewGuid(), "OpeningBalance", openingBalanceId, "MESP173.seed",
+                actorId, Guid.NewGuid(), "MESP173 test", "Allowed", null,
+                $"MESP173-{suffix}", null, null, null, null, occurredAt));
+            await inventory.SaveChangesAsync();
+        }
+    }
+
     private static MigrationValidationService ValidationService(
         MigrationPersistence persistence,
         IPrivateObjectStorage storage,
@@ -703,7 +856,9 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         throw new InvalidOperationException("The MESP-169 test package length did not stabilize.");
     }
 
-    private static string[] SnapshotOwnerStores(string connectionString, TenantContext tenant)
+    private sealed record OwnerStoreSnapshot(string[] Rows, string[] AuditRows, string[] OutboxRows);
+
+    private static OwnerStoreSnapshot SnapshotOwnerStores(string connectionString, TenantContext tenant)
     {
         using var masterData = new MasterDataDbContext(SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.MasterDataHistoryTable), tenant);
         using var parties = new BusinessPartiesDbContext(SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.BusinessPartiesHistoryTable), tenant);
@@ -713,6 +868,8 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         using var sales = new SalesDbContext(SqlServerMigrationConfiguration.Configure(connectionString, SqlServerMigrationConfiguration.SalesHistoryTable), tenant);
         var contexts = new DbContext[] { masterData, parties, procurement, inventory, finance, sales };
         var rows = new List<string>();
+        var auditRows = new List<string>();
+        var outboxRows = new List<string>();
         foreach (var context in contexts)
         {
             foreach (var entityType in context.Model.GetEntityTypes()
@@ -721,6 +878,7 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
             {
                 var keyProperties = entityType.FindPrimaryKey()?.Properties ?? [];
                 var properties = entityType.GetProperties().OrderBy(item => item.Name, StringComparer.Ordinal).ToArray();
+                var tableName = entityType.GetTableName()!;
                 foreach (var entity in QueryEntities(context, entityType.ClrType))
                 {
                     var key = keyProperties.Select(item => SnapshotValue(item.GetGetter().GetClrValue(entity))).ToArray();
@@ -729,18 +887,36 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
                         item.Name,
                         Value = SnapshotValue(item.GetGetter().GetClrValue(entity))
                     }).ToArray();
-                    rows.Add(JsonSerializer.Serialize(new
+                    var rowVersions = properties
+                        .Where(item => item.IsConcurrencyToken || item.Name.Contains("Version", StringComparison.OrdinalIgnoreCase))
+                        .Select(item => new
+                        {
+                            item.Name,
+                            Value = SnapshotValue(item.GetGetter().GetClrValue(entity))
+                        }).ToArray();
+                    var snapshot = JsonSerializer.Serialize(new
                     {
                         Store = context.GetType().Name,
                         Entity = entityType.Name,
                         Key = key,
-                        Values = values
-                    }));
+                        Values = values,
+                        RowVersions = rowVersions
+                    });
+                    rows.Add(snapshot);
+                    if (tableName.Contains("Audit", StringComparison.OrdinalIgnoreCase)
+                        || entityType.ClrType.Name.Contains("Audit", StringComparison.OrdinalIgnoreCase))
+                        auditRows.Add(snapshot);
+                    if (tableName.Contains("Outbox", StringComparison.OrdinalIgnoreCase)
+                        || entityType.ClrType.Name.Contains("Outbox", StringComparison.OrdinalIgnoreCase))
+                        outboxRows.Add(snapshot);
                 }
             }
         }
 
-        return rows.OrderBy(item => item, StringComparer.Ordinal).ToArray();
+        return new OwnerStoreSnapshot(
+            rows.OrderBy(item => item, StringComparer.Ordinal).ToArray(),
+            auditRows.OrderBy(item => item, StringComparer.Ordinal).ToArray(),
+            outboxRows.OrderBy(item => item, StringComparer.Ordinal).ToArray());
     }
 
     private static string SnapshotValue(object? value) => value switch
@@ -762,8 +938,13 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         return ((IQueryable)set).Cast<object>();
     }
 
-    private static void AssertOwnerSnapshotUnchanged(string[] before, string connectionString, TenantContext tenant) =>
-        Assert.Equal(before, SnapshotOwnerStores(connectionString, tenant));
+    private static void AssertOwnerSnapshotUnchanged(OwnerStoreSnapshot before, string connectionString, TenantContext tenant)
+    {
+        var after = SnapshotOwnerStores(connectionString, tenant);
+        Assert.Equal(before.Rows, after.Rows);
+        Assert.Equal(before.AuditRows, after.AuditRows);
+        Assert.Equal(before.OutboxRows, after.OutboxRows);
+    }
 
     private sealed class StaticPrivateObjectStorage(
         TenantContext tenant,

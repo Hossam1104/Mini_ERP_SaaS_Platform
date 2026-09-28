@@ -832,7 +832,11 @@ public sealed record MigrationNonAuthoritativePreview(
     bool ApprovalCreated,
     bool ReadinessCreated,
     bool RunStateChanged,
-    IReadOnlyList<MigrationPreviewRow> Rows);
+    IReadOnlyList<MigrationPreviewRow> Rows)
+{
+    public IReadOnlyDictionary<string, decimal> ReconciliationControls { get; init; } =
+        new Dictionary<string, decimal>(StringComparer.Ordinal);
+}
 
 public sealed record MigrationCorrectionSubmission(
     Guid StagedRecordId,

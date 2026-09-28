@@ -131,6 +131,66 @@ public sealed class MigrationOwnerExecutionSqlServerSafetyTests
     }
 
     [Fact]
+    public async Task MESP173_sql_server_concurrent_cancel_and_execute_have_one_winner()
+    {
+        var fixture = await Fixture.CreateAsync(safety);
+        var (categoryId, unitId) = await fixture.CreateProductReferencesAsync();
+        var prepared = await fixture.PrepareAsync(categoryId, unitId);
+        var foundation = new MigrationFoundationService(fixture.Migration, new NoopAuditSink());
+        var validation = new MigrationValidationService(
+            foundation,
+            fixture.Migration,
+            new InMemoryPrivateObjectStorage(),
+            new TenantWideScopeResolver(),
+            new NoopReferenceAuthority(),
+            new TenantWideScopeResolver());
+        var cancellation = new MigrationRunSafetyService(foundation, validation, fixture.Migration);
+        var batchCountBefore = (await fixture.Imports.ListBatchesAsync(fixture.Tenant)).Count;
+        Assert.Empty(await fixture.Catalog.ListProductsAsync(fixture.Tenant));
+
+        var ready = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readyCount = 0;
+
+        async Task<T> RunTogether<T>(Func<Task<T>> operation)
+        {
+            if (System.Threading.Interlocked.Increment(ref readyCount) == 2)
+                ready.TrySetResult(true);
+            await release.Task;
+            return await operation();
+        }
+
+        var executionTask = Task.Run(() => RunTogether(() => fixture.Execution.ExecuteAsync(
+            fixture.Request, prepared.Run.RunId, prepared.ExecutionKey, prepared.Run.Version)));
+        var cancellationTask = Task.Run(() => RunTogether(() => cancellation.CancelAsync(
+            fixture.Request, prepared.Run.RunId, "mesp173-concurrent-cancel", prepared.Run.Version, "Owner requested stop")));
+        await ready.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        release.TrySetResult(true);
+        await Task.WhenAll(new Task[] { executionTask, cancellationTask }).WaitAsync(TimeSpan.FromMinutes(2));
+
+        var execution = await executionTask;
+        var cancelled = await cancellationTask;
+        Assert.NotEqual(execution.Succeeded, cancelled.Succeeded);
+        var storedRun = (await fixture.Migration.FindRunAsync(fixture.Tenant, prepared.Run.RunId))!;
+        if (cancelled.Succeeded)
+        {
+            Assert.Equal(MigrationRunStatus.Cancelled, storedRun.Status);
+            Assert.Empty(await fixture.Catalog.ListProductsAsync(fixture.Tenant));
+            Assert.Empty(await fixture.Suppliers.ListSuppliersAsync(fixture.Tenant));
+            Assert.Empty(await fixture.Customers.ListCustomersAsync(fixture.Tenant));
+            Assert.Equal(batchCountBefore, (await fixture.Imports.ListBatchesAsync(fixture.Tenant)).Count);
+        }
+        else
+        {
+            Assert.True(execution.Succeeded, execution.Code);
+            Assert.Equal(MigrationRunStatus.Completed, storedRun.Status);
+            Assert.Single(await fixture.Catalog.ListProductsAsync(fixture.Tenant));
+            Assert.Single(await fixture.Suppliers.ListSuppliersAsync(fixture.Tenant));
+            Assert.Single(await fixture.Customers.ListCustomersAsync(fixture.Tenant));
+        }
+    }
+
+    [Fact]
     public async Task Sql_server_historical_v1_execution_replays_after_slice6_upgrade_without_new_attempt_or_owner_effect()
     {
         var fixture = await Fixture.CreateAsync(safety);

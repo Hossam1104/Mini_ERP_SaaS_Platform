@@ -253,18 +253,10 @@ public sealed class MigrationValidationService
                 }
 
                 if (!priorRecords.TryGetValue(stagedRecord.StagedRecordId, out var previous)
-                    || string.IsNullOrWhiteSpace(previous.CanonicalPayload)
-                    || !MigrationCanonicalPackageParser.TryParsePayload(
-                        stagedRecord.SourceSequence,
-                        stagedRecord.SourceRecordId,
-                        stagedRecord.RecordType,
-                        previous.CanonicalPayload,
-                        previous.CorrectionOwner,
-                        out var priorPayload)
-                    || priorPayload is null)
+                    || !TryParseUnchangedPayload(previous, stagedRecord, out var priorPayload))
                     return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_correction_snapshot_invalid");
 
-                validationRows[stagedRecord.SourceSequence] = priorPayload;
+                validationRows[stagedRecord.SourceSequence] = priorPayload!;
             }
         }
 
@@ -585,6 +577,15 @@ public sealed class MigrationValidationService
         if (submissions.Any(item => validationById[item.StagedRecordId].Disposition == MigrationRecordDisposition.Accepted))
             return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_correction_row_ineligible");
 
+        foreach (var previous in validation.Records)
+        {
+            if (corrections.ContainsKey(previous.StagedRecordId))
+                continue;
+            if (!stagedById.TryGetValue(previous.StagedRecordId, out var source)
+                || !TryParseUnchangedPayload(previous, source, out _))
+                return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_correction_snapshot_invalid");
+        }
+
         return await ValidateCoreAsync(
             requestContext,
             runId,
@@ -592,6 +593,30 @@ public sealed class MigrationValidationService
             corrections,
             correctionFingerprint,
             cancellationToken);
+    }
+
+    private static bool TryParseUnchangedPayload(
+        MigrationValidationRecordResult previous,
+        MigrationStagedRecord stagedRecord,
+        out MigrationParsedCanonicalRow? payload)
+    {
+        var canonicalPayload = string.IsNullOrWhiteSpace(previous.CanonicalPayload)
+            ? stagedRecord.CanonicalPayload
+            : previous.CanonicalPayload;
+        if (string.IsNullOrWhiteSpace(canonicalPayload))
+        {
+            payload = null;
+            return false;
+        }
+
+        return MigrationCanonicalPackageParser.TryParsePayload(
+            stagedRecord.SourceSequence,
+            stagedRecord.SourceRecordId,
+            stagedRecord.RecordType,
+            canonicalPayload,
+            previous.CorrectionOwner,
+            out payload)
+            && payload is not null;
     }
 
     public async Task<MigrationOperationResult<MigrationDryRunPreview>> DryRunAsync(

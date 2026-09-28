@@ -151,8 +151,23 @@ public sealed class MigrationReconciliationService
         if (!TryCaller(requestContext, out var tenant, out _)
             || !await validation.IsResourceAuthorizedAsync(requestContext, runId, cancellationToken))
             return null;
+        var dryRun = await validation.ReadDryRunAsync(tenant, runId, cancellationToken);
+        if (dryRun is null)
+            return null;
         var preview = await validation.ReadPreviewAsync(tenant, runId, cancellationToken);
-        return preview is null ? null : preview with { Outcome = "reconciliation-preview" };
+        if (preview is null)
+            return null;
+
+        var controls = new Dictionary<string, decimal>(StringComparer.Ordinal);
+        if (dryRun.ControlTotals.TryGetValue("glDebit", out var debit)
+            && dryRun.ControlTotals.TryGetValue("glCredit", out var credit))
+            controls["glBalanceDifference"] = debit - credit;
+
+        return preview with
+        {
+            Outcome = "reconciliation-preview",
+            ReconciliationControls = controls
+        };
     }
 
     public Task<MigrationOperationResult<MigrationReconciliationApprovalRecord>> ApproveAsync(
