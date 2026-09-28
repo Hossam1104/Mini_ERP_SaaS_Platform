@@ -43,11 +43,11 @@ Run from the repository root; if pwsh is unavailable, use Windows PowerShell.
 
 | Gate | Command | Baseline |
 |---|---|---|
-| Backend build, full suite, disposable LocalDB SQL safety | .\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false | 0 warnings/errors; 1563/1563 |
+| Backend build, full suite, disposable LocalDB SQL safety | .\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false | 0 warnings/errors; 1589/1589 |
 | EF pending-model check | dotnet ef migrations has-pending-model-changes per context | none pending |
-| Angular unit | cd frontend; npm test -- --watch=false --no-progress | 316/316 |
-| Angular production build/type check | cd frontend; npm run build | success; known 514.26 kB / 500 kB warning, MESP-155 (#270) |
-| Playwright Chromium | cd frontend; npm run test:e2e -- --project=chromium | 51 passed |
+| Angular unit | cd frontend; npm test -- --watch=false --no-progress | 330/330 |
+| Angular production build/type check | cd frontend; npm run build | success; initial bundle 496.87 kB, under the 500 kB budget |
+| Playwright Chromium | cd frontend; npm run test:e2e -- --project=chromium | 58 passed |
 | npm audit | npm audit --omit=dev --audit-level=high; npm audit --audit-level=high | 0 high/critical (4 / 7 moderate) |
 | Whitespace | git diff --check | clean |
 
