@@ -475,6 +475,7 @@ public sealed class MigrationValidationSqlServerSafetyTests
                 SourceProfileVersion = profile.ProfileVersion,
                 LogicalDataset = "S10-P20",
                 SourceSnapshot = new { ObjectId = objectId, Sha256 = new string('A', 64), Length = length, ConcurrencyVersion = 1 },
+                DomainContracts = MigrationDomainContractTestData.For(MigrationCanonicalRecordType.ArOpening),
                 Records = new[]
                 {
                     new
@@ -625,6 +626,7 @@ public sealed class MigrationValidationSqlServerSafetyTests
             SourceProfileVersion = profile.ProfileVersion,
             LogicalDataset = "sql-race",
             SourceSnapshot = new { ObjectId = objectId, Sha256 = new string('A', 64), Length = length, ConcurrencyVersion = 1 },
+            DomainContracts = MigrationDomainContractTestData.For(MigrationCanonicalRecordType.Product),
             Records = new[]
             {
                 new { SourceSequence = 1, SourceRecordId = "product-1", RecordType = "Product", Payload = new { Sku = "SQL-PRODUCT-1", NameEnglish = "SQL product 1" } },

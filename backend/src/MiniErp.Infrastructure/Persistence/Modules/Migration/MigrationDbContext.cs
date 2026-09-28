@@ -152,6 +152,7 @@ internal sealed class MigrationDbContext : TenantPersistenceDbContext
         intake.Property(item => item.SourceLength).IsRequired();
         intake.Property(item => item.SourceConcurrencyVersion).IsRequired();
         intake.Property(item => item.CapturedAt).IsRequired();
+        intake.Property(item => item.DomainContractsJson).IsRequired(false);
         ConfigureVersion(intake.Property(item => item.Version));
         intake.HasIndex(item => new { item.TenantId, item.SourceObjectId });
         intake.HasIndex(item => new { item.TenantId, item.IdempotencyKey }).IsUnique();

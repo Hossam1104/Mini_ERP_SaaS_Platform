@@ -32,12 +32,14 @@ internal sealed partial class MigrationPersistence
         if (command.RunId == Guid.Empty
             || string.IsNullOrWhiteSpace(command.PackageHash)
             || command.Records.Count == 0
+            || command.DomainContractsJson is { Length: > 100_000 }
             || command.Records.Any(item => item.TenantId != tenantContext.TenantId
                 || item.RunId != command.RunId
                 || item.PackageHash != command.PackageHash
                 || item.SourceObjectId != command.SourceObjectId
                 || item.SourceSnapshotHash != command.SourceSnapshotHash
                 || item.SourceSequence < 1
+                || item.SourceRecordId is { Length: > 256 }
                 || item.CanonicalPayload.Length > 2_000_000)
             || command.Records.Select(item => item.SourceSequence).Distinct().Count() != command.Records.Count)
         {
@@ -47,19 +49,36 @@ internal sealed partial class MigrationPersistence
         }
 
         await using var db = CreateContext(tenantContext);
+        var intake = command.DomainContractsJson is null
+            ? null
+            : await db.Intakes.SingleOrDefaultAsync(item => item.RunId == command.RunId, cancellationToken);
+        if (command.DomainContractsJson is not null
+            && (intake is null || intake.DomainContractsJson is not null
+                && !string.Equals(intake.DomainContractsJson, command.DomainContractsJson, StringComparison.Ordinal)))
+            return MigrationPersistenceResult<MigrationStagingResult>.Denied(
+                MigrationPersistenceOutcome.Conflict,
+                "migration_staging_lineage_conflict");
+
         var existing = await db.StagedRecords
             .Where(item => item.RunId == command.RunId)
             .OrderBy(item => item.SourceSequence)
             .ToArrayAsync(cancellationToken);
         if (existing.Length > 0)
         {
-            return SameStage(existing, command)
+            var sameLineage = command.DomainContractsJson is null
+                || string.Equals(intake?.DomainContractsJson, command.DomainContractsJson, StringComparison.Ordinal);
+            return SameStage(existing, command) && sameLineage
                 ? MigrationPersistenceResult<MigrationStagingResult>.Replay(
                     new MigrationStagingResult(command.PackageHash, existing.Select(ToRecord).ToArray()))
                 : MigrationPersistenceResult<MigrationStagingResult>.Denied(
                     MigrationPersistenceOutcome.Conflict,
                     "migration_staging_snapshot_conflict");
         }
+
+        if (command.DomainContractsJson is not null && !intake!.TrySetDomainContractsJson(command.DomainContractsJson))
+            return MigrationPersistenceResult<MigrationStagingResult>.Denied(
+                MigrationPersistenceOutcome.Conflict,
+                "migration_staging_lineage_conflict");
 
         db.StagedRecords.AddRange(command.Records.Select(item => new MigrationStagedRecordEntity(item, command.PackageHash)));
         try
@@ -75,7 +94,12 @@ internal sealed partial class MigrationPersistence
                 .Where(item => item.RunId == command.RunId)
                 .OrderBy(item => item.SourceSequence)
                 .ToArrayAsync(cancellationToken);
-            return SameStage(winner, command)
+            var winnerIntake = command.DomainContractsJson is null
+                ? null
+                : await fresh.Intakes.SingleOrDefaultAsync(item => item.RunId == command.RunId, cancellationToken);
+            var sameLineage = command.DomainContractsJson is null
+                || string.Equals(winnerIntake?.DomainContractsJson, command.DomainContractsJson, StringComparison.Ordinal);
+            return SameStage(winner, command) && sameLineage
                 ? MigrationPersistenceResult<MigrationStagingResult>.Replay(
                     new MigrationStagingResult(command.PackageHash, winner.Select(ToRecord).ToArray()))
                 : MigrationPersistenceResult<MigrationStagingResult>.Denied(

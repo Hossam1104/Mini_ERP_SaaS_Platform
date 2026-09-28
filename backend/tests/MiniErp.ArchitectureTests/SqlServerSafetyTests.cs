@@ -442,7 +442,8 @@ public sealed class SqlServerSafetyTests
                     "20260921134928_MESP141MigrationOpeningExpectations",
                     "20260922183734_MESP141MultiCurrencyOpeningFxEvidence",
                     "20260924135807_Mesp141Slice11Reconciliation",
-                    "20260927130546_MESP169MigrationRunSafety"
+                    "20260927130546_MESP169MigrationRunSafety",
+                    "20260927215515_MESP170SourceDomainContracts"
                 ],
                 (await migration.Database.GetAppliedMigrationsAsync()).ToArray());
             Assert.Empty(await migration.Database.GetPendingMigrationsAsync());

@@ -273,6 +273,18 @@ internal sealed class MigrationIntakeEntity : ITenantOwned
         CapturedAt = run.CreatedAt;
     }
 
+    internal bool TrySetDomainContractsJson(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 100_000)
+            return false;
+        if (DomainContractsJson is null)
+        {
+            DomainContractsJson = value;
+            return true;
+        }
+        return string.Equals(DomainContractsJson, value, StringComparison.Ordinal);
+    }
+
     internal Guid RunId { get; private set; }
 
     public TenantId TenantId { get; private set; }
@@ -302,6 +314,8 @@ internal sealed class MigrationIntakeEntity : ITenantOwned
     internal long SourceConcurrencyVersion { get; private set; }
 
     internal DateTimeOffset CapturedAt { get; private set; }
+
+    internal string? DomainContractsJson { get; private set; }
 
     internal byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
 }

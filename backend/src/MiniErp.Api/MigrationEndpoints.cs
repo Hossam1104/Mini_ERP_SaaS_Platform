@@ -40,7 +40,12 @@ public sealed record MigrationValidationResponse(
     DateTimeOffset CompletedAt,
     string Outcome,
     bool AuthoritativeImport,
-    byte[]? RunVersion);
+    byte[]? RunVersion,
+    Guid? OwnerActorId,
+    MigrationRunStatus? StageStatus,
+    MigrationAttemptOutcome? AttemptOutcome,
+    string? Failure,
+    string? NextAction);
 
 public sealed record MigrationNonAuthoritativePreviewResponse(
     Guid RunId,
@@ -753,7 +758,12 @@ public static class MigrationEndpoints
         value.CompletedAt,
         value.Outcome,
         AuthoritativeImport: false,
-        RunVersion: value.RunVersion);
+        RunVersion: value.RunVersion,
+        OwnerActorId: value.OwnerActorId,
+        StageStatus: value.StageStatus,
+        AttemptOutcome: value.AttemptOutcome,
+        Failure: value.Failure,
+        NextAction: value.NextAction);
 
     private static object ToDryRunResponse(MigrationDryRunPreview value) => new
     {

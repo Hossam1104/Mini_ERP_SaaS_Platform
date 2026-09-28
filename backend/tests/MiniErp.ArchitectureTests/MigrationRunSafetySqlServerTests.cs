@@ -28,6 +28,331 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
     private static readonly MigrationSourceProfileReference Profile = new("neutral-source-profile", "1");
 
     [Fact]
+    public async Task MESP170_sql_server_persists_all_seven_domain_lineage_fields_with_the_staged_batch()
+    {
+        await using var connection = await fixture.OpenConnectionAsync();
+        var options = SqlServerMigrationConfiguration.Configure(
+            connection.ConnectionString,
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = NewTenant("mesp170-lineage");
+        var request = Request(tenant);
+        var persistence = new MigrationPersistence(options);
+        var audit = new CapturingAuditSink();
+        var resolver = new MutableScopeResolver(TenantWorkScopeRequest.TenantWide());
+        var objectId = Guid.NewGuid();
+        var lineage = new MigrationCanonicalDomainContract(
+            MigrationCanonicalRecordType.Product,
+            MigrationCanonicalDomainContractCatalog.For(MigrationCanonicalRecordType.Product).Version,
+            "Northwind source team",
+            "MESP Master Data",
+            "Northwind products 2026-09",
+            new DateTimeOffset(2026, 9, 20, 10, 30, 0, TimeSpan.Zero),
+            "Tenant-wide source extract",
+            "Cleansed and reconciled",
+            "SKU whitespace trimmed by Northwind data steward.");
+        var content = PackageWithContracts(
+            objectId,
+            [lineage],
+            new { SourceSequence = 1, SourceRecordId = "nw-product-1", RecordType = "Product", Payload = new { Sku = "NW-1", NameEnglish = "Northwind item" } });
+        var storage = Storage(tenant, objectId, content);
+        var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
+        Assert.True(intake.Succeeded, intake.Code);
+        var service = ValidationService(persistence, storage, resolver, new RecordingReferenceAuthority());
+
+        var validation = await service.ValidateAsync(request, intake.Value!.Run.RunId, "mesp170-lineage-validation");
+        Assert.True(validation.Succeeded, validation.Code);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT [DomainContractsJson] FROM [migration].[MigrationIntakes] WHERE [TenantId] = @tenantId AND [RunId] = @runId";
+        command.Parameters.AddWithValue("@tenantId", tenant.TenantId.Value);
+        command.Parameters.AddWithValue("@runId", intake.Value.Run.RunId);
+        var json = await command.ExecuteScalarAsync() as string;
+        Assert.False(string.IsNullOrWhiteSpace(json));
+        var persisted = JsonSerializer.Deserialize<MigrationCanonicalDomainContract[]>(json!, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var saved = Assert.Single(persisted!);
+        Assert.Equal(lineage.SourceOwner, saved.SourceOwner);
+        Assert.Equal(lineage.TargetOwner, saved.TargetOwner);
+        Assert.Equal(lineage.SourceSet, saved.SourceSet);
+        Assert.Equal(lineage.ExtractedAt, saved.ExtractedAt);
+        Assert.Equal(lineage.Scope, saved.Scope);
+        Assert.Equal(lineage.Status, saved.Status);
+        Assert.Equal(lineage.CleansingNote, saved.CleansingNote);
+    }
+
+    [Fact]
+    public async Task MESP170_incompatible_domain_version_fails_before_sql_staging()
+    {
+        await using var connection = await fixture.OpenConnectionAsync();
+        var options = SqlServerMigrationConfiguration.Configure(
+            connection.ConnectionString,
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = NewTenant("mesp170-incompatible");
+        var request = Request(tenant);
+        var persistence = new MigrationPersistence(options);
+        var audit = new CapturingAuditSink();
+        var resolver = new MutableScopeResolver(TenantWorkScopeRequest.TenantWide());
+        var objectId = Guid.NewGuid();
+        var incompatible = MigrationDomainContractTestData.For(MigrationCanonicalRecordType.Product)
+            .Select(item => item with { ContractVersion = "migration-product-v9" })
+            .ToArray();
+        var content = PackageWithContracts(
+            objectId,
+            incompatible,
+            new { SourceSequence = 1, SourceRecordId = "nw-product-1", RecordType = "Product", Payload = new { Sku = "NW-2", NameEnglish = "Northwind item" } });
+        var storage = Storage(tenant, objectId, content);
+        var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
+        Assert.True(intake.Succeeded, intake.Code);
+        var service = ValidationService(persistence, storage, resolver, new RecordingReferenceAuthority());
+
+        var validation = await service.ValidateAsync(request, intake.Value!.Run.RunId, "mesp170-incompatible-validation");
+
+        Assert.Equal("migration_package_domain_contract_incompatible", validation.Code);
+        Assert.Empty(await persistence.ListStagedRecordsAsync(tenant, intake.Value.Run.RunId));
+    }
+
+    [Fact]
+    public async Task MESP170_repeated_source_id_is_counted_and_rejected_within_its_domain()
+    {
+        await using var connection = await fixture.OpenConnectionAsync();
+        var options = SqlServerMigrationConfiguration.Configure(
+            connection.ConnectionString,
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = NewTenant("mesp170-source-id-duplicate");
+        var request = Request(tenant);
+        var persistence = new MigrationPersistence(options);
+        var audit = new CapturingAuditSink();
+        var resolver = new MutableScopeResolver(TenantWorkScopeRequest.TenantWide());
+        var objectId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var content = Package(
+            objectId,
+            new { SourceSequence = 1, SourceRecordId = "source-product-1", RecordType = "Product", Payload = new { Sku = "UNIQUE-1", NameEnglish = "Product 1" } },
+            new { SourceSequence = 2, SourceRecordId = "source-product-1", RecordType = "Product", Payload = new { Sku = "UNIQUE-2", NameEnglish = "Product 2" } },
+            new { SourceSequence = 3, SourceRecordId = "source-product-1", RecordType = "Organization", Payload = new { CompanyId = companyId } });
+        var storage = Storage(tenant, objectId, content);
+        var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
+        Assert.True(intake.Succeeded, intake.Code);
+        var service = ValidationService(persistence, storage, resolver, new RecordingReferenceAuthority());
+
+        var result = await service.ValidateAsync(request, intake.Value!.Run.RunId, "mesp170-source-id-validation");
+        var summary = await service.ReadValidationAsync(tenant, intake.Value.Run.RunId);
+
+        Assert.Equal("migration_validation_failed", result.Code);
+        Assert.NotNull(summary);
+        Assert.Equal(2, summary!.RejectedCount);
+        Assert.Equal(2, summary.Records.Sum(item => item.FindingCodes.Count(code => code == "migration_duplicate_source_identity")));
+        Assert.All(summary.Records.Where(item => item.RecordType == MigrationCanonicalRecordType.Product), item => Assert.Contains("migration_duplicate_source_identity", item.FindingCodes));
+        var organization = Assert.Single(summary.Records, item => item.RecordType == MigrationCanonicalRecordType.Organization);
+        Assert.Equal(MigrationRecordDisposition.Accepted, organization.Disposition);
+        Assert.DoesNotContain("migration_duplicate_source_identity", organization.FindingCodes);
+    }
+
+    [Fact]
+    public async Task MESP170_oversized_source_record_id_is_rejected_without_sql_truncation()
+    {
+        await using var connection = await fixture.OpenConnectionAsync();
+        var options = SqlServerMigrationConfiguration.Configure(
+            connection.ConnectionString,
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = NewTenant("mesp170-source-id-too-long");
+        var request = Request(tenant);
+        var persistence = new MigrationPersistence(options);
+        var audit = new CapturingAuditSink();
+        var resolver = new MutableScopeResolver(TenantWorkScopeRequest.TenantWide());
+        var objectId = Guid.NewGuid();
+        var content = Package(
+            objectId,
+            new
+            {
+                SourceSequence = 1,
+                SourceRecordId = new string('S', 257),
+                RecordType = "Product",
+                Payload = new { Sku = "TOO-LONG-ID", NameEnglish = "Invalid source identity" }
+            });
+        var storage = Storage(tenant, objectId, content);
+        var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
+        Assert.True(intake.Succeeded, intake.Code);
+        var service = ValidationService(persistence, storage, resolver, new RecordingReferenceAuthority());
+
+        var result = await service.ValidateAsync(request, intake.Value!.Run.RunId, "mesp170-source-id-too-long-validation");
+        var summary = await service.ReadValidationAsync(tenant, intake.Value.Run.RunId);
+        var staged = await persistence.ListStagedRecordsAsync(tenant, intake.Value.Run.RunId);
+
+        Assert.Equal("migration_validation_failed", result.Code);
+        Assert.NotNull(summary);
+        Assert.Equal(1, summary!.RejectedCount);
+        Assert.Equal(0, summary.QuarantinedCount);
+        var rejected = Assert.Single(summary.Records);
+        Assert.Equal(MigrationRecordDisposition.Rejected, rejected.Disposition);
+        Assert.Contains("migration_source_record_id_too_long", rejected.FindingCodes);
+        Assert.Equal(MigrationFindingCategory.MandatoryData.ToString(), rejected.ErrorClass);
+        Assert.Null(Assert.Single(staged).SourceRecordId);
+    }
+
+    [Fact]
+    public async Task MESP170_row_outside_the_authorized_company_scope_is_rejected()
+    {
+        await using var connection = await fixture.OpenConnectionAsync();
+        var options = SqlServerMigrationConfiguration.Configure(
+            connection.ConnectionString,
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = NewTenant("mesp170-row-scope");
+        var request = Request(tenant);
+        var persistence = new MigrationPersistence(options);
+        var audit = new CapturingAuditSink();
+        var authorizedCompanyId = Guid.NewGuid();
+        var rowCompanyId = Guid.NewGuid();
+        var resolver = new MutableScopeResolver(TenantWorkScopeRequest.ForCompany(authorizedCompanyId));
+        var objectId = Guid.NewGuid();
+        var date = new DateOnly(2026, 1, 1);
+        var content = Package(
+            objectId,
+            new { SourceSequence = 1, SourceRecordId = "ap-out-of-scope", RecordType = "ApOpening", Payload = new
+            {
+                CompanyId = rowCompanyId,
+                SupplierId = Guid.NewGuid(),
+                Amount = 100m,
+                CurrencyCode = "SAR",
+                OpeningDate = date,
+                SourceReference = "AP-SCOPE-1",
+                DocumentDate = date,
+                DueDate = date
+            } });
+        var storage = Storage(tenant, objectId, content, authorizedCompanyId);
+        var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
+        Assert.True(intake.Succeeded, intake.Code);
+        var service = ValidationService(persistence, storage, resolver, new RecordingReferenceAuthority());
+
+        var result = await service.ValidateAsync(request, intake.Value!.Run.RunId, "mesp170-row-scope-validation");
+        var validation = await service.ReadValidationAsync(tenant, intake.Value.Run.RunId);
+
+        Assert.Equal("migration_validation_failed", result.Code);
+        Assert.NotNull(validation);
+        Assert.Contains("migration_row_scope_denied", Assert.Single(validation!.Records).FindingCodes);
+    }
+
+    [Fact]
+    public async Task MESP170_business_duplicates_reject_and_count_each_supported_domain()
+    {
+        await using var connection = await fixture.OpenConnectionAsync();
+        var options = SqlServerMigrationConfiguration.Configure(
+            connection.ConnectionString,
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = NewTenant("mesp170-duplicates");
+        var request = Request(tenant);
+        var persistence = new MigrationPersistence(options);
+        var audit = new CapturingAuditSink();
+        var resolver = new MutableScopeResolver(TenantWorkScopeRequest.TenantWide());
+        var objectId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var unitId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+        var cashAccountId = Guid.NewGuid();
+        var date = new DateOnly(2026, 1, 1);
+        var domains = new (MigrationCanonicalRecordType Type, object First, object Second)[]
+        {
+            (MigrationCanonicalRecordType.Product, new { Sku = "DUP-P", NameEnglish = "Product A" }, new { Sku = "DUP-P", NameEnglish = "Product B" }),
+            (MigrationCanonicalRecordType.Supplier, new { Code = "DUP-S", NameEnglish = "Supplier A" }, new { Code = "DUP-S", NameEnglish = "Supplier B" }),
+            (MigrationCanonicalRecordType.Customer, new { Code = "DUP-C", NameEnglish = "Customer A" }, new { Code = "DUP-C", NameEnglish = "Customer B" }),
+            (MigrationCanonicalRecordType.Currency, new { Code = "DUP-CUR" }, new { Code = "DUP-CUR" }),
+            (MigrationCanonicalRecordType.Tax, new { Code = "DUP-TAX", EffectiveDate = date }, new { Code = "DUP-TAX", EffectiveDate = date }),
+            (MigrationCanonicalRecordType.PaymentTerm, new { Code = "DUP-TERM" }, new { Code = "DUP-TERM" }),
+            (MigrationCanonicalRecordType.UnitOfMeasure, new { Code = "DUP-UOM" }, new { Code = "DUP-UOM" }),
+            (MigrationCanonicalRecordType.PriceList, new { Code = "DUP-PRICE" }, new { Code = "DUP-PRICE" }),
+            (MigrationCanonicalRecordType.ExchangeRate, new { SourceCurrencyCode = "USD", TargetCurrencyCode = "SAR", EffectiveDate = date }, new { SourceCurrencyCode = "USD", TargetCurrencyCode = "SAR", EffectiveDate = date }),
+            (MigrationCanonicalRecordType.InventoryOpening,
+                new { CompanyId = companyId, BranchId = branchId, WarehouseId = warehouseId, ProductId = productId, UnitOfMeasureId = unitId, Quantity = 1m, UnitCost = 2m, CurrencyCode = "SAR", OpeningDate = date, SourceLineReference = "INV-1" },
+                new { CompanyId = companyId, BranchId = branchId, WarehouseId = warehouseId, ProductId = productId, UnitOfMeasureId = unitId, Quantity = 1m, UnitCost = 2m, CurrencyCode = "SAR", OpeningDate = date, SourceLineReference = "INV-1" }),
+            (MigrationCanonicalRecordType.GlOpening,
+                new { CompanyId = companyId, AccountId = accountId, Debit = 10m, Credit = 0m, CurrencyCode = "SAR", OpeningDate = date, SourceLineReference = "GL-1" },
+                new { CompanyId = companyId, AccountId = accountId, Debit = 0m, Credit = 10m, CurrencyCode = "SAR", OpeningDate = date, SourceLineReference = "GL-1" }),
+            (MigrationCanonicalRecordType.ApOpening,
+                new { CompanyId = companyId, SupplierId = supplierId, Amount = 10m, CurrencyCode = "SAR", OpeningDate = date, SourceReference = "AP-1", DocumentDate = date, DueDate = date },
+                new { CompanyId = companyId, SupplierId = supplierId, Amount = 10m, CurrencyCode = "SAR", OpeningDate = date, SourceReference = "AP-1", DocumentDate = date, DueDate = date }),
+            (MigrationCanonicalRecordType.ArOpening,
+                new { CompanyId = companyId, CustomerId = customerId, SourceReference = "AR-1", DocumentDate = date, OpeningDate = date, Amount = 10m, CurrencyCode = "SAR", DueDate = date },
+                new { CompanyId = companyId, CustomerId = customerId, SourceReference = "AR-1", DocumentDate = date, OpeningDate = date, Amount = 10m, CurrencyCode = "SAR", DueDate = date }),
+            (MigrationCanonicalRecordType.CashBankOpening,
+                new { CompanyId = companyId, CashAccountId = cashAccountId, SourceReference = "CASH-1", Amount = 10m, CurrencyCode = "SAR", OpeningDate = date },
+                new { CompanyId = companyId, CashAccountId = cashAccountId, SourceReference = "CASH-1", Amount = 10m, CurrencyCode = "SAR", OpeningDate = date })
+        };
+        var records = domains.SelectMany((domain, index) => new[]
+        {
+            new { SourceSequence = index * 2 + 1, SourceRecordId = $"source-{index}-a", RecordType = domain.Type.ToString(), Payload = domain.First },
+            new { SourceSequence = index * 2 + 2, SourceRecordId = $"source-{index}-b", RecordType = domain.Type.ToString(), Payload = domain.Second }
+        }).Cast<object>().Concat(new object[]
+        {
+            new { SourceSequence = 29, SourceRecordId = "org-company-a", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = companyId, BranchId = (Guid?)null, WarehouseId = (Guid?)null } },
+            new { SourceSequence = 30, SourceRecordId = "org-company-b", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = companyId, BranchId = (Guid?)null, WarehouseId = (Guid?)null } },
+            new { SourceSequence = 31, SourceRecordId = "org-branch-a", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = (Guid?)companyId, BranchId = (Guid?)branchId, WarehouseId = (Guid?)null } },
+            new { SourceSequence = 32, SourceRecordId = "org-branch-b", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = (Guid?)companyId, BranchId = (Guid?)branchId, WarehouseId = (Guid?)null } },
+            new { SourceSequence = 33, SourceRecordId = "org-warehouse-a", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = (Guid?)companyId, BranchId = (Guid?)branchId, WarehouseId = (Guid?)warehouseId } },
+            new { SourceSequence = 34, SourceRecordId = "org-warehouse-b", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = (Guid?)companyId, BranchId = (Guid?)branchId, WarehouseId = (Guid?)warehouseId } },
+            new { SourceSequence = 35, SourceRecordId = "org-other-company-same-branch", RecordType = MigrationCanonicalRecordType.Organization.ToString(), Payload = new { CompanyId = (Guid?)Guid.NewGuid(), BranchId = (Guid?)branchId, WarehouseId = (Guid?)null } }
+        }).ToArray();
+        var content = Package(objectId, records);
+        var storage = Storage(tenant, objectId, content);
+        var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
+        Assert.True(intake.Succeeded, intake.Code);
+        var service = ValidationService(persistence, storage, resolver, new RecordingReferenceAuthority(identity: BusinessIdentity));
+
+        var result = await service.ValidateAsync(request, intake.Value!.Run.RunId, "mesp170-duplicate-validation");
+        var summary = await service.ReadValidationAsync(tenant, intake.Value.Run.RunId);
+
+        Assert.Equal("migration_validation_failed", result.Code);
+        Assert.NotNull(summary);
+        Assert.Equal(domains.Length * 2 + 6, summary!.RejectedCount);
+        Assert.Equal(1, summary.AcceptedCount);
+        Assert.Equal(domains.Length * 2 + 6, summary.Records.Count(item => item.FindingCodes.Contains("migration_duplicate_source_identity", StringComparer.Ordinal)));
+        var organizationDuplicates = summary.Records.Where(item => item.RecordType == MigrationCanonicalRecordType.Organization && item.SourceRecordId != "org-other-company-same-branch").ToArray();
+        Assert.Equal(6, organizationDuplicates.Length);
+        Assert.All(organizationDuplicates, item =>
+        {
+            Assert.Equal(MigrationRecordDisposition.Rejected, item.Disposition);
+            Assert.Contains("migration_duplicate_source_identity", item.FindingCodes);
+            Assert.Equal(MigrationFindingCategory.Duplicate.ToString(), item.ErrorClass);
+            Assert.False(string.IsNullOrWhiteSpace(item.ActionableMessage));
+        });
+        var differentCompany = Assert.Single(summary.Records, item => item.SourceRecordId == "org-other-company-same-branch");
+        Assert.Equal(MigrationRecordDisposition.Accepted, differentCompany.Disposition);
+        Assert.DoesNotContain("migration_duplicate_source_identity", differentCompany.FindingCodes);
+        Assert.Equal(tenant.ActorId, summary.OwnerActorId);
+        Assert.Equal(MigrationRunStatus.ValidationFailed, summary.StageStatus);
+        Assert.Equal(MigrationAttemptOutcome.KnownFailure, summary.AttemptOutcome);
+        Assert.Equal("validation_failed", summary.Failure);
+        Assert.Contains("correct eligible source rows", summary.NextAction, StringComparison.Ordinal);
+
+        static string? BusinessIdentity(MigrationParsedCanonicalRow row) => row.Payload switch
+        {
+            MigrationProductPayload item => $"Product:{item.Sku}",
+            MigrationSupplierPayload item => $"Supplier:{item.Code}",
+            MigrationCustomerPayload item => $"Customer:{item.Code}",
+            MigrationOrganizationPayload item => "Organization:" + System.Text.Json.JsonSerializer.Serialize(new
+            {
+                CompanyId = item.CompanyId,
+                item.BranchId,
+                item.WarehouseId
+            }),
+            MigrationReferencePayload item when row.RecordType == MigrationCanonicalRecordType.Tax =>
+                $"Tax:{item.Code}:{item.EffectiveDate}",
+            MigrationReferencePayload item when row.RecordType == MigrationCanonicalRecordType.ExchangeRate =>
+                $"ExchangeRate:{item.SourceCurrencyCode}:{item.TargetCurrencyCode}:{item.EffectiveDate}",
+            MigrationReferencePayload item => $"{row.RecordType}:{item.Code}",
+            MigrationInventoryOpeningPayload item => $"Inventory:{item.CompanyId}:{item.BranchId}:{item.WarehouseId}:{item.ProductId}:{item.UnitOfMeasureId}:{item.OpeningDate}:{item.SourceLineReference}",
+            MigrationGlOpeningPayload item => $"GL:{item.CompanyId}:{item.AccountId}:{item.OpeningDate}:{item.SourceLineReference}",
+            MigrationApOpeningPayload item => $"AP:{item.CompanyId}:{item.SupplierId}:{item.SourceReference}",
+            MigrationArOpeningPayload item => $"AR:{item.CompanyId}:{item.CustomerId}:{item.SourceReference}",
+            MigrationCashBankOpeningPayload item => $"CashBank:{item.CompanyId}:{item.CashAccountId}:{item.SourceReference}",
+            _ => null
+        };
+    }
+
+    [Fact]
     public async Task MESP169_sql_server_non_authoritative_outcomes_are_distinct_and_leave_owner_snapshots_unchanged()
     {
         await using var connection = await fixture.OpenConnectionAsync();
@@ -53,6 +378,11 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         var validation = await service.ValidateAsync(request, runId, "mesp169-validation-only");
         Assert.True(validation.Succeeded, validation.Code);
         Assert.Equal("validation-only", validation.Value!.Outcome);
+        Assert.Equal(tenant.ActorId, validation.Value.OwnerActorId);
+        Assert.Equal(MigrationRunStatus.Validated, validation.Value.StageStatus);
+        Assert.Equal(MigrationAttemptOutcome.Succeeded, validation.Value.AttemptOutcome);
+        Assert.Null(validation.Value.Failure);
+        Assert.False(string.IsNullOrWhiteSpace(validation.Value.NextAction));
         Assert.DoesNotContain(validation.Value.Records, item => item.CanonicalPayload is null);
         AssertOwnerSnapshotUnchanged(before, connection.ConnectionString, tenant);
 
@@ -269,7 +599,7 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         var objectId = Guid.NewGuid();
         var content = Package(objectId,
             new { SourceSequence = 1, SourceRecordId = "quarantined-product", RecordType = "Product", CorrectionOwner = "Owner supplied in source", Payload = new { Sku = "M169-Q1", NameEnglish = "Quarantined product" } },
-            new { SourceSequence = 2, SourceRecordId = (string?)null, RecordType = "Product", Payload = new { Sku = "M169-Q2", NameEnglish = "Missing quarantine metadata" } });
+            new { SourceSequence = 2, SourceRecordId = "missing-correction-owner", RecordType = "Product", Payload = new { Sku = "M169-Q2", NameEnglish = "Missing correction owner" } });
         var storage = Storage(tenant, objectId, content);
         var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
         Assert.True(intake.Succeeded, intake.Code);
@@ -291,9 +621,8 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.Equal("Owner supplied in source", row.CorrectionOwner);
         Assert.Equal("Reference", row.ErrorClass);
         Assert.Equal("The owner reference could not be verified.", row.ActionableMessage);
-        var missingMetadata = Assert.Single(saved.Records, item => item.Disposition == MigrationRecordDisposition.Rejected);
-        Assert.Contains("migration_source_record_id_required", missingMetadata.FindingCodes);
-        Assert.Contains("migration_correction_owner_required", missingMetadata.FindingCodes);
+        var missingCorrectionOwner = Assert.Single(saved.Records, item => item.Disposition == MigrationRecordDisposition.Rejected);
+        Assert.Contains("migration_correction_owner_required", missingCorrectionOwner.FindingCodes);
     }
 
     private static TenantContext NewTenant(string correlation) => TenantContext.ForOrdinaryMembership(
@@ -331,13 +660,25 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
             references,
             (IOrganizationScopeOwnershipResolver)resolver);
 
-    private static StaticPrivateObjectStorage Storage(TenantContext tenant, Guid objectId, byte[] content) => new(
+    private static StaticPrivateObjectStorage Storage(
+        TenantContext tenant,
+        Guid objectId,
+        byte[] content,
+        Guid? companyId = null,
+        Guid? branchId = null,
+        Guid? warehouseId = null) => new(
         tenant,
         objectId,
         content,
-        new MigrationSourceArtifactSnapshot(objectId, tenant.TenantId, null, null, null, new string('A', 64), content.Length, 1));
+        new MigrationSourceArtifactSnapshot(objectId, tenant.TenantId, companyId, branchId, warehouseId, new string('A', 64), content.Length, 1));
 
     private static byte[] Package(Guid objectId, params object[] records)
+        => PackageWithContracts(objectId, MigrationDomainContractTestData.ForRecordObjects(records), records);
+
+    private static byte[] PackageWithContracts(
+        Guid objectId,
+        IReadOnlyList<MigrationCanonicalDomainContract> domainContracts,
+        params object[] records)
     {
         var length = 0;
         for (var attempt = 0; attempt < 8; attempt++)
@@ -351,6 +692,7 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
                 SourceProfileVersion = Profile.ProfileVersion,
                 LogicalDataset = "MESP-169",
                 SourceSnapshot = new { ObjectId = objectId, Sha256 = new string('A', 64), Length = length, ConcurrencyVersion = 1 },
+                DomainContracts = domainContracts,
                 Records = records
             }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
             if (content.Length == length)
@@ -432,7 +774,7 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         private readonly PrivateFileMetadata metadata = new(
             objectId,
             tenant.TenantId,
-            TenantWorkScope.IssueFromVerifiedAuthority(tenant, TenantWorkScopeRequest.TenantWide()),
+            TenantWorkScope.IssueFromVerifiedAuthority(tenant, new TenantWorkScopeRequest(source.CompanyId, source.BranchId, source.WarehouseId)),
             "migration.json",
             "application/json",
             source.Length,
@@ -464,7 +806,9 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
             TenantWorkScopeResolution.Resolved(TenantWorkScope.IssueFromVerifiedAuthority(trustedTenantContext, requestedScope));
     }
 
-    private sealed class RecordingReferenceAuthority(Func<MigrationParsedCanonicalRow, MigrationReferenceCheck?>? result = null)
+    private sealed class RecordingReferenceAuthority(
+        Func<MigrationParsedCanonicalRow, MigrationReferenceCheck?>? result = null,
+        Func<MigrationParsedCanonicalRow, string?>? identity = null)
         : IMigrationReferenceAuthority
     {
         public List<int> Sequences { get; } = [];
@@ -478,6 +822,11 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
             var check = result?.Invoke(row);
             return Task.FromResult<IReadOnlyList<MigrationReferenceCheck>>(check is null ? [] : [check]);
         }
+
+        public MigrationBusinessIdentityResolution ResolveBusinessIdentity(MigrationParsedCanonicalRow row) =>
+            identity?.Invoke(row) is { } key
+                ? MigrationBusinessIdentityResolution.Valid(key)
+                : MigrationBusinessIdentityResolution.NotApplicable();
     }
 
     private sealed class CapturingAuditSink : IFoundationAuditEvidenceSink
