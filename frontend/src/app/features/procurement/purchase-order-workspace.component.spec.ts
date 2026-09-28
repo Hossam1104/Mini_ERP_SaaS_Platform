@@ -3,6 +3,7 @@ import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@ang
 import { BehaviorSubject, of } from 'rxjs';
 import { vi } from 'vitest';
 import { LanguageService } from '../../core/i18n/language.service';
+import { CurrencyPresentationService } from '../../core/presentation/currency-presentation.service';
 import { PurchaseOrderListItemResponse, PurchaseOrderResponse } from './purchase-order.model';
 import { PurchaseOrderService } from './purchase-order.service';
 import { PurchaseOrderWorkspaceComponent } from './purchase-order-workspace.component';
@@ -115,6 +116,7 @@ describe('PurchaseOrderWorkspaceComponent', () => {
       providers: [
         provideRouter([]),
         LanguageService,
+        { provide: CurrencyPresentationService, useValue: { symbolAssetUrl: () => null, symbolText: (code: string) => code } },
         { provide: ActivatedRoute, useValue: { url: routeUrls.asObservable(), paramMap: routeParams.asObservable(), snapshot: { get url() { return routeUrls.value; }, get paramMap() { return routeParams.value; } } } },
         { provide: PurchaseOrderService, useValue: orders },
       ],
@@ -150,6 +152,29 @@ describe('PurchaseOrderWorkspaceComponent', () => {
     const arFormatted = comp.formatMoney(1234.56, 'S2K');
     expect(arFormatted).toContain('S2K');
     lang.setLanguage('en');
+  });
+
+  it('uses the configured SAR fallback in the list amount cell', () => {
+    const amount = (fixture.nativeElement as HTMLElement).querySelector('.data-grid-money');
+    expect(amount?.textContent).toContain('SAR');
+    expect(amount?.querySelector('img')).toBeNull();
+  });
+
+  it('uses singular English and Arabic plural categories for line counts', () => {
+    const component = fixture.componentInstance;
+    const language = TestBed.inject(LanguageService);
+    expect(component.formatLineCount(1)).toBe('1 line');
+    expect(component.formatLineCount(2)).toBe('2 lines');
+
+    language.setLanguage('ar');
+    const count = (value: number) => new Intl.NumberFormat('ar').format(value);
+    expect(component.formatLineCount(0)).toBe(`${count(0)} بنود`);
+    expect(component.formatLineCount(1)).toBe(`${count(1)} بند`);
+    expect(component.formatLineCount(2)).toBe(`${count(2)} بندان`);
+    expect(component.formatLineCount(3)).toBe(`${count(3)} بنود`);
+    expect(component.formatLineCount(11)).toBe(`${count(11)} بندًا`);
+    expect(component.formatLineCount(100)).toBe(`${count(100)} بند`);
+    language.setLanguage('en');
   });
 
   it('renders purchase order list with non-ISO currency code without breaking list rendering or subsequent rows', async () => {

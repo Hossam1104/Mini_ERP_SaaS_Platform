@@ -1900,7 +1900,9 @@ export class LanguageService {
   readonly language = signal<Language>('en');
 
   constructor() {
-    this.applyDocumentSettings('en');
+    const language = this.readPreference();
+    this.language.set(language);
+    this.applyDocumentSettings(language);
   }
 
   text(key: TranslationKey): string {
@@ -1911,6 +1913,11 @@ export class LanguageService {
   setLanguage(language: Language): void {
     this.language.set(language);
     this.applyDocumentSettings(language);
+    try {
+      this.document.defaultView?.localStorage.setItem('mesp.ui.language', language);
+    } catch {
+      // Keep the current tab usable when browser storage is unavailable.
+    }
   }
 
   toggle(): void {
@@ -1920,5 +1927,13 @@ export class LanguageService {
   private applyDocumentSettings(language: Language): void {
     this.document.documentElement.lang = language;
     this.document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+  }
+
+  private readPreference(): Language {
+    try {
+      return this.document.defaultView?.localStorage.getItem('mesp.ui.language') === 'ar' ? 'ar' : 'en';
+    } catch {
+      return 'en';
+    }
   }
 }

@@ -1,5 +1,6 @@
 import { HttpHeaders, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
@@ -8,6 +9,9 @@ import { FoundationContextCandidate, FoundationSessionResponse } from '../../cor
 import { ContextService } from '../../core/context/context.service';
 import { LanguageService } from '../../core/i18n/language.service';
 import { ApplicationShellComponent } from './application-shell.component';
+
+@Component({ standalone: true, template: '' })
+class NavigationTestRouteComponent {}
 
 const authenticatedSession: FoundationSessionResponse = {
   authenticated: true,
@@ -76,6 +80,19 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     expect(element.textContent).toContain('Master Data');
     expect(element.textContent).toContain('Price Lists');
     expect(element.textContent).toContain('Purchase Requests');
+  });
+
+  it('uses the longest route prefix for the breadcrumb and a single current navigation item', async () => {
+    router.resetConfig([{ path: 'app/inventory/valuation', component: NavigationTestRouteComponent }]);
+    await router.navigateByUrl('/app/inventory/valuation');
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const currentLinks = element.querySelectorAll('.sidebar .nav-link.is-active[aria-current="page"]');
+    expect(fixture.componentInstance.currentPage()).toBe('Inventory Valuation');
+    expect(element.querySelector('.breadcrumbs [aria-current="page"]')?.textContent).toBe('Inventory Valuation');
+    expect(currentLinks).toHaveLength(1);
+    expect(currentLinks[0].textContent).toContain('Inventory Valuation');
   });
 
   async function failSignOut(code = 'audit_unavailable', status = 503): Promise<void> {
@@ -156,24 +173,26 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     expect(document.documentElement.dir).toBe('rtl');
   });
 
-  it('renders the transparent dark-surface owner icon in the sidebar without the obsolete white tile', () => {
+  it('renders one aspect-ratio-safe owner logo in the header and no duplicate sidebar logo', () => {
     const element = fixture.nativeElement as HTMLElement;
-    const brand = element.querySelector('.sidebar__brand app-brand-mark') as HTMLElement | null;
+    const brand = element.querySelector('.topbar__brand app-brand-mark') as HTMLElement | null;
     expect(brand).not.toBeNull();
     const img = brand?.querySelector('img') as HTMLImageElement | null;
-    expect(img?.getAttribute('src')).toBe('assets/brand/favicon-dark-64.png');
-    expect(img?.getAttribute('alt')).toBe('');
-    expect(element.querySelector('.sidebar__brand')?.textContent).toContain('MESP');
+    expect(img?.getAttribute('src')).toBe('assets/Logo_16_9_BG_Removed.png');
+    expect(img?.getAttribute('width')).toBe('1536');
+    expect(img?.getAttribute('height')).toBe('1024');
+    expect(img?.getAttribute('alt')).toBe('MESP');
+    expect(element.querySelector('.sidebar__brand')).toBeNull();
     expect(element.innerHTML).not.toContain('assets/brand/icon-96.png');
-    expect(element.querySelectorAll('.sidebar__brand img').length).toBe(1);
+    expect(element.querySelectorAll('.topbar__brand img').length).toBe(1);
   });
 
-  it('keeps the sidebar artwork unmirrored in RTL', () => {
+  it('keeps the light-surface header artwork unmirrored in RTL', () => {
     language.setLanguage('ar');
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
-    const img = element.querySelector('.sidebar__brand img') as HTMLImageElement | null;
-    expect(img?.getAttribute('src')).toBe('assets/brand/favicon-dark-64.png');
+    const img = element.querySelector('.topbar__brand img') as HTMLImageElement | null;
+    expect(img?.getAttribute('src')).toBe('assets/Logo_16_9_BG_Removed.png');
     expect(img?.style.transform).toBe('');
   });
 });
