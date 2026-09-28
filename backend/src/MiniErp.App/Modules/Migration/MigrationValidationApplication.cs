@@ -186,13 +186,16 @@ public sealed class MigrationValidationService
                 cancellationToken);
         }
 
+        var rowValidationRules = parsed.Rows.ToDictionary(
+            row => row.SourceSequence,
+            MigrationValidationRules.Validate);
         var packageHash = MigrationCanonicalPackageParser.Hash(package, parsed.Rows);
         var staged = parsed.Rows.Select(row => new MigrationStagedRecord(
             DeterministicId(runId, packageHash, row.SourceSequence),
             tenant!.TenantId,
             runId,
             row.SourceSequence,
-            row.SourceRecordId,
+            row.SourceRecordId is { Length: > 256 } ? null : row.SourceRecordId,
             row.RecordType,
             row.PayloadJson,
             Hash(row.PayloadJson),
@@ -245,6 +248,7 @@ public sealed class MigrationValidationService
                 if (corrections.TryGetValue(stagedRecord.StagedRecordId, out var corrected))
                 {
                     validationRows[stagedRecord.SourceSequence] = corrected;
+                    rowValidationRules[stagedRecord.SourceSequence] = MigrationValidationRules.Validate(corrected);
                     continue;
                 }
 
@@ -315,7 +319,7 @@ public sealed class MigrationValidationService
                 continue;
             var rowFindings = new List<MigrationValidationFinding>();
             var codes = new List<string>();
-            foreach (var rule in MigrationValidationRules.Validate(row))
+            foreach (var rule in rowValidationRules[row.SourceSequence])
                 MigrationValidationResultPolicy.AddFinding(rowFindings, codes, stagedPackage.Records.Single(item => item.SourceSequence == row.SourceSequence), attempt, rule.Category, MigrationFindingSeverity.Error, rule.Code, rule.Message);
 
             if (ScopeFinding(tenant!, authorizedScope, row) is { } scopeFinding)

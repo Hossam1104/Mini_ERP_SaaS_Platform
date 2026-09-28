@@ -278,6 +278,140 @@ public sealed class MigrationOwnerReferenceAdapterTests
     }
 
     [Fact]
+    public async Task Payment_term_date_and_base_rule_checks_fail_closed_when_due_date_calculation_is_unavailable()
+    {
+        var (tenant, request) = Context();
+        var companyId = Guid.NewGuid();
+        var termId = Guid.NewGuid();
+        var documentDate = new DateOnly(2026, 1, 15);
+        var term = PaymentTerm(documentDate.AddDays(1), PaymentTermBaseDateRule.DocumentDate);
+        var adapter = Create(
+            tenant,
+            new ConfiguredFinanceCompanyProvider([Company(tenant, companyId, "SAR", active: false)]),
+            currencies: Stub<IMasterDataCurrencyPaymentTermPersistence>(method => method.Name switch
+            {
+                "ListCurrenciesAsync" => new[] { Currency(tenant, "SAR") },
+                "FindPaymentTermAsync" => term,
+                _ => null
+            }),
+            suppliers: Stub<ISupplierPersistence>(_ => null),
+            customers: Stub<ICustomerPersistence>(_ => null));
+
+        var notEffective = await adapter.ValidateAsync(request, ApRow(1));
+        Assert.Contains(notEffective, item => item.Code == "migration_payment_term_version_not_effective");
+
+        term = PaymentTerm(documentDate, PaymentTermBaseDateRule.InvoiceDate);
+        var unsupportedBaseDate = await adapter.ValidateAsync(request, ApRow(2));
+        Assert.Contains(unsupportedBaseDate, item => item.Code == "migration_payment_term_base_date_unsupported");
+
+        term = PaymentTerm(documentDate, PaymentTermBaseDateRule.DocumentDate);
+        foreach (var row in new[]
+        {
+            ApRow(3),
+            new MigrationParsedCanonicalRow(
+                4,
+                "ar-term",
+                MigrationCanonicalRecordType.ArOpening,
+                new MigrationArOpeningPayload(
+                    CompanyId: companyId,
+                    CustomerId: Guid.NewGuid(),
+                    SourceReference: "AR-TERM-1",
+                    DocumentDate: documentDate,
+                    OpeningDate: documentDate,
+                    Amount: 100m,
+                    CurrencyCode: "SAR",
+                    DueDate: documentDate,
+                    PaymentTermId: termId),
+                "{}")
+        })
+        {
+            var findings = await adapter.ValidateAsync(request, row);
+            var finding = Assert.Single(findings, item => item.Code == "migration_payment_term_due_date_unverifiable");
+            Assert.Equal(MigrationFindingCategory.Reference, finding.Category);
+        }
+
+        MigrationParsedCanonicalRow ApRow(int sequence) => new(
+            sequence,
+            "ap-term",
+            MigrationCanonicalRecordType.ApOpening,
+            new MigrationApOpeningPayload(
+                CompanyId: companyId,
+                SupplierId: Guid.NewGuid(),
+                Amount: 100m,
+                CurrencyCode: "SAR",
+                OpeningDate: documentDate,
+                SourceReference: "AP-TERM-1",
+                DocumentDate: documentDate,
+                DueDate: documentDate,
+                PaymentTermId: termId),
+            "{}");
+
+        MasterDataPaymentTermRecord PaymentTerm(DateOnly effectiveFrom, PaymentTermBaseDateRule rule) => new(
+            termId,
+            tenant.TenantId,
+            "NET30",
+            new LocalizedName("Net 30"),
+            MasterDataLifecycleState.Active,
+            1,
+            [new MasterDataPaymentTermVersionRecord(
+                Guid.NewGuid(),
+                1,
+                effectiveFrom,
+                null,
+                rule,
+                PaymentTermScheduleMode.SingleDueDate,
+                new MasterDataPaymentTermOffset(30, 0),
+                [],
+                MasterDataEarlySettlementDiscount.Disabled(),
+                "NET30",
+                new LocalizedName("Net 30"))],
+            [1]);
+    }
+
+    [Fact]
+    public async Task Exchange_rate_row_requires_active_source_and_target_currency_masters()
+    {
+        var (tenant, request) = Context();
+        var date = new DateOnly(2026, 1, 1);
+        var rate = new MasterDataExchangeRateRecord(
+            Guid.NewGuid(),
+            tenant.TenantId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "USD",
+            "SAR",
+            MasterDataLifecycleState.Active,
+            1,
+            [new(Guid.NewGuid(), 1, date, null, 3.75m, 2, ExchangeRateProvenance.Manual, null, "USD", "SAR")],
+            [1]);
+        var adapter = Create(
+            tenant,
+            new ConfiguredFinanceCompanyProvider([]),
+            currencies: Stub<IMasterDataCurrencyPaymentTermPersistence>(method => method.Name == "ListCurrenciesAsync"
+                ? new[]
+                {
+                    Currency(tenant, "USD", MasterDataLifecycleState.Inactive),
+                    Currency(tenant, "SAR", MasterDataLifecycleState.Inactive)
+                }
+                : null),
+            exchangeRates: Stub<IMasterDataExchangeRatePersistence>(method => method.Name == "ListExchangeRatesAsync"
+                ? new[] { rate }
+                : null));
+
+        var findings = await adapter.ValidateAsync(
+            request,
+            new MigrationParsedCanonicalRow(
+                1,
+                "rate-1",
+                MigrationCanonicalRecordType.ExchangeRate,
+                new MigrationReferencePayload(SourceCurrencyCode: "USD", TargetCurrencyCode: "SAR", EffectiveDate: date),
+                "{}"));
+
+        Assert.Contains(findings, item => item.Code == "migration_exchange_rate_source_currency_inactive");
+        Assert.Contains(findings, item => item.Code == "migration_exchange_rate_target_currency_inactive");
+    }
+
+    [Fact]
     public async Task Price_list_reference_rejects_an_invalid_code_as_row_data()
     {
         var (tenant, request) = Context();
@@ -368,6 +502,9 @@ public sealed class MigrationOwnerReferenceAdapterTests
         var adapter = Create(
             tenant,
             new ConfiguredFinanceCompanyProvider([]),
+            currencies: Stub<IMasterDataCurrencyPaymentTermPersistence>(method => method.Name == "ListCurrenciesAsync"
+                ? new[] { Currency(tenant, "USD"), Currency(tenant, "SAR") }
+                : null),
             exchangeRates: Stub<IMasterDataExchangeRatePersistence>(method => method.Name == "ListExchangeRatesAsync"
                 ? Array.Empty<MasterDataExchangeRateRecord>()
                 : null));

@@ -39,6 +39,7 @@ internal sealed partial class MigrationPersistence
                 || item.SourceObjectId != command.SourceObjectId
                 || item.SourceSnapshotHash != command.SourceSnapshotHash
                 || item.SourceSequence < 1
+                || item.SourceRecordId is { Length: > 256 }
                 || item.CanonicalPayload.Length > 2_000_000)
             || command.Records.Select(item => item.SourceSequence).Distinct().Count() != command.Records.Count)
         {

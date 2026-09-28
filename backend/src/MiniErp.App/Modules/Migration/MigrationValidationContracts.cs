@@ -959,10 +959,12 @@ public static class MigrationValidationRules
             if (missing) target.Add((MigrationFindingCategory.MandatoryData, "migration_required_field_missing", $"A required field is missing: {field}."));
         }
 
-        if (string.IsNullOrWhiteSpace(row.SourceRecordId)
-            || row.SourceRecordId.Length > 256
-            || row.SourceRecordId.Any(char.IsControl))
+        if (string.IsNullOrWhiteSpace(row.SourceRecordId))
             Required(findings, true, "sourceRecordId");
+        else if (row.SourceRecordId.Length > 256)
+            findings.Add((MigrationFindingCategory.MandatoryData, "migration_source_record_id_too_long", "SourceRecordId must be 256 characters or fewer."));
+        else if (row.SourceRecordId.Any(char.IsControl))
+            findings.Add((MigrationFindingCategory.MandatoryData, "migration_source_record_id_invalid", "SourceRecordId cannot contain control characters."));
 
         if (row.HasForbiddenTargetAuthority)
             findings.Add((MigrationFindingCategory.Reference, "migration_source_target_authority_not_allowed", "The source cannot assign target identifiers, posting state, approvals, or resulting resources."));

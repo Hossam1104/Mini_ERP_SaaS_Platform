@@ -148,6 +148,48 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
     }
 
     [Fact]
+    public async Task MESP170_oversized_source_record_id_is_rejected_without_sql_truncation()
+    {
+        await using var connection = await fixture.OpenConnectionAsync();
+        var options = SqlServerMigrationConfiguration.Configure(
+            connection.ConnectionString,
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = NewTenant("mesp170-source-id-too-long");
+        var request = Request(tenant);
+        var persistence = new MigrationPersistence(options);
+        var audit = new CapturingAuditSink();
+        var resolver = new MutableScopeResolver(TenantWorkScopeRequest.TenantWide());
+        var objectId = Guid.NewGuid();
+        var content = Package(
+            objectId,
+            new
+            {
+                SourceSequence = 1,
+                SourceRecordId = new string('S', 257),
+                RecordType = "Product",
+                Payload = new { Sku = "TOO-LONG-ID", NameEnglish = "Invalid source identity" }
+            });
+        var storage = Storage(tenant, objectId, content);
+        var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
+        Assert.True(intake.Succeeded, intake.Code);
+        var service = ValidationService(persistence, storage, resolver, new RecordingReferenceAuthority());
+
+        var result = await service.ValidateAsync(request, intake.Value!.Run.RunId, "mesp170-source-id-too-long-validation");
+        var summary = await service.ReadValidationAsync(tenant, intake.Value.Run.RunId);
+        var staged = await persistence.ListStagedRecordsAsync(tenant, intake.Value.Run.RunId);
+
+        Assert.Equal("migration_validation_failed", result.Code);
+        Assert.NotNull(summary);
+        Assert.Equal(1, summary!.RejectedCount);
+        Assert.Equal(0, summary.QuarantinedCount);
+        var rejected = Assert.Single(summary.Records);
+        Assert.Equal(MigrationRecordDisposition.Rejected, rejected.Disposition);
+        Assert.Contains("migration_source_record_id_too_long", rejected.FindingCodes);
+        Assert.Equal(MigrationFindingCategory.MandatoryData.ToString(), rejected.ErrorClass);
+        Assert.Null(Assert.Single(staged).SourceRecordId);
+    }
+
+    [Fact]
     public async Task MESP170_row_outside_the_authorized_company_scope_is_rejected()
     {
         await using var connection = await fixture.OpenConnectionAsync();
