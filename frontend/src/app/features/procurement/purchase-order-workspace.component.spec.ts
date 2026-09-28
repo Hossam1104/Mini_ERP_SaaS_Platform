@@ -160,6 +160,23 @@ describe('PurchaseOrderWorkspaceComponent', () => {
     expect(amount?.querySelector('img')).toBeNull();
   });
 
+  it('uses singular English and Arabic plural categories for line counts', () => {
+    const component = fixture.componentInstance;
+    const language = TestBed.inject(LanguageService);
+    expect(component.formatLineCount(1)).toBe('1 line');
+    expect(component.formatLineCount(2)).toBe('2 lines');
+
+    language.setLanguage('ar');
+    const count = (value: number) => new Intl.NumberFormat('ar').format(value);
+    expect(component.formatLineCount(0)).toBe(`${count(0)} بنود`);
+    expect(component.formatLineCount(1)).toBe(`${count(1)} بند`);
+    expect(component.formatLineCount(2)).toBe(`${count(2)} بندان`);
+    expect(component.formatLineCount(3)).toBe(`${count(3)} بنود`);
+    expect(component.formatLineCount(11)).toBe(`${count(11)} بندًا`);
+    expect(component.formatLineCount(100)).toBe(`${count(100)} بند`);
+    language.setLanguage('en');
+  });
+
   it('renders purchase order list with non-ISO currency code without breaking list rendering or subsequent rows', async () => {
     const s2kItem: PurchaseOrderListItemResponse = {
       ...purchaseOrderListItem,

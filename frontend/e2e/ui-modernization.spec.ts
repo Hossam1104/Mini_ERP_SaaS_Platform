@@ -68,6 +68,8 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'sapphire');
+    await expect(page.locator('.module-card').first().locator('.module-card__tag')).toHaveText('Master data');
+    await expect(page.locator('.module-card').first().locator('strong')).toHaveText('Master Data');
 
     const sidebar = page.locator('#app-sidebar');
     await expect(sidebar.locator('.nav-link').first()).toHaveAttribute('title', 'Overview');
@@ -102,6 +104,8 @@ test.describe('MESP-153 Slice A UI', () => {
     await page.getByRole('button', { name: 'Switch to dark mode' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'dark');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'teal');
+    await expect(page.locator('.topbar__brand')).not.toHaveClass(/light-backplate/);
+    await expect(page.locator('.topbar__mesp-logo img')).toHaveAttribute('src', /Logo_16_9_BG_Removed_Dark\.png/);
 
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'teal');
@@ -111,6 +115,24 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  });
+
+  test('aligns numeric grid headers in both directions and reduces glass motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/app');
+    await expect(page.locator('.module-card').first()).toHaveCSS('animation-name', 'none');
+    await page.goto('/app/procurement/purchase-orders');
+
+    const totalHeader = page.locator('app-data-grid thead th.numeric');
+    await expect(totalHeader).toHaveCSS('text-align', 'end');
+    await expect(totalHeader.locator('.grid-heading')).toHaveCSS('justify-content', 'flex-end');
+    await expect(page.locator('.filter-field select')).toHaveCSS('appearance', 'none');
+    await expect(page.locator('.filter-select__chevron')).toBeVisible();
+
+    await page.locator('.language-button').click();
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(totalHeader).toHaveCSS('text-align', 'end');
+    await expect(page.locator('app-data-grid tbody tr[data-row-id="po-3"] td').nth(1)).toContainText(`${new Intl.NumberFormat('ar').format(1)} بند`);
   });
 
   test('sorts, filters, resizes, selects, pages, opens row actions, and fits the grid on mobile', async ({ page }) => {
@@ -124,6 +146,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(grid.locator('.data-grid-pager')).toBeVisible();
     await expect(grid.locator('.data-grid-badge--issued').first()).toHaveText('Issued');
     await expect(grid.locator('.data-grid-money').first()).toContainText('SAR');
+    await expect(grid.locator('tbody tr[data-row-id="po-3"] td').nth(1)).toContainText('1 line');
     await expect(grid.locator('tbody tr')).toHaveCount(7);
     await expect(grid.locator('[aria-sort="ascending"]')).toHaveCount(0);
     await expect(grid.locator('tbody tr').first().getByRole('link', { name: 'QT-001' })).toHaveAttribute('href', '/app/procurement/purchase-orders/po-1');

@@ -50,11 +50,11 @@ import { NAVIGATION_GROUPS, NavigationItem } from './navigation.config';
           <div class="topbar__start">
             <button class="icon-button sidebar-toggle desktop-toggle" type="button" (click)="toggleSidebar()" [attr.aria-label]="sidebarExpanded() ? label('Collapse navigation', 'طي القائمة') : label('Expand navigation', 'توسيع القائمة')" [attr.aria-expanded]="sidebarExpanded()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
             <button class="icon-button sidebar-toggle mobile-toggle" type="button" (click)="toggleMobileMenu()" [attr.aria-label]="mobileMenuOpen() ? label('Close navigation', 'إغلاق القائمة') : label('Open navigation', 'فتح القائمة')" [attr.aria-expanded]="mobileMenuOpen()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
-            <a class="topbar__brand" [class.topbar__brand--light-backplate]="theme.darkMode() && !context.entry()?.branding?.logoDarkUrl" routerLink="/app" [attr.aria-label]="brandName()">
+            <a class="topbar__brand" [class.topbar__brand--light-backplate]="theme.darkMode() && !!context.entry()?.branding?.logoLightUrl && !context.entry()?.branding?.logoDarkUrl" routerLink="/app" [attr.aria-label]="brandName()">
               @if (tenantLogoUrl()) {
                 <img class="topbar__tenant-logo" [src]="tenantLogoUrl()" [alt]="context.entry()?.branding?.logoAltText || brandName()" />
               } @else {
-                <app-brand-mark class="topbar__mesp-logo" variant="logo" theme="light" alt="MESP" />
+                <app-brand-mark class="topbar__mesp-logo" variant="logo" [theme]="theme.darkMode() ? 'dark' : 'light'" alt="MESP" />
               }
             </a>
             <nav class="breadcrumbs" [attr.aria-label]="label('Breadcrumb', 'مسار التنقل')">
@@ -164,7 +164,7 @@ import { NAVIGATION_GROUPS, NavigationItem } from './navigation.config';
     .theme-trigger { border-radius: 999px; padding-inline: .85rem; }
     .theme-trigger .icon { width: 18px; height: 18px; }
     .chevron { width: 15px !important; height: 15px !important; color: var(--ink-muted); }
-    .theme-menu { position: absolute; z-index: 80; inset-block-start: calc(100% + .65rem); inset-inline-end: 0; display: grid; width: 264px; gap: .25rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 18px; padding: .55rem; background: var(--surface-glass); box-shadow: var(--shadow-overlay); backdrop-filter: blur(22px) saturate(160%); animation: menu-enter 150ms ease both; }
+    .theme-menu { position: absolute; z-index: 80; inset-block-start: calc(100% + .65rem); inset-inline-end: 0; display: grid; width: 264px; gap: .25rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 18px; padding: .55rem; background: var(--surface-glass); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); backdrop-filter: blur(22px) saturate(160%); animation: menu-enter 150ms ease both; }
     .theme-option { display: flex; min-height: 42px; align-items: center; gap: .75rem; border: 1px solid transparent; border-radius: 12px; padding: .45rem .6rem; color: var(--ink); background: transparent; text-align: start; font: 600 14px/1.2 var(--font-sans); }
     .theme-option:hover, .theme-option:focus-visible { border-color: color-mix(in srgb, var(--accent) 20%, var(--line)); background: var(--accent-soft); }
     .theme-swatch { width: 15px; height: 15px; flex: none; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; box-shadow: 0 2px 6px rgb(0 0 0 / 16%); }

@@ -72,7 +72,7 @@ interface ConfirmationLineDraft {
           <section class="ui-surface ledger-panel">
             <div class="filter-toolbar">
               <label class="filter-search"><svg class="icon" aria-hidden="true"><use href="#icon-search" /></svg><input type="search" [value]="search()" (input)="search.set($any($event.target).value)" [placeholder]="poText('purchaseOrderSearch')" [attr.aria-label]="poText('purchaseOrderSearch')" /></label>
-              <label class="filter-field"><span>{{ poText('purchaseOrderStatusFilter') }}</span><select [value]="statusFilter()" (change)="setStatusFilter($any($event.target).value)"><option value="">{{ poText('purchaseOrderAllStatuses') }}</option>@for (status of statuses; track status) {<option [value]="status">{{ statusLabel(status) }}</option>}</select></label>
+              <label class="filter-field"><span>{{ poText('purchaseOrderStatusFilter') }}</span><span class="filter-select"><select [value]="statusFilter()" (change)="setStatusFilter($any($event.target).value)"><option value="">{{ poText('purchaseOrderAllStatuses') }}</option>@for (status of statuses; track status) {<option [value]="status">{{ statusLabel(status) }}</option>}</select><svg class="icon filter-select__chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg></span></label>
               <p class="filter-note">{{ poText('purchaseOrderFilterNote') }}</p>
             </div>
             <app-data-grid
@@ -189,7 +189,9 @@ interface ConfirmationLineDraft {
     .filter-search input { display: block; width: 100%; height: 44px; min-height: 44px !important; border: 1px solid var(--line-strong) !important; border-radius: var(--radius-control) !important; padding-block: 0 !important; padding-inline: 2.7rem .75rem !important; outline: 0 !important; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)) !important; box-shadow: var(--shadow-soft), inset 0 1px var(--control-gloss) !important; font-size: 14px; }
     .filter-search input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent), 0 5px 14px color-mix(in srgb, var(--accent) 12%, transparent), inset 0 1px var(--control-gloss) !important; animation: control-focus-ring 190ms ease-out; }
     .filter-field { display: grid; gap: .3rem; min-width: 12rem; color: var(--ink-muted); font-size: 14px; font-weight: 700; }
-    .filter-field select { min-height: 44px; border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding: .45rem .65rem; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)); box-shadow: inset 0 1px var(--control-gloss), var(--shadow-soft); font-size: 14px; }
+    .filter-select { position: relative; display: block; }
+    .filter-field select { width: 100%; min-height: 44px; appearance: none; border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding-block: .45rem; padding-inline: .65rem 2.6rem; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)); box-shadow: inset 0 1px var(--control-gloss), var(--shadow-soft); font-size: 14px; }
+    .filter-select__chevron { position: absolute; inset-inline-end: .75rem; inset-block-start: 50%; width: 16px; height: 16px; color: var(--ink-muted); pointer-events: none; transform: translateY(-50%); }
     .filter-note { flex: 1 1 100%; margin: 0; color: var(--ink-muted); font-size: 14px; }
     .purchase-order-grid-shell { border: 0; border-radius: 0; }
     .purchase-order-grid { min-width: 58rem; }
@@ -360,9 +362,16 @@ export class PurchaseOrderWorkspaceComponent implements OnInit {
 
   setStatusFilter(value: string): void { this.statusFilter.set(value); }
 
+  formatLineCount(count: number): string {
+    if (this.language.language() === 'en') return `${count} ${count === 1 ? 'line' : 'lines'}`;
+    const form = new Intl.PluralRules('ar').select(count);
+    const item = form === 'two' ? 'بندان' : form === 'few' || form === 'zero' ? 'بنود' : form === 'many' ? 'بندًا' : 'بند';
+    return `${new Intl.NumberFormat('ar').format(count)} ${item}`;
+  }
+
   gridColumns(): DataGridColumn<PurchaseOrderListItemResponse>[] {
     return [
-      { key: 'supplierQuotationReference', label: this.poText('purchaseOrderReferenceColumn'), value: (record) => record.supplierQuotationReference, link: (record) => `/app/procurement/purchase-orders/${record.id}`, secondaryText: (record) => `${record.lineCount} ${this.poText('purchaseOrderLines')}`, filter: 'text', width: 208 },
+      { key: 'supplierQuotationReference', label: this.poText('purchaseOrderReferenceColumn'), value: (record) => record.supplierQuotationReference, link: (record) => `/app/procurement/purchase-orders/${record.id}`, secondaryText: (record) => this.formatLineCount(record.lineCount), filter: 'text', width: 208 },
       { key: 'supplierName', label: this.poText('purchaseOrderSupplierColumn'), value: (record) => record.supplierName, display: (record) => `${record.supplierName} · ${record.supplierCode}`, filter: 'text', width: 208 },
       { key: 'status', label: this.poText('purchaseOrderStatusColumn'), value: (record) => record.status, display: (record) => this.statusLabel(record.status), filter: 'select', filterOptions: this.statuses.map((status) => ({ value: status, label: this.statusLabel(status) })), badge: true, width: 166 },
       { key: 'currencyCode', label: this.poText('purchaseOrderCurrencyColumn'), value: (record) => record.currencyCode, filter: 'select', width: 112 },

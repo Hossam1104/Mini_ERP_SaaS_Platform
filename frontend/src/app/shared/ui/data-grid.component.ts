@@ -147,6 +147,8 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
     .data-grid-money { display: inline-flex; align-items: center; justify-content: flex-end; gap: .4rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .data-grid-money img { width: 20px; height: 20px; object-fit: contain; }
     .data-grid-table .numeric { text-align: end; font-variant-numeric: tabular-nums; }
+    .data-grid-table th.numeric .grid-heading { justify-content: flex-end; }
+    .data-grid-table th.numeric .grid-sort { justify-content: flex-end; text-align: end; }
     .data-grid-table tbody tr { transition: background-color var(--motion-fast) ease; }
     .data-grid-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--accent-soft) 18%, var(--surface-raised)); }
     .data-grid-table tbody tr:hover, .data-grid-table tbody tr.is-selected { background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface-raised)); }
@@ -159,7 +161,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
     .grid-filter-button { display: inline-grid; width: 40px; height: 40px; place-items: center; flex: none; border: 1px solid transparent; border-radius: 10px; color: var(--ink-muted); background: transparent; font-size: 14px; }
     .grid-filter-button .icon { width: 15px; height: 15px; }
     .grid-filter-button:hover, .grid-filter-button.is-filtered, .grid-filter-button[aria-expanded='true'] { border-color: color-mix(in srgb, var(--accent) 26%, var(--line)); color: var(--accent); background: var(--accent-soft); }
-    .grid-filter-popover { position: fixed; z-index: 70; display: grid; width: min(260px, calc(100vw - 24px)); gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 14px; padding: .8rem; color: var(--ink); background: var(--surface-glass); box-shadow: var(--shadow-overlay); backdrop-filter: blur(18px) saturate(150%); }
+    .grid-filter-popover { position: fixed; z-index: 70; display: grid; width: min(260px, calc(100vw - 24px)); gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 14px; padding: .8rem; color: var(--ink); background: var(--surface-glass); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); backdrop-filter: blur(18px) saturate(150%); }
     .grid-filter-popover label, .grid-range-fields label { display: grid; min-width: 0; gap: .35rem; color: var(--ink-muted); font-size: 14px; font-weight: 700; }
     .grid-filter-popover input, .grid-filter-popover select { width: 100%; min-width: 0; min-height: 44px; }
     .grid-range-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }

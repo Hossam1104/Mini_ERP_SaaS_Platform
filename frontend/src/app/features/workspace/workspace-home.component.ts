@@ -54,7 +54,7 @@ interface OverviewModule {
             @for (module of visibleModules(); track module.path; let index = $index) {
               <a class="module-card" [class]="'module-card module-card--' + module.groupId" [routerLink]="module.path" [style.--card-order]="index" [attr.aria-label]="label('View links for ' + module.labelEn, 'عرض روابط ' + module.labelAr)">
                 <span class="module-card__banner" aria-hidden="true"><svg class="icon"><use [attr.href]="'#icon-' + module.icon" /></svg><span class="module-card__art-orbit"></span></span>
-                <span class="module-card__tag">{{ navigationLabel(module) }}</span>
+                <span class="module-card__tag">{{ label(module.groupLabelEn, module.groupLabelAr) }}</span>
                 <strong>{{ navigationLabel(module) }}</strong>
                 <span class="module-card__view">{{ label('View links', 'عرض الروابط') }}<svg class="icon icon--arrow-up-right" aria-hidden="true"><use href="#icon-arrow-up-right" /></svg></span>
               </a>
@@ -101,8 +101,8 @@ interface OverviewModule {
     .module-chip:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
     .module-chip.is-active { border-color: var(--accent); color: var(--action-text); background: var(--accent-action); }
     .capability-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 225px), 1fr)); gap: .9rem; }
-    .module-card { display: grid; min-width: 0; gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line)); border-radius: 18px; padding: .8rem; color: var(--ink); background: linear-gradient(145deg, var(--surface-glass), var(--surface-raised) 76%); box-shadow: var(--shadow-card); text-decoration: none; animation: card-enter 420ms ease both; animation-delay: calc(var(--card-order, 0) * 35ms); transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease; }
-    .module-card:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); box-shadow: var(--shadow-overlay); transform: translateY(-4px); }
+    .module-card { display: grid; min-width: 0; gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--line)); border-radius: 18px; padding: .8rem; color: var(--ink); background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 88%, transparent), color-mix(in srgb, var(--surface-raised) 84%, transparent) 76%); box-shadow: var(--shadow-card), inset 0 1px 0 var(--glass-highlight), inset 0 0 0 1px color-mix(in srgb, var(--glass-highlight) 36%, transparent); backdrop-filter: blur(16px) saturate(155%); text-decoration: none; animation: card-enter 420ms ease both; animation-delay: calc(var(--card-order, 0) * 35ms); transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease; }
+    .module-card:hover { border-color: color-mix(in srgb, var(--accent) 42%, var(--line)); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); transform: translateY(-5px); }
     .module-card:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
     .module-card__banner { position: relative; display: grid; min-height: 112px; place-items: center; overflow: hidden; border-radius: 12px; color: var(--accent-strong); background: radial-gradient(circle at 18% 15%, color-mix(in srgb, var(--accent) 24%, white), transparent 40%), linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--surface-raised) 72%, var(--accent-soft))); }
     .module-card__banner::before { position: absolute; inset: 0; background: linear-gradient(145deg, transparent 40%, color-mix(in srgb, var(--accent) 9%, transparent) 41% 53%, transparent 54%), radial-gradient(ellipse at 50% 120%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 65%); content: ''; }
