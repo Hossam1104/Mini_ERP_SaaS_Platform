@@ -4,6 +4,35 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-29 — MESP-173 correction and handback — GPT-6 Codex / default — MESP-173 (#299)
+- Status: DONE
+- Branch / starting SHA / ending SHA:
+  - `fix/mesp-173-mesp-169-correction`; start `9e476f51abeb2cf372693103d5cf6358ba85327f` on `main`; product/test commit `2ad355c9ba4b9c04a8d8c628a8f5742455078e2c` (status handback commit follows).
+- What changed:
+  - `MigrationReconciliationService.cs:146` derives the GL balance control from persisted dry-run totals; `MigrationValidationContracts.cs:837` adds the optional reconciliation-controls field.
+  - `MigrationValidationApplication.cs:256,577,598` uses immutable staged payloads for unchanged legacy rows and preflights snapshots before creating a retry attempt.
+  - `MigrationRunSafetySqlServerTests.cs:358,611,747,861` strengthens owner snapshots and adds the legacy upgrade-path SQL case; `MigrationOwnerExecutionSqlServerIntegrationTests.cs:134` adds the concurrent cancel/execute SQL race.
+  - Updated only M40-REQ-027, M40-REQ-032, M40-REQ-040, M40-AC-014, M40-AC-015, M40-AC-016, M40-AC-021 and M40-AC-033 in `docs/audit/mesp-141-m40-traceability.md`.
+  - Code/test commit: `2ad355c` (`fix(migration): MESP-173 (#299) correct MESP-169 review findings`).
+- Gates:
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build succeeded, 0 warnings / 0 errors; 1,591 passed, 0 failed, 0 skipped; `Backend suite passed against disposable database MiniErpFoundation_20260929004437_7edf7645.`; `MESP_SQLSERVER_CONNECTION_STRING (runtime): unchanged. MESP data is intact.` Wall time 00:08:27.017.
+  - EF pending-model checks: no model changes for Migration, Master Data, Business Parties, Procurement, Inventory, Finance and Sales contexts.
+  - `git diff --check`: clean.
+  - Q-S restart: Release build succeeded, 0 warnings / 0 errors; backend health passed on 5300 (PID 4516); Angular health passed on 4300 (PID 31552).
+- Evidence:
+  - Start state: `main` at `9e476f51abeb2cf372693103d5cf6358ba85327f`, same as `origin/main`; ancestor checks for `b52364a` and `3472671` succeeded; #299 was OPEN. Initial status contained only `?? .claude/` and `?? .mcp.json.bak-harness-20260928`, excluded as owner harness files and never staged.
+  - Draft PR #310: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/310.
+  - Single #299 evidence comment: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/299#issuecomment-5879527016.
+  - Runtime state: `.runtime/processes.json`; 4310/5310 UI lane was not touched.
+- Deviations from the prompt:
+  - Execution used the available GPT-6 Codex / default session, not the GPT-6 Luna / max profile prescribed for executors by `AGENTS.md` §7; Opus review remains the acceptance gate.
+- Failures and classification:
+  - Initial EF design-time context creation failed because `MESP_SQLSERVER_CONNECTION_STRING` was unset in this shell. The model checks were rerun with a process-local LocalDB placeholder; all seven contexts reported no pending model changes, with no database write.
+  - Initial backend build hit MSB3026/MSB3027 because `MiniErp.Api` PID 9252 held Release DLLs. Its executable path and port-5300 listeners were verified; only that PID was stopped as allowed by §8. The final full wrapper passed.
+  - The first expanded no-effect SQL test used imbalanced fixture data (GL debit 125 / credit 100), which existing validation correctly rejected. The fixture was corrected to 125 / 125; the focused test passed and the final full wrapper passed.
+- Status files updated: `RESULT.md`; `TASK.md` prompt Status set to CONSUMED.
+- Exact next action: Opus 5.5 reviews MESP-173 (#299); Sol re-reviews.
+
 ## 2026-09-28 — Opus: accept MESP-170 and MESP-153 Slice A, release MESP-173 — Claude Opus 5.5 / medium — MESP-170 (#293), MESP-153 (#268), MESP-173 (#299)
 - Status: **ACCEPTED** MESP-170 (PR #304, merged at `3472671`) and MESP-153 Slice A (PR #302, merged at `b52364a`; the **owner approved the design**, Q-U). MESP-173 (#299) is released as the OPEN prompt in `TASK.md`. #293 is closed.
 - Branch / starting SHA / ending SHA:
