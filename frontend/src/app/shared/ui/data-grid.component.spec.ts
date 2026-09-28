@@ -52,6 +52,23 @@ describe('DataGridComponent', () => {
     expect(grid.filteredRows().map((row) => row.id)).toEqual(['po-2']);
   });
 
+  it('clamps the current page when the row set shrinks', () => {
+    const manyRows = Array.from({ length: 15 }, (_, index) => ({ ...rows[0], id: `po-${index + 1}`, name: `Row ${index + 1}` }));
+    fixture.componentRef.setInput('rows', manyRows);
+    fixture.detectChanges();
+    grid.changePage(1);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.pager-controls span')?.textContent).toContain('2 / 3');
+
+    fixture.componentRef.setInput('rows', rows);
+    fixture.detectChanges();
+
+    expect(grid.page()).toBe(0);
+    expect(grid.pageRows().map((row) => row.id)).toEqual(['po-2', 'po-1']);
+    expect(grid.pagerSummaryLabel()).toBe('1–2 / 2');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.pager-controls span')?.textContent).toContain('1 / 1');
+  });
+
   it('resizes with mouse and keyboard within the configured bounds', () => {
     grid.startResize(new MouseEvent('mousedown', { clientX: 100 }), columns[0]);
     grid.resizeWithMouse(new MouseEvent('mousemove', { clientX: 150 }));

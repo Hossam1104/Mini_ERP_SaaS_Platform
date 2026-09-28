@@ -1,5 +1,6 @@
 import { HttpHeaders, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
@@ -8,6 +9,9 @@ import { FoundationContextCandidate, FoundationSessionResponse } from '../../cor
 import { ContextService } from '../../core/context/context.service';
 import { LanguageService } from '../../core/i18n/language.service';
 import { ApplicationShellComponent } from './application-shell.component';
+
+@Component({ standalone: true, template: '' })
+class NavigationTestRouteComponent {}
 
 const authenticatedSession: FoundationSessionResponse = {
   authenticated: true,
@@ -76,6 +80,19 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     expect(element.textContent).toContain('Master Data');
     expect(element.textContent).toContain('Price Lists');
     expect(element.textContent).toContain('Purchase Requests');
+  });
+
+  it('uses the longest route prefix for the breadcrumb and a single current navigation item', async () => {
+    router.resetConfig([{ path: 'app/inventory/valuation', component: NavigationTestRouteComponent }]);
+    await router.navigateByUrl('/app/inventory/valuation');
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const currentLinks = element.querySelectorAll('.sidebar .nav-link.is-active[aria-current="page"]');
+    expect(fixture.componentInstance.currentPage()).toBe('Inventory Valuation');
+    expect(element.querySelector('.breadcrumbs [aria-current="page"]')?.textContent).toBe('Inventory Valuation');
+    expect(currentLinks).toHaveLength(1);
+    expect(currentLinks[0].textContent).toContain('Inventory Valuation');
   });
 
   async function failSignOut(code = 'audit_unavailable', status = 503): Promise<void> {

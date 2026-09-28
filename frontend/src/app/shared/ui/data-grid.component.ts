@@ -1,4 +1,4 @@
-import { Component, EventEmitter, HostListener, Input, Output, computed, input, signal } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, Output, computed, effect, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 export type GridFilterType = 'text' | 'select' | 'number-range' | 'date-range';
@@ -97,9 +97,9 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
         <footer class="data-grid-pager">
           <span class="pager-summary">{{ pagerSummaryLabel() }}</span>
           <div class="pager-controls">
-            <button type="button" class="pager-button" (click)="changePage(-1)" [disabled]="page() === 0" [attr.aria-label]="previousPageLabel"><svg class="icon icon--chevron-left" aria-hidden="true"><use href="#icon-chevron-left" /></svg></button>
-            <span>{{ page() + 1 }} / {{ pageCount() }}</span>
-            <button type="button" class="pager-button" (click)="changePage(1)" [disabled]="page() + 1 >= pageCount()" [attr.aria-label]="nextPageLabel"><svg class="icon icon--chevron-right" aria-hidden="true"><use href="#icon-chevron-right" /></svg></button>
+            <button type="button" class="pager-button" (click)="changePage(-1)" [disabled]="currentPage() === 0" [attr.aria-label]="previousPageLabel"><svg class="icon icon--chevron-left" aria-hidden="true"><use href="#icon-chevron-left" /></svg></button>
+            <span>{{ currentPage() + 1 }} / {{ pageCount() }}</span>
+            <button type="button" class="pager-button" (click)="changePage(1)" [disabled]="currentPage() + 1 >= pageCount()" [attr.aria-label]="nextPageLabel"><svg class="icon icon--chevron-right" aria-hidden="true"><use href="#icon-chevron-right" /></svg></button>
           </div>
           <span class="pager-size">{{ pageSize }} {{ perPageLabel }}</span>
         </footer>
@@ -243,8 +243,17 @@ export class DataGridComponent<T extends object> {
     return result;
   });
   readonly pageCount = computed(() => Math.max(1, Math.ceil(this.filteredRows().length / Math.max(1, this.pageSize))));
-  readonly pageRows = computed(() => this.filteredRows().slice(this.page() * this.pageSize, (this.page() + 1) * this.pageSize));
+  readonly currentPage = computed(() => Math.min(Math.max(0, this.page()), this.pageCount() - 1));
+  readonly pageRows = computed(() => this.filteredRows().slice(this.currentPage() * this.pageSize, (this.currentPage() + 1) * this.pageSize));
   private resizing: { key: string; startX: number; startWidth: number } | null = null;
+
+  constructor() {
+    effect(() => {
+      const page = this.page();
+      const clampedPage = this.currentPage();
+      if (page !== clampedPage) this.page.set(clampedPage);
+    });
+  }
 
   sortBy(column: DataGridColumn<T>): void {
     if (this.sortKey() === column.key) this.sortDirection.set(this.sortDirection() === 'asc' ? 'desc' : 'asc');
@@ -425,16 +434,16 @@ export class DataGridComponent<T extends object> {
     }
   }
 
-  changePage(delta: number): void { this.page.set(Math.max(0, Math.min(this.pageCount() - 1, this.page() + delta))); }
+  changePage(delta: number): void { this.page.set(Math.max(0, Math.min(this.pageCount() - 1, this.currentPage() + delta))); }
 
   summaryLabel(): string {
     const total = this.filteredRows().length;
-    const start = total === 0 ? 0 : this.page() * this.pageSize + 1;
-    const end = Math.min(total, (this.page() + 1) * this.pageSize);
+    const start = total === 0 ? 0 : this.currentPage() * this.pageSize + 1;
+    const end = Math.min(total, (this.currentPage() + 1) * this.pageSize);
     return this.language === 'ar' ? `${start}–${end} من ${total} ${this.countLabel}` : `${start}–${end} of ${total} ${this.countLabel}`;
   }
 
-  pagerSummaryLabel(): string { return `${this.page() * this.pageSize + 1}–${Math.min((this.page() + 1) * this.pageSize, this.filteredRows().length)} / ${this.filteredRows().length}`; }
+  pagerSummaryLabel(): string { return `${this.currentPage() * this.pageSize + 1}–${Math.min((this.currentPage() + 1) * this.pageSize, this.filteredRows().length)} / ${this.filteredRows().length}`; }
 
   private matchesFilter(row: T, column: DataGridColumn<T>): boolean {
     const filter = this.filters()[column.key];

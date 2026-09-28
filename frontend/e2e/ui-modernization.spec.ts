@@ -2,6 +2,11 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 
 const tenantId = 'tenant-ui';
 const companyId = 'company-ui';
+const operationalContexts = [
+  { contextId: 'operation-ui', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 },
+  { contextId: 'operation-branch-ui', kind: 'Branch', displayName: 'Alpha Branch', eligibilityVersion: 1 },
+  { contextId: 'operation-company-ui', kind: 'Company', displayName: 'Beta Company', eligibilityVersion: 1 },
+];
 const orderRows = [
   { id: 'po-1', status: 'Issued', supplierCode: 'SUP-01', supplierName: 'Aster Supplies', supplierQuotationReference: 'QT-001', currencyCode: 'SAR', total: 100, lineCount: 2, createdAt: '2026-08-01T08:00:00Z', updatedAt: '2026-08-10T08:00:00Z', version: 'PO-V1' },
   { id: 'po-2', status: 'Approved', supplierCode: 'SUP-02', supplierName: 'Birch Industrial', supplierQuotationReference: 'QT-002', currencyCode: 'USD', total: 250, lineCount: 3, createdAt: '2026-08-02T08:00:00Z', updatedAt: '2026-08-11T08:00:00Z', version: 'PO-V1' },
@@ -47,7 +52,7 @@ async function installMocks(page: Page): Promise<void> {
   await page.route('**/api/v1/auth/development-bypass', (route) => route.fulfill({ json: { authenticated: false } }));
   await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: { authenticated: true, actorId: 'actor-ui', sessionId: 'session-ui', lifecycleState: 'Active', absoluteExpiresAt: null, selectedPath: 'OrdinaryMembership', selectedTenantId: tenantId, selectedContextId: 'context-ui', selectionVersion: 1 } }));
   await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [{ contextId: 'context-ui', kind: 'OrdinaryMembership', tenantId, displayName: 'Alpha Company', eligibilityVersion: 1 }] } }));
-  await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: { entryMode: 'TenantHost', canonicalHost: '127.0.0.1', candidateTenantId: tenantId, candidateTenantDisplayName: 'Alpha Tenant', authorizedTenants: [{ tenantId, displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }], operationalContexts: [{ contextId: 'operation-ui', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 }], selectedOperationalContextId: 'operation-ui', operationalSelectionVersion: 1, branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true }, currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null } }));
+  await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: { entryMode: 'TenantHost', canonicalHost: '127.0.0.1', candidateTenantId: tenantId, candidateTenantDisplayName: 'Alpha Tenant', authorizedTenants: [{ tenantId, displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }], operationalContexts, selectedOperationalContextId: 'operation-ui', operationalSelectionVersion: 1, branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true }, currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null } }));
   await page.route('**/api/v1/auth/antiforgery', (route) => route.fulfill({ headers: { 'X-CSRF-TOKEN': 'test-token' }, json: { status: 'issued' } }));
   await page.route('**/api/v1/procurement/**', async (route: Route) => {
     const path = new URL(route.request().url()).pathname;
@@ -116,6 +121,40 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  });
+
+  test('keeps header controls reachable without horizontal overflow at 360px with several contexts', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.goto('/app');
+
+    const contextSelect = page.locator('.operational-switcher__select');
+    await expect(contextSelect).toBeVisible();
+    await expect(contextSelect.locator('option')).toHaveCount(3);
+    const controls = [
+      contextSelect,
+      page.getByRole('button', { name: 'Themes' }),
+      page.getByRole('button', { name: 'Switch to dark mode' }),
+      page.locator('.language-button'),
+      page.locator('.user-pill .sign-out'),
+    ];
+    for (const control of controls) await expect(control).toBeVisible();
+
+    const bounds = await page.evaluate(() => ({
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+      controls: [...document.querySelectorAll<HTMLElement>('.operational-switcher__select, #theme-trigger, .scheme-toggle, .language-button, .user-pill .sign-out')]
+        .map((element) => { const rect = element.getBoundingClientRect(); return { left: rect.left, right: rect.right }; }),
+    }));
+    expect(bounds.documentWidth).toBeLessThanOrEqual(bounds.viewportWidth);
+    expect(bounds.controls).toHaveLength(5);
+    for (const control of bounds.controls) {
+      expect(control.left).toBeGreaterThanOrEqual(0);
+      expect(control.right).toBeLessThanOrEqual(bounds.viewportWidth);
+    }
+
+    await page.getByRole('button', { name: 'Themes' }).click();
+    await expect(page.getByRole('menu', { name: 'Choose a theme' })).toBeVisible();
+    await page.keyboard.press('Escape');
   });
 
   test('keeps the full-height sticky rail in LTR and RTL while scrolling', async ({ page }) => {

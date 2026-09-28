@@ -28,7 +28,7 @@ import { NAVIGATION_GROUPS, NavigationItem } from './navigation.config';
               <section class="nav-group" [attr.aria-label]="navigationLabel(group)">
                 <span class="nav-group__title">{{ navigationLabel(group) }}</span>
                 @for (item of group.items; track item.path) {
-                  <a class="nav-link" [routerLink]="item.path" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="navigationLabel(item)" [title]="sidebarExpanded() ? null : navigationLabel(item)" (click)="closeMobileMenu()">
+                  <a class="nav-link" [routerLink]="item.path" [class.is-active]="isNavigationItemCurrent(item)" [attr.aria-current]="isNavigationItemCurrent(item) ? 'page' : null" [attr.aria-label]="navigationLabel(item)" [title]="sidebarExpanded() ? null : navigationLabel(item)" (click)="closeMobileMenu()">
                     <span class="nav-icon" aria-hidden="true"><svg class="icon"><use [attr.href]="'#icon-' + item.icon" /></svg></span><span class="nav-label">{{ navigationLabel(item) }}</span>
                   </a>
                 }
@@ -71,7 +71,7 @@ import { NAVIGATION_GROUPS, NavigationItem } from './navigation.config';
             <app-operational-context-switcher />
             <a class="context-management-link" routerLink="/app/workspaces">{{ language.text('manageContexts') }}</a>
             <div class="theme-control">
-              <button #themeTrigger id="theme-trigger" class="theme-trigger" type="button" (click)="toggleThemeMenu()" aria-haspopup="menu" [attr.aria-controls]="themeMenuOpen() ? 'theme-menu' : null" [attr.aria-expanded]="themeMenuOpen()">
+              <button #themeTrigger id="theme-trigger" class="theme-trigger" type="button" (click)="toggleThemeMenu()" [attr.aria-label]="label('Themes', 'المظاهر')" aria-haspopup="menu" [attr.aria-controls]="themeMenuOpen() ? 'theme-menu' : null" [attr.aria-expanded]="themeMenuOpen()">
                 <svg class="icon" aria-hidden="true"><use href="#icon-palette" /></svg>
                 <span>{{ label('Themes', 'المظاهر') }}</span><svg class="icon chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
               </button>
@@ -210,12 +210,17 @@ import { NAVIGATION_GROUPS, NavigationItem } from './navigation.config';
       .sign-out { padding-inline-start: .35rem; font-size: .75rem; }
       .notification-button { display: none; }
     }
+    @media (max-width: 520px) {
+      :host { --header-height: 176px; }
+      .topbar__actions { width: 100%; min-height: 108px; flex-wrap: wrap; align-content: center; }
+    }
     @media (max-width: 420px) {
       .topbar__actions { gap: .25rem; }
       .icon-button, .language-button, .theme-trigger { min-height: 40px; }
       .icon-button { width: 40px; }
       .language-button { padding-inline: .45rem; }
-      .theme-trigger { gap: .3rem; }
+      .theme-trigger { width: 40px; min-width: 40px; gap: .3rem; padding-inline: 0; }
+      .theme-trigger span, .theme-trigger .chevron { display: none; }
       .context-management-link--mobile { display: none; }
       .theme-menu { width: min(264px, calc(100vw - 24px)); }
       .breadcrumbs { gap: .3rem; font-size: .74rem; }
@@ -322,14 +327,26 @@ export class ApplicationShellComponent implements OnInit {
     return this.label(item.labelEn, item.labelAr);
   }
 
+  currentNavigationItem(): NavigationItem | null {
+    const url = this.router.url.split(/[?#]/)[0] ?? '/app';
+    let match: NavigationItem | null = null;
+    for (const group of NAVIGATION_GROUPS) {
+      for (const item of group.items as readonly NavigationItem[]) {
+        if ((url === item.path || url.startsWith(`${item.path}/`)) && (!match || item.path.length > match.path.length)) match = item;
+      }
+    }
+    return match;
+  }
+
+  isNavigationItemCurrent(item: NavigationItem): boolean {
+    return this.currentNavigationItem()?.path === item.path;
+  }
+
   currentPage(): string {
     const url = this.router.url.split(/[?#]/)[0] ?? '/app';
     if (url === '/app' || url === '/app/') return this.language.text('overview');
-    for (const group of NAVIGATION_GROUPS) {
-      for (const item of group.items as readonly NavigationItem[]) {
-        if (url === item.path || url.startsWith(`${item.path}/`)) return this.navigationLabel(item);
-      }
-    }
+    const currentItem = this.currentNavigationItem();
+    if (currentItem) return this.navigationLabel(currentItem);
     if (url.includes('/workspaces')) return this.language.text('manageContexts');
     return this.language.text('overview');
   }
