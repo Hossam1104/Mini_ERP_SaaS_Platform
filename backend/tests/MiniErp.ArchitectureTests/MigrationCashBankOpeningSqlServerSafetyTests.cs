@@ -109,6 +109,7 @@ public sealed class MigrationCashBankOpeningSqlServerSafetyTests(SqlServerSafety
             sourceProfileVersion = "1",
             logicalDataset = "opening",
             sourceSnapshot = new { objectId, sha256 = sourceHash, length = 1, concurrencyVersion = 1 },
+            domainContracts = MigrationDomainContractTestData.For(MigrationCanonicalRecordType.CashBankOpening),
             records = new[]
             {
                 new

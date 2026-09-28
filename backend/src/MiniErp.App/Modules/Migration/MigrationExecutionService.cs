@@ -27,6 +27,8 @@ public sealed class MigrationExecutionService
         MigrationCanonicalRecordType.UnitOfMeasure,
         MigrationCanonicalRecordType.PaymentTerm,
         MigrationCanonicalRecordType.Tax,
+        MigrationCanonicalRecordType.PriceList,
+        MigrationCanonicalRecordType.ExchangeRate,
         MigrationCanonicalRecordType.Supplier,
         MigrationCanonicalRecordType.Customer,
         MigrationCanonicalRecordType.Product,
@@ -751,6 +753,8 @@ public sealed class MigrationExecutionService
         MigrationCanonicalRecordType.Tax or
         MigrationCanonicalRecordType.PaymentTerm or
         MigrationCanonicalRecordType.UnitOfMeasure or
+        MigrationCanonicalRecordType.PriceList or
+        MigrationCanonicalRecordType.ExchangeRate or
         MigrationCanonicalRecordType.InventoryOpening or
         MigrationCanonicalRecordType.ArOpening or
         MigrationCanonicalRecordType.ApOpening or
@@ -774,7 +778,7 @@ public sealed class MigrationExecutionService
                 MigrationCanonicalRecordType.GlOpening => document.Deserialize<MigrationGlOpeningPayload>(options),
                 MigrationCanonicalRecordType.Supplier => document.Deserialize<MigrationSupplierPayload>(options),
                 MigrationCanonicalRecordType.Customer => document.Deserialize<MigrationCustomerPayload>(options),
-                MigrationCanonicalRecordType.Currency or MigrationCanonicalRecordType.Tax or MigrationCanonicalRecordType.PaymentTerm or MigrationCanonicalRecordType.UnitOfMeasure => document.Deserialize<MigrationReferencePayload>(options),
+                MigrationCanonicalRecordType.Currency or MigrationCanonicalRecordType.Tax or MigrationCanonicalRecordType.PaymentTerm or MigrationCanonicalRecordType.UnitOfMeasure or MigrationCanonicalRecordType.PriceList or MigrationCanonicalRecordType.ExchangeRate => document.Deserialize<MigrationReferencePayload>(options),
                 _ => null
             };
             var forbiddenMonetaryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)

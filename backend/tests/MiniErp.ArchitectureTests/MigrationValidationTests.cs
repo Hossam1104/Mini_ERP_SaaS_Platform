@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.Modules.Migration;
 using MiniErp.Contracts.Modules.Migration;
@@ -28,6 +29,131 @@ public sealed class MigrationValidationTests
 
         Assert.False(result.Succeeded);
         Assert.Equal("migration_package_record_type_unsupported", result.ErrorCode);
+    }
+
+    [Fact]
+    public void Parser_blocks_unknown_domain_contract_versions_before_staging()
+    {
+        var package = Package("{\"sourceSequence\":1,\"sourceRecordId\":\"product-1\",\"recordType\":\"Product\",\"payload\":{\"sku\":\"A\"}}")
+            .Replace("migration-product-v1", "migration-product-v9", StringComparison.Ordinal);
+        var result = MigrationCanonicalPackageParser.Parse(Encoding.UTF8.GetBytes(package));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("migration_package_domain_contract_incompatible", result.ErrorCode);
+        Assert.Empty(result.Rows);
+    }
+
+    [Fact]
+    public void Domain_contract_catalog_documents_every_versioned_record_shape()
+    {
+        var definitions = MigrationCanonicalDomainContractCatalog.All;
+
+        Assert.Equal(Enum.GetValues<MigrationCanonicalRecordType>().Length, definitions.Count);
+        Assert.All(definitions, definition =>
+        {
+            Assert.StartsWith("migration-", definition.Version, StringComparison.Ordinal);
+            Assert.False(string.IsNullOrWhiteSpace(definition.Schema));
+            Assert.True(
+                definition.Schema.StartsWith("Required:", StringComparison.Ordinal)
+                || definition.Schema.StartsWith("Fields:", StringComparison.Ordinal),
+                $"{definition.RecordType} must document its required-field contract.");
+        });
+    }
+
+    [Fact]
+    public void Validation_rejects_source_target_authority_fields()
+    {
+        var result = MigrationCanonicalPackageParser.Parse(Encoding.UTF8.GetBytes(Package(
+            "{\"sourceSequence\":1,\"sourceRecordId\":\"product-1\",\"recordType\":\"Product\",\"payload\":{\"sku\":\"A\",\"targetResourceId\":\"11111111-1111-1111-1111-111111111111\",\"approvalStatus\":\"Approved\"}}")));
+
+        Assert.True(result.Succeeded, result.ErrorMessage);
+        var row = Assert.Single(result.Rows);
+        Assert.True(row.HasForbiddenTargetAuthority);
+        Assert.Contains(MigrationValidationRules.Validate(row), item => item.Code == "migration_source_target_authority_not_allowed");
+    }
+
+    [Fact]
+    public void Missing_stable_source_id_rejects_the_row_while_an_incompatible_contract_blocks_the_batch()
+    {
+        var rowPackage = MigrationCanonicalPackageParser.Parse(Encoding.UTF8.GetBytes(Package(
+            "{\"sourceSequence\":1,\"recordType\":\"Product\",\"payload\":{\"sku\":\"A\",\"nameEnglish\":\"Product\"}}")));
+
+        Assert.True(rowPackage.Succeeded, rowPackage.ErrorCode);
+        Assert.Contains(MigrationValidationRules.Validate(Assert.Single(rowPackage.Rows)), item =>
+            item.Code == "migration_required_field_missing" && item.Message.Contains("sourceRecordId", StringComparison.Ordinal));
+
+        var missingDomainField = MigrationCanonicalPackageParser.Parse(Encoding.UTF8.GetBytes(Package(
+            "{\"sourceSequence\":1,\"sourceRecordId\":\"product-2\",\"recordType\":\"Product\",\"payload\":{\"nameEnglish\":\"Product\"}}")));
+        Assert.True(missingDomainField.Succeeded, missingDomainField.ErrorCode);
+        Assert.Contains(MigrationValidationRules.Validate(Assert.Single(missingDomainField.Rows)), item =>
+            item.Code == "migration_required_field_missing" && item.Message.Contains("sku", StringComparison.Ordinal));
+
+        var incompatible = MigrationCanonicalPackageParser.Parse(Encoding.UTF8.GetBytes(
+            Package("{\"sourceSequence\":1,\"recordType\":\"Product\",\"payload\":{\"sku\":\"A\"}}")
+                .Replace("migration-product-v1", "migration-product-v2", StringComparison.Ordinal)));
+        Assert.False(incompatible.Succeeded);
+        Assert.Equal("migration_package_domain_contract_incompatible", incompatible.ErrorCode);
+        Assert.Empty(incompatible.Rows);
+    }
+
+    [Fact]
+    public void Parser_blocks_invalid_date_shape_and_unknown_domain_fields()
+    {
+        var invalidDate = MigrationCanonicalPackageParser.Parse(Encoding.UTF8.GetBytes(Package(
+            "{\"sourceSequence\":1,\"sourceRecordId\":\"ap-1\",\"recordType\":\"ApOpening\",\"payload\":{\"companyId\":\"11111111-1111-1111-1111-111111111111\",\"supplierId\":\"22222222-2222-2222-2222-222222222222\",\"sourceReference\":\"AP-1\",\"documentDate\":\"not-a-date\",\"openingDate\":\"2026-01-01\",\"amount\":10,\"currencyCode\":\"SAR\",\"dueDate\":\"2026-01-31\"}}")));
+        var unknownField = MigrationCanonicalPackageParser.Parse(Encoding.UTF8.GetBytes(Package(
+            "{\"sourceSequence\":1,\"sourceRecordId\":\"product-1\",\"recordType\":\"Product\",\"payload\":{\"sku\":\"A\",\"nameEnglish\":\"Product\",\"uncontracted\":true}}")));
+
+        Assert.False(invalidDate.Succeeded);
+        Assert.Equal("migration_package_invalid_json", invalidDate.ErrorCode);
+        Assert.False(unknownField.Succeeded);
+        Assert.Equal("migration_package_payload_invalid", unknownField.ErrorCode);
+    }
+
+    [Fact]
+    public void Parser_rejects_reference_fields_outside_each_domain_contract()
+    {
+        var cases = new (string RecordType, string Payload)[]
+        {
+            ("Currency", "{\"sourceCurrencyCode\":\"USD\"}"),
+            ("Tax", "{\"sourceCurrencyCode\":\"USD\"}"),
+            ("PaymentTerm", "{\"effectiveDate\":\"2026-01-01\"}"),
+            ("UnitOfMeasure", "{\"effectiveDate\":\"2026-01-01\"}"),
+            ("PriceList", "{\"effectiveDate\":\"2026-01-01\"}"),
+            ("ExchangeRate", "{\"code\":\"USD\"}")
+        };
+
+        foreach (var (recordType, payload) in cases)
+        {
+            var record = $$"""{"sourceSequence":1,"sourceRecordId":"reference-1","recordType":"{{recordType}}","payload":{{payload}}}""";
+            var result = MigrationCanonicalPackageParser.Parse(Encoding.UTF8.GetBytes(Package(record)));
+
+            Assert.False(result.Succeeded, recordType);
+            Assert.Equal("migration_package_payload_invalid", result.ErrorCode);
+        }
+    }
+
+    [Fact]
+    public void Duplicate_business_keys_are_counted_by_the_shared_validation_policy()
+    {
+        var recordTypes = new[]
+        {
+            MigrationCanonicalRecordType.Product, MigrationCanonicalRecordType.Supplier, MigrationCanonicalRecordType.Customer,
+            MigrationCanonicalRecordType.Currency, MigrationCanonicalRecordType.Tax, MigrationCanonicalRecordType.PaymentTerm,
+            MigrationCanonicalRecordType.UnitOfMeasure, MigrationCanonicalRecordType.PriceList, MigrationCanonicalRecordType.ExchangeRate,
+            MigrationCanonicalRecordType.InventoryOpening, MigrationCanonicalRecordType.GlOpening, MigrationCanonicalRecordType.ApOpening,
+            MigrationCanonicalRecordType.ArOpening, MigrationCanonicalRecordType.CashBankOpening
+        };
+        var identities = recordTypes.SelectMany((type, index) => new[]
+            {
+                new KeyValuePair<int, MigrationBusinessIdentityResolution>(index * 2 + 1, MigrationBusinessIdentityResolution.Valid($"{type}:same-key")),
+                new KeyValuePair<int, MigrationBusinessIdentityResolution>(index * 2 + 2, MigrationBusinessIdentityResolution.Valid($"{type}:same-key"))
+            })
+            .ToDictionary(item => item.Key, item => item.Value);
+
+        var duplicateSequences = MigrationValidationService.DuplicateBusinessKeySequences(identities);
+
+        Assert.Equal(recordTypes.Length * 2, duplicateSequences.Count);
     }
 
     [Fact]
@@ -165,10 +291,14 @@ public sealed class MigrationValidationTests
     private static MigrationParsedCanonicalRow Gl(int sequence, Guid company, string currency, DateOnly date, decimal debit, decimal credit) =>
         new(sequence, $"gl-{sequence}", MigrationCanonicalRecordType.GlOpening, new MigrationGlOpeningPayload(company, Guid.NewGuid(), debit, credit, currency, date), "{}");
 
-    private static string Package(params string[] records) =>
-        """
+    private static string Package(params string[] records)
+    {
+        var domainContracts = JsonSerializer.Serialize(
+            MigrationDomainContractTestData.ForJsonRecords(records),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        return $$"""
         {
-          "packageVersion": "migration-package-v1",
+          "packageVersion": "migration-package-v2",
           "definitionId": "definition",
           "definitionVersion": "1",
           "sourceProfileId": "profile",
@@ -180,9 +310,48 @@ public sealed class MigrationValidationTests
             "length": 1,
             "concurrencyVersion": 1
           },
-          "records": [
-        """ + string.Join(",", records) + """
-          ]
+          "domainContracts": {{domainContracts}},
+          "records": [{{string.Join(",", records)}}]
         }
         """;
+    }
+}
+
+internal static class MigrationDomainContractTestData
+{
+    public static MigrationCanonicalDomainContract[] For(params MigrationCanonicalRecordType[] recordTypes) =>
+        recordTypes.Distinct().Select(Create).ToArray();
+
+    public static MigrationCanonicalDomainContract[] ForJsonRecords(IEnumerable<string> records)
+    {
+        var recordTypes = new List<MigrationCanonicalRecordType>();
+        foreach (var record in records)
+        {
+            using var document = JsonDocument.Parse(record);
+            if (document.RootElement.TryGetProperty("recordType", out var typeElement)
+                && Enum.TryParse<MigrationCanonicalRecordType>(typeElement.GetString(), true, out var type)
+                && Enum.IsDefined(type))
+                recordTypes.Add(type);
+        }
+        return For(recordTypes.ToArray());
+    }
+
+    public static MigrationCanonicalDomainContract[] ForRecordObjects(IEnumerable<object> records)
+    {
+        var recordTypes = records.Select(record => record.GetType().GetProperty("RecordType")?.GetValue(record)?.ToString())
+            .Where(value => Enum.TryParse<MigrationCanonicalRecordType>(value, true, out _))
+            .Select(value => Enum.Parse<MigrationCanonicalRecordType>(value!, true));
+        return For(recordTypes.ToArray());
+    }
+
+    private static MigrationCanonicalDomainContract Create(MigrationCanonicalRecordType recordType) => new(
+        recordType,
+        MigrationCanonicalDomainContractCatalog.For(recordType).Version,
+        "Source owner supplied",
+        "Target owner supplied",
+        "Source set supplied",
+        DateTimeOffset.UnixEpoch,
+        "Source scope supplied",
+        "Extracted",
+        "");
 }

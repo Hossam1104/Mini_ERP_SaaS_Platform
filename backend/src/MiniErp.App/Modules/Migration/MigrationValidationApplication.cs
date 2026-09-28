@@ -94,7 +94,10 @@ public sealed class MigrationValidationService
         {
             var replay = await persistence.FindValidationAsync(tenant!, runId, replayAttempt.AttemptId, cancellationToken);
             return replay is not null
-                ? MigrationOperationResult<MigrationValidationSummary>.Replay(replay with { RunVersion = validatingRunRecord.Version })
+                ? MigrationOperationResult<MigrationValidationSummary>.Replay(WithAttemptContext(
+                    replay with { RunVersion = validatingRunRecord.Version },
+                    runRecord,
+                    replayAttempt))
                 : MigrationOperationResult<MigrationValidationSummary>.Failure("migration_validation_in_progress", safeToRetry: true);
         }
 
@@ -207,7 +210,8 @@ public sealed class MigrationValidationService
                 packageHash,
                 package.PackageVersion,
                 timeProvider.GetUtcNow(),
-                staged),
+                staged,
+                System.Text.Json.JsonSerializer.Serialize(package.DomainContracts!.OrderBy(item => item.RecordType))),
             cancellationToken);
         if (!staging.Succeeded || staging.Value is not { } stagedPackage)
         {
@@ -295,7 +299,7 @@ public sealed class MigrationValidationService
 
         var duplicateSourceIds = validationRows.Values
             .Where(row => !string.IsNullOrWhiteSpace(row.SourceRecordId))
-            .GroupBy(row => row.SourceRecordId!, StringComparer.Ordinal)
+            .GroupBy(row => (row.RecordType, row.SourceRecordId))
             .Where(group => group.Count() > 1)
             .SelectMany(group => group)
             .Select(row => row.SourceSequence)
@@ -303,12 +307,7 @@ public sealed class MigrationValidationService
         var businessIdentities = validationRows.Values.ToDictionary(
             row => row.SourceSequence,
             row => references.ResolveBusinessIdentity(row));
-        var duplicateBusinessKeys = businessIdentities
-            .Where(item => item.Value.State == MigrationBusinessIdentityState.Valid && item.Value.Key is not null)
-            .GroupBy(item => item.Value.Key!, StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)
-            .SelectMany(group => group.Select(item => item.Key))
-            .ToHashSet();
+        var duplicateBusinessKeys = DuplicateBusinessKeySequences(businessIdentities);
 
         foreach (var row in validationRows.Values.OrderBy(item => item.SourceSequence))
         {
@@ -474,7 +473,10 @@ public sealed class MigrationValidationService
                 : MigrationOperationResult<MigrationValidationSummary>.Failure(transitioned.Code, transitioned.IsSafeToRetry);
 
         return completed.IsValid
-            ? MigrationOperationResult<MigrationValidationSummary>.Success(completed with { RunVersion = transitioned.Value?.Version }, "validated")
+            ? MigrationOperationResult<MigrationValidationSummary>.Success(WithAttemptContext(
+                completed with { RunVersion = transitioned.Value?.Version },
+                transitioned.Value ?? confirmedRun,
+                attempt with { Outcome = outcome, FinishedAt = timeProvider.GetUtcNow(), SafeOutcomeCode = "validated" }), "validated")
             : MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_validation_failed");
     }
 
@@ -696,8 +698,46 @@ public sealed class MigrationValidationService
         if (validation is null)
             return null;
         var run = await foundation.FindRunAsync(tenant, runId, cancellationToken);
-        return run.Value is null ? validation : validation with { RunVersion = run.Value.Version };
+        var attempt = await foundation.FindAttemptAsync(tenant, runId, validation.AttemptId, cancellationToken);
+        return WithAttemptContext(
+            run.Value is null ? validation : validation with { RunVersion = run.Value.Version },
+            run.Value,
+            attempt);
     }
+
+    private static MigrationValidationSummary WithAttemptContext(
+        MigrationValidationSummary validation,
+        MigrationRunRecord? run,
+        MigrationAttemptRecord? attempt)
+    {
+        var nextAction = attempt?.Outcome switch
+        {
+            MigrationAttemptOutcome.Pending => "Wait for the attempt to finish.",
+            MigrationAttemptOutcome.Succeeded => "Review the validation findings before any separately authorized operation.",
+            MigrationAttemptOutcome.KnownFailure => "Review the findings and correct eligible source rows through the authorized validation flow.",
+            MigrationAttemptOutcome.UnknownOutcome => "Reconcile the unknown outcome before any retry.",
+            MigrationAttemptOutcome.Cancelled => "Review the cancelled attempt; no completion is inferred.",
+            _ => "Review the attempt outcome before continuing."
+        };
+        return validation with
+        {
+            OwnerActorId = run?.ActorId,
+            StageStatus = run?.Status,
+            AttemptOutcome = attempt?.Outcome,
+            Failure = attempt?.Outcome is MigrationAttemptOutcome.KnownFailure or MigrationAttemptOutcome.UnknownOutcome
+                ? attempt.SafeOutcomeCode
+                : null,
+            NextAction = nextAction
+        };
+    }
+
+    internal static HashSet<int> DuplicateBusinessKeySequences(
+        IReadOnlyDictionary<int, MigrationBusinessIdentityResolution> identities) => identities
+            .Where(item => item.Value.State == MigrationBusinessIdentityState.Valid && item.Value.Key is not null)
+            .GroupBy(item => item.Value.Key!, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .SelectMany(group => group.Select(item => item.Key))
+            .ToHashSet();
 
     public async Task<IReadOnlyList<MigrationValidationFinding>> ReadFindingsAsync(TenantContext tenant, Guid runId, int offset, int pageSize, CancellationToken cancellationToken = default)
     {
