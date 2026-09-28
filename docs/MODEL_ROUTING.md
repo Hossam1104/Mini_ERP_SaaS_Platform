@@ -1,7 +1,6 @@
 # Model Routing and Operating Model
 
-This file is the single authority for AI roles, effort levels, prompt release, the handoff files and the
-operating loop. [`AGENTS.md`](../AGENTS.md) points here and holds the executor rules.
+AGENTS.md is canonical for role assignments, default efforts, and acceptance authority. This file retains detailed routing, prompt release, handoffs, and operating procedures.
 
 The owner installed this model on 2026-09-25 (decisions Q1–Q10 and Q-A–Q-L, recorded in
 [`DECISIONS.md`](DECISIONS.md)). It replaces the old governance, in which Sol was acceptance
@@ -11,49 +10,12 @@ authority and Terra was an executor. That governance is archived in
 
 ## 1. Roles and efforts
 
-| Paseo profile / model | Role | Default effort |
-|---|---|---|
-| Planner — Claude Opus 5.5 | Planner, architect, project-state authority, backlog authority, router, normal reviewer, acceptance authority, release go/no-go coordinator, and orchestration controller. Not a normal code executor. | `medium` |
-| Executor — GPT-6 Luna | Default implementation agent for features, refactors, repository-heavy investigation, scripting, tests, Git/tracker hygiene when authorized, and easy/normal/medium technical defects. | `max` |
-| Hard Bug — Claude Sonnet 5 | Protected specialist for genuinely difficult technical defects only. | `high` |
-| Independent Review — GPT-6 Sol | Independent project-wide and critical-point reviewer. Advisory; no normal implementation and no final acceptance authority. | `high` |
-
-- Executor/Luna is the default technical worker.
-- Opus spends quota on planning, architecture, routing and acceptance rather
-  than mechanical repository work.
-- Business severity alone does not justify Hard Bug routing.
-- An ordinary Executor mistake returns to Executor as a focused correction.
-- Hard Bug is reserved for evidence-backed difficulty such as:
-  - concurrency or nondeterminism;
-  - deep lifecycle/state corruption;
-  - difficult cross-layer root causes;
-  - architecture-sensitive defects;
-  - security/Tenant/accounting/data-integrity-sensitive recovery;
-  - or competent Executor failure where another ordinary attempt is unlikely
-    to be economical.
-- Independent Review challenges Planner decisions but does not replace Planner
-  authority.
+Role assignments, authority, and default efforts are normative in [AGENTS.md §7](../AGENTS.md#7-roles-and-loop).
 
 ## 2. Independent Review cadence and critical points
 
-A periodic review cycle counts only when an Executor/Luna implementation cycle
-is ACCEPTED by Planner.
-
-Rejected attempts and focused correction attempts do not independently
-increment the counter.
-
-Planner records the durable counter in `ORCHESTRATION_STATE.yaml`.
-
-Periodic triggers:
-
-- normal review: 12 accepted Executor cycles since the previous Sol review;
-- early review: 8–10 accepted cycles when material architectural risk,
-  repeated failure, major scope change, data-integrity work, or accumulated
-  uncertainty warrants it;
-- mandatory review: 15 accepted cycles.
-
-At 15, no further normal implementation begins until Independent Review has
-completed and Planner has reconciled its findings.
+Accepted-cycle cadence and counter rules are normative in [AGENTS.md §7](../AGENTS.md#7-roles-and-loop).
+Planner records the durable counter in ORCHESTRATION_STATE.yaml.
 
 Independent Review is also triggered regardless of the periodic counter at
 these MESP critical points:
@@ -75,9 +37,7 @@ Planner reconciles and accepts/rejects.
 
 ## 3. Routing and quota
 
-- Route work to Luna 6 unless a rule says otherwise. Opus and Sol stay out of execution.
-- Use Sonnet 5 only for a classified defect with an identified, bounded root cause. If the diagnosis
-  is unclear, Luna 6 (max) diagnoses first.
+- Role routing and Hard Bug criteria are normative in [AGENTS.md §7](../AGENTS.md#7-roles-and-loop).
 - Product defects become tracker **Bugs**. They are never "fixed" in test code.
 - Batch related work into one prompt when its files and gates overlap, because each fresh session
   pays the read cost again. Where it is safe, validate several independent offline changes in one

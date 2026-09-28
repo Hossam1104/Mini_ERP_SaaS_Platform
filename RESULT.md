@@ -46,6 +46,58 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
 - Deviations from the prompt: stopped on the unrelated full-gate red; did not restart, deliver a PR/comment, or switch to main. Uncommitted feature changes and the unrelated .claude/ artifact are preserved; .playwright-mcp/ was not accessed.
 - Status files updated: RESULT.md; TASK.md prompt status set to CONSUMED.
 - Exact next action: **Opus 5.5 reviews MESP-170 (#293).**
+## 2026-09-28 — Opus: accept MESP-174 harness optimization — Claude Opus 5.5 / medium — MESP-174 (#300)
+- Status: **ACCEPTED** (MESP-174). PR #301 merged at `e20b257`; #300 closed.
+- Branch / starting SHA / ending SHA: #301 `chore/mesp-174-harness-context` from `7f569ce`: Luna `55762e0`, Opus corrections `1b374f2`, `88e2afc`, merge `e20b257`. This entry: `docs/mesp-174-accept` from `e20b257`.
+- What changed: AGENTS.md 22,984 B → 13,082 B (canonical governance, §7 Roles and loop); docs/MODEL_ROUTING.md points roles/cadence to AGENTS.md; `.serena/project.yml` adds `typescript`. Machine config, owner-authorized, backups `*.bak-harness-20260927` / `*.bak-harness-20260928`: Orbit MCP removed from Claude `.mcp.json` and project `.codex/config.toml`; Codex Serena uses `--context codex`, `startup_timeout_sec = 60` and the absolute `serena.exe` path; Codex Context7 enabled and owner-logged-in via OAuth; Azure is off for this project in Claude and stays on in Codex by owner choice. Context Compress 2026.8.3 is CLI-only, with no MCP server or hooks.
+- Gates: `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` → `Passed! - Failed: 0, Passed: 1563, Skipped: 0, Total: 1563`, 0 warnings/errors, LocalDB data intact. Duration 3 m 31 s on `1b374f2`, 3 m 43 s on `88e2afc`, and 5 m 4 s on this branch, run twice. `git diff --check` clean. CI Repository Validation, Backend and Frontend passed on #301 (run 36355751105).
+- Evidence: `codex exec` → `CONTEXT7_OK /websites/angular_dev`. Context Compress, raw vs wrapped: backend gate 3,580 B → 3,580 B; frontend build 5,982 B → 6,070 B; `git log --stat -200` 393,500 B → 208,916 B, lossy (111 of 200 headers kept). `codex mcp list` has no `orbit`.
+- Deviations from the prompt: Opus made the review corrections directly instead of sending them back to Luna, because they were a few lines of doc text.
+- Failures and classification: Luna's first pass was REJECTED on five doc gaps (dropped unclear-diagnosis routing, owner-interruption procedure and fast-mode rules; Context7 and Context Compress scope). Five Codex-connector threads were valid; three were fixed on #301 and two on this PR. Known limitation: headless `codex exec` does not expose Serena tools, although the server starts and answers `initialize`. The Paseo/app Luna session lists Serena's tools, so there is no workflow impact. Opus prematurely closed #300 before the merge completed, reopened it at once, and closed it again after the merge.
+- Status files updated: RESULT.md. The ORCHESTRATION_STATE.yaml counter stays at **4**: harness work that Opus corrected is not an accepted Luna implementation cycle.
+- Exact next action: **Luna continues MESP-170 (#293).**
+
+
+
+## 2026-09-28 — MESP-174 Harness context footprint + tool integration — GPT-6 Luna / max — MESP-174 (#300)
+
+## RESULT
+PARTIAL
+
+## TASK
+Implement the bounded harness contract in isolated worktree chore/mesp-174-harness-context.
+
+## ROOT CAUSE
+N/A — governance and tool-integration task.
+
+## CHANGES
+- Consolidated AGENTS.md to 11,972 bytes / 96 lines. MODEL_ROUTING.md now points to AGENTS.md §7 for duplicated role, cadence, and routing authority; procedural sections remain.
+- Added typescript to .serena/project.yml; Codex Serena direct MCP uses --context codex.
+- Main project Claude local settings disable Azure; permissions are byte-preserved. Backups: C:\Users\Win11\.codex\config.toml.bak-harness-20260927 and D:\AI Tools\Active Projects\Mini_ERP_SaaS_Platform\.claude\settings.local.json.bak-harness-20260927.
+- Context Compress remains CLI-only. Codex Context7 was restored to disabled after its query returned OAuth AuthRequired.
+
+## VALIDATION
+- Backend gate raw and wrapped: 1563/1563 passed, 0 skipped, 0 warnings/errors; disposable LocalDB data intact.
+- Frontend npm ci succeeded; npm run build succeeded with known 514.26 kB / 500 kB budget warning.
+- git diff --check clean. Required docs grep found only the root AGENTS.md existence assertion.
+- Context Compress failure smoke preserved exit 1, test name, assertion, stack marker, and stack path.
+- Serena 1.7.0 CLI; direct MCP server reported 1.28.1. In the worktree with --context codex, find_symbol found catch() callback in frontend/src/main.ts and CategoryUomEndpoints in C#. A fresh codex exec session did not expose Serena tools.
+- Fresh Codex Context7 query returned OAuth AuthRequired; the toggle was reverted. Claude per-server tool counts remain unavailable from the CLI.
+
+| Command output | Raw lines / bytes | Wrapped lines / bytes | Exit |
+|---|---:|---:|---:|
+| Backend gate | 24 / 3,580 | 24 / 3,580 | 0 / 0 |
+| Frontend build | 41 / 5,982 | 41 / 6,070 | 0 / 0 |
+| git log --stat -200 | 4,093 / 393,500 | 2,218 / 208,916 | 0 / 0 |
+
+## DEFECTS OR GAPS
+Codex Context7 needs OAuth credentials; none were added. Codex CLI Serena tool exposure was not proven even though the worktree MCP symbol smoke passed.
+
+## REPOSITORY STATE
+Worktree branch chore/mesp-174-harness-context, based on origin/main 7f569cef. Concurrent tracked changes in the main checkout were left untouched.
+
+## NEXT ACTION
+Commit, push, and open a Draft PR for Opus review, then stop.
 
 ## 2026-09-27 — Opus: accept MESP-169, release MESP-170 — Claude Opus 5.5 / medium — MESP-169 (#292), MESP-170 (#293)
 
