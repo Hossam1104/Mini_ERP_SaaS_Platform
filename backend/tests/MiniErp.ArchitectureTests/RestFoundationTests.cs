@@ -62,6 +62,7 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
         var document = await response.Content.ReadAsStringAsync();
         Assert.Contains("foundation.probe.write", document, StringComparison.Ordinal);
         Assert.Contains("/api/v1/foundation/tenant-context", document, StringComparison.Ordinal);
+        Assert.Contains("\"defaultTheme\"", document, StringComparison.Ordinal);
     }
 
     [Fact]

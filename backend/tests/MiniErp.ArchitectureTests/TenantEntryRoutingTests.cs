@@ -136,7 +136,8 @@ public sealed class TenantEntryRoutingTests
                 [$"MESP_TENANT_BRANDING:{tenantId:D}:LogoDarkUrl"] = "../secrets/logo.svg",
                 [$"MESP_TENANT_BRANDING:{tenantId:D}:CurrencySymbolAssetUrl"] = "//untrusted.example/riyal.svg",
                 [$"MESP_TENANT_BRANDING:{tenantId:D}:CurrencyCode"] = "SAR",
-                [$"MESP_TENANT_BRANDING:{tenantId:D}:CurrencySymbolTextFallback"] = "SAR"
+                [$"MESP_TENANT_BRANDING:{tenantId:D}:CurrencySymbolTextFallback"] = "SAR",
+                [$"MESP_TENANT_BRANDING:{tenantId:D}:DefaultTheme"] = " forest "
             })
             .Build();
         var names = new ConfiguredTenantDisplayNameProvider(configuration);
@@ -149,5 +150,6 @@ public sealed class TenantEntryRoutingTests
         Assert.Null(branding.CurrencySymbolAssetUrl);
         Assert.Equal("SAR", branding.CurrencyCode);
         Assert.Equal("SAR", branding.CurrencySymbolTextFallback);
+        Assert.Equal("forest", branding.DefaultTheme);
     }
 }

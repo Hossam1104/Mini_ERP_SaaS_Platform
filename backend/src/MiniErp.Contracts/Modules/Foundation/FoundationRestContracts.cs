@@ -216,7 +216,8 @@ public sealed record FoundationBrandingResponse(
     string? LogoLightUrl,
     string? LogoDarkUrl,
     string LogoAltText,
-    bool TenantConfigured);
+    bool TenantConfigured,
+    string? DefaultTheme = null);
 
 /// <summary>Presentation-only currency symbol configuration.</summary>
 public sealed record FoundationCurrencyPresentationResponse(
