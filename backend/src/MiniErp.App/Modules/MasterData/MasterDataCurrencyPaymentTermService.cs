@@ -339,14 +339,23 @@ public sealed class MasterDataCurrencyPaymentTermService
         }
 
         var version = reference.Value.Version;
-        var dueDates = version.ScheduleMode == PaymentTermScheduleMode.SingleDueDate
-            ? [new MasterDataPaymentTermDueDate(1, 100m, AddOffset(baseDate, version.DueOffset))]
-            : version.Installments
-                .OrderBy(item => item.Sequence)
-                .Select(item => new MasterDataPaymentTermDueDate(item.Sequence, item.Percentage, AddOffset(baseDate, item.Offset)))
-                .ToArray();
+        var dueDates = PaymentTermDueDateCalculator.CalculateDueDates(
+                baseDate,
+                version.ScheduleMode,
+                version.DueOffset.Days,
+                version.DueOffset.Months,
+                version.Installments.Select(item => new PaymentTermInstallmentResponse(
+                    item.Sequence,
+                    item.Percentage,
+                    item.Offset.Days,
+                    item.Offset.Months)).ToArray())
+            .Select(item => new MasterDataPaymentTermDueDate(item.Sequence, item.Percentage, item.DueDate))
+            .ToArray();
         DateOnly? discountDate = version.EarlySettlementDiscount.Enabled
-            ? AddOffset(baseDate, version.EarlySettlementDiscount.Offset)
+            ? PaymentTermDueDateCalculator.AddOffset(
+                baseDate,
+                version.EarlySettlementDiscount.Offset.Days,
+                version.EarlySettlementDiscount.Offset.Months)
             : null;
         return MasterDataOperationResult<MasterDataPaymentTermDueDatePreview>.Success(
             new MasterDataPaymentTermDueDatePreview(
@@ -659,8 +668,6 @@ public sealed class MasterDataCurrencyPaymentTermService
     private static string CurrencySummary(string code, LocalizedName name, MasterDataLifecycleState state, int revision) => $"code={code};en={name.English ?? string.Empty};ar={name.Arabic ?? string.Empty};state={state};revision={revision}";
     private static string PaymentTermSummary(MasterDataPaymentTermRecord record) => $"code={record.Code};state={record.LifecycleState};current-version={record.CurrentVersionNumber};versions={record.Versions.Count}";
     private static string PaymentTermSummary(string code, LocalizedName name, MasterDataLifecycleState state, int version, DateOnly effectiveFrom) => $"code={code};en={name.English ?? string.Empty};ar={name.Arabic ?? string.Empty};state={state};version={version};effective-from={effectiveFrom:yyyy-MM-dd}";
-
-    private static DateOnly AddOffset(DateOnly baseDate, MasterDataPaymentTermOffset offset) => baseDate.AddMonths(offset.Months).AddDays(offset.Days);
 
     private static void ValidateVersion(byte[] version)
     {

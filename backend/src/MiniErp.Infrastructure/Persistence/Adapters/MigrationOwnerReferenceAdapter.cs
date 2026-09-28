@@ -93,16 +93,16 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
             };
             if (!string.IsNullOrWhiteSpace(currency))
                 findings.AddRange(await CurrencyAsync(tenant, currency, cancellationToken));
-            (Guid? Id, DateOnly? DocumentDate) paymentTerm = row.Payload switch
+            (Guid? Id, DateOnly? DocumentDate, DateOnly? DueDate) paymentTerm = row.Payload switch
             {
-                MigrationApOpeningPayload ap => (ap.PaymentTermId, ap.DocumentDate),
-                MigrationArOpeningPayload ar => (ar.PaymentTermId, ar.DocumentDate),
-                _ => (null, null)
+                MigrationApOpeningPayload ap => (ap.PaymentTermId, ap.DocumentDate, ap.DueDate),
+                MigrationArOpeningPayload ar => (ar.PaymentTermId, ar.DocumentDate, ar.DueDate),
+                _ => (null, null, null)
             };
             if (paymentTerm.Id is { } termId)
             {
                 if (paymentTerm.DocumentDate is { } documentDate)
-                    findings.Add(await PaymentTermOpeningAsync(tenant, termId, documentDate, cancellationToken));
+                    findings.Add(await PaymentTermOpeningAsync(tenant, termId, documentDate, paymentTerm.DueDate, cancellationToken));
                 else
                     findings.AddRange(await PaymentTermReferenceAsync(tenant, new MigrationReferencePayload(ReferenceId: termId), cancellationToken));
             }
@@ -651,6 +651,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         TenantContext tenant,
         Guid paymentTermId,
         DateOnly documentDate,
+        DateOnly? dueDate,
         CancellationToken cancellationToken)
     {
         var term = await currencies.FindPaymentTermAsync(tenant, paymentTermId, cancellationToken);
@@ -662,6 +663,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         var versions = term.Versions
             .Where(item => item.EffectiveFrom <= documentDate
                 && (item.EffectiveTo is null || documentDate <= item.EffectiveTo.Value))
+            .OrderByDescending(item => item.VersionNumber)
             .ToArray();
         if (versions.Length == 0)
             return new(
@@ -670,14 +672,8 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
                 "migration_payment_term_version_not_effective",
                 "No active Payment Term version is effective on the AP/AR DocumentDate.",
                 $"{term.Id:D}@{documentDate:yyyy-MM-dd}");
-        if (versions.Length != 1)
-            return new(
-                MigrationReferenceState.Missing,
-                MigrationFindingCategory.Reference,
-                "migration_payment_term_effective_version_ambiguous",
-                "More than one active Payment Term version is effective on the AP/AR DocumentDate.",
-                $"{term.Id:D}@{documentDate:yyyy-MM-dd}");
-        if (versions[0].BaseDateRule != PaymentTermBaseDateRule.DocumentDate)
+        var version = versions[0];
+        if (version.BaseDateRule != PaymentTermBaseDateRule.DocumentDate)
             return new(
                 MigrationReferenceState.Missing,
                 MigrationFindingCategory.Reference,
@@ -685,12 +681,28 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
                 "Finance migration openings support only the DocumentDate Payment Term base-date rule.",
                 $"{term.Id:D}@{documentDate:yyyy-MM-dd}");
 
-        return new(
-            MigrationReferenceState.Missing,
-            MigrationFindingCategory.Reference,
-            "migration_payment_term_due_date_unverifiable",
-            "Finance owns Payment Term due-date calculation, but no calculation is authorized for migration validation; this row is rejected until an owner validation contract can verify its DueDate.",
-            $"{term.Id:D}@{documentDate:yyyy-MM-dd}");
+        if (dueDate is { } suppliedDueDate)
+        {
+            var expectedDueDate = PaymentTermDueDateCalculator.CalculateFinalDueDate(
+                documentDate,
+                version.ScheduleMode,
+                version.DueOffset.Days,
+                version.DueOffset.Months,
+                version.Installments.Select(item => new PaymentTermInstallmentResponse(
+                    item.Sequence,
+                    item.Percentage,
+                    item.Offset.Days,
+                    item.Offset.Months)).ToArray());
+            if (suppliedDueDate != expectedDueDate)
+                return new(
+                    MigrationReferenceState.Missing,
+                    MigrationFindingCategory.Reference,
+                    "migration_payment_term_due_date_mismatch",
+                    $"Supplied AP/AR DueDate {suppliedDueDate:yyyy-MM-dd} does not match the Payment Term due date {expectedDueDate:yyyy-MM-dd}.",
+                    $"{term.Id:D}@{documentDate:yyyy-MM-dd}");
+        }
+
+        return Active("payment-term", term.Id);
     }
 
     private async Task<IReadOnlyList<MigrationReferenceCheck>> PaymentTermReferenceAsync(TenantContext tenant, MigrationReferencePayload payload, CancellationToken cancellationToken)

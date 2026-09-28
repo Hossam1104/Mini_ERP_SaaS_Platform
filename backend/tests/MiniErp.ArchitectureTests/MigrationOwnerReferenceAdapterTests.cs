@@ -278,24 +278,50 @@ public sealed class MigrationOwnerReferenceAdapterTests
     }
 
     [Fact]
-    public async Task Payment_term_date_and_base_rule_checks_fail_closed_when_due_date_calculation_is_unavailable()
+    public async Task Payment_term_due_date_checks_match_finance_resolution_for_ap_and_ar_openings()
     {
         var (tenant, request) = Context();
         var companyId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
         var termId = Guid.NewGuid();
         var documentDate = new DateOnly(2026, 1, 15);
+        var expectedDueDate = documentDate.AddDays(30);
+        var calendarId = Guid.NewGuid();
+        var fiscalYearId = Guid.NewGuid();
+        var finance = Stub<IFinancePersistence>(method => method.Name switch
+        {
+            "ListCalendarsAsync" => new[]
+            {
+                new FinanceFiscalCalendarRecord(calendarId, tenant.TenantId.Value, companyId, "FY", "SAR", FinanceCalendarLifecycle.Active, [1])
+            },
+            "ListYearsAsync" => new[]
+            {
+                new FinanceFiscalYearRecord(fiscalYearId, calendarId, tenant.TenantId.Value, companyId, 2026, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), FinanceFiscalYearState.Open, [1])
+            },
+            "ListPeriodsAsync" => new[]
+            {
+                new FinanceFiscalPeriodRecord(Guid.NewGuid(), fiscalYearId, tenant.TenantId.Value, companyId, 1, "FY", "Fiscal Year", null, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), FinanceFiscalPeriodState.Open, [1])
+            },
+            _ => null
+        });
         var term = PaymentTerm(documentDate.AddDays(1), PaymentTermBaseDateRule.DocumentDate);
         var adapter = Create(
             tenant,
-            new ConfiguredFinanceCompanyProvider([Company(tenant, companyId, "SAR", active: false)]),
+            new ConfiguredFinanceCompanyProvider([Company(tenant, companyId, "SAR")]),
             currencies: Stub<IMasterDataCurrencyPaymentTermPersistence>(method => method.Name switch
             {
                 "ListCurrenciesAsync" => new[] { Currency(tenant, "SAR") },
                 "FindPaymentTermAsync" => term,
                 _ => null
             }),
-            suppliers: Stub<ISupplierPersistence>(_ => null),
-            customers: Stub<ICustomerPersistence>(_ => null));
+            suppliers: Stub<ISupplierPersistence>(method => method.Name == "FindSupplierAsync"
+                ? new SupplierRecord(supplierId, tenant.TenantId, "SUP-1", new LocalizedName("Supplier"), null, null, MasterDataLifecycleState.Active, [1], [])
+                : null),
+            customers: Stub<ICustomerPersistence>(method => method.Name == "FindCustomerAsync"
+                ? new CustomerRecord(customerId, tenant.TenantId, "CUS-1", new LocalizedName("Customer"), null, MasterDataLifecycleState.Active, [1], [])
+                : null),
+            finance: finance);
 
         var notEffective = await adapter.ValidateAsync(request, ApRow(1));
         Assert.Contains(notEffective, item => item.Code == "migration_payment_term_version_not_effective");
@@ -305,48 +331,73 @@ public sealed class MigrationOwnerReferenceAdapterTests
         Assert.Contains(unsupportedBaseDate, item => item.Code == "migration_payment_term_base_date_unsupported");
 
         term = PaymentTerm(documentDate, PaymentTermBaseDateRule.DocumentDate);
-        foreach (var row in new[]
+        await AssertAcceptedAsync(ApRow(3));
+        await AssertAcceptedAsync(ArRow(4));
+        await AssertAcceptedAsync(ApRow(5, expectedDueDate));
+        await AssertAcceptedAsync(ArRow(6, expectedDueDate));
+
+        foreach (var row in new[] { ApRow(7, documentDate), ArRow(8, documentDate) })
         {
-            ApRow(3),
-            new MigrationParsedCanonicalRow(
-                4,
-                "ar-term",
-                MigrationCanonicalRecordType.ArOpening,
-                new MigrationArOpeningPayload(
-                    CompanyId: companyId,
-                    CustomerId: Guid.NewGuid(),
-                    SourceReference: "AR-TERM-1",
-                    DocumentDate: documentDate,
-                    OpeningDate: documentDate,
-                    Amount: 100m,
-                    CurrencyCode: "SAR",
-                    DueDate: documentDate,
-                    PaymentTermId: termId),
-                "{}")
-        })
-        {
-            var findings = await adapter.ValidateAsync(request, row);
-            var finding = Assert.Single(findings, item => item.Code == "migration_payment_term_due_date_unverifiable");
-            Assert.Equal(MigrationFindingCategory.Reference, finding.Category);
+            var mismatch = Assert.Single(await adapter.ValidateAsync(request, row), item => item.Code == "migration_payment_term_due_date_mismatch");
+            Assert.Equal(MigrationFindingCategory.Reference, mismatch.Category);
+            Assert.Contains(expectedDueDate.ToString("yyyy-MM-dd"), mismatch.Message);
+            Assert.Contains(documentDate.ToString("yyyy-MM-dd"), mismatch.Message);
         }
 
-        MigrationParsedCanonicalRow ApRow(int sequence) => new(
+        term = PaymentTerm(
+            documentDate,
+            PaymentTermBaseDateRule.DocumentDate,
+            PaymentTermScheduleMode.Installments,
+            [
+                new MasterDataPaymentTermInstallment(2, 60m, new MasterDataPaymentTermOffset(30, 0)),
+                new MasterDataPaymentTermInstallment(1, 40m, new MasterDataPaymentTermOffset(5, 0))
+            ]);
+        await AssertAcceptedAsync(ApRow(9, expectedDueDate));
+
+        async Task AssertAcceptedAsync(MigrationParsedCanonicalRow row)
+        {
+            var findings = await adapter.ValidateAsync(request, row);
+            Assert.Contains(findings, item => item.Code == "migration_payment_term_active");
+            Assert.All(findings, item => Assert.Equal(MigrationReferenceState.Active, item.State));
+        }
+
+        MigrationParsedCanonicalRow ApRow(int sequence, DateOnly? dueDate = null) => new(
             sequence,
             "ap-term",
             MigrationCanonicalRecordType.ApOpening,
             new MigrationApOpeningPayload(
                 CompanyId: companyId,
-                SupplierId: Guid.NewGuid(),
+                SupplierId: supplierId,
                 Amount: 100m,
                 CurrencyCode: "SAR",
                 OpeningDate: documentDate,
                 SourceReference: "AP-TERM-1",
                 DocumentDate: documentDate,
-                DueDate: documentDate,
+                DueDate: dueDate,
                 PaymentTermId: termId),
             "{}");
 
-        MasterDataPaymentTermRecord PaymentTerm(DateOnly effectiveFrom, PaymentTermBaseDateRule rule) => new(
+        MigrationParsedCanonicalRow ArRow(int sequence, DateOnly? dueDate = null) => new(
+            sequence,
+            "ar-term",
+            MigrationCanonicalRecordType.ArOpening,
+            new MigrationArOpeningPayload(
+                CompanyId: companyId,
+                CustomerId: customerId,
+                SourceReference: "AR-TERM-1",
+                DocumentDate: documentDate,
+                OpeningDate: documentDate,
+                Amount: 100m,
+                CurrencyCode: "SAR",
+                DueDate: dueDate,
+                PaymentTermId: termId),
+            "{}");
+
+        MasterDataPaymentTermRecord PaymentTerm(
+            DateOnly effectiveFrom,
+            PaymentTermBaseDateRule rule,
+            PaymentTermScheduleMode scheduleMode = PaymentTermScheduleMode.SingleDueDate,
+            IReadOnlyList<MasterDataPaymentTermInstallment>? installments = null) => new(
             termId,
             tenant.TenantId,
             "NET30",
@@ -359,9 +410,9 @@ public sealed class MigrationOwnerReferenceAdapterTests
                 effectiveFrom,
                 null,
                 rule,
-                PaymentTermScheduleMode.SingleDueDate,
+                scheduleMode,
                 new MasterDataPaymentTermOffset(30, 0),
-                [],
+                installments ?? [],
                 MasterDataEarlySettlementDiscount.Disabled(),
                 "NET30",
                 new LocalizedName("Net 30"))],
@@ -621,7 +672,8 @@ public sealed class MigrationOwnerReferenceAdapterTests
         ISupplierPersistence? suppliers = null,
         ICustomerPersistence? customers = null,
         IMasterDataTaxPersistence? taxes = null,
-        IMasterDataPriceListPersistence? priceLists = null) =>
+        IMasterDataPriceListPersistence? priceLists = null,
+        IFinancePersistence? finance = null) =>
         new(
             products ?? new UnavailableProductIdentityPersistence(),
             suppliers ?? new UnavailableSupplierPersistence(),
@@ -631,7 +683,7 @@ public sealed class MigrationOwnerReferenceAdapterTests
             currencies ?? new UnavailableMasterDataCurrencyPaymentTermPersistence(),
             taxes ?? new UnavailableMasterDataTaxPersistence(),
             companies,
-            new UnavailableFinancePersistence(),
+            finance ?? new UnavailableFinancePersistence(),
             inventoryProducts ?? new NoInventoryProductProvider(),
             new NoInventoryWarehouseProvider(),
             priceLists: priceLists);
