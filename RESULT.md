@@ -4,6 +4,29 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-28 — Opus: accept MESP-170 and MESP-153 Slice A, release MESP-173 — Claude Opus 5.5 / medium — MESP-170 (#293), MESP-153 (#268), MESP-173 (#299)
+- Status: **ACCEPTED** MESP-170 (PR #304 merged at `3472671`) and MESP-153 Slice A (PR #302 merged at `b52364a`, **owner-approved design**, Q-U). MESP-173 (#299) is **RELEASED** (`TASK.md`).
+- MESP-170 review:
+  - The Organization duplicate-key stop was resolved from BRD 40 §9 lines 326–328, with no owner question: a Tenant-scoped (CompanyId, BranchId, WarehouseId) tuple.
+  - One gate red (`MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight`) was not reproduced in 10 filtered runs, and the later full gates passed. It is recorded on MESP-166 (#285).
+  - Three Codex threads were fixed. The first payment-term fix was **rejected** as a regression: it rejected every AP/AR row that had a term. The second shares the Master Data due-date calculation across Master Data, Finance and Migration.
+  - Audit counts: 48 Met / 15 Partial / 0 Not met / 5 Deferred / 12 Depends-on.
+- MESP-153 Slice A:
+  - It took three Opus correction rounds before the owner review. PR #302's three Codex threads (narrow-screen header, grid page clamp, longest-prefix breadcrumb) were fixed.
+  - The owner follow-ups are MESP-175 (#305), MESP-176 (#306) and MESP-177 (#307).
+  - The A3 deviation (no Tenant default-theme field) moves to MESP-175.
+- Opus merged `origin/main` into both branches to clear RESULT.md conflicts. No force-push.
+- Gates:
+  - Opus backend on the merged #304 tree: `Passed: 1586, Skipped: 0`, and LocalDB data intact.
+  - Luna final backend: 1589/1589.
+  - Angular 330/330, Chromium 58/58, and a build with a 496.87 kB initial bundle.
+  - CI Repository Validation, Backend and Frontend passed on both PR heads.
+- Runtime (Q-S): restarted from `main` at `b52364a`.
+  - The first frontend start failed because the main checkout lacked the new `@fontsource` dependency. Opus stopped the repository's own dev-server node/esbuild processes (4300 only; 4310 untouched), ran `npm ci`, and restarted.
+  - API http://localhost:5300, frontend http://localhost:4300.
+- State: counter 4 → 6. AGENTS.md baselines are 1589 / 330 / 58 / 496.87 kB (the MESP-155 budget overrun is gone). DECISIONS Q-U was added.
+- Exact next action: **Luna executes MESP-173 (#299); the UI lane starts MESP-175 (#305) in the worktree.**
+
 ## 2026-09-28 — MESP-153 (#268) PR #302 review-thread fixes — GPT-6 Codex / default — MESP-153 (#268)
 - Status: DONE. All three review findings are fixed, pushed, and resolved.
 - Branch / starting SHA / ending SHA: feat/mesp-153-ui-design-system from ffa2e45; implementation commit 499a306 pushed; this RESULT hand-back commit follows.
