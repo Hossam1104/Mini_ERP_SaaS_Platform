@@ -4,6 +4,17 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-28 — MESP-153 (#268) final polish after conditional approval — GPT-6 Luna / max — MESP-153 (#268)
+- Status: DONE. Final polish complete; PR #302 remains Open and Draft.
+- Branch / starting SHA / ending SHA: feat/mesp-153-ui-design-system from a1c8e4d; implementation commit 08c0fae pushed; the final hand-back commit carrying this entry follows.
+- What changed: Five frontend files fix the sticky 100dvh sidebar rail in LTR and RTL, keep the grid search/status toolbar visible with an open card-anchored filter popover and compact filtered rows, mirror the Arabic hero orbit inside its card, and add dark theme-tinted module banners. Regression checks were added. The local capture set was refreshed to 20 PNGs with INDEX.md and contact-sheet.jpg. No API/backend or frontend/assets files changed.
+- Gates: npm test -- --watch=false --no-progress: 47 files, 328 passed, 0 failed, 0 skipped (13.28 s test runner). npm run build: passed (10.729 s); initial bundle 496.86 kB (477.86 kB JS + 19.00 kB CSS), 17.40 kB below the 514.26 kB baseline; Purchase Orders lazy chunk 111.83 kB. MESP_E2E_BASE_URL=http://127.0.0.1:4310 npm run test:e2e -- --project=chromium: 57 passed, 0 skipped (41.2 s). npm audit --omit=dev --audit-level=high: exit 0, 4 moderate, 0 high/critical. git diff --check: clean.
+- Evidence: Draft [PR #302](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/302); implementation commit 08c0fae; local captures: D:\AI Tools\Active Projects\Mini_ERP_SaaS_Platform\.worktrees\mesp-153-slice-a\.playwright-mcp\ui-review\slice-a\ (INDEX.md and contact-sheet.jpg).
+- Deviations from the prompt: No deviation in this polish round. The previously accepted Tenant default-theme gap remains because the branding DTO has no such field; no API change was made. The current API still has no SAR symbol asset URL, so the existing SAR text fallback remains. Notifications remain visual without a notification service/API. Runtime restart is deferred to merge.
+- Failures and classification: AUTOMATION_SETUP — the first sticky-rail assertions expected natural overflow on compact test routes; the test fixture was extended with long content and the focused and full Chromium runs passed. The open theme-menu capture was delayed until its entrance opacity reached 1. No product failure remained at final gates; audit reports four moderate advisories.
+- Status files updated: PR #302 body and this RESULT.md entry. No issue or Status mutation; no Ready transition, reviewer request, approval, or merge.
+- Exact next action: Opus 5.5 reviews Draft PR #302 and the refreshed local captures; this executor stops here.
+
 ## 2026-09-28 — MESP-153 (#268) Slice A focused correction after Opus REJECT — GPT-6 Luna / max — MESP-153 (#268)
 - Status: DONE. The focused follow-up is complete; PR #302 remains Open and Draft.
 - Branch / starting SHA / ending SHA: feat/mesp-153-ui-design-system from cc661f0; implementation commit 4befbf8 is pushed; the final hand-back commit carrying this entry follows.
