@@ -4,13 +4,16 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 ## 2026-09-28 — Opus: accept MESP-174 harness optimization — Claude Opus 5.5 / medium — MESP-174 (#300)
-
-- Status: **ACCEPTED**. PR #301 merged at `e20b257`; #300 closed.
-- Review: rejected Luna's first pass on five gaps (dropped rules for unclear-diagnosis routing, owner-interruption procedure and fast mode; Context7 scope; Context Compress scope). Opus fixed them and three Codex-connector review threads (Sol output contract, one RESULT schema, Context7 Claude-only) in `1b374f2` and `88e2afc`. Gate 1563/1563, 0 warnings; CI green.
-- AGENTS.md 22,984 B → 13,218 B. Context Compress is CLI-only and opt-in: zero gain on gates/builds, −47% but lossy on `git log`.
-- Machine config (owner-authorized, backups `*.bak-harness-2026092[78]`): Orbit MCP removed from Claude `.mcp.json` and project `.codex/config.toml`; Codex Serena `--context codex` plus `startup_timeout_sec = 60`; Codex Context7 enabled and owner-logged-in via OAuth (`codex exec` query returned `/websites/angular_dev`); Codex Serena uses the absolute `serena.exe` path and works in the Paseo/app session, but headless `codex exec` still does not expose Serena tools (known limitation, no workflow impact); Azure is off for this project in Claude and stays on in Codex by owner choice.
-- Cycle counter 4 → 5 (next normal Sol review at 12).
+- Status: **ACCEPTED** (MESP-174). PR #301 merged at `e20b257`; #300 closed.
+- Branch / starting SHA / ending SHA: #301 `chore/mesp-174-harness-context` from `7f569ce`: Luna `55762e0`, Opus corrections `1b374f2`, `88e2afc`, merge `e20b257`. This entry: `docs/mesp-174-accept` from `e20b257`.
+- What changed: AGENTS.md 22,984 B → 13,082 B (canonical governance, §7 Roles and loop); docs/MODEL_ROUTING.md points roles/cadence to AGENTS.md; `.serena/project.yml` adds `typescript`. Machine config, owner-authorized, backups `*.bak-harness-20260927` / `*.bak-harness-20260928`: Orbit MCP removed from Claude `.mcp.json` and project `.codex/config.toml`; Codex Serena uses `--context codex`, `startup_timeout_sec = 60` and the absolute `serena.exe` path; Codex Context7 enabled and owner-logged-in via OAuth; Azure is off for this project in Claude and stays on in Codex by owner choice. Context Compress 2026.8.3 is CLI-only, with no MCP server or hooks.
+- Gates: `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` → `Passed! - Failed: 0, Passed: 1563, Skipped: 0, Total: 1563`, 0 warnings/errors, LocalDB data intact. Duration 3 m 31 s on `1b374f2`, 3 m 43 s on `88e2afc`, and 5 m 4 s on this branch, run twice. `git diff --check` clean. CI Repository Validation, Backend and Frontend passed on #301 (run 36355751105).
+- Evidence: `codex exec` → `CONTEXT7_OK /websites/angular_dev`. Context Compress, raw vs wrapped: backend gate 3,580 B → 3,580 B; frontend build 5,982 B → 6,070 B; `git log --stat -200` 393,500 B → 208,916 B, lossy (111 of 200 headers kept). `codex mcp list` has no `orbit`.
+- Deviations from the prompt: Opus made the review corrections directly instead of sending them back to Luna, because they were a few lines of doc text.
+- Failures and classification: Luna's first pass was REJECTED on five doc gaps (dropped unclear-diagnosis routing, owner-interruption procedure and fast-mode rules; Context7 and Context Compress scope). Five Codex-connector threads were valid; three were fixed on #301 and two on this PR. Known limitation: headless `codex exec` does not expose Serena tools, although the server starts and answers `initialize`. The Paseo/app Luna session lists Serena's tools, so there is no workflow impact. Opus prematurely closed #300 before the merge completed, reopened it at once, and closed it again after the merge.
+- Status files updated: RESULT.md. The ORCHESTRATION_STATE.yaml counter stays at **4**: harness work that Opus corrected is not an accepted Luna implementation cycle.
 - Exact next action: **Luna continues MESP-170 (#293).**
+
 
 
 ## 2026-09-28 — MESP-174 Harness context footprint + tool integration — GPT-6 Luna / max — MESP-174 (#300)

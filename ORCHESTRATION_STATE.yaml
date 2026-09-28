@@ -1,9 +1,9 @@
 status: ACTIVE
 
-current_cycle: 5
+current_cycle: 4
 
-accepted_luna_cycles_since_sol_review: 5
-total_accepted_luna_cycles: 5
+accepted_luna_cycles_since_sol_review: 4
+total_accepted_luna_cycles: 4
 last_sol_review_cycle: 0
 
 sol_review:
