@@ -1,0 +1,152 @@
+import { expect, test, type Page, type Route } from '@playwright/test';
+
+const tenantId = 'tenant-ui';
+const companyId = 'company-ui';
+const orderRows = [
+  { id: 'po-1', status: 'Issued', supplierCode: 'SUP-01', supplierName: 'Aster Supplies', supplierQuotationReference: 'QT-001', currencyCode: 'SAR', total: 100, lineCount: 2, createdAt: '2026-08-01T08:00:00Z', updatedAt: '2026-08-10T08:00:00Z', version: 'PO-V1' },
+  { id: 'po-2', status: 'Approved', supplierCode: 'SUP-02', supplierName: 'Birch Industrial', supplierQuotationReference: 'QT-002', currencyCode: 'USD', total: 250, lineCount: 3, createdAt: '2026-08-02T08:00:00Z', updatedAt: '2026-08-11T08:00:00Z', version: 'PO-V1' },
+  { id: 'po-3', status: 'Draft', supplierCode: 'SUP-03', supplierName: 'Cedar Office', supplierQuotationReference: 'QT-003', currencyCode: 'SAR', total: 400, lineCount: 1, createdAt: '2026-08-03T08:00:00Z', updatedAt: '2026-08-12T08:00:00Z', version: 'PO-V1' },
+  { id: 'po-4', status: 'Issued', supplierCode: 'SUP-04', supplierName: 'Dune Trading', supplierQuotationReference: 'QT-004', currencyCode: 'EUR', total: 550, lineCount: 4, createdAt: '2026-08-04T08:00:00Z', updatedAt: '2026-08-13T08:00:00Z', version: 'PO-V1' },
+  { id: 'po-5', status: 'Approved', supplierCode: 'SUP-05', supplierName: 'Elm Services', supplierQuotationReference: 'QT-005', currencyCode: 'USD', total: 700, lineCount: 2, createdAt: '2026-08-05T08:00:00Z', updatedAt: '2026-08-14T08:00:00Z', version: 'PO-V1' },
+  { id: 'po-6', status: 'Draft', supplierCode: 'SUP-06', supplierName: 'Fennel Logistics', supplierQuotationReference: 'QT-006', currencyCode: 'SAR', total: 850, lineCount: 3, createdAt: '2026-08-06T08:00:00Z', updatedAt: '2026-08-15T08:00:00Z', version: 'PO-V1' },
+  { id: 'po-7', status: 'Issued', supplierCode: 'SUP-07', supplierName: 'Grove Manufacturing', supplierQuotationReference: 'QT-007', currencyCode: 'EUR', total: 1000, lineCount: 5, createdAt: '2026-08-07T08:00:00Z', updatedAt: '2026-08-16T08:00:00Z', version: 'PO-V1' },
+  { id: 'po-8', status: 'Approved', supplierCode: 'SUP-08', supplierName: 'Harbor Goods', supplierQuotationReference: 'QT-008', currencyCode: 'USD', total: 1150, lineCount: 2, createdAt: '2026-08-08T08:00:00Z', updatedAt: '2026-08-17T08:00:00Z', version: 'PO-V1' },
+];
+
+const orderDetail = (id: string) => {
+  const row = orderRows.find((candidate) => candidate.id === id) ?? orderRows[0];
+  return {
+    ...row,
+    tenantId,
+    companyId,
+    branchId: null,
+    createdByActorId: 'actor-ui',
+    source: {
+      purchaseRequestId: 'pr-ui', purchaseRequestReference: 'PR-UI-001', purchaseRequestPurpose: 'Office supplies',
+      supplierQuotationId: 'quotation-ui', supplierQuotationReference: row.supplierQuotationReference,
+      supplier: { id: `supplier-${id}`, code: row.supplierCode, name: row.supplierName },
+      currency: { id: 'currency-ui', code: row.currencyCode, name: row.currencyCode }, paymentTerm: null,
+      sourceDecisionId: 'decision-ui', sourceDecisionRationale: 'Selected by the buyer.', selectedAt: row.createdAt,
+    },
+    notes: null, submittedAt: row.createdAt, approvedAt: row.createdAt, issuedAt: row.createdAt, cancelledAt: null,
+    latestConfirmationId: null, latestConfirmationStatus: null, approval: null,
+    lines: [{ id: `line-${id}`, sourceQuotationLineId: 'quotation-line-ui', purchaseRequestLineId: 'pr-line-ui', productSku: 'SKU-UI', productName: 'Office chair', unitOfMeasureCode: 'EA', orderedQuantity: 2, confirmedQuantity: 0, remainingQuantity: 2, unitPrice: row.total / 2, discountAmount: null, discountPercentage: null, taxCode: null, taxName: null, taxRatePercentage: null, taxAmount: null, requestedNeedByDate: '2026-09-01', deliveryDate: '2026-09-05', notes: null, version: 'LINE-V1' }],
+    pendingChanges: [], canEdit: false, canSubmit: false, canApprove: false, canReject: false,
+    canReturnForChange: false, canIssue: false, canCancel: row.status === 'Issued', canCaptureConfirmation: false,
+    canApproveSupplierChange: false, canRejectSupplierChange: false,
+  };
+};
+
+async function installMocks(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem('mesp.ui-test-clean')) {
+      localStorage.clear();
+      sessionStorage.setItem('mesp.ui-test-clean', '1');
+    }
+  });
+  await page.route('**/api/v1/auth/development-bypass', (route) => route.fulfill({ json: { authenticated: false } }));
+  await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: { authenticated: true, actorId: 'actor-ui', sessionId: 'session-ui', lifecycleState: 'Active', absoluteExpiresAt: null, selectedPath: 'OrdinaryMembership', selectedTenantId: tenantId, selectedContextId: 'context-ui', selectionVersion: 1 } }));
+  await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [{ contextId: 'context-ui', kind: 'OrdinaryMembership', tenantId, displayName: 'Alpha Company', eligibilityVersion: 1 }] } }));
+  await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: { entryMode: 'TenantHost', canonicalHost: '127.0.0.1', candidateTenantId: tenantId, candidateTenantDisplayName: 'Alpha Tenant', authorizedTenants: [{ tenantId, displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }], operationalContexts: [{ contextId: 'operation-ui', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 }], selectedOperationalContextId: 'operation-ui', operationalSelectionVersion: 1, branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true }, currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null } }));
+  await page.route('**/api/v1/auth/antiforgery', (route) => route.fulfill({ headers: { 'X-CSRF-TOKEN': 'test-token' }, json: { status: 'issued' } }));
+  await page.route('**/api/v1/procurement/**', async (route: Route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/purchase-orders')) return route.fulfill({ json: orderRows });
+    if (path.endsWith('/confirmations') || path.endsWith('/history') || path.endsWith('/audit')) return route.fulfill({ json: [] });
+    const match = path.match(/\/purchase-orders\/(po-\d+)$/);
+    if (match) return route.fulfill({ json: orderDetail(match[1]) });
+    return route.fulfill({ json: [] });
+  });
+}
+
+test.describe('MESP-153 Slice A UI', () => {
+  test.beforeEach(async ({ page }) => installMocks(page));
+
+  test('keeps English and Sapphire defaults, keyboard themes, independent dark mode, and persisted choices', async ({ page }) => {
+    await page.goto('/app');
+    await expect(page.locator('#tenant-overview-title')).toHaveText('Alpha Tenant');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'sapphire');
+
+    const trigger = page.getByRole('button', { name: 'Themes' });
+    await expect(trigger).not.toHaveAttribute('aria-controls');
+    await trigger.click();
+    const menu = page.getByRole('menu', { name: 'Choose a theme' });
+    await expect(menu.getByRole('menuitemradio')).toHaveCount(8);
+    await expect(trigger).toHaveAttribute('aria-controls', 'theme-menu');
+    await expect(menu.getByRole('menuitemradio', { name: 'Sapphire' })).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('End');
+    await expect(menu.getByRole('menuitemradio', { name: 'Noir' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    await menu.getByRole('menuitemradio', { name: 'Teal' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'teal');
+    await page.getByRole('button', { name: 'Switch to dark mode' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'teal');
+
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'teal');
+    await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'dark');
+    await page.locator('.language-button').click();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  });
+
+  test('sorts, filters, resizes, selects, pages, opens row actions, and fits the grid on mobile', async ({ page }) => {
+    await page.goto('/app/procurement/purchase-orders');
+    const grid = page.locator('app-data-grid');
+    await expect(grid.locator('tbody tr')).toHaveCount(7);
+    await expect(grid.locator('[aria-sort="ascending"]')).toHaveCount(0);
+    await expect(grid.locator('tbody tr').first().getByRole('link', { name: 'QT-001' })).toHaveAttribute('href', '/app/procurement/purchase-orders/po-1');
+    await page.getByRole('button', { name: /Sort by Supplier/ }).click();
+    await expect(grid.locator('thead th').nth(2)).toHaveAttribute('aria-sort', 'ascending');
+    await expect(grid.locator('tbody tr').first()).toHaveAttribute('data-row-id', 'po-1');
+
+    const supplierFilter = page.getByRole('button', { name: 'Filter Supplier' });
+    await supplierFilter.click();
+    const filterDialog = page.getByRole('dialog', { name: 'Filter Supplier' });
+    await expect(supplierFilter).toHaveAttribute('aria-controls', 'grid-filter-supplierName');
+    await filterDialog.getByRole('searchbox').fill('Cedar');
+    await expect(grid.locator('tbody tr')).toHaveCount(1);
+    await expect(grid.locator('tbody tr').first()).toHaveAttribute('data-row-id', 'po-3');
+    await filterDialog.getByRole('button', { name: 'Clear filter' }).click();
+
+    const resize = page.getByRole('separator', { name: 'Resize Supplier' });
+    const initialWidth = Number(await resize.getAttribute('aria-valuenow'));
+    await resize.press('ArrowRight');
+    await expect(resize).toHaveAttribute('aria-valuenow', String(initialWidth + 8));
+    await grid.locator('tbody tr').first().getByRole('checkbox').check();
+    await expect(grid.locator('tbody tr').first()).toHaveClass(/is-selected/);
+    await page.getByRole('button', { name: 'Next page' }).click();
+    await expect(grid.locator('tbody tr')).toHaveCount(1);
+
+    const rowActions = grid.locator('tbody tr').last().getByRole('button', { name: /Purchase Order actions/ });
+    await expect(rowActions).toHaveAccessibleName('Purchase Order actions: QT-008');
+    await rowActions.click();
+    await expect(page.getByRole('menu', { name: 'Purchase Order actions' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'View Purchase Order' })).toBeFocused();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    await page.getByRole('button', { name: 'Open navigation' }).click();
+    await expect(page.locator('#app-sidebar')).toHaveClass(/sidebar--mobile-open/);
+    await page.locator('.mobile-toggle').click();
+  });
+
+  test('keeps the modal keyboard accessible on a server-loaded Purchase Order', async ({ page }) => {
+    await page.goto('/app/procurement/purchase-orders/po-1');
+    await expect(page.getByRole('heading', { name: 'QT-001' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel Purchase Order' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Cancel Purchase Order' });
+    await expect(dialog).toBeVisible();
+    await expect.poll(() => dialog.evaluate((element) => getComputedStyle(element, '::before').backgroundImage)).toContain('linear-gradient');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+  });
+});

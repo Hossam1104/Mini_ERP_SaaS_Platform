@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { SafeUiError, toSafeUiError } from '../../core/api/safe-error';
 import { LanguageService } from '../../core/i18n/language.service';
+import { DataGridAction, DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import {
   PurchaseOrderConfirmationRequest,
   PurchaseOrderConfirmationStatus,
@@ -48,7 +49,7 @@ interface ConfirmationLineDraft {
 @Component({
   selector: 'app-purchase-order-workspace',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, DataGridComponent],
   template: `
     @if (mode() === 'list') {
       <section class="ui-page purchase-order-page" data-testid="purchase-order-list">
@@ -73,11 +74,31 @@ interface ConfirmationLineDraft {
               <label class="filter-field"><span>{{ poText('purchaseOrderStatusFilter') }}</span><select [value]="statusFilter()" (change)="setStatusFilter($any($event.target).value)"><option value="">{{ poText('purchaseOrderAllStatuses') }}</option>@for (status of statuses; track status) {<option [value]="status">{{ statusLabel(status) }}</option>}</select></label>
               <p class="filter-note">{{ poText('purchaseOrderFilterNote') }}</p>
             </div>
-            @if (filteredRecords().length === 0) {
-              <div class="empty-ledger"><span aria-hidden="true">◌</span><h2>{{ poText('noPurchaseOrders') }}</h2><p>{{ poText('noPurchaseOrdersLead') }}</p></div>
-            } @else {
-              <div class="ui-grid-shell purchase-order-grid-shell"><table class="ui-grid purchase-order-grid"><caption class="sr-only">{{ poText('purchaseOrders') }}</caption><thead><tr><th scope="col">{{ poText('purchaseOrderReferenceColumn') }}</th><th scope="col">{{ poText('purchaseOrderSupplierColumn') }}</th><th scope="col">{{ poText('purchaseOrderStatusColumn') }}</th><th scope="col">{{ poText('purchaseOrderCurrencyColumn') }}</th><th scope="col" class="numeric">{{ poText('purchaseOrderTotalColumn') }}</th><th scope="col">{{ poText('purchaseOrderUpdatedColumn') }}</th></tr></thead><tbody>@for (record of filteredRecords(); track record.id) {<tr><td><a class="record-link" [routerLink]="['/app/procurement/purchase-orders', record.id]">{{ record.supplierQuotationReference }}</a><small>{{ record.lineCount }} {{ poText('purchaseOrderLines') }}</small></td><td><strong>{{ record.supplierName }}</strong><small>{{ record.supplierCode }}</small></td><td><span class="status-badge" [class]="statusClass(record.status)"><span aria-hidden="true"></span>{{ statusLabel(record.status) }}</span></td><td><span class="currency-badge">{{ record.currencyCode }}</span></td><td class="numeric money">{{ formatMoney(record.total, record.currencyCode) }}</td><td>{{ formatDateTime(record.updatedAt) }}</td></tr>}</tbody></table></div>
-            }
+            <app-data-grid
+              [rows]="filteredRecords()"
+              [columns]="gridColumns()"
+              [language]="language.language()"
+              [caption]="poText('purchaseOrders')"
+              [rowKey]="'id'"
+              [rowActions]="[{ key: 'view', label: gridText('View Purchase Order', 'عرض أمر الشراء') }]"
+              [loading]="loading()"
+              [countLabel]="gridText('purchase orders', 'أوامر الشراء')"
+              [loadingLabel]="poText('loadingPurchaseOrders')"
+              [emptyLabel]="records().length ? gridText('No matching purchase orders', 'لا توجد أوامر شراء مطابقة') : poText('noPurchaseOrders')"
+              [emptyHint]="records().length ? gridText('Clear search or filters to see orders.', 'امسح البحث أو عوامل التصفية لعرض الأوامر.') : poText('noPurchaseOrdersLead')"
+              [noMatchesLabel]="gridText('No matching purchase orders', 'لا توجد أوامر شراء مطابقة')"
+              [clearFiltersLabel]="gridText('Clear filter', 'مسح التصفية')"
+              [filterInputLabel]="gridText('Filter', 'تصفية')"
+              [allValuesLabel]="poText('purchaseOrderAllStatuses')"
+              [fromLabel]="gridText('From', 'من')"
+              [toLabel]="gridText('To', 'إلى')"
+              [selectAllLabel]="gridText('Select visible purchase orders', 'تحديد أوامر الشراء الظاهرة')"
+              [rowActionsLabel]="gridText('Purchase Order actions', 'إجراءات أمر الشراء')"
+              [resizeLabelPrefix]="gridText('Resize', 'تغيير العرض')"
+              [previousPageLabel]="gridText('Previous page', 'الصفحة السابقة')"
+              [nextPageLabel]="gridText('Next page', 'الصفحة التالية')"
+              [perPageLabel]="gridText('per page', 'في الصفحة')"
+              (rowAction)="onGridAction($event)" />
           </section>
         }
       </section>
@@ -334,6 +355,23 @@ export class PurchaseOrderWorkspaceComponent implements OnInit {
   }
 
   setStatusFilter(value: string): void { this.statusFilter.set(value); }
+
+  gridColumns(): DataGridColumn<PurchaseOrderListItemResponse>[] {
+    return [
+      { key: 'supplierQuotationReference', label: this.poText('purchaseOrderReferenceColumn'), value: (record) => record.supplierQuotationReference, link: (record) => `/app/procurement/purchase-orders/${record.id}`, secondaryText: (record) => `${record.lineCount} ${this.poText('purchaseOrderLines')}`, filter: 'text', width: 208 },
+      { key: 'supplierName', label: this.poText('purchaseOrderSupplierColumn'), value: (record) => record.supplierName, display: (record) => `${record.supplierName} · ${record.supplierCode}`, filter: 'text', width: 208 },
+      { key: 'status', label: this.poText('purchaseOrderStatusColumn'), value: (record) => record.status, display: (record) => this.statusLabel(record.status), filter: 'select', filterOptions: this.statuses.map((status) => ({ value: status, label: this.statusLabel(status) })), width: 166 },
+      { key: 'currencyCode', label: this.poText('purchaseOrderCurrencyColumn'), value: (record) => record.currencyCode, filter: 'select', width: 112 },
+      { key: 'total', label: this.poText('purchaseOrderTotalColumn'), value: (record) => record.total, display: (record) => this.formatMoney(record.total, record.currencyCode), filter: 'number-range', align: 'end', width: 168 },
+      { key: 'updatedAt', label: this.poText('purchaseOrderUpdatedColumn'), value: (record) => record.updatedAt.slice(0, 10), display: (record) => this.formatDateTime(record.updatedAt), filter: 'date-range', width: 190 },
+    ];
+  }
+
+  gridText(english: string, arabic: string): string { return this.language.language() === 'ar' ? arabic : english; }
+
+  onGridAction(event: DataGridAction<PurchaseOrderListItemResponse>): void {
+    if (event.action === 'view') void this.router.navigate(['/app/procurement/purchase-orders', event.row.id]);
+  }
 
   async create(): Promise<void> {
     const source = this.selectedSource();

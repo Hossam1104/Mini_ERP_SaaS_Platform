@@ -363,7 +363,6 @@ test('MESP-135 close and report workspaces preserve Arabic RTL presentation', as
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.locator('.close-page h1')).not.toHaveText('Close periods with evidence');
   await page.goto('/app/finance/reports');
-  await page.locator('.language-button').click();
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.locator('.reports-page h1')).not.toHaveText('Core reports from posted facts');
 });

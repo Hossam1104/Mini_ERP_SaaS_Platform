@@ -156,24 +156,24 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     expect(document.documentElement.dir).toBe('rtl');
   });
 
-  it('renders the transparent dark-surface owner icon in the sidebar without the obsolete white tile', () => {
+  it('renders the transparent owner icon on the light glass sidebar without the obsolete white tile', () => {
     const element = fixture.nativeElement as HTMLElement;
     const brand = element.querySelector('.sidebar__brand app-brand-mark') as HTMLElement | null;
     expect(brand).not.toBeNull();
     const img = brand?.querySelector('img') as HTMLImageElement | null;
-    expect(img?.getAttribute('src')).toBe('assets/brand/favicon-dark-64.png');
+    expect(img?.getAttribute('src')).toBe('assets/brand/favicon-64.png');
     expect(img?.getAttribute('alt')).toBe('');
     expect(element.querySelector('.sidebar__brand')?.textContent).toContain('MESP');
     expect(element.innerHTML).not.toContain('assets/brand/icon-96.png');
     expect(element.querySelectorAll('.sidebar__brand img').length).toBe(1);
   });
 
-  it('keeps the sidebar artwork unmirrored in RTL', () => {
+  it('keeps the light-surface sidebar artwork unmirrored in RTL', () => {
     language.setLanguage('ar');
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
     const img = element.querySelector('.sidebar__brand img') as HTMLImageElement | null;
-    expect(img?.getAttribute('src')).toBe('assets/brand/favicon-dark-64.png');
+    expect(img?.getAttribute('src')).toBe('assets/brand/favicon-64.png');
     expect(img?.style.transform).toBe('');
   });
 });
