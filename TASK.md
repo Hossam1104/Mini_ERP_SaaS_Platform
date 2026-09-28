@@ -6,7 +6,7 @@ results; those go in [`RESULT.md`](RESULT.md). The rules are in
 
 ## Next executor prompt
 
-Status: **RELEASED** (2026-09-28). The Planner launches the child through Paseo inside its own session and
+Status: **OPEN** (released 2026-09-28). The Planner launches the child through Paseo inside its own session and
 the main checkout (Q-T), and passes this contract verbatim (`MODEL_ROUTING.md` §6, §10).
 
 ```markdown
@@ -61,6 +61,16 @@ the main checkout (Q-T), and passes this contract verbatim (`MODEL_ROUTING.md` �
    coexists with `Cancelled`. Use real concurrency (barriers or tasks) and no fixed sleeps. If the test
    exposes a product defect, fix the product code.
 5. Update the audit rows these touch (evidence file:line and tests). Change no other row.
+6. **File allowlist.** You may modify only:
+   - `backend/src/MiniErp.App/Modules/Migration/**`;
+   - `backend/src/MiniErp.Infrastructure/Persistence/Modules/Migration/**`;
+   - `backend/src/MiniErp.Infrastructure/Persistence/Adapters/Migration*.cs`;
+   - `backend/src/MiniErp.Infrastructure/Persistence/Migrations/Mesp141/**`, for an additive migration only;
+   - `backend/src/MiniErp.Api/MigrationEndpoints.cs`, only if a response shape must change;
+   - `backend/tests/MiniErp.ArchitectureTests/Migration*.cs` and `backend/tests/MiniErp.ArchitectureTests/SqlServerSafetyTests.cs`;
+   - `docs/audit/mesp-141-m40-traceability.md`, `RESULT.md` and `TASK.md` (Status line only).
+
+   A needed file outside this list is a stop (§10). Record it with the reason.
 
 ## 6. Out of scope
 MESP-171/172 scope, UI, templates or file formats (M40-DEC-003), production correction (M40-DEC-005), and
@@ -83,7 +93,8 @@ any tracker write except the one evidence comment in §9. No Jira.
 2. `dotnet ef migrations has-pending-model-changes` for every context you touch: none pending.
 3. `git diff --check` is clean. Run the frontend gates only if a frontend file changes; none should.
 4. An intermittent red on the execution-claim path is MESP-166 (#285): rerun that single test 5 times,
-   record the message and stack in RESULT.md, and continue if it does not reproduce.
+   record the message and stack in RESULT.md and add them to #285, then rerun the **full** wrapper. You
+   deliver only on a green full gate; a second red is a stop (§10).
 
 ## 9. Git / PR delivery (positive authority, exactly this)
 - Branch `fix/mesp-173-mesp-169-correction` from `origin/main`. Self-review the staged diff, then make

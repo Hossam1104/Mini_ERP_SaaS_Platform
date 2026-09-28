@@ -5,26 +5,35 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
 [`docs/history/`](docs/history/).
 
 ## 2026-09-28 — Opus: accept MESP-170 and MESP-153 Slice A, release MESP-173 — Claude Opus 5.5 / medium — MESP-170 (#293), MESP-153 (#268), MESP-173 (#299)
-- Status: **ACCEPTED** MESP-170 (PR #304 merged at `3472671`) and MESP-153 Slice A (PR #302 merged at `b52364a`, **owner-approved design**, Q-U). MESP-173 (#299) is **RELEASED** (`TASK.md`).
-- MESP-170 review:
-  - The Organization duplicate-key stop was resolved from BRD 40 §9 lines 326–328, with no owner question: a Tenant-scoped (CompanyId, BranchId, WarehouseId) tuple.
-  - One gate red (`MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight`) was not reproduced in 10 filtered runs, and the later full gates passed. It is recorded on MESP-166 (#285).
-  - Three Codex threads were fixed. The first payment-term fix was **rejected** as a regression: it rejected every AP/AR row that had a term. The second shares the Master Data due-date calculation across Master Data, Finance and Migration.
-  - Audit counts: 48 Met / 15 Partial / 0 Not met / 5 Deferred / 12 Depends-on.
-- MESP-153 Slice A:
-  - It took three Opus correction rounds before the owner review. PR #302's three Codex threads (narrow-screen header, grid page clamp, longest-prefix breadcrumb) were fixed.
-  - The owner follow-ups are MESP-175 (#305), MESP-176 (#306) and MESP-177 (#307).
-  - The A3 deviation (no Tenant default-theme field) moves to MESP-175.
-- Opus merged `origin/main` into both branches to clear RESULT.md conflicts. No force-push.
+- Status: **ACCEPTED** MESP-170 (PR #304, merged at `3472671`) and MESP-153 Slice A (PR #302, merged at `b52364a`; the **owner approved the design**, Q-U). MESP-173 (#299) is released as the OPEN prompt in `TASK.md`. #293 is closed.
+- Branch / starting SHA / ending SHA:
+  - #304 `feat/mesp-170-migration-source-contract` ended at `2ce885f`, including the Opus merge of `origin/main` (`627a77d`) and a spacing fix (`ac1c129`).
+  - #302 `feat/mesp-153-ui-design-system` ended at `36f630f`, including the Opus merges of `origin/main` (`ffa2e45`, `36f630f`).
+  - This entry is on `docs/mesp-170-accept-153a-release-173`, branched from `b52364a`.
+- What changed:
+  - AGENTS.md baselines: 1589 / 330 / 58 / 496.87 kB. The MESP-155 budget overrun is gone.
+  - DECISIONS: Q-U added.
+  - ROADMAP: MESP-170 and Slice A marked done; MESP-173 is next; UI follow-ups MESP-175..177 (#305–#307) added.
+  - ORCHESTRATION_STATE: counter 4 → 6.
+  - TASK.md: the MESP-173 contract.
 - Gates:
-  - Opus backend on the merged #304 tree: `Passed: 1586, Skipped: 0`, and LocalDB data intact.
-  - Luna final backend: 1589/1589.
-  - Angular 330/330, Chromium 58/58, and a build with a 496.87 kB initial bundle.
-  - CI Repository Validation, Backend and Frontend passed on both PR heads.
-- Runtime (Q-S): restarted from `main` at `b52364a`.
-  - The first frontend start failed because the main checkout lacked the new `@fontsource` dependency. Opus stopped the repository's own dev-server node/esbuild processes (4300 only; 4310 untouched), ran `npm ci`, and restarted.
-  - API http://localhost:5300, frontend http://localhost:4300.
-- State: counter 4 → 6. AGENTS.md baselines are 1589 / 330 / 58 / 496.87 kB (the MESP-155 budget overrun is gone). DECISIONS Q-U was added.
+  - Opus full backend on the merged #304 tree: `Passed: 1586, Failed: 0, Skipped: 0`, 5 m 18 s, LocalDB data intact.
+  - Luna's final backend run: 1589/1589.
+  - #302: Angular 330/330, Chromium 58/58, build 496.87 kB initial.
+  - CI Repository Validation, Backend and Frontend passed on both final PR heads.
+- Evidence:
+  - CI runs 36433811320 (#304) and 36476196426 (#302).
+  - UI captures in the git-excluded `.worktrees/mesp-153-slice-a/.playwright-mcp/ui-review/slice-a/`.
+  - Audit counts: 48 Met / 15 Partial / 0 Not met / 5 Deferred / 12 Depends-on.
+- Deviations from the prompt:
+  - MESP-170's Organization duplicate-key stop was resolved from BRD 40 §9 lines 326–328 (a Tenant-scoped (CompanyId, BranchId, WarehouseId) tuple), with no owner question.
+  - Slice A's missing Tenant default-theme field moves to MESP-175.
+- Failures and classification:
+  - One MESP-170 gate red (`MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight`) did not reproduce in 10 filtered runs. It is recorded on MESP-166 (#285).
+  - The first MESP-170 payment-term fix was **rejected** as a regression: it rejected every AP/AR row that had a term. The accepted fix shares the Master Data due-date calculation across Master Data, Finance and Migration.
+  - Slice A needed three Opus correction rounds, plus three Codex threads (narrow header, grid page clamp, breadcrumb prefix).
+  - Q-S restart: the first frontend start failed because the main checkout lacked the new `@fontsource` dependency. Opus stopped only the repository dev-server node/esbuild (4300; 4310 untouched), ran `npm ci` and restarted. API http://localhost:5300, frontend http://localhost:4300.
+- Status files updated: RESULT.md, TASK.md, ORCHESTRATION_STATE.yaml, AGENTS.md, docs/ROADMAP.md, docs/DECISIONS.md; tracker #293 closed; #305–#307 created.
 - Exact next action: **Luna executes MESP-173 (#299); the UI lane starts MESP-175 (#305) in the worktree.**
 
 ## 2026-09-28 — MESP-153 (#268) PR #302 review-thread fixes — GPT-6 Codex / default — MESP-153 (#268)
