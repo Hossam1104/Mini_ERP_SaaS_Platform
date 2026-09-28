@@ -1,18 +1,16 @@
 import { Routes } from '@angular/router';
 import { sessionGuard } from './core/auth/session.guard';
 import { SignInComponent } from './features/auth/sign-in.component';
-import { ApplicationShellComponent } from './features/shell/application-shell.component';
-import { WorkspaceHomeComponent } from './features/workspace/workspace-home.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'app' },
   { path: 'login', component: SignInComponent },
   {
     path: 'app',
-    component: ApplicationShellComponent,
+    loadComponent: () => import('./features/shell/application-shell.component').then((module) => module.ApplicationShellComponent),
     canActivate: [sessionGuard],
     children: [
-      { path: '', component: WorkspaceHomeComponent },
+      { path: '', loadComponent: () => import('./features/workspace/workspace-home.component').then((module) => module.WorkspaceHomeComponent) },
       { path: 'workspaces', loadComponent: () => import('./features/context/tenant-select.component').then((module) => module.TenantSelectComponent) },
       { path: 'master-data', pathMatch: 'full', redirectTo: 'master-data/categories' },
       { path: 'master-data/imports', loadComponent: () => import('./features/master-data/master-data-import-workspace.component').then((module) => module.MasterDataImportWorkspaceComponent) },

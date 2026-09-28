@@ -1,19 +1,19 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { DataGridColumn, DataGridComponent } from './data-grid.component';
 
-interface Row { id: string; name: string; total: number; status: string; }
+interface Row { id: string; name: string; total: number; currencyCode: string; status: string; }
 
 describe('DataGridComponent', () => {
   let fixture: ComponentFixture<DataGridComponent<Row>>;
   let grid: DataGridComponent<Row>;
   const rows: Row[] = [
-    { id: 'po-2', name: 'Beta', total: 250, status: 'Approved' },
-    { id: 'po-1', name: 'Alpha', total: 100, status: 'Draft' },
+    { id: 'po-2', name: 'Beta', total: 250, currencyCode: 'SAR', status: 'Approved' },
+    { id: 'po-1', name: 'Alpha', total: 100, currencyCode: 'USD', status: 'Draft' },
   ];
   const columns: DataGridColumn<Row>[] = [
     { key: 'name', label: 'Supplier', value: (row) => row.name, filter: 'text' },
-    { key: 'total', label: 'Total', value: (row) => row.total, filter: 'number-range' },
-    { key: 'status', label: 'Status', value: (row) => row.status, filter: 'select' },
+    { key: 'total', label: 'Total', value: (row) => row.total, display: (row) => row.total.toFixed(2), currencySymbol: (row) => ({ url: null, text: row.currencyCode }), align: 'end', filter: 'number-range' },
+    { key: 'status', label: 'Status', value: (row) => row.status, badge: true, filter: 'select' },
   ];
 
   beforeEach(async () => {
@@ -31,6 +31,14 @@ describe('DataGridComponent', () => {
     grid.sortBy(columns[0]);
     expect(grid.filteredRows().map((row) => row.name)).toEqual(['Beta', 'Alpha']);
     expect(grid.ariaSort(columns[0])).toBe('descending');
+  });
+
+  it('renders semantic status pills, currency labels, and SVG grid controls', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.data-grid-badge--approved')?.textContent).toContain('Approved');
+    expect(element.querySelector('.data-grid-money')?.textContent).toContain('SAR');
+    expect(element.querySelector('.sort-icon use')?.getAttribute('href')).toBe('#icon-arrow-up-down');
+    expect(element.querySelector('.grid-filter-button use')?.getAttribute('href')).toBe('#icon-filter');
   });
 
   it('applies text, select, and numeric range filters', () => {

@@ -69,6 +69,21 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'sapphire');
 
+    const sidebar = page.locator('#app-sidebar');
+    await expect(sidebar.locator('.nav-link').first()).toHaveAttribute('title', 'Overview');
+    await page.getByRole('button', { name: 'Expand navigation' }).click();
+    await expect(sidebar).toHaveClass(/sidebar--expanded/);
+    await expect(sidebar.locator('.nav-group__title').first()).toBeVisible();
+    await expect(sidebar.getByRole('link', { name: 'Purchase Orders' })).toBeVisible();
+    await page.getByRole('button', { name: 'Collapse navigation' }).click();
+    await expect(sidebar).not.toHaveClass(/sidebar--expanded/);
+
+    const overviewSearch = page.getByRole('searchbox', { name: 'Search modules and destinations' });
+    await overviewSearch.fill('Purchase Orders');
+    await expect(page.locator('.module-card')).toHaveCount(1);
+    await expect(page.locator('.module-card strong')).toHaveText('Purchase Orders');
+    await overviewSearch.fill('');
+
     const trigger = page.getByRole('button', { name: 'Themes' });
     await expect(trigger).not.toHaveAttribute('aria-controls');
     await trigger.click();
@@ -101,6 +116,14 @@ test.describe('MESP-153 Slice A UI', () => {
   test('sorts, filters, resizes, selects, pages, opens row actions, and fits the grid on mobile', async ({ page }) => {
     await page.goto('/app/procurement/purchase-orders');
     const grid = page.locator('app-data-grid');
+    await expect(page.locator('.filter-search input')).toHaveCount(1);
+    await expect(page.locator('.filter-search input')).toHaveAttribute('aria-label', 'Search supplier or quotation reference');
+    await expect(page.locator('.filter-search input')).toHaveCSS('height', '44px');
+    await expect(page.locator('.filter-search input')).toHaveCSS('border-top-width', '1px');
+    await expect(grid.locator('.data-grid-total')).toContainText('8');
+    await expect(grid.locator('.data-grid-pager')).toBeVisible();
+    await expect(grid.locator('.data-grid-badge--issued').first()).toHaveText('Issued');
+    await expect(grid.locator('.data-grid-money').first()).toContainText('SAR');
     await expect(grid.locator('tbody tr')).toHaveCount(7);
     await expect(grid.locator('[aria-sort="ascending"]')).toHaveCount(0);
     await expect(grid.locator('tbody tr').first().getByRole('link', { name: 'QT-001' })).toHaveAttribute('href', '/app/procurement/purchase-orders/po-1');
@@ -114,6 +137,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(supplierFilter).toHaveAttribute('aria-controls', 'grid-filter-supplierName');
     await filterDialog.getByRole('searchbox').fill('Cedar');
     await expect(grid.locator('tbody tr')).toHaveCount(1);
+    await expect(supplierFilter).toHaveClass(/is-filtered/);
     await expect(grid.locator('tbody tr').first()).toHaveAttribute('data-row-id', 'po-3');
     await filterDialog.getByRole('button', { name: 'Clear filter' }).click();
 

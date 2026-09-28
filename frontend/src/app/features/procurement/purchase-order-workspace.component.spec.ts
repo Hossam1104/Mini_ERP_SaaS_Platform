@@ -3,6 +3,7 @@ import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@ang
 import { BehaviorSubject, of } from 'rxjs';
 import { vi } from 'vitest';
 import { LanguageService } from '../../core/i18n/language.service';
+import { CurrencyPresentationService } from '../../core/presentation/currency-presentation.service';
 import { PurchaseOrderListItemResponse, PurchaseOrderResponse } from './purchase-order.model';
 import { PurchaseOrderService } from './purchase-order.service';
 import { PurchaseOrderWorkspaceComponent } from './purchase-order-workspace.component';
@@ -115,6 +116,7 @@ describe('PurchaseOrderWorkspaceComponent', () => {
       providers: [
         provideRouter([]),
         LanguageService,
+        { provide: CurrencyPresentationService, useValue: { symbolAssetUrl: () => null, symbolText: (code: string) => code } },
         { provide: ActivatedRoute, useValue: { url: routeUrls.asObservable(), paramMap: routeParams.asObservable(), snapshot: { get url() { return routeUrls.value; }, get paramMap() { return routeParams.value; } } } },
         { provide: PurchaseOrderService, useValue: orders },
       ],
@@ -150,6 +152,12 @@ describe('PurchaseOrderWorkspaceComponent', () => {
     const arFormatted = comp.formatMoney(1234.56, 'S2K');
     expect(arFormatted).toContain('S2K');
     lang.setLanguage('en');
+  });
+
+  it('uses the configured SAR fallback in the list amount cell', () => {
+    const amount = (fixture.nativeElement as HTMLElement).querySelector('.data-grid-money');
+    expect(amount?.textContent).toContain('SAR');
+    expect(amount?.querySelector('img')).toBeNull();
   });
 
   it('renders purchase order list with non-ISO currency code without breaking list rendering or subsequent rows', async () => {

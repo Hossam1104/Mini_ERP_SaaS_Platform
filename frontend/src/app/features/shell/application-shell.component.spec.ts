@@ -156,24 +156,26 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     expect(document.documentElement.dir).toBe('rtl');
   });
 
-  it('renders the transparent owner icon on the light glass sidebar without the obsolete white tile', () => {
+  it('renders one aspect-ratio-safe owner logo in the header and no duplicate sidebar logo', () => {
     const element = fixture.nativeElement as HTMLElement;
-    const brand = element.querySelector('.sidebar__brand app-brand-mark') as HTMLElement | null;
+    const brand = element.querySelector('.topbar__brand app-brand-mark') as HTMLElement | null;
     expect(brand).not.toBeNull();
     const img = brand?.querySelector('img') as HTMLImageElement | null;
-    expect(img?.getAttribute('src')).toBe('assets/brand/favicon-64.png');
-    expect(img?.getAttribute('alt')).toBe('');
-    expect(element.querySelector('.sidebar__brand')?.textContent).toContain('MESP');
+    expect(img?.getAttribute('src')).toBe('assets/Logo_16_9_BG_Removed.png');
+    expect(img?.getAttribute('width')).toBe('1536');
+    expect(img?.getAttribute('height')).toBe('1024');
+    expect(img?.getAttribute('alt')).toBe('MESP');
+    expect(element.querySelector('.sidebar__brand')).toBeNull();
     expect(element.innerHTML).not.toContain('assets/brand/icon-96.png');
-    expect(element.querySelectorAll('.sidebar__brand img').length).toBe(1);
+    expect(element.querySelectorAll('.topbar__brand img').length).toBe(1);
   });
 
-  it('keeps the light-surface sidebar artwork unmirrored in RTL', () => {
+  it('keeps the light-surface header artwork unmirrored in RTL', () => {
     language.setLanguage('ar');
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
-    const img = element.querySelector('.sidebar__brand img') as HTMLImageElement | null;
-    expect(img?.getAttribute('src')).toBe('assets/brand/favicon-64.png');
+    const img = element.querySelector('.topbar__brand img') as HTMLImageElement | null;
+    expect(img?.getAttribute('src')).toBe('assets/Logo_16_9_BG_Removed.png');
     expect(img?.style.transform).toBe('');
   });
 });

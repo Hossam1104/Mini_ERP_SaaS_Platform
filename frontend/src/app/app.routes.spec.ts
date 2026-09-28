@@ -1,5 +1,5 @@
-import { ApplicationShellComponent } from './features/shell/application-shell.component';
 import { routes } from './app.routes';
+import { NAVIGATION_GROUPS } from './features/shell/navigation.config';
 
 describe('Application route contract', () => {
   it('keeps workspace selection inside the authenticated shell', () => {
@@ -7,7 +7,8 @@ describe('Application route contract', () => {
     const workspaceRoute = appRoute?.children?.find((route) => route.path === 'workspaces');
     const compatibilityRoute = routes.find((route) => route.path === 'tenant/select');
 
-    expect(appRoute?.component).toBe(ApplicationShellComponent);
+    expect(appRoute?.component).toBeUndefined();
+    expect(appRoute?.loadComponent).toBeDefined();
     expect(workspaceRoute?.loadComponent).toBeDefined();
     expect(compatibilityRoute?.redirectTo).toBe('app/workspaces');
     expect(compatibilityRoute?.canActivate).toBeUndefined();
@@ -28,6 +29,18 @@ describe('Application route contract', () => {
     expect(childPaths).toContain('procurement/purchase-orders');
     expect(childPaths).not.toContain('inventory/goods-receipts');
     expect(childPaths).not.toContain('finance/accounts-payable');
+  });
+
+  it('keeps the visible module navigation on routes that exist', () => {
+    const appRoute = routes.find((route) => route.path === 'app');
+    const routePaths = (appRoute?.children ?? []).map((route) => (route.path ?? '').split('/'));
+    const destinations = NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.path));
+    const matchesRoute = (path: string) => {
+      const segments = path.replace(/^\/app\/?/, '').split('/');
+      return routePaths.some((pattern) => pattern.length === segments.length && pattern.every((segment, index) => segment.startsWith(':') || segment === segments[index]));
+    };
+
+    expect(destinations.every(matchesRoute)).toBe(true);
   });
 
   it('exposes the bounded Sales quotation and order workspace without fulfillment routes', () => {

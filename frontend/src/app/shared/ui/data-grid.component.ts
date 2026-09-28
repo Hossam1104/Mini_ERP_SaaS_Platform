@@ -13,6 +13,8 @@ export interface DataGridColumn<T extends object> {
   secondaryText?: (row: T) => string;
   filter?: GridFilterType;
   filterOptions?: readonly { value: string; label: string }[];
+  badge?: boolean;
+  currencySymbol?: (row: T) => { url: string | null; text: string };
   width?: number;
   align?: 'start' | 'end';
 }
@@ -32,9 +34,9 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
       @if (loading) {
         <div class="data-grid-state data-grid-state--loading" role="status" aria-live="polite"><span class="grid-spinner" aria-hidden="true"></span>{{ loadingLabel }}</div>
       } @else if (rows().length === 0) {
-        <div class="data-grid-state" role="status"><span class="grid-empty-icon" aria-hidden="true">▤</span><strong>{{ emptyLabel }}</strong><span>{{ emptyHint }}</span></div>
+        <div class="data-grid-state" role="status"><svg class="icon grid-empty-icon" aria-hidden="true"><use href="#icon-receipt" /></svg><strong>{{ emptyLabel }}</strong><span>{{ emptyHint }}</span></div>
       } @else if (filteredRows().length === 0) {
-        <div class="data-grid-state" role="status"><span class="grid-empty-icon" aria-hidden="true">⌕</span><strong>{{ noMatchesLabel }}</strong><button class="grid-clear-all" type="button" (click)="clearAllFilters()">{{ clearFiltersLabel }}</button></div>
+        <div class="data-grid-state" role="status"><svg class="icon grid-empty-icon" aria-hidden="true"><use href="#icon-search" /></svg><strong>{{ noMatchesLabel }}</strong><button class="grid-clear-all" type="button" (click)="clearAllFilters()">{{ clearFiltersLabel }}</button></div>
       } @else {
         <div class="data-grid-scroll" tabindex="0" [attr.aria-label]="caption + ' table'">
           <table class="data-grid-table">
@@ -50,9 +52,9 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
                 @for (column of columns(); track column.key) {
                   <th scope="col" [attr.aria-sort]="ariaSort(column)" [class.numeric]="column.align === 'end'">
                     <div class="grid-heading">
-                      <button class="grid-sort" type="button" (click)="sortBy(column)" [attr.aria-label]="sortLabel(column)">{{ column.label }}<span class="sort-mark" aria-hidden="true">{{ sortMark(column) }}</span></button>
+                      <button class="grid-sort" type="button" (click)="sortBy(column)" [class.is-sorted]="sortKey() === column.key" [attr.aria-label]="sortLabel(column)">{{ column.label }}<svg class="icon sort-icon" [class.is-sorted]="sortKey() === column.key" aria-hidden="true"><use [attr.href]="'#icon-' + sortMark(column)" /></svg></button>
                       @if (column.filter) {
-                        <button class="grid-filter-button" type="button" [id]="filterTriggerId(column)" [class.is-filtered]="filterIsActive(column.key)" [attr.aria-label]="filterLabel(column)" aria-haspopup="dialog" [attr.aria-expanded]="filterColumn() === column.key" [attr.aria-controls]="filterColumn() === column.key ? filterPopoverId(column) : null" (click)="toggleFilter(column.key, $event)"><span aria-hidden="true">▽</span></button>
+                        <button class="grid-filter-button" type="button" [id]="filterTriggerId(column)" [class.is-filtered]="filterIsActive(column.key)" [attr.aria-label]="filterLabel(column)" aria-haspopup="dialog" [attr.aria-expanded]="filterColumn() === column.key" [attr.aria-controls]="filterColumn() === column.key ? filterPopoverId(column) : null" (click)="toggleFilter(column.key, $event)"><svg class="icon" aria-hidden="true"><use href="#icon-filter" /></svg></button>
                         @if (filterColumn() === column.key) {
                           <div class="grid-filter-popover" role="dialog" [attr.id]="filterPopoverId(column)" [attr.aria-label]="filterLabel(column)" [style.top.px]="filterPopoverPosition().top" [style.left.px]="filterPopoverPosition().left" (keydown.escape)="closeFilter(column.key, true)">
                             @if (column.filter === 'text') {
@@ -82,12 +84,20 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
                   <td class="selection-cell"><input type="checkbox" [checked]="isSelected(row)" [attr.aria-label]="selectRowLabel(row)" (change)="toggleRowSelection(row, $event)" /></td>
                   @for (column of columns(); track column.key) {
                     <td [class.numeric]="column.align === 'end'">
-                      @if (linkFor(column, row); as link) { <a class="grid-cell-link" [routerLink]="link">{{ cellText(column, row) }}</a> } @else { {{ cellText(column, row) }} }
+                      @if (column.badge) {
+                        <span [class]="'data-grid-badge ' + badgeClass(column.value(row))">{{ cellText(column, row) }}</span>
+                      } @else if (column.currencySymbol) {
+                        @let currencySymbol = column.currencySymbol(row);
+                        <span class="data-grid-money" [attr.dir]="language === 'ar' ? 'rtl' : 'ltr'">
+                          @if (currencySymbol.url) { <img [src]="currencySymbol.url" alt="" /> } @else { <span>{{ currencySymbol.text }}</span> }
+                          <span>{{ cellText(column, row) }}</span>
+                        </span>
+                      } @else if (linkFor(column, row); as link) { <a class="grid-cell-link" [routerLink]="link">{{ cellText(column, row) }}</a> } @else { {{ cellText(column, row) }} }
                       @if (secondaryTextFor(column, row); as detail) { <small class="grid-cell-detail">{{ detail }}</small> }
                     </td>
                   }
                   <td class="action-cell">
-                    <button class="grid-row-menu-trigger" type="button" [id]="rowMenuButtonId(row)" [attr.aria-label]="rowActionButtonLabel(row)" aria-haspopup="menu" [attr.aria-expanded]="actionRowId() === rowId(row)" (click)="toggleRowActions(row)">•••</button>
+                    <button class="grid-row-menu-trigger" type="button" [id]="rowMenuButtonId(row)" [attr.aria-label]="rowActionButtonLabel(row)" aria-haspopup="menu" [attr.aria-expanded]="actionRowId() === rowId(row)" (click)="toggleRowActions(row)"><svg class="icon" aria-hidden="true"><use href="#icon-ellipsis" /></svg></button>
                     @if (actionRowId() === rowId(row)) {
                       <div class="grid-row-menu" role="menu" [attr.aria-label]="rowActionsLabel" (keydown)="onRowMenuKeydown($event)">
                         @for (action of rowActions; track action.key) { <button type="button" role="menuitem" (click)="runRowAction(action.key, row)">{{ action.label }}</button> }
@@ -102,9 +112,9 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
         <footer class="data-grid-pager">
           <span class="pager-summary">{{ pagerSummaryLabel() }}</span>
           <div class="pager-controls">
-            <button type="button" class="pager-button" (click)="changePage(-1)" [disabled]="page() === 0" [attr.aria-label]="previousPageLabel">‹</button>
+            <button type="button" class="pager-button" (click)="changePage(-1)" [disabled]="page() === 0" [attr.aria-label]="previousPageLabel"><svg class="icon icon--chevron-left" aria-hidden="true"><use href="#icon-chevron-left" /></svg></button>
             <span>{{ page() + 1 }} / {{ pageCount() }}</span>
-            <button type="button" class="pager-button" (click)="changePage(1)" [disabled]="page() + 1 >= pageCount()" [attr.aria-label]="nextPageLabel">›</button>
+            <button type="button" class="pager-button" (click)="changePage(1)" [disabled]="page() + 1 >= pageCount()" [attr.aria-label]="nextPageLabel"><svg class="icon icon--chevron-right" aria-hidden="true"><use href="#icon-chevron-right" /></svg></button>
           </div>
           <span class="pager-size">{{ pageSize }} {{ perPageLabel }}</span>
         </footer>
@@ -113,60 +123,72 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
   `,
   styles: `
     :host { display: block; min-width: 0; }
-    .data-grid-card { min-width: 0; overflow: visible; border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line)); border-radius: var(--radius-card); background: var(--surface-raised); box-shadow: var(--shadow-card); }
+    .data-grid-card { min-width: 0; overflow: visible; border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line)); border-radius: var(--radius-card); background: linear-gradient(145deg, var(--surface-glass), var(--surface-raised)); box-shadow: var(--shadow-card); backdrop-filter: blur(12px) saturate(140%); }
     .data-grid-toolbar { display: flex; min-height: 56px; align-items: center; justify-content: space-between; gap: 1rem; border-block-end: 1px solid var(--line); padding: .65rem 1rem; }
     .data-grid-total { display: inline-flex; align-items: center; gap: .5rem; border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line)); border-radius: 999px; padding: .4rem .8rem; color: var(--accent-strong); background: var(--accent-soft); font-size: .9rem; white-space: nowrap; }
     .data-grid-total strong { color: var(--ink-strong); font-size: 1rem; }
     .data-grid-total__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
-    .data-grid-summary, .pager-summary, .pager-size { color: var(--ink-muted); font-size: .85rem; }
-    .data-grid-scroll { max-width: 100%; overflow: auto; overscroll-behavior-inline: contain; }
+    .data-grid-summary, .pager-summary, .pager-size { color: var(--ink-muted); font-size: 14px; }
+    .data-grid-scroll { max-width: 100%; max-height: min(66vh, 640px); overflow: auto; overscroll-behavior: contain; }
     .data-grid-table { width: 100%; min-width: max-content; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 14px; }
     .data-grid-table .selection-column { width: 44px; }
     .data-grid-table .action-column { width: 58px; }
     .data-grid-table th, .data-grid-table td { height: 52px; border-block-end: 1px solid var(--line); padding: .55rem .7rem; text-align: start; vertical-align: middle; }
-    .data-grid-table th { position: sticky; inset-block-start: 0; z-index: 5; color: var(--ink-muted); background: var(--grid-header); font-size: 13px; font-weight: 800; }
+    .data-grid-table th { position: sticky; inset-block-start: 0; z-index: 5; color: var(--ink-muted); background: var(--grid-header); font-size: 14px; font-weight: 800; }
     .data-grid-table td { color: var(--ink); white-space: nowrap; }
     .grid-cell-link { color: var(--accent); font-weight: 750; text-decoration: none; }
     .grid-cell-link:hover { text-decoration: underline; }
-    .grid-cell-detail { display: block; color: var(--ink-muted); font-size: .8rem; }
+    .grid-cell-detail { display: block; color: var(--ink-muted); font-size: 14px; }
+    .data-grid-badge { display: inline-flex; min-height: 28px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: .2rem .65rem; color: var(--ink-muted); background: var(--surface-tint); font-size: 14px; font-weight: 700; }
+    .data-grid-badge--draft, .data-grid-badge--pendingapproval, .data-grid-badge--returnedforchange { border-color: color-mix(in srgb, var(--support) 28%, var(--line)); color: var(--support); background: var(--support-soft); }
+    .data-grid-badge--approved, .data-grid-badge--issued { border-color: color-mix(in srgb, var(--success) 30%, var(--line)); color: var(--success); background: color-mix(in srgb, var(--success) 11%, var(--surface-raised)); }
+    .data-grid-badge--rejected, .data-grid-badge--cancelled { border-color: color-mix(in srgb, var(--danger) 28%, var(--line)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }
+    .data-grid-badge--partiallyconfirmed, .data-grid-badge--changedpendingapproval { border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); color: var(--accent-strong); background: var(--accent-soft); }
+    .data-grid-money { display: inline-flex; align-items: center; justify-content: flex-end; gap: .4rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .data-grid-money img { width: 20px; height: 20px; object-fit: contain; }
     .data-grid-table .numeric { text-align: end; font-variant-numeric: tabular-nums; }
     .data-grid-table tbody tr { transition: background-color var(--motion-fast) ease; }
+    .data-grid-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--accent-soft) 18%, var(--surface-raised)); }
     .data-grid-table tbody tr:hover, .data-grid-table tbody tr.is-selected { background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface-raised)); }
     .grid-heading { position: relative; display: flex; min-width: 0; align-items: center; gap: .2rem; padding-inline-end: .7rem; }
     .grid-sort { display: inline-flex; min-width: 0; align-items: center; gap: .3rem; border: 0; padding: .25rem 0; color: inherit; background: transparent; font: inherit; text-align: start; white-space: nowrap; }
     .grid-sort:hover { color: var(--accent); }
-    .sort-mark { color: var(--accent); font-size: .9rem; }
-    .grid-filter-button { display: inline-grid; width: 28px; height: 28px; place-items: center; flex: none; border: 1px solid transparent; border-radius: 8px; color: var(--ink-muted); background: transparent; font-size: .85rem; }
+    .grid-sort.is-sorted { color: var(--accent); }
+    .sort-icon { width: 16px; height: 16px; color: var(--ink-muted); }
+    .sort-icon.is-sorted { color: var(--accent); }
+    .grid-filter-button { display: inline-grid; width: 40px; height: 40px; place-items: center; flex: none; border: 1px solid transparent; border-radius: 10px; color: var(--ink-muted); background: transparent; font-size: 14px; }
+    .grid-filter-button .icon { width: 15px; height: 15px; }
     .grid-filter-button:hover, .grid-filter-button.is-filtered, .grid-filter-button[aria-expanded='true'] { border-color: color-mix(in srgb, var(--accent) 26%, var(--line)); color: var(--accent); background: var(--accent-soft); }
     .grid-filter-popover { position: fixed; z-index: 70; display: grid; width: min(260px, calc(100vw - 24px)); gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 14px; padding: .8rem; color: var(--ink); background: var(--surface-glass); box-shadow: var(--shadow-overlay); backdrop-filter: blur(18px) saturate(150%); }
-    .grid-filter-popover label, .grid-range-fields label { display: grid; min-width: 0; gap: .35rem; color: var(--ink-muted); font-size: .82rem; font-weight: 700; }
-    .grid-filter-popover input, .grid-filter-popover select { width: 100%; min-width: 0; min-height: 40px; }
+    .grid-filter-popover label, .grid-range-fields label { display: grid; min-width: 0; gap: .35rem; color: var(--ink-muted); font-size: 14px; font-weight: 700; }
+    .grid-filter-popover input, .grid-filter-popover select { width: 100%; min-width: 0; min-height: 44px; }
     .grid-range-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
-    .grid-filter-clear { justify-self: start; border: 0; padding: .25rem 0; color: var(--accent); background: transparent; font-size: .82rem; font-weight: 800; }
+    .grid-filter-clear { min-height: 40px; justify-self: start; border: 0; padding: .25rem 0; color: var(--accent); background: transparent; font-size: 14px; font-weight: 800; }
     .grid-resize-handle { position: absolute; z-index: 6; inset-block: -1rem; inset-inline-end: -3px; width: 8px; cursor: col-resize; touch-action: none; }
     .grid-resize-handle::after { position: absolute; inset-block: .95rem; inset-inline-start: 3px; width: 2px; border-radius: 2px; background: transparent; content: ''; }
-    .grid-resize-handle:hover::after, .grid-resize-handle:focus-visible::after { background: var(--accent); }
+    .grid-heading:hover .grid-resize-handle::after, .grid-resize-handle:focus-visible::after { background: var(--accent); }
     .selection-cell { width: 44px; text-align: center !important; }
     .selection-cell input { display: inline-grid; vertical-align: middle; }
     .action-cell { position: relative; width: 58px; text-align: center !important; }
-    .grid-row-menu-trigger { display: inline-grid; width: 36px; height: 36px; place-items: center; border: 1px solid var(--line); border-radius: 12px; color: var(--accent); background: var(--surface-raised); font-size: .85rem; font-weight: 900; letter-spacing: .04em; }
+    .grid-row-menu-trigger { display: inline-grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--line); border-radius: 12px; color: var(--accent); background: var(--surface-raised); }
+    .grid-row-menu-trigger .icon { width: 18px; height: 18px; }
     .grid-row-menu-trigger:hover, .grid-row-menu-trigger[aria-expanded='true'] { border-color: var(--accent); background: var(--accent-soft); }
     .grid-row-menu { position: absolute; z-index: 22; inset-block-start: calc(100% - .2rem); inset-inline-end: .5rem; display: grid; min-width: 138px; gap: .2rem; border: 1px solid var(--line); border-radius: 12px; padding: .35rem; background: var(--surface-glass); box-shadow: var(--shadow-overlay); backdrop-filter: blur(16px); }
-    .grid-row-menu button { border: 0; border-radius: 8px; padding: .55rem .65rem; color: var(--ink); background: transparent; font-size: .86rem; text-align: start; }
+    .grid-row-menu button { min-height: 40px; border: 0; border-radius: 8px; padding: .55rem .65rem; color: var(--ink); background: transparent; font-size: 14px; text-align: start; }
     .grid-row-menu button:hover, .grid-row-menu button:focus-visible { color: var(--accent); background: var(--accent-soft); }
     .data-grid-pager { display: flex; min-height: 60px; align-items: center; justify-content: space-between; gap: 1rem; padding: .55rem 1rem; }
-    .pager-controls { display: inline-flex; align-items: center; gap: .65rem; color: var(--ink); font-size: .86rem; font-weight: 700; }
-    .pager-button { display: inline-grid; width: 38px; height: 38px; place-items: center; border: 1px solid var(--line); border-radius: 12px; color: var(--accent); background: var(--surface-raised); font-size: 1.1rem; }
+    .pager-controls { display: inline-flex; align-items: center; gap: .65rem; color: var(--ink); font-size: 14px; font-weight: 700; }
+    .pager-button { display: inline-grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--line); border-radius: 12px; color: var(--accent); background: var(--surface-raised); }
     .pager-button:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
     .pager-button:disabled { color: var(--ink-muted); cursor: not-allowed; opacity: .48; }
     .data-grid-state { display: grid; min-height: 230px; place-content: center; justify-items: center; gap: .6rem; padding: 2rem; color: var(--ink-muted); text-align: center; }
     .data-grid-state strong { color: var(--ink-strong); font-size: 1.05rem; }
-    .grid-empty-icon { color: var(--accent); font-size: 1.8rem; }
-    .grid-clear-all { border: 1px solid var(--line-strong); border-radius: 999px; padding: .45rem .8rem; color: var(--accent); background: var(--surface-raised); font-weight: 700; }
+    .grid-empty-icon { width: 30px; height: 30px; color: var(--accent); }
+    .grid-clear-all { min-height: 40px; border: 1px solid var(--line-strong); border-radius: 999px; padding: .45rem .8rem; color: var(--accent); background: var(--surface-raised); font-size: 14px; font-weight: 700; }
     .grid-spinner { width: 26px; height: 26px; border: 3px solid var(--line); border-inline-start-color: var(--accent); border-radius: 50%; animation: grid-spin .8s linear infinite; }
     @keyframes grid-spin { to { transform: rotate(360deg); } }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-    @media (max-width: 620px) { .data-grid-table { min-width: 840px; } .data-grid-scroll { border-radius: var(--radius-md); } .data-grid-toolbar { align-items: flex-start; flex-direction: column; gap: .4rem; padding: .7rem; } .data-grid-pager { min-height: 0; flex-wrap: wrap; justify-content: center; padding: .7rem; } .pager-summary { flex-basis: 100%; text-align: center; } .pager-size { display: none; } }
+    @media (max-width: 620px) { .data-grid-table { min-width: 840px; } .data-grid-scroll { max-height: 64vh; border-radius: var(--radius-md); } .data-grid-toolbar { align-items: flex-start; flex-direction: column; gap: .4rem; padding: .7rem; } .data-grid-pager { min-height: 0; flex-wrap: wrap; justify-content: center; padding: .7rem; } .pager-summary { flex-basis: 100%; text-align: center; } .pager-size { display: none; } }
     @media (prefers-reduced-motion: reduce) { .grid-spinner { animation: none; } }
   `,
 })
@@ -233,7 +255,12 @@ export class DataGridComponent<T extends object> {
   }
 
   sortMark(column: DataGridColumn<T>): string {
-    return this.sortKey() !== column.key ? '↕' : this.sortDirection() === 'asc' ? '↑' : '↓';
+    return this.sortKey() !== column.key ? 'arrow-up-down' : this.sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down';
+  }
+
+  badgeClass(value: string | number | null): string {
+    const tone = String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    return tone ? `data-grid-badge--${tone}` : 'data-grid-badge--neutral';
   }
 
   sortLabel(column: DataGridColumn<T>): string {

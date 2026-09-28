@@ -6,6 +6,7 @@ import { LanguageService } from '../../core/i18n/language.service';
 import { ThemeName, ThemeService } from '../../core/presentation/theme.service';
 import { BrandMarkComponent } from '../../shared/ui/brand-mark.component';
 import { OperationalContextSwitcherComponent } from '../../shared/ui/operational-context-switcher.component';
+import { NAVIGATION_GROUPS, NavigationItem } from './navigation.config';
 
 @Component({
   selector: 'app-application-shell',
@@ -15,79 +16,24 @@ import { OperationalContextSwitcherComponent } from '../../shared/ui/operational
     <a class="skip-link" href="#main-content">{{ language.text('skipToContent') }}</a>
     <div class="shell" [class.shell--sidebar-expanded]="sidebarExpanded()">
       <aside id="app-sidebar" class="sidebar" [class.sidebar--expanded]="sidebarExpanded()" [class.sidebar--mobile-open]="mobileMenuOpen()" [attr.aria-label]="language.text('menu')">
-        <a class="sidebar__brand" routerLink="/app" [attr.aria-label]="brandName()" (click)="closeMobileMenu()">
-          @if (tenantLogoUrl()) {
-            <img class="brand-mark brand-mark--tenant" [src]="tenantLogoUrl()" [alt]="context.entry()?.branding?.logoAltText || brandName()" />
-          } @else {
-            <app-brand-mark class="brand-mark" variant="icon" [theme]="theme.darkMode() ? 'dark' : 'light'" />
-          }
-          <span class="sidebar__brand-copy"><strong>{{ brandName() }}</strong><small>{{ language.text('appKicker') }}</small></span>
-        </a>
-
         <nav class="sidebar__nav" [attr.aria-label]="language.text('menu')">
           @if (!context.entry() || (context.entry()?.entryMode !== 'PlatformAdminHost' && context.entry()?.entryMode !== 'NoAccess')) {
             <section class="nav-group" [attr.aria-label]="label('Overview', 'نظرة عامة')">
-              <a class="nav-link" routerLink="/app" routerLinkActive="is-active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }" [attr.aria-label]="language.text('overview')" [title]="language.text('overview')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-label">{{ language.text('overview') }}</span>
+              <span class="nav-group__title">{{ label('Overview', 'نظرة عامة') }}</span>
+              <a class="nav-link" routerLink="/app" routerLinkActive="is-active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }" [attr.aria-label]="language.text('overview')" [title]="sidebarExpanded() ? null : language.text('overview')" (click)="closeMobileMenu()">
+                <span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#icon-home" /></svg></span><span class="nav-label">{{ language.text('overview') }}</span>
               </a>
             </section>
-            <section class="nav-group" [attr.aria-label]="label('Master data', 'البيانات الرئيسية')">
-              <span class="nav-group__title">{{ language.text('masterData') }}</span>
-              <a class="nav-link" routerLink="/app/master-data/categories" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('masterData')" [title]="language.text('masterData')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">◇</span><span class="nav-label">{{ language.text('masterData') }}</span>
-              </a>
-              <a class="nav-link" routerLink="/app/price-lists" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('priceLists')" [title]="language.text('priceLists')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">＄</span><span class="nav-label">{{ language.text('priceLists') }}</span>
-              </a>
-              <a class="nav-link" routerLink="/app/master-data/imports" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('importNavLabel')" [title]="language.text('importNavLabel')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">⇧</span><span class="nav-label">{{ language.text('importNavLabel') }}</span>
-              </a>
-            </section>
-            <section class="nav-group" [attr.aria-label]="label('Procurement', 'المشتريات')">
-              <span class="nav-group__title">{{ label('Procurement', 'المشتريات') }}</span>
-              <a class="nav-link" routerLink="/app/procurement/purchase-requests" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('purchaseRequestsNavLabel')" [title]="language.text('purchaseRequestsNavLabel')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">↗</span><span class="nav-label">{{ language.text('purchaseRequestsNavLabel') }}</span>
-              </a>
-              <a class="nav-link" routerLink="/app/procurement/supplier-quotations" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('supplierQuotationsNavLabel')" [title]="language.text('supplierQuotationsNavLabel')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">◈</span><span class="nav-label">{{ language.text('supplierQuotationsNavLabel') }}</span>
-              </a>
-              <a class="nav-link" routerLink="/app/procurement/purchase-orders" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('purchaseOrdersNavLabel')" [title]="language.text('purchaseOrdersNavLabel')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">▣</span><span class="nav-label">{{ language.text('purchaseOrdersNavLabel') }}</span>
-              </a>
-              <a class="nav-link" routerLink="/app/procurement/goods-receipts" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('goodsReceiptsNavLabel')" [title]="language.text('goodsReceiptsNavLabel')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">▤</span><span class="nav-label">{{ language.text('goodsReceiptsNavLabel') }}</span>
-              </a>
-              <a class="nav-link" routerLink="/app/procurement/supplier-returns" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('supplierReturnsNavLabel')" [title]="language.text('supplierReturnsNavLabel')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">↶</span><span class="nav-label">{{ language.text('supplierReturnsNavLabel') }}</span>
-              </a>
-              <a class="nav-link" routerLink="/app/procurement/invoice-handoffs" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('invoiceHandoffsNavLabel')" [title]="language.text('invoiceHandoffsNavLabel')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">⇥</span><span class="nav-label">{{ language.text('invoiceHandoffsNavLabel') }}</span>
-              </a>
-              <a class="nav-link" routerLink="/app/procurement/invoice-matching" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('invoiceMatchingNavLabel')" [title]="language.text('invoiceMatchingNavLabel')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">⇄</span><span class="nav-label">{{ language.text('invoiceMatchingNavLabel') }}</span>
-              </a>
-            </section>
-            <section class="nav-group" [attr.aria-label]="label('Operations', 'العمليات')">
-              <span class="nav-group__title">{{ label('Operations', 'العمليات') }}</span>
-              <a class="nav-link" routerLink="/app/inventory" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('inventoryNavLabel')" [title]="language.text('inventoryNavLabel')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">▦</span><span class="nav-label">{{ language.text('inventoryNavLabel') }}</span>
-              </a>
-              <a class="nav-link" routerLink="/app/inventory/valuation" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="label('Inventory valuation', 'تقييم المخزون')" [title]="label('Inventory valuation', 'تقييم المخزون')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">◷</span><span class="nav-label">{{ label('Inventory valuation', 'تقييم المخزون') }}</span>
-              </a>
-            </section>
-            <section class="nav-group" [attr.aria-label]="label('Finance and sales', 'المالية والمبيعات')">
-              <span class="nav-group__title">{{ label('Finance and sales', 'المالية والمبيعات') }}</span>
-              <a class="nav-link" routerLink="/app/finance" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="label('Finance', 'المالية')" [title]="label('Finance', 'المالية')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">ƒ</span><span class="nav-label">{{ label('Finance', 'المالية') }}</span>
-              </a>
-              <a class="nav-link" routerLink="/app/sales/quotations" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="language.text('salesNavLabel')" [title]="language.text('salesNavLabel')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">↗</span><span class="nav-label">{{ language.text('salesNavLabel') }}</span>
-              </a>
-              <a class="nav-link" routerLink="/app/reporting" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="label('Reporting', 'التقارير')" [title]="label('Reporting', 'التقارير')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true">☷</span><span class="nav-label">{{ label('Reporting', 'التقارير') }}</span>
-              </a>
-            </section>
+            @for (group of navigationGroups; track group.id) {
+              <section class="nav-group" [attr.aria-label]="navigationLabel(group)">
+                <span class="nav-group__title">{{ navigationLabel(group) }}</span>
+                @for (item of group.items; track item.path) {
+                  <a class="nav-link" [routerLink]="item.path" routerLinkActive="is-active" ariaCurrentWhenActive="page" [attr.aria-label]="navigationLabel(item)" [title]="sidebarExpanded() ? null : navigationLabel(item)" (click)="closeMobileMenu()">
+                    <span class="nav-icon" aria-hidden="true"><svg class="icon"><use [attr.href]="'#icon-' + item.icon" /></svg></span><span class="nav-label">{{ navigationLabel(item) }}</span>
+                  </a>
+                }
+              </section>
+            }
           }
         </nav>
 
@@ -102,17 +48,21 @@ import { OperationalContextSwitcherComponent } from '../../shared/ui/operational
       <div class="shell__body">
         <header class="topbar">
           <div class="topbar__start">
-            <button class="icon-button sidebar-toggle desktop-toggle" type="button" (click)="toggleSidebar()" [attr.aria-label]="sidebarExpanded() ? label('Collapse navigation', 'طي القائمة') : label('Expand navigation', 'توسيع القائمة')" [attr.aria-expanded]="sidebarExpanded()" aria-controls="app-sidebar">☰</button>
-            <button class="icon-button sidebar-toggle mobile-toggle" type="button" (click)="toggleMobileMenu()" [attr.aria-label]="mobileMenuOpen() ? label('Close navigation', 'إغلاق القائمة') : label('Open navigation', 'فتح القائمة')" [attr.aria-expanded]="mobileMenuOpen()" aria-controls="app-sidebar">☰</button>
-            <a class="topbar__brand" routerLink="/app" [attr.aria-label]="brandName()">
+            <button class="icon-button sidebar-toggle desktop-toggle" type="button" (click)="toggleSidebar()" [attr.aria-label]="sidebarExpanded() ? label('Collapse navigation', 'طي القائمة') : label('Expand navigation', 'توسيع القائمة')" [attr.aria-expanded]="sidebarExpanded()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
+            <button class="icon-button sidebar-toggle mobile-toggle" type="button" (click)="toggleMobileMenu()" [attr.aria-label]="mobileMenuOpen() ? label('Close navigation', 'إغلاق القائمة') : label('Open navigation', 'فتح القائمة')" [attr.aria-expanded]="mobileMenuOpen()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
+            <a class="topbar__brand" [class.topbar__brand--light-backplate]="theme.darkMode() && !context.entry()?.branding?.logoDarkUrl" routerLink="/app" [attr.aria-label]="brandName()">
               @if (tenantLogoUrl()) {
                 <img class="topbar__tenant-logo" [src]="tenantLogoUrl()" [alt]="context.entry()?.branding?.logoAltText || brandName()" />
               } @else {
-                <app-brand-mark class="topbar__mesp-logo" variant="logo" [theme]="theme.darkMode() ? 'dark' : 'light'" alt="MESP" />
+                <app-brand-mark class="topbar__mesp-logo" variant="logo" theme="light" alt="MESP" />
               }
             </a>
             <nav class="breadcrumbs" [attr.aria-label]="label('Breadcrumb', 'مسار التنقل')">
-              <a routerLink="/app">{{ language.text('overview') }}</a><span aria-hidden="true">›</span><span aria-current="page">{{ currentPage() }}</span>
+              @if (currentPage() === language.text('overview')) {
+                <span aria-current="page">{{ currentPage() }}</span>
+              } @else {
+                <a routerLink="/app">{{ language.text('overview') }}</a><svg class="icon icon--chevron-right" aria-hidden="true"><use href="#icon-chevron-right" /></svg><span aria-current="page">{{ currentPage() }}</span>
+              }
             </nav>
           </div>
 
@@ -122,30 +72,30 @@ import { OperationalContextSwitcherComponent } from '../../shared/ui/operational
             <a class="context-management-link" routerLink="/app/workspaces">{{ language.text('manageContexts') }}</a>
             <div class="theme-control">
               <button #themeTrigger id="theme-trigger" class="theme-trigger" type="button" (click)="toggleThemeMenu()" aria-haspopup="menu" [attr.aria-controls]="themeMenuOpen() ? 'theme-menu' : null" [attr.aria-expanded]="themeMenuOpen()">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 0 17h1.1a2.2 2.2 0 0 0 1.4-3.9 1.2 1.2 0 0 1 .8-2.1h1.2A4 4 0 0 0 20.5 10c0-3.6-3.8-6.5-8.5-6.5Z"/><circle cx="7.8" cy="10" r="1"/><circle cx="11" cy="7.2" r="1"/><circle cx="15" cy="8" r="1"/></svg>
-                <span>{{ label('Themes', 'المظاهر') }}</span><span class="chevron" aria-hidden="true">⌄</span>
+                <svg class="icon" aria-hidden="true"><use href="#icon-palette" /></svg>
+                <span>{{ label('Themes', 'المظاهر') }}</span><svg class="icon chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
               </button>
               @if (themeMenuOpen()) {
                 <div #themeMenu id="theme-menu" class="theme-menu" role="menu" [attr.aria-label]="label('Choose a theme', 'اختر مظهراً')" (keydown)="onThemeMenuKeydown($event)">
                   @for (option of theme.options; track option.id) {
                     <button class="theme-option" type="button" role="menuitemradio" [attr.aria-checked]="theme.selectedTheme() === option.id" [attr.tabindex]="themeMenuFocus() === option.id ? 0 : -1" (click)="selectTheme(option.id)">
                       <span class="theme-swatch" [style.backgroundColor]="option.color" aria-hidden="true"></span><span class="theme-option__label">{{ option.label }}</span>
-                      @if (theme.selectedTheme() === option.id) { <span class="theme-check" aria-hidden="true">✓</span> }
+                      @if (theme.selectedTheme() === option.id) { <svg class="icon theme-check" aria-hidden="true"><use href="#icon-check" /></svg> }
                     </button>
                   }
                 </div>
               }
             </div>
             <button class="icon-button scheme-toggle" type="button" (click)="theme.toggleDarkMode()" [attr.aria-label]="theme.darkMode() ? label('Switch to light mode', 'التبديل إلى الوضع الفاتح') : label('Switch to dark mode', 'التبديل إلى الوضع الداكن')" [attr.aria-pressed]="theme.darkMode()" [title]="theme.darkMode() ? label('Light mode', 'الوضع الفاتح') : label('Dark mode', 'الوضع الداكن')">
-              <span aria-hidden="true">{{ theme.darkMode() ? '☼' : '◐' }}</span>
+              <svg class="icon" aria-hidden="true"><use [attr.href]="theme.darkMode() ? '#icon-sun' : '#icon-moon'" /></svg>
             </button>
-            <button class="icon-button notification-button" type="button" [attr.aria-label]="label('Notifications', 'الإشعارات')" [title]="label('Notifications', 'الإشعارات')"><span aria-hidden="true">♧</span></button>
+            <button class="icon-button notification-button" type="button" [attr.aria-label]="label('Notifications', 'الإشعارات')" [title]="label('Notifications', 'الإشعارات')"><svg class="icon" aria-hidden="true"><use href="#icon-bell" /></svg></button>
             <button class="language-button" type="button" (click)="language.toggle()" [attr.aria-label]="language.language() === 'en' ? 'Language: switch to Arabic' : 'اللغة: التبديل إلى الإنجليزية'">
-              <span class="language-button__globe" aria-hidden="true">文</span><span>{{ language.language() === 'en' ? 'EN' : 'عربي' }}</span>
+              <svg class="icon language-button__globe" aria-hidden="true"><use href="#icon-globe" /></svg><span>{{ language.language() === 'en' ? 'EN' : 'عربي' }}</span>
             </button>
             <a class="context-management-link context-management-link--mobile" routerLink="/app/workspaces">{{ language.text('manageContexts') }}</a>
             <div class="user-pill">
-              <span class="user-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12a4.3 4.3 0 1 0 0-8.6 4.3 4.3 0 0 0 0 8.6Zm0 2c-4.5 0-7.8 2.3-7.8 5.4v1.2h15.6v-1.2c0-3.1-3.3-5.4-7.8-5.4Z"/></svg></span>
+              <span class="user-avatar" aria-hidden="true"><svg class="icon"><use href="#icon-user" /></svg></span>
               <span class="user-pill__label">{{ label('Account', 'الحساب') }}</span>
               <button class="sign-out" type="button" (click)="signOut()" [disabled]="auth.signingOut()" [attr.aria-describedby]="auth.signOutFailed() ? 'sign-out-feedback' : null">{{ auth.signingOut() ? language.text('signingOut') : language.text('signOut') }}</button>
             </div>
@@ -166,49 +116,44 @@ import { OperationalContextSwitcherComponent } from '../../shared/ui/operational
     :host { display: block; min-height: 100dvh; }
     .skip-link { position: fixed; z-index: 90; inset-block-start: .75rem; inset-inline-start: .75rem; transform: translateY(-200%); border-radius: var(--radius-control); padding: .7rem .9rem; color: var(--action-text); background: var(--accent-action); font-weight: 700; }
     .skip-link:focus { transform: translateY(0); }
-    .shell { min-height: 100dvh; background: var(--canvas); }
+    .shell { min-height: 100dvh; background: transparent; }
     .sidebar { position: fixed; z-index: 38; inset-block-start: var(--header-height); inset-inline-start: 0; inset-block-end: 0; display: flex; width: var(--sidebar-collapsed); flex-direction: column; gap: .8rem; overflow-x: hidden; overflow-y: auto; padding: 1rem .55rem; border-inline-end: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line)); background: var(--surface-glass); box-shadow: var(--shadow-glass); backdrop-filter: blur(18px) saturate(145%); transition: width var(--motion-slow) ease, padding var(--motion-slow) ease; }
     .sidebar--expanded { width: var(--sidebar-expanded); padding-inline: .85rem; }
-    .sidebar__brand { display: flex; min-height: 3.5rem; align-items: center; justify-content: flex-start; gap: .7rem; padding: .2rem .25rem .6rem; color: var(--ink); text-decoration: none; }
-    .brand-mark { display: block; width: 2.5rem; height: 2.5rem; flex: none; }
-    .brand-mark--tenant { width: 2.7rem; height: 2.7rem; object-fit: contain; }
-    .sidebar__brand-copy { display: none; min-width: 0; }
-    .sidebar__brand-copy strong, .sidebar__brand-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sidebar__brand-copy strong { color: var(--ink); font: 800 1rem/1.15 var(--font-display); }
-    .sidebar__brand-copy small { margin-block-start: .2rem; color: var(--ink-muted); font-size: .78rem; }
-    .sidebar--expanded .sidebar__brand-copy, .sidebar--mobile-open .sidebar__brand-copy { display: block; }
     .sidebar__nav { display: grid; align-content: start; gap: .5rem; }
     .nav-group { display: grid; gap: .22rem; }
-    .nav-group__title { display: none; padding: .6rem .75rem .2rem; color: var(--ink-muted); font-size: .76rem; font-weight: 800; letter-spacing: .05em; }
+    .nav-group__title { display: none; padding: .6rem .75rem .2rem; color: var(--ink-muted); font-size: 13px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .sidebar--expanded .nav-group__title, .sidebar--mobile-open .nav-group__title { display: block; }
     .nav-link { position: relative; display: flex; min-height: 2.9rem; align-items: center; justify-content: center; gap: .75rem; border: 1px solid transparent; border-radius: 14px; padding: .5rem; color: var(--ink-muted); font-size: .92rem; font-weight: 700; text-decoration: none; transition: color var(--motion-fast) ease, background var(--motion-fast) ease, border-color var(--motion-fast) ease, transform var(--motion-fast) ease; }
     .nav-link:hover { border-color: color-mix(in srgb, var(--accent) 18%, var(--line)); color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
     .nav-link.is-active { border-color: color-mix(in srgb, var(--accent) 20%, var(--line)); color: var(--accent-strong); background: var(--accent-soft); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 10%, transparent); }
     .nav-link.is-active::before { position: absolute; inset-block: .45rem; inset-inline-start: 0; width: 3px; border-radius: 3px; background: var(--accent-action); content: ''; }
-    .nav-icon { display: inline-grid; width: 2rem; height: 2rem; place-items: center; flex: none; border-radius: 11px; color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 80%, transparent); font-size: 1.15rem; }
+    .nav-icon { display: inline-grid; width: 2rem; height: 2rem; place-items: center; flex: none; border-radius: 11px; color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 80%, transparent); }
+    .nav-icon .icon { width: 18px; height: 18px; }
     .nav-label { display: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sidebar--expanded .nav-link, .sidebar--mobile-open .nav-link { justify-content: flex-start; padding-inline: .55rem .75rem; }
     .sidebar--expanded .nav-label, .sidebar--mobile-open .nav-label { display: block; }
     .sidebar__footer { display: grid; gap: .55rem; margin-block-start: auto; border-block-start: 1px solid var(--line); padding: .8rem .25rem .1rem; text-align: center; }
-    .sidebar__help { display: none; color: var(--ink-muted); font-size: .78rem; }
+    .sidebar__help { display: none; color: var(--ink-muted); font-size: 14px; }
     .sidebar--expanded .sidebar__help, .sidebar--mobile-open .sidebar__help { display: block; }
-    .release-chip { display: inline-flex; justify-content: center; border: 1px solid var(--line); border-radius: 99px; padding: .25rem .4rem; color: var(--ink-muted); font-size: .66rem; font-weight: 700; }
-    .sidebar--expanded .release-chip { padding: .3rem .5rem; }
+    .release-chip { display: none; justify-content: center; border: 1px solid var(--line); border-radius: 99px; padding: .25rem .4rem; color: var(--ink-muted); font-size: 14px; font-weight: 700; }
+    .sidebar--expanded .release-chip { display: inline-flex; padding: .3rem .5rem; }
     .shell__body { min-width: 0; min-height: 100dvh; margin-inline-start: var(--sidebar-collapsed); padding-block-start: var(--header-height); transition: margin-inline-start var(--motion-slow) ease; }
     .shell--sidebar-expanded .shell__body { margin-inline-start: var(--sidebar-expanded); }
     .topbar { position: fixed; z-index: 50; inset-block-start: 0; inset-inline: 0; display: flex; min-height: var(--header-height); align-items: center; justify-content: space-between; gap: .8rem; border-block-end: 1px solid color-mix(in srgb, var(--accent) 14%, var(--line)); padding-inline: clamp(.75rem, 1.7vw, 1.5rem); color: var(--ink); background: var(--surface-glass); box-shadow: var(--shadow-glass); backdrop-filter: blur(20px) saturate(155%); }
     .topbar__start, .topbar__actions { display: flex; min-width: 0; align-items: center; gap: .65rem; }
-    .topbar__brand { display: flex; width: 5.8rem; align-items: center; justify-content: center; flex: none; }
-    .topbar__mesp-logo { display: block; width: 5.4rem; max-height: 2.8rem; }
-    .topbar__tenant-logo { display: block; max-width: 6rem; max-height: 2.8rem; object-fit: contain; }
-    .breadcrumbs { display: flex; min-width: 0; align-items: center; gap: .5rem; color: var(--ink-muted); font-size: .86rem; white-space: nowrap; }
+    .topbar__brand { display: flex; width: 5.8rem; min-height: 2.75rem; align-items: center; justify-content: center; flex: none; border-radius: 10px; }
+    .topbar__brand--light-backplate { border: 1px solid #fff; padding: .18rem .35rem; background: #fff; box-shadow: 0 2px 8px rgb(0 0 0 / 12%); }
+    .topbar__mesp-logo { display: block; width: 5.1rem; }
+    .topbar__tenant-logo { display: block; width: auto; max-width: 5.1rem; max-height: 2.45rem; object-fit: contain; }
+    .breadcrumbs { display: flex; min-width: 0; align-items: center; gap: .5rem; color: var(--ink-muted); font-size: 14px; white-space: nowrap; }
+    .breadcrumbs .icon { width: 14px; height: 14px; }
     .breadcrumbs a { color: var(--ink-muted); text-decoration: none; }
     .breadcrumbs a:hover, .breadcrumbs [aria-current='page'] { color: var(--accent); }
     .topbar__actions { justify-content: flex-end; gap: .5rem; }
     .tenant-context { display: grid; max-width: 14rem; gap: .05rem; }
-    .tenant-context .eyebrow { color: var(--ink-muted); font-size: .68rem; font-weight: 700; }
-    .tenant-context strong { overflow: hidden; color: var(--ink); font-size: .87rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
-    .context-management-link { color: var(--ink-muted); font-size: .82rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+    .tenant-context .eyebrow { color: var(--ink-muted); font-size: 13px; font-weight: 700; }
+    .tenant-context strong { overflow: hidden; color: var(--ink); font-size: 14px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+    .context-management-link { color: var(--ink-muted); font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap; }
     .context-management-link:hover { color: var(--accent); }
     .context-management-link--mobile { display: none; }
     .icon-button, .language-button, .theme-trigger { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: .5rem; border: 1px solid var(--line); border-radius: 14px; padding: .45rem .7rem; color: var(--accent); background: var(--surface-raised); box-shadow: 0 3px 9px rgb(15 26 48 / 6%); font: 700 .9rem/1.1 var(--font-sans); transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease, background var(--motion-fast) ease; }
@@ -217,22 +162,21 @@ import { OperationalContextSwitcherComponent } from '../../shared/ui/operational
     .icon-button:hover, .language-button:hover, .theme-trigger:hover { border-color: var(--accent); box-shadow: 0 6px 14px color-mix(in srgb, var(--accent) 14%, transparent); transform: translateY(-1px); }
     .theme-control { position: relative; }
     .theme-trigger { border-radius: 999px; padding-inline: .85rem; }
-    .theme-trigger svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-    .theme-trigger svg circle { fill: currentColor; stroke: none; }
-    .chevron { color: var(--ink-muted); font-size: 1rem; }
+    .theme-trigger .icon { width: 18px; height: 18px; }
+    .chevron { width: 15px !important; height: 15px !important; color: var(--ink-muted); }
     .theme-menu { position: absolute; z-index: 80; inset-block-start: calc(100% + .65rem); inset-inline-end: 0; display: grid; width: 264px; gap: .25rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 18px; padding: .55rem; background: var(--surface-glass); box-shadow: var(--shadow-overlay); backdrop-filter: blur(22px) saturate(160%); animation: menu-enter 150ms ease both; }
-    .theme-option { display: flex; min-height: 42px; align-items: center; gap: .75rem; border: 1px solid transparent; border-radius: 12px; padding: .45rem .6rem; color: var(--ink); background: transparent; text-align: start; font: 700 .9rem/1.2 var(--font-sans); }
+    .theme-option { display: flex; min-height: 42px; align-items: center; gap: .75rem; border: 1px solid transparent; border-radius: 12px; padding: .45rem .6rem; color: var(--ink); background: transparent; text-align: start; font: 600 14px/1.2 var(--font-sans); }
     .theme-option:hover, .theme-option:focus-visible { border-color: color-mix(in srgb, var(--accent) 20%, var(--line)); background: var(--accent-soft); }
     .theme-swatch { width: 15px; height: 15px; flex: none; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; box-shadow: 0 2px 6px rgb(0 0 0 / 16%); }
     .theme-option__label { flex: 1; }
-    .theme-check { color: var(--accent); font-size: 1.1rem; }
+    .theme-check { width: 18px; height: 18px; color: var(--accent); }
     .language-button { border-radius: 999px; color: var(--ink); }
-    .language-button__globe { color: var(--accent); font-size: 1rem; }
+    .language-button__globe { width: 18px; height: 18px; color: var(--accent); }
     .user-pill { display: inline-flex; min-height: 42px; align-items: center; gap: .45rem; border: 1px solid var(--line); border-radius: 999px; padding: .22rem .45rem; background: var(--surface-raised); box-shadow: 0 3px 10px rgb(15 26 48 / 5%); }
     .user-avatar { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: var(--action-text); background: var(--accent-action); font-size: .8rem; font-weight: 800; }
     .user-avatar svg { width: 16px; height: 16px; fill: currentColor; }
-    .user-pill__label { color: var(--ink); font-size: .78rem; font-weight: 700; }
-    .sign-out { border: 0; border-inline-start: 1px solid var(--line); padding-inline-start: .55rem; color: var(--ink-muted); background: transparent; font: 700 .8rem/1 var(--font-sans); }
+    .user-pill__label { color: var(--ink); font-size: 14px; font-weight: 700; }
+    .sign-out { border: 0; border-inline-start: 1px solid var(--line); padding-inline-start: .55rem; color: var(--ink-muted); background: transparent; font: 600 14px/1 var(--font-sans); }
     .sign-out:hover { color: var(--accent); }
     .sign-out:disabled { color: var(--ink-muted); cursor: wait; opacity: .65; }
     .mobile-nav-backdrop { display: none; }
@@ -246,18 +190,14 @@ import { OperationalContextSwitcherComponent } from '../../shared/ui/operational
       .topbar { min-height: var(--header-height); align-items: stretch; flex-direction: column; justify-content: center; gap: .25rem; padding-block: .45rem; }
       .topbar__start { min-height: 42px; justify-content: space-between; }
       .topbar__actions { min-height: 42px; justify-content: space-between; gap: .35rem; }
-      .topbar__brand { width: 4.4rem; }
-      .topbar__mesp-logo { width: 4rem; }
+      .topbar__brand { width: 4.8rem; }
+      .topbar__mesp-logo { width: 4.3rem; }
       .breadcrumbs { margin-inline-start: auto; font-size: .8rem; }
       .desktop-toggle { display: none; }
       .icon-button.mobile-toggle { display: inline-flex; }
       .sidebar { display: none; }
       .sidebar--mobile-open { position: fixed; z-index: 70; inset-block-start: var(--header-height); inset-inline-start: 0; inset-block-end: 0; display: flex; width: min(var(--sidebar-expanded), 88vw); padding-inline: .85rem; }
-      .sidebar--mobile-open .sidebar__brand { position: relative; isolation: isolate; overflow: hidden; min-height: 4.1rem; border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line)); border-radius: var(--radius-md); padding: .4rem .5rem; background: linear-gradient(115deg, color-mix(in srgb, var(--accent-soft) 72%, var(--surface-glass)), var(--surface-glass)); box-shadow: var(--shadow-soft); }
-      .sidebar--mobile-open .sidebar__brand::before { position: absolute; z-index: 0; inset-block-start: 0; inset-inline: 0; height: 100%; background: linear-gradient(110deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 76%); content: ''; pointer-events: none; }
-      .sidebar--mobile-open .sidebar__brand::after { position: absolute; z-index: 1; inset-block-start: 2.8rem; inset-inline: -5%; height: 1.5rem; border-radius: 50% 50% 0 0 / 58% 58% 0 0; background: color-mix(in srgb, var(--accent) 9%, transparent); content: ''; pointer-events: none; }
-      .sidebar--mobile-open .sidebar__brand > * { position: relative; z-index: 2; }
-      .sidebar--mobile-open .sidebar__brand-copy, .sidebar--mobile-open .nav-group__title, .sidebar--mobile-open .nav-label, .sidebar--mobile-open .sidebar__help { display: block; }
+      .sidebar--mobile-open .nav-group__title, .sidebar--mobile-open .nav-label, .sidebar--mobile-open .sidebar__help { display: block; }
       .sidebar--mobile-open .nav-link { justify-content: flex-start; padding-inline: .55rem .75rem; }
       .mobile-nav-backdrop { position: fixed; z-index: 60; inset-block-start: var(--header-height); inset-inline: 0; inset-block-end: 0; display: block; border: 0; background: rgb(9 15 26 / 38%); backdrop-filter: blur(4px); }
       .shell__body, .shell--sidebar-expanded .shell__body { margin-inline: 0; }
@@ -271,8 +211,8 @@ import { OperationalContextSwitcherComponent } from '../../shared/ui/operational
     }
     @media (max-width: 420px) {
       .topbar__actions { gap: .25rem; }
-      .icon-button, .language-button, .theme-trigger { min-height: 38px; }
-      .icon-button { width: 38px; }
+      .icon-button, .language-button, .theme-trigger { min-height: 40px; }
+      .icon-button { width: 40px; }
       .language-button { padding-inline: .45rem; }
       .theme-trigger { gap: .3rem; }
       .context-management-link--mobile { display: none; }
@@ -288,6 +228,7 @@ export class ApplicationShellComponent implements OnInit {
   readonly language = inject(LanguageService);
   readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
+  readonly navigationGroups = NAVIGATION_GROUPS;
 
   readonly sidebarExpanded = signal(false);
   readonly mobileMenuOpen = signal(false);
@@ -376,23 +317,18 @@ export class ApplicationShellComponent implements OnInit {
     return this.language.language() === 'ar' ? arabic : english;
   }
 
+  navigationLabel(item: Pick<NavigationItem, 'labelEn' | 'labelAr'> | { labelEn: string; labelAr: string }): string {
+    return this.label(item.labelEn, item.labelAr);
+  }
+
   currentPage(): string {
     const url = this.router.url.split(/[?#]/)[0] ?? '/app';
     if (url === '/app' || url === '/app/') return this.language.text('overview');
-    if (url.includes('/master-data')) return this.language.text('masterData');
-    if (url.includes('/price-lists')) return this.language.text('priceLists');
-    if (url.includes('/procurement/purchase-requests')) return this.language.text('purchaseRequestsNavLabel');
-    if (url.includes('/procurement/supplier-quotations')) return this.language.text('supplierQuotationsNavLabel');
-    if (url.includes('/procurement/purchase-orders')) return this.language.text('purchaseOrdersNavLabel');
-    if (url.includes('/procurement/goods-receipts')) return this.language.text('goodsReceiptsNavLabel');
-    if (url.includes('/procurement/supplier-returns')) return this.language.text('supplierReturnsNavLabel');
-    if (url.includes('/procurement/invoice-handoffs')) return this.language.text('invoiceHandoffsNavLabel');
-    if (url.includes('/procurement/invoice-matching')) return this.language.text('invoiceMatchingNavLabel');
-    if (url.includes('/inventory/valuation')) return this.label('Inventory valuation', 'تقييم المخزون');
-    if (url.includes('/inventory')) return this.language.text('inventoryNavLabel');
-    if (url.includes('/finance')) return this.label('Finance', 'المالية');
-    if (url.includes('/sales')) return this.language.text('salesNavLabel');
-    if (url.includes('/reporting')) return this.label('Reporting', 'التقارير');
+    for (const group of NAVIGATION_GROUPS) {
+      for (const item of group.items as readonly NavigationItem[]) {
+        if (url === item.path || url.startsWith(`${item.path}/`)) return this.navigationLabel(item);
+      }
+    }
     if (url.includes('/workspaces')) return this.language.text('manageContexts');
     return this.language.text('overview');
   }

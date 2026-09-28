@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { SafeUiError, toSafeUiError } from '../../core/api/safe-error';
 import { LanguageService } from '../../core/i18n/language.service';
+import { CurrencyPresentationService } from '../../core/presentation/currency-presentation.service';
 import { DataGridAction, DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import {
   PurchaseOrderConfirmationRequest,
@@ -59,9 +60,9 @@ interface ConfirmationLineDraft {
             <h1>{{ poText('purchaseOrders') }}</h1>
             <p class="lede">{{ poText('purchaseOrdersLead') }}</p>
           </div>
-          <a class="button button--primary" routerLink="/app/procurement/purchase-orders/new" data-testid="new-purchase-order">＋ {{ poText('newPurchaseOrder') }}</a>
+          <a class="button button--primary" routerLink="/app/procurement/purchase-orders/new" data-testid="new-purchase-order"><svg class="icon" aria-hidden="true"><use href="#icon-plus" /></svg>{{ poText('newPurchaseOrder') }}</a>
         </header>
-        <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ poText('purchaseOrderBoundary') }}</span></div>
+        <div class="boundary-note" role="note"><svg class="icon" aria-hidden="true"><use href="#icon-info" /></svg><span>{{ poText('purchaseOrderBoundary') }}</span></div>
 
         @if (loading()) {
           <section class="ui-surface state-card" aria-live="polite"><span class="spinner" aria-hidden="true"></span><h2>{{ poText('loadingPurchaseOrders') }}</h2></section>
@@ -70,7 +71,7 @@ interface ConfirmationLineDraft {
         } @else {
           <section class="ui-surface ledger-panel">
             <div class="filter-toolbar">
-              <label class="filter-search"><span aria-hidden="true">⌕</span><input type="search" [value]="search()" (input)="search.set($any($event.target).value)" [placeholder]="poText('purchaseOrderSearch')" /><span class="sr-only">{{ poText('purchaseOrderSearch') }}</span></label>
+              <label class="filter-search"><svg class="icon" aria-hidden="true"><use href="#icon-search" /></svg><input type="search" [value]="search()" (input)="search.set($any($event.target).value)" [placeholder]="poText('purchaseOrderSearch')" [attr.aria-label]="poText('purchaseOrderSearch')" /></label>
               <label class="filter-field"><span>{{ poText('purchaseOrderStatusFilter') }}</span><select [value]="statusFilter()" (change)="setStatusFilter($any($event.target).value)"><option value="">{{ poText('purchaseOrderAllStatuses') }}</option>@for (status of statuses; track status) {<option [value]="status">{{ statusLabel(status) }}</option>}</select></label>
               <p class="filter-note">{{ poText('purchaseOrderFilterNote') }}</p>
             </div>
@@ -107,7 +108,7 @@ interface ConfirmationLineDraft {
     @if (mode() === 'create') {
       <section class="ui-page purchase-order-page" data-testid="purchase-order-create">
         <header class="ui-page-header ui-page-header--compact page-header"><div><p class="eyebrow">{{ poText('purchaseOrderKicker') }}</p><h1>{{ poText('createPurchaseOrder') }}</h1><p class="lede">{{ poText('purchaseOrderCreateLead') }}</p></div><a class="button button--secondary" routerLink="/app/procurement/purchase-orders">{{ poText('backToPurchaseOrders') }}</a></header>
-        <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ poText('purchaseOrderSourceRule') }}</span></div>
+        <div class="boundary-note" role="note"><svg class="icon" aria-hidden="true"><use href="#icon-info" /></svg><span>{{ poText('purchaseOrderSourceRule') }}</span></div>
         @if (loading()) { <section class="ui-surface state-card"><span class="spinner" aria-hidden="true"></span><h2>{{ poText('loadingPurchaseOrderSources') }}</h2></section> }
         @else if (error(); as currentError) { <section class="ui-surface state-card state-card--error" role="alert"><strong>{{ poText('purchaseOrderSourceLoadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadSources()">{{ language.text('retry') }}</button></section> }
         @else {
@@ -165,39 +166,41 @@ interface ConfirmationLineDraft {
     :host { display: block; }
     .page-header { align-items: center; }
     .page-header .lede { max-width: 54rem; margin-bottom: 0; line-height: 1.55; }
-    .button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.4rem; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .82rem; color: var(--ink); background: var(--surface-raised); font-size: .74rem; font-weight: 800; text-decoration: none; cursor: pointer; }
+    .button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 42px; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .9rem; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)); box-shadow: var(--shadow-soft), inset 0 1px var(--control-gloss); font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer; transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease, filter var(--motion-fast) ease; }
     .button:hover:not(:disabled) { transform: translateY(-1px); }
     .button:disabled { cursor: wait; opacity: .55; }
-    .button--primary { border-color: var(--accent-strong); color: var(--ink-strong); background: var(--accent); }
+    .button--primary { border-color: var(--accent-strong); color: var(--action-text); background: linear-gradient(180deg, color-mix(in srgb, var(--accent-action) 88%, white), var(--accent-action)); }
     .button--secondary { border-color: var(--line-strong); }
     .button--quiet { border-color: transparent; color: var(--ink-muted); background: transparent; }
     .button--danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }
-    .boundary-note { display: flex; align-items: flex-start; gap: .6rem; border-inline-start: 3px solid var(--support); padding: .72rem .9rem; color: var(--ink-muted); background: var(--support-soft); font-size: .76rem; line-height: 1.5; }
-    .boundary-note > span:first-child { color: var(--support); font-size: 1rem; }
+    .boundary-note { display: flex; align-items: flex-start; gap: .65rem; border-inline-start: 3px solid var(--support); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: .72rem .9rem; color: var(--ink-muted); background: linear-gradient(120deg, var(--support-soft), color-mix(in srgb, var(--surface-glass) 62%, var(--support-soft))); box-shadow: var(--shadow-soft); font-size: 14px; line-height: 1.5; }
+    .boundary-note > .icon { width: 19px; height: 19px; flex: none; color: var(--support); }
     .state-card { display: grid; justify-items: start; align-content: center; gap: .55rem; min-height: 12rem; }
     .state-card h2, .state-card p { margin: 0; }
-    .state-card p, .detail-copy, .empty-inline { color: var(--ink-muted); font-size: .8rem; line-height: 1.5; }
+    .state-card p, .detail-copy, .empty-inline { color: var(--ink-muted); font-size: 14px; line-height: 1.55; }
     .state-card--error, .inline-error { border-color: color-mix(in srgb, var(--danger) 32%, var(--line)); }
-    .inline-error { margin-block: .9rem; border: 1px solid; border-radius: var(--radius-sm); padding: .65rem .8rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); font-size: .78rem; }
+    .inline-error { margin-block: .9rem; border: 1px solid; border-radius: var(--radius-sm); padding: .65rem .8rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); font-size: 14px; }
     .spinner { width: 2rem; height: 2rem; border: 3px solid var(--line); border-top-color: var(--accent-strong); border-radius: 50%; animation: po-spin 1s linear infinite; }
     @keyframes po-spin { to { transform: rotate(360deg); } }
     .ledger-panel { padding: 0; overflow: hidden; }
-    .filter-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: .7rem; padding: .85rem 1rem; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface-raised)); }
-    .filter-search { display: flex; align-items: center; gap: .4rem; min-width: min(100%, 18rem); flex: 1 1 16rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding-inline: .6rem; background: var(--surface-raised); color: var(--ink-muted); }
-    .filter-search input { width: 100%; min-height: 2.25rem; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: .76rem; }
-    .filter-field { display: grid; gap: .25rem; min-width: 12rem; color: var(--ink-muted); font-size: .64rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
-    .filter-field select { min-height: 2.4rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: .4rem .5rem; color: var(--ink); background: var(--surface-raised); font-size: .75rem; text-transform: none; letter-spacing: normal; }
-    .filter-note { flex: 1 1 100%; margin: 0; color: var(--ink-muted); font-size: .66rem; }
+    .filter-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: .7rem; padding: .85rem 1rem; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface-glass)); }
+    .filter-search { position: relative; display: block; min-height: 44px; min-width: min(100%, 18rem); flex: 1 1 16rem; color: var(--accent); }
+    .filter-search .icon { position: absolute; z-index: 1; inset-block-start: 50%; inset-inline-start: .8rem; width: 18px; height: 18px; pointer-events: none; transform: translateY(-50%); }
+    .filter-search input { display: block; width: 100%; height: 44px; min-height: 44px !important; border: 1px solid var(--line-strong) !important; border-radius: var(--radius-control) !important; padding-block: 0 !important; padding-inline: 2.7rem .75rem !important; outline: 0 !important; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)) !important; box-shadow: var(--shadow-soft), inset 0 1px var(--control-gloss) !important; font-size: 14px; }
+    .filter-search input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent), 0 5px 14px color-mix(in srgb, var(--accent) 12%, transparent), inset 0 1px var(--control-gloss) !important; animation: control-focus-ring 190ms ease-out; }
+    .filter-field { display: grid; gap: .3rem; min-width: 12rem; color: var(--ink-muted); font-size: 14px; font-weight: 700; }
+    .filter-field select { min-height: 44px; border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding: .45rem .65rem; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)); box-shadow: inset 0 1px var(--control-gloss), var(--shadow-soft); font-size: 14px; }
+    .filter-note { flex: 1 1 100%; margin: 0; color: var(--ink-muted); font-size: 14px; }
     .purchase-order-grid-shell { border: 0; border-radius: 0; }
     .purchase-order-grid { min-width: 58rem; }
     .purchase-order-grid th, .purchase-order-grid td { padding: .68rem .6rem; }
-    .purchase-order-grid td small, .detail-grid td small { display: block; margin-top: .16rem; color: var(--ink-muted); font-size: .66rem; }
+    .purchase-order-grid td small, .detail-grid td small { display: block; margin-top: .16rem; color: var(--ink-muted); font-size: 14px; }
     .record-link { color: var(--ink); font-weight: 900; text-decoration: none; }
     .record-link:hover { color: var(--accent-strong); text-decoration: underline; }
-    .currency-badge, .change-pill { display: inline-flex; border: 1px solid color-mix(in srgb, var(--accent-strong) 28%, var(--line)); border-radius: 99px; padding: .24rem .45rem; color: var(--accent-strong); background: var(--accent-soft); font-size: .63rem; font-weight: 900; }
-    .status-badge { display: inline-flex; align-items: center; gap: .35rem; border: 1px solid var(--line); border-radius: 99px; padding: .28rem .5rem; color: var(--ink-muted); background: var(--surface); font-size: .63rem; font-weight: 900; white-space: nowrap; }
+    .currency-badge, .change-pill { display: inline-flex; border: 1px solid color-mix(in srgb, var(--accent-strong) 28%, var(--line)); border-radius: 99px; padding: .24rem .45rem; color: var(--accent-strong); background: var(--accent-soft); font-size: 14px; font-weight: 700; }
+    .status-badge { display: inline-flex; min-height: 32px; align-items: center; gap: .4rem; border: 1px solid var(--line); border-radius: 99px; padding: .28rem .65rem; color: var(--ink-muted); background: var(--surface); font-size: 14px; font-weight: 700; white-space: nowrap; }
     .status-badge > span { width: .4rem; height: .4rem; border-radius: 50%; background: currentColor; }
-    .status-badge--hero { align-self: center; padding: .45rem .7rem; font-size: .74rem; }
+    .status-badge--hero { align-self: center; padding: .45rem .7rem; font-size: 15px; }
     .status-badge--draft, .status-badge--returned { color: var(--support); background: var(--support-soft); }
     .status-badge--pending, .status-badge--changed { color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, var(--surface-raised)); }
     .status-badge--approved, .status-badge--issued, .status-badge--confirmed { color: var(--success); background: var(--accent-soft); }
@@ -211,28 +214,28 @@ interface ConfirmationLineDraft {
     .empty-ledger h2, .empty-ledger p { margin: 0; }
     .empty-ledger p { max-width: 34rem; }
     .form-card, .detail-card { display: grid; gap: 1rem; }
-    .field { display: grid; gap: .35rem; color: var(--ink); font-size: .78rem; }
-    .field__label { color: var(--ink-muted); font-size: .68rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
-    .field input, .field select, .field textarea, .table-input { width: 100%; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: .55rem .6rem; color: var(--ink); background: var(--surface-raised); font: inherit; }
+    .field { display: grid; gap: .5rem; color: var(--ink); font-size: 14px; }
+    .field__label { color: var(--ink-muted); font-size: 14px; font-weight: 700; }
+    .field input, .field select, .field textarea, .table-input { width: 100%; min-height: 44px; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding: .55rem .7rem; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)); box-shadow: inset 0 1px var(--control-gloss), var(--shadow-soft); font: 14px/1.4 var(--font-sans); }
     .field textarea { resize: vertical; }
     .form-actions, .action-rail, .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
     .form-actions { justify-content: flex-end; }
     .action-rail { margin-block: .9rem 1rem; }
     .source-summary { display: grid; gap: 1rem; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 1rem; background: var(--surface); }
     .source-summary h2, .source-summary p { margin: 0; }
-    .section-kicker, .eyebrow { color: var(--ink-muted); font-size: .66rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+    .section-kicker, .eyebrow { color: var(--ink-muted); font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
     .section-kicker { margin: 0; }
     .fact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .8rem; margin: 0; }
     .fact-grid div { display: grid; gap: .2rem; }
-    .fact-grid dt, .fact-grid span { color: var(--ink-muted); font-size: .66rem; font-weight: 800; }
-    .fact-grid dd { margin: 0; color: var(--ink); font-size: .78rem; font-weight: 800; overflow-wrap: anywhere; }
+    .fact-grid dt, .fact-grid span { color: var(--ink-muted); font-size: 14px; font-weight: 700; }
+    .fact-grid dd { margin: 0; color: var(--ink); font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
     .detail-tabs { display: flex; gap: .3rem; overflow-x: auto; margin-block: 0 1rem; border-bottom: 1px solid var(--line); }
-    .detail-tabs button { border: 0; border-bottom: 2px solid transparent; padding: .65rem .8rem; color: var(--ink-muted); background: transparent; font: 800 .72rem var(--font-sans); cursor: pointer; white-space: nowrap; }
+    .detail-tabs button { min-height: 42px; border: 0; border-bottom: 2px solid transparent; padding: .65rem .8rem; color: var(--ink-muted); background: transparent; font: 600 14px/1.3 var(--font-sans); cursor: pointer; white-space: nowrap; }
     .detail-tabs button.is-active { border-color: var(--accent-strong); color: var(--ink-strong); }
     .ui-grid-shell { overflow-x: auto; }
     .compact-grid, .detail-grid { min-width: 44rem; }
     .compact-grid th, .compact-grid td, .detail-grid th, .detail-grid td { padding: .65rem .55rem; }
-    .table-input { min-width: 7rem; padding: .42rem .45rem; font-size: .72rem; }
+    .table-input { min-width: 7rem; min-height: 44px; padding: .42rem .55rem; font-size: 14px; }
     .remaining-alert { color: var(--warning); font-weight: 900; }
     .confirmation-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(16rem, .8fr); gap: 1rem; }
     .confirmation-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
@@ -240,13 +243,13 @@ interface ConfirmationLineDraft {
     .timeline, .audit-list { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
     .timeline li, .audit-list article { border-inline-start: 3px solid var(--accent); padding: .65rem .8rem; background: var(--surface); }
     .timeline strong, .timeline small, .timeline p, .audit-list strong, .audit-list small, .audit-list p { display: block; margin: 0; }
-    .timeline small, .audit-list small { margin-top: .25rem; color: var(--ink-muted); font-size: .68rem; }
-    .timeline p, .audit-list p { margin-top: .42rem; color: var(--ink-muted); font-size: .75rem; line-height: 1.45; }
+    .timeline small, .audit-list small { margin-top: .25rem; color: var(--ink-muted); font-size: 14px; }
+    .timeline p, .audit-list p { margin-top: .42rem; color: var(--ink-muted); font-size: 14px; line-height: 1.5; }
     .audit-list code { display: block; margin-top: .45rem; color: var(--ink-muted); font-size: .64rem; overflow-wrap: anywhere; }
     .dialog-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgb(15 30 28 / .55); }
     .action-dialog { display: grid; gap: .8rem; width: min(100%, 32rem); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 1.2rem; background: var(--surface-raised); box-shadow: 0 1rem 3rem rgb(0 0 0 / .22); }
     .action-dialog h2, .action-dialog p { margin: 0; }
-    .action-dialog > p:not(.section-kicker) { color: var(--ink-muted); font-size: .8rem; line-height: 1.5; }
+    .action-dialog > p:not(.section-kicker) { color: var(--ink-muted); font-size: 14px; line-height: 1.55; }
     .dialog-actions { justify-content: flex-end; }
     code { font-family: var(--font-mono); font-size: .66rem; }
     @media (max-width: 900px) { .confirmation-layout { grid-template-columns: 1fr; } }
@@ -255,6 +258,7 @@ interface ConfirmationLineDraft {
 })
 export class PurchaseOrderWorkspaceComponent implements OnInit {
   readonly language = inject(LanguageService);
+  private readonly currencyPresentation = inject(CurrencyPresentationService);
   private readonly service = inject(PurchaseOrderService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -360,9 +364,9 @@ export class PurchaseOrderWorkspaceComponent implements OnInit {
     return [
       { key: 'supplierQuotationReference', label: this.poText('purchaseOrderReferenceColumn'), value: (record) => record.supplierQuotationReference, link: (record) => `/app/procurement/purchase-orders/${record.id}`, secondaryText: (record) => `${record.lineCount} ${this.poText('purchaseOrderLines')}`, filter: 'text', width: 208 },
       { key: 'supplierName', label: this.poText('purchaseOrderSupplierColumn'), value: (record) => record.supplierName, display: (record) => `${record.supplierName} · ${record.supplierCode}`, filter: 'text', width: 208 },
-      { key: 'status', label: this.poText('purchaseOrderStatusColumn'), value: (record) => record.status, display: (record) => this.statusLabel(record.status), filter: 'select', filterOptions: this.statuses.map((status) => ({ value: status, label: this.statusLabel(status) })), width: 166 },
+      { key: 'status', label: this.poText('purchaseOrderStatusColumn'), value: (record) => record.status, display: (record) => this.statusLabel(record.status), filter: 'select', filterOptions: this.statuses.map((status) => ({ value: status, label: this.statusLabel(status) })), badge: true, width: 166 },
       { key: 'currencyCode', label: this.poText('purchaseOrderCurrencyColumn'), value: (record) => record.currencyCode, filter: 'select', width: 112 },
-      { key: 'total', label: this.poText('purchaseOrderTotalColumn'), value: (record) => record.total, display: (record) => this.formatMoney(record.total, record.currencyCode), filter: 'number-range', align: 'end', width: 168 },
+      { key: 'total', label: this.poText('purchaseOrderTotalColumn'), value: (record) => record.total, display: (record) => this.formatAmount(record.total), currencySymbol: (record) => ({ url: this.currencyPresentation.symbolAssetUrl(record.currencyCode), text: this.currencyPresentation.symbolText(record.currencyCode) }), filter: 'number-range', align: 'end', width: 168 },
       { key: 'updatedAt', label: this.poText('purchaseOrderUpdatedColumn'), value: (record) => record.updatedAt.slice(0, 10), display: (record) => this.formatDateTime(record.updatedAt), filter: 'date-range', width: 190 },
     ];
   }
@@ -507,6 +511,7 @@ export class PurchaseOrderWorkspaceComponent implements OnInit {
   formatDate(value: string): string { return new Intl.DateTimeFormat(this.language.language(), { dateStyle: 'medium' }).format(new Date(value)); }
   formatDateTime(value: string): string { return new Intl.DateTimeFormat(this.language.language(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); }
   formatQuantity(value: number): string { return new Intl.NumberFormat(this.language.language(), { maximumFractionDigits: 6 }).format(value); }
+  private formatAmount(value: number): string { return new Intl.NumberFormat(this.language.language(), { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(value); }
   formatMoney(value: number, currency: string): string {
     const language = this.language.language();
     const safeCurrency = (currency || '').trim();
