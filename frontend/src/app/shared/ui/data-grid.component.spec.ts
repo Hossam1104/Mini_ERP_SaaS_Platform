@@ -12,7 +12,7 @@ describe('DataGridComponent', () => {
   ];
   const columns: DataGridColumn<Row>[] = [
     { key: 'name', label: 'Supplier', value: (row) => row.name, filter: 'text' },
-    { key: 'total', label: 'Total', value: (row) => row.total, display: (row) => row.total.toFixed(2), currencySymbol: (row) => ({ url: null, text: row.currencyCode }), align: 'end', filter: 'number-range' },
+    { key: 'total', label: 'Total', value: (row) => row.total, display: (row) => row.total.toFixed(2), currencySymbol: (row) => ({ url: row.currencyCode === 'SAR' ? '/assets/Saudi_Riyal.svg' : null, text: row.currencyCode }), align: 'end', filter: 'number-range' },
     { key: 'status', label: 'Status', value: (row) => row.status, badge: true, filter: 'select' },
   ];
 
@@ -36,7 +36,10 @@ describe('DataGridComponent', () => {
   it('renders semantic status pills, currency labels, and SVG grid controls', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('.data-grid-badge--approved')?.textContent).toContain('Approved');
-    expect(element.querySelector('.data-grid-money')?.textContent).toContain('SAR');
+    expect(element.querySelector('[role=\"img\"][aria-label=\"SAR\"]')?.getAttribute('style')).toContain('Saudi_Riyal.svg');
+    expect(element.querySelector('[data-row-id="po-2"] .data-grid-money')?.textContent).toContain('250.00');
+    expect(element.querySelector('[data-row-id=\"po-1\"] .data-grid-money')?.textContent).toContain('USD');
+    expect(element.querySelector('[data-row-id=\"po-1\"] .currency-symbol-asset')).toBeNull();
     expect(element.querySelector('.sort-icon use')?.getAttribute('href')).toBe('#icon-arrow-up-down');
     expect(element.querySelector('.grid-filter-button use')?.getAttribute('href')).toBe('#icon-filter');
   });

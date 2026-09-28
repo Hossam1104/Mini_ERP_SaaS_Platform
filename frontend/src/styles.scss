@@ -238,3 +238,6 @@ body app-root :is(.ui-grid, .data-grid-table, .return-table) :is(th, td, small) 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
+
+.currency-amount { unicode-bidi: isolate; }
+.currency-symbol-asset { display: inline-block; flex: 0 0 auto; width: .9em; height: 1em; background-color: currentColor; vertical-align: -.12em; -webkit-mask: var(--currency-symbol-url) center / contain no-repeat; mask: var(--currency-symbol-url) center / contain no-repeat; }

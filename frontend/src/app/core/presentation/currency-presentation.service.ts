@@ -20,9 +20,24 @@ export class CurrencyPresentationService {
   }
 
   formatMoney(amount: number, currencyCode: string, locale = 'en-SA'): string {
+    return this.formatMoneyParts(amount, currencyCode, locale)
+      .map((part) => part.value)
+      .join('');
+  }
+
+  formatMoneyParts(
+    amount: number,
+    currencyCode: string,
+    locale = 'en-SA',
+    numberOptions: Pick<Intl.NumberFormatOptions, 'minimumFractionDigits' | 'maximumFractionDigits'> = {},
+  ): Intl.NumberFormatPart[] {
     const code = currencyCode.trim().toUpperCase();
     if (!Number.isFinite(amount)) {
-      return `${amount} ${this.symbolText(code)}`;
+      return [
+        { type: 'integer', value: String(amount) },
+        { type: 'literal', value: ' ' },
+        { type: 'currency', value: this.symbolText(code) },
+      ];
     }
 
     // Intl currency formatting is deliberately limited to the ISO-shaped
@@ -34,7 +49,8 @@ export class CurrencyPresentationService {
           style: 'currency',
           currency: code,
           currencyDisplay: 'code',
-        }).format(amount);
+          ...numberOptions,
+        }).formatToParts(amount);
       } catch {
         // Fall through to the semantic text fallback below.
       }
@@ -43,8 +59,13 @@ export class CurrencyPresentationService {
     const decimal = new Intl.NumberFormat(locale, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount);
-    return `${decimal} ${this.symbolText(code)}`;
+      ...numberOptions,
+    }).formatToParts(amount);
+    return [
+      ...decimal,
+      { type: 'literal', value: ' ' },
+      { type: 'currency', value: this.symbolText(code) },
+    ];
   }
 
   private presentationFor(currencyCode: string) {

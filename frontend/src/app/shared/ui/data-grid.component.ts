@@ -74,7 +74,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
                       } @else if (column.currencySymbol) {
                         @let currencySymbol = column.currencySymbol(row);
                         <span class="data-grid-money" [attr.dir]="language === 'ar' ? 'rtl' : 'ltr'">
-                          @if (currencySymbol.url) { <img [src]="currencySymbol.url" alt="" /> } @else { <span>{{ currencySymbol.text }}</span> }
+                          @if (currencySymbol.url) { <span class="currency-symbol-asset" role="img" [attr.aria-label]="currencySymbol.text" [style.--currency-symbol-url]="'url(' + currencySymbol.url + ')'"></span> } @else { <span>{{ currencySymbol.text }}</span> }
                           <span>{{ cellText(column, row) }}</span>
                         </span>
                       } @else if (linkFor(column, row); as link) { <a class="grid-cell-link" [routerLink]="link">{{ cellText(column, row) }}</a> } @else { {{ cellText(column, row) }} }
@@ -145,7 +145,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
     .data-grid-badge--rejected, .data-grid-badge--cancelled { border-color: color-mix(in srgb, var(--danger) 28%, var(--line)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }
     .data-grid-badge--partiallyconfirmed, .data-grid-badge--changedpendingapproval { border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); color: var(--accent-strong); background: var(--accent-soft); }
     .data-grid-money { display: inline-flex; align-items: center; justify-content: flex-end; gap: .4rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .data-grid-money img { width: 20px; height: 20px; object-fit: contain; }
+    .data-grid-money .currency-symbol-asset { width: 20px; height: 20px; }
     .data-grid-table .numeric { text-align: end; font-variant-numeric: tabular-nums; }
     .data-grid-table th.numeric .grid-heading { justify-content: flex-end; }
     .data-grid-table th.numeric .grid-sort { justify-content: flex-end; text-align: end; }
