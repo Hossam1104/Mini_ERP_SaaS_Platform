@@ -123,10 +123,12 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         var audit = new CapturingAuditSink();
         var resolver = new MutableScopeResolver(TenantWorkScopeRequest.TenantWide());
         var objectId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var content = Package(
             objectId,
             new { SourceSequence = 1, SourceRecordId = "source-product-1", RecordType = "Product", Payload = new { Sku = "UNIQUE-1", NameEnglish = "Product 1" } },
-            new { SourceSequence = 2, SourceRecordId = "source-product-1", RecordType = "Product", Payload = new { Sku = "UNIQUE-2", NameEnglish = "Product 2" } });
+            new { SourceSequence = 2, SourceRecordId = "source-product-1", RecordType = "Product", Payload = new { Sku = "UNIQUE-2", NameEnglish = "Product 2" } },
+            new { SourceSequence = 3, SourceRecordId = "source-product-1", RecordType = "Organization", Payload = new { CompanyId = companyId } });
         var storage = Storage(tenant, objectId, content);
         var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
         Assert.True(intake.Succeeded, intake.Code);
@@ -139,7 +141,10 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.NotNull(summary);
         Assert.Equal(2, summary!.RejectedCount);
         Assert.Equal(2, summary.Records.Sum(item => item.FindingCodes.Count(code => code == "migration_duplicate_source_identity")));
-        Assert.All(summary.Records, item => Assert.Contains("migration_duplicate_source_identity", item.FindingCodes));
+        Assert.All(summary.Records.Where(item => item.RecordType == MigrationCanonicalRecordType.Product), item => Assert.Contains("migration_duplicate_source_identity", item.FindingCodes));
+        var organization = Assert.Single(summary.Records, item => item.RecordType == MigrationCanonicalRecordType.Organization);
+        Assert.Equal(MigrationRecordDisposition.Accepted, organization.Disposition);
+        Assert.DoesNotContain("migration_duplicate_source_identity", organization.FindingCodes);
     }
 
     [Fact]
