@@ -101,6 +101,7 @@ public sealed class MigrationArOpeningSqlServerSafetyTests(SqlServerSafetyFixtur
             sourceProfileVersion = "1",
             logicalDataset = "opening",
             sourceSnapshot = new { objectId, sha256 = sourceHash, length = 1, concurrencyVersion = 1 },
+            domainContracts = MigrationDomainContractTestData.For(MigrationCanonicalRecordType.ArOpening),
             records = new[]
             {
                 new

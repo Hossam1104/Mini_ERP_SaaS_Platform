@@ -834,9 +834,16 @@ internal sealed partial class FinanceSettlementPersistence(
         if (term is null || term.LifecycleState != MasterDataLifecycleState.Active) return (false, "payment_term_not_configured", null);
         var version = term.Versions.Where(item => item.EffectiveFrom <= documentDate && (item.EffectiveTo is null || item.EffectiveTo >= documentDate)).OrderByDescending(item => item.VersionNumber).FirstOrDefault();
         if (version is null || version.BaseDateRule != PaymentTermBaseDateRule.DocumentDate) return (false, "payment_term_not_configured", null);
-        var calculatedDue = version.ScheduleMode == PaymentTermScheduleMode.SingleDueDate
-            ? AddOffset(documentDate, version.DueOffset)
-            : version.Installments.OrderBy(item => item.Sequence).Select(item => AddOffset(documentDate, item.Offset)).LastOrDefault(documentDate);
+        var calculatedDue = PaymentTermDueDateCalculator.CalculateFinalDueDate(
+            documentDate,
+            version.ScheduleMode,
+            version.DueOffset.Days,
+            version.DueOffset.Months,
+            version.Installments.Select(item => new PaymentTermInstallmentResponse(
+                item.Sequence,
+                item.Percentage,
+                item.Offset.Days,
+                item.Offset.Months)).ToArray());
         if (dueDate is { } providedDue && providedDue != calculatedDue) return (false, "payment_term_snapshot_mismatch", null);
         return (true, "eligible", (calculatedDue, new FinancePaymentTermSnapshotRecord(term.Id, version.Code, version.Name.English, version.Name.Arabic, version.VersionNumber, version.Id, documentDate, calculatedDue)));
     }
@@ -1292,9 +1299,16 @@ internal sealed partial class FinanceSettlementPersistence(
             _ => (DateOnly?)null
         };
         if (baseDate is null) return (false, "payment_term_not_configured", null);
-        var due = version.ScheduleMode == PaymentTermScheduleMode.SingleDueDate
-            ? AddOffset(baseDate.Value, version.DueOffset)
-            : version.Installments.OrderBy(item => item.Sequence).Select(item => AddOffset(baseDate.Value, item.Offset)).LastOrDefault(baseDate.Value);
+        var due = PaymentTermDueDateCalculator.CalculateFinalDueDate(
+            baseDate.Value,
+            version.ScheduleMode,
+            version.DueOffset.Days,
+            version.DueOffset.Months,
+            version.Installments.Select(item => new PaymentTermInstallmentResponse(
+                item.Sequence,
+                item.Percentage,
+                item.Offset.Days,
+                item.Offset.Months)).ToArray());
         if (dueDate is { } explicitDue && explicitDue != due) return (false, "payment_term_snapshot_mismatch", null);
         var snapshot = new FinancePaymentTermSnapshotRecord(term.Id, version.Code, version.Name.English, version.Name.Arabic, version.VersionNumber, version.Id, documentDate, due);
         return (true, "eligible", (due, snapshot));
@@ -1437,7 +1451,6 @@ internal sealed partial class FinanceSettlementPersistence(
     private static bool SameAmount(decimal left, decimal right) => Math.Abs(left - right) <= 0.00000001m;
     private static string ContractFor(FinancePaymentMethodDirection direction) => direction == FinancePaymentMethodDirection.Payment ? "supplier-payment.v1" : "customer-receipt.v1";
     private static bool AllowedDocumentTransition(FinanceSettlementDocumentStatus from, FinanceSettlementDocumentStatus to) => (from, to) switch { (FinanceSettlementDocumentStatus.Draft, FinanceSettlementDocumentStatus.Submitted or FinanceSettlementDocumentStatus.Cancelled) => true, (FinanceSettlementDocumentStatus.Submitted, FinanceSettlementDocumentStatus.Approved or FinanceSettlementDocumentStatus.Rejected or FinanceSettlementDocumentStatus.Cancelled) => true, (FinanceSettlementDocumentStatus.Approved, FinanceSettlementDocumentStatus.Cancelled) => true, (FinanceSettlementDocumentStatus.Rejected, FinanceSettlementDocumentStatus.Draft or FinanceSettlementDocumentStatus.Cancelled) => true, _ => false };
-    private static DateOnly AddOffset(DateOnly date, MasterDataPaymentTermOffset offset) => date.AddMonths(offset.Months).AddDays(offset.Days);
 }
 
 #pragma warning restore CS1591

@@ -24,6 +24,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
     private readonly IMasterDataExchangeRatePersistence exchangeRates;
     private readonly IMasterDataCurrencyPaymentTermPersistence currencies;
     private readonly IMasterDataTaxPersistence taxes;
+    private readonly IMasterDataPriceListPersistence? priceLists;
     private readonly IFinanceCompanyProvider companies;
     private readonly IFinancePersistence finance;
     private readonly IInventoryProductProvider inventoryProducts;
@@ -42,7 +43,8 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         IFinancePersistence finance,
         IInventoryProductProvider inventoryProducts,
         IInventoryWarehouseProvider warehouses,
-        IFinanceSettlementPersistence? settlements = null)
+        IFinanceSettlementPersistence? settlements = null,
+        IMasterDataPriceListPersistence? priceLists = null)
     {
         this.products = products;
         this.suppliers = suppliers;
@@ -56,6 +58,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         this.inventoryProducts = inventoryProducts;
         this.warehouses = warehouses;
         this.settlements = settlements;
+        this.priceLists = priceLists;
     }
 
     public async Task<IReadOnlyList<MigrationReferenceCheck>> ValidateAsync(FoundationRequestContext requestContext, MigrationParsedCanonicalRow row, CancellationToken cancellationToken = default)
@@ -90,6 +93,19 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
             };
             if (!string.IsNullOrWhiteSpace(currency))
                 findings.AddRange(await CurrencyAsync(tenant, currency, cancellationToken));
+            (Guid? Id, DateOnly? DocumentDate, DateOnly? DueDate) paymentTerm = row.Payload switch
+            {
+                MigrationApOpeningPayload ap => (ap.PaymentTermId, ap.DocumentDate, ap.DueDate),
+                MigrationArOpeningPayload ar => (ar.PaymentTermId, ar.DocumentDate, ar.DueDate),
+                _ => (null, null, null)
+            };
+            if (paymentTerm.Id is { } termId)
+            {
+                if (paymentTerm.DocumentDate is { } documentDate)
+                    findings.Add(await PaymentTermOpeningAsync(tenant, termId, documentDate, paymentTerm.DueDate, cancellationToken));
+                else
+                    findings.AddRange(await PaymentTermReferenceAsync(tenant, new MigrationReferencePayload(ReferenceId: termId), cancellationToken));
+            }
             findings.AddRange(await FinancialAsync(requestContext, row.Payload, cancellationToken));
             return findings;
         }
@@ -111,6 +127,13 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
                     => MigrationBusinessIdentityResolution.Valid($"supplier:{SupplierValuePolicy.ComparisonKey(supplier.Code)}"),
                 MigrationCustomerPayload customer when !string.IsNullOrWhiteSpace(customer.Code)
                     => MigrationBusinessIdentityResolution.Valid($"customer:{CustomerValuePolicy.ComparisonKey(customer.Code)}"),
+                MigrationOrganizationPayload organization when organization.CompanyId is { } companyId
+                    => MigrationBusinessIdentityResolution.Valid("organization:" + JsonSerializer.Serialize(new
+                    {
+                        CompanyId = companyId,
+                        organization.BranchId,
+                        organization.WarehouseId
+                    })),
                 MigrationInventoryOpeningPayload inventory when inventory.CompanyId is { } companyId
                     && inventory.WarehouseId is { } warehouseId
                     && inventory.ProductId is { } productId
@@ -168,8 +191,7 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
                         SourceLineReference = gl.SourceLineReference.Trim(),
                         Contract = "migration-gl-opening.v1"
                     })),
-                MigrationProductPayload or MigrationSupplierPayload or MigrationCustomerPayload
-                    => MigrationBusinessIdentityResolution.NotApplicable(),
+                MigrationReferencePayload reference => ReferenceIdentity(row.RecordType, reference),
                 _ => MigrationBusinessIdentityResolution.NotApplicable()
             };
         }
@@ -177,6 +199,52 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         {
             return MigrationBusinessIdentityResolution.Invalid("The owner-module business identity is outside its approved bounds.");
         }
+    }
+
+    private static MigrationBusinessIdentityResolution ReferenceIdentity(
+        MigrationCanonicalRecordType type,
+        MigrationReferencePayload reference)
+    {
+        if (type == MigrationCanonicalRecordType.Tax && reference.EffectiveDate is { } taxDate)
+        {
+            if (string.IsNullOrWhiteSpace(reference.Code) && reference.ReferenceId is null)
+                return MigrationBusinessIdentityResolution.NotApplicable();
+            var taxIdentity = string.IsNullOrWhiteSpace(reference.Code)
+                ? reference.ReferenceId.GetValueOrDefault().ToString("D")
+                : MasterDataTaxValuePolicy.NormalizeCode(reference.Code);
+            return MigrationBusinessIdentityResolution.Valid("tax:" + JsonSerializer.Serialize(new
+            {
+                Identity = taxIdentity,
+                EffectiveDate = taxDate
+            }));
+        }
+
+        if (type == MigrationCanonicalRecordType.ExchangeRate
+            && !string.IsNullOrWhiteSpace(reference.SourceCurrencyCode)
+            && !string.IsNullOrWhiteSpace(reference.TargetCurrencyCode)
+            && reference.EffectiveDate is { } effectiveDate)
+            return MigrationBusinessIdentityResolution.Valid("exchange-rate:" + JsonSerializer.Serialize(new
+            {
+                Source = MasterDataCurrencyPaymentTermValuePolicy.NormalizeCode(reference.SourceCurrencyCode),
+                Target = MasterDataCurrencyPaymentTermValuePolicy.NormalizeCode(reference.TargetCurrencyCode),
+                EffectiveDate = effectiveDate
+            }));
+
+        if (string.IsNullOrWhiteSpace(reference.Code))
+            return reference.ReferenceId is { } id
+                ? MigrationBusinessIdentityResolution.Valid($"{type}:{id:D}")
+                : MigrationBusinessIdentityResolution.NotApplicable();
+
+        var code = type switch
+        {
+            MigrationCanonicalRecordType.Currency or MigrationCanonicalRecordType.PaymentTerm =>
+                MasterDataCurrencyPaymentTermValuePolicy.NormalizeCode(reference.Code),
+            MigrationCanonicalRecordType.Tax => MasterDataTaxValuePolicy.NormalizeCode(reference.Code),
+            MigrationCanonicalRecordType.UnitOfMeasure => MasterDataCategoryUomValuePolicy.NormalizeCode(reference.Code).ToUpperInvariant(),
+            MigrationCanonicalRecordType.PriceList => MasterDataPriceListValuePolicy.NormalizeCode(reference.Code),
+            _ => reference.Code.Trim()
+        };
+        return MigrationBusinessIdentityResolution.Valid($"{type}:{code}");
     }
 
     private async Task<IReadOnlyList<MigrationReferenceCheck>> ProductAsync(TenantContext tenant, MigrationProductPayload payload, CancellationToken cancellationToken)
@@ -319,19 +387,27 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         if (companyOption is not { IsActive: true })
             return findings;
 
-        if (payload is MigrationInventoryOpeningPayload or MigrationGlOpeningPayload or MigrationArOpeningPayload or MigrationApOpeningPayload or MigrationCashBankOpeningPayload
-            && !string.Equals(currency?.Trim(), companyOption.FunctionalCurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase))
+        var isForeignCurrency = !string.IsNullOrWhiteSpace(currency)
+            && !string.Equals(currency.Trim(), companyOption.FunctionalCurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase);
+        if (isForeignCurrency && payload is MigrationInventoryOpeningPayload or MigrationGlOpeningPayload)
             findings.Add(new(MigrationReferenceState.Missing, MigrationFindingCategory.Currency,
-                payload is MigrationGlOpeningPayload ? "migration_gl_opening_currency_not_functional" : payload is MigrationArOpeningPayload ? "migration_ar_opening_currency_not_functional" : payload is MigrationApOpeningPayload ? "migration_ap_opening_currency_not_functional" : payload is MigrationCashBankOpeningPayload ? "migration_cash_bank_opening_currency_not_functional" : "migration_inventory_opening_currency_not_functional",
-                "Economic opening currency must equal the Company's Finance functional currency."));
+                payload is MigrationGlOpeningPayload ? "migration_gl_opening_currency_not_functional" : "migration_inventory_opening_currency_not_functional",
+                "Inventory and GL opening amounts must use the Company's Finance functional currency."));
 
         foreach (var accountId in accountIds.Where(item => item is not null).Select(item => item!.Value).Distinct())
             findings.AddRange(await AccountAsync(context!, company, accountId, openingDate, currency, cancellationToken));
 
         if (openingDate is { } date)
             findings.Add(await PeriodAsync(context!, company, date, cancellationToken));
-        if (payload is not MigrationInventoryOpeningPayload and not MigrationGlOpeningPayload and not MigrationArOpeningPayload and not MigrationApOpeningPayload and not MigrationCashBankOpeningPayload && companyOption is not null && !string.IsNullOrWhiteSpace(currency))
-            findings.AddRange(await ExchangeRateAsync(requestContext.TenantContext!, currency, companyOption.FunctionalCurrencyCode, date: openingDate, cancellationToken));
+        if (isForeignCurrency
+            && openingDate is { } rateDate
+            && payload is MigrationArOpeningPayload or MigrationApOpeningPayload or MigrationCashBankOpeningPayload)
+            findings.AddRange(await ExchangeRateAsync(
+                requestContext.TenantContext!,
+                currency!,
+                companyOption.FunctionalCurrencyCode,
+                rateDate,
+                cancellationToken));
         return findings;
     }
 
@@ -407,8 +483,10 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         DateOnly? date,
         CancellationToken cancellationToken)
     {
-        if (date is null || string.Equals(sourceCurrency.Trim(), targetCurrency.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (date is null)
             return [];
+        if (string.Equals(sourceCurrency.Trim(), targetCurrency.Trim(), StringComparison.OrdinalIgnoreCase))
+            return [Invalid("exchange-rate", $"{sourceCurrency}->{targetCurrency}@{date:yyyy-MM-dd}")];
 
         var versions = (await exchangeRates.ListExchangeRatesAsync(tenant, cancellationToken))
             .Where(item => item.LifecycleState == MasterDataLifecycleState.Active)
@@ -462,8 +540,55 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         MigrationCanonicalRecordType.UnitOfMeasure => await UnitReferenceAsync(tenant, payload, cancellationToken),
         MigrationCanonicalRecordType.Tax => await TaxReferenceAsync(tenant, payload, cancellationToken),
         MigrationCanonicalRecordType.PaymentTerm => await PaymentTermReferenceAsync(tenant, payload, cancellationToken),
+        MigrationCanonicalRecordType.PriceList => await PriceListReferenceAsync(tenant, payload, cancellationToken),
+        MigrationCanonicalRecordType.ExchangeRate => await ExchangeRateReferenceAsync(tenant, payload, cancellationToken),
         _ => []
     };
+
+    private async Task<IReadOnlyList<MigrationReferenceCheck>> ExchangeRateReferenceAsync(
+        TenantContext tenant,
+        MigrationReferencePayload payload,
+        CancellationToken cancellationToken)
+    {
+        var findings = new List<MigrationReferenceCheck>();
+        var currencies = await this.currencies.ListCurrenciesAsync(tenant, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(payload.SourceCurrencyCode))
+            findings.Add(ExchangeRateCurrencyReference(currencies, payload.SourceCurrencyCode, "source"));
+        if (!string.IsNullOrWhiteSpace(payload.TargetCurrencyCode))
+            findings.Add(ExchangeRateCurrencyReference(currencies, payload.TargetCurrencyCode, "target"));
+        findings.AddRange(await ExchangeRateAsync(
+            tenant,
+            payload.SourceCurrencyCode ?? string.Empty,
+            payload.TargetCurrencyCode ?? string.Empty,
+            payload.EffectiveDate,
+            cancellationToken));
+        return findings;
+    }
+
+    private static MigrationReferenceCheck ExchangeRateCurrencyReference(
+        IReadOnlyList<MasterDataCurrencyRecord> currencies,
+        string code,
+        string dependency)
+    {
+        var item = currencies.FirstOrDefault(candidate =>
+            string.Equals(candidate.Code.Trim(), code.Trim(), StringComparison.OrdinalIgnoreCase));
+        var findingPrefix = $"migration_exchange_rate_{dependency}_currency";
+        if (item is null)
+            return new(
+                MigrationReferenceState.Missing,
+                MigrationFindingCategory.Currency,
+                $"{findingPrefix}_missing",
+                $"The exchange-rate {dependency} Currency master '{code}' was not found in this Tenant.",
+                code);
+        return item.LifecycleState == MasterDataLifecycleState.Active
+            ? Active($"exchange-rate-{dependency}-currency", item.Id)
+            : new(
+                MigrationReferenceState.Inactive,
+                MigrationFindingCategory.Currency,
+                $"{findingPrefix}_inactive",
+                $"The exchange-rate {dependency} Currency master '{code}' is inactive.",
+                item.Id.ToString("D"));
+    }
 
     private async Task<IReadOnlyList<MigrationReferenceCheck>> CurrencyReferenceAsync(TenantContext tenant, MigrationReferencePayload payload, CancellationToken cancellationToken)
     {
@@ -476,7 +601,108 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
     {
         var items = await taxes.ListTaxesAsync(tenant, cancellationToken);
         var item = items.FirstOrDefault(candidate => (payload.ReferenceId is { } id && candidate.Id == id) || (!string.IsNullOrWhiteSpace(payload.Code) && string.Equals(candidate.Code, payload.Code, StringComparison.OrdinalIgnoreCase)));
-        return [item is null ? Missing("tax", payload.ReferenceId ?? (object?)payload.Code ?? "reference") : Lifecycle(item.LifecycleState == MasterDataLifecycleState.Active, "tax", item.Id)];
+        if (item is null) return [Missing("tax", payload.ReferenceId ?? (object?)payload.Code ?? "reference")];
+        if (item.LifecycleState != MasterDataLifecycleState.Active) return [Lifecycle(false, "tax", item.Id)];
+        if (payload.EffectiveDate is not { } date)
+            return [new(MigrationReferenceState.Missing, MigrationFindingCategory.Reference, "migration_tax_effective_date_required", "The Tax reference requires an effective date.")];
+        var versions = item.RateVersions.Where(version => version.EffectiveFrom <= date
+            && (version.EffectiveTo is null || date <= version.EffectiveTo.Value)).ToArray();
+        return versions.Length switch
+        {
+            0 => [Missing("tax-effective-version", item.Id)],
+            > 1 => [new(MigrationReferenceState.Ambiguous, MigrationFindingCategory.Reference, "migration_tax_effective_version_ambiguous", "More than one active Tax version covers the effective date.", item.Id.ToString("D"))],
+            _ => [Active("tax", item.Id)]
+        };
+    }
+
+    private async Task<IReadOnlyList<MigrationReferenceCheck>> PriceListReferenceAsync(
+        TenantContext tenant,
+        MigrationReferencePayload payload,
+        CancellationToken cancellationToken)
+    {
+        if (priceLists is null)
+            return [Unavailable("migration_price_list_authority_unavailable")];
+        string? normalizedCode = null;
+        if (!string.IsNullOrWhiteSpace(payload.Code))
+        {
+            try
+            {
+                normalizedCode = MasterDataPriceListValuePolicy.NormalizeCode(payload.Code);
+            }
+            catch (ArgumentException)
+            {
+                return [Invalid("price-list", payload.Code)];
+            }
+        }
+        var items = await priceLists.ListPriceListsAsync(tenant, null, cancellationToken);
+        var item = items.FirstOrDefault(candidate =>
+            (payload.ReferenceId is { } id && candidate.Id == id)
+            || (normalizedCode is not null
+                && string.Equals(
+                    MasterDataPriceListValuePolicy.NormalizeCode(candidate.Code),
+                    normalizedCode,
+                    StringComparison.Ordinal)));
+        return [item is null
+            ? Missing("price-list", payload.ReferenceId ?? (object?)payload.Code ?? "reference")
+            : Lifecycle(item.LifecycleState == MasterDataLifecycleState.Active, "price-list", item.Id)];
+    }
+
+    private async Task<MigrationReferenceCheck> PaymentTermOpeningAsync(
+        TenantContext tenant,
+        Guid paymentTermId,
+        DateOnly documentDate,
+        DateOnly? dueDate,
+        CancellationToken cancellationToken)
+    {
+        var term = await currencies.FindPaymentTermAsync(tenant, paymentTermId, cancellationToken);
+        if (term is null)
+            return Missing("payment-term", paymentTermId);
+        if (term.LifecycleState != MasterDataLifecycleState.Active)
+            return Lifecycle(false, "payment-term", term.Id);
+
+        var versions = term.Versions
+            .Where(item => item.EffectiveFrom <= documentDate
+                && (item.EffectiveTo is null || documentDate <= item.EffectiveTo.Value))
+            .OrderByDescending(item => item.VersionNumber)
+            .ToArray();
+        if (versions.Length == 0)
+            return new(
+                MigrationReferenceState.Missing,
+                MigrationFindingCategory.Reference,
+                "migration_payment_term_version_not_effective",
+                "No active Payment Term version is effective on the AP/AR DocumentDate.",
+                $"{term.Id:D}@{documentDate:yyyy-MM-dd}");
+        var version = versions[0];
+        if (version.BaseDateRule != PaymentTermBaseDateRule.DocumentDate)
+            return new(
+                MigrationReferenceState.Missing,
+                MigrationFindingCategory.Reference,
+                "migration_payment_term_base_date_unsupported",
+                "Finance migration openings support only the DocumentDate Payment Term base-date rule.",
+                $"{term.Id:D}@{documentDate:yyyy-MM-dd}");
+
+        if (dueDate is { } suppliedDueDate)
+        {
+            var expectedDueDate = PaymentTermDueDateCalculator.CalculateFinalDueDate(
+                documentDate,
+                version.ScheduleMode,
+                version.DueOffset.Days,
+                version.DueOffset.Months,
+                version.Installments.Select(item => new PaymentTermInstallmentResponse(
+                    item.Sequence,
+                    item.Percentage,
+                    item.Offset.Days,
+                    item.Offset.Months)).ToArray());
+            if (suppliedDueDate != expectedDueDate)
+                return new(
+                    MigrationReferenceState.Missing,
+                    MigrationFindingCategory.Reference,
+                    "migration_payment_term_due_date_mismatch",
+                    $"Supplied AP/AR DueDate {suppliedDueDate:yyyy-MM-dd} does not match the Payment Term due date {expectedDueDate:yyyy-MM-dd}.",
+                    $"{term.Id:D}@{documentDate:yyyy-MM-dd}");
+        }
+
+        return Active("payment-term", term.Id);
     }
 
     private async Task<IReadOnlyList<MigrationReferenceCheck>> PaymentTermReferenceAsync(TenantContext tenant, MigrationReferencePayload payload, CancellationToken cancellationToken)
@@ -486,12 +712,13 @@ internal sealed class MigrationOwnerReferenceAdapter : IMigrationReferenceAuthor
         return [item is null ? Missing("payment-term", payload.ReferenceId ?? (object?)payload.Code ?? "reference") : Lifecycle(item.LifecycleState == MasterDataLifecycleState.Active, "payment-term", item.Id)];
     }
 
-    private static MigrationReferenceCheck Active(string name, object id) => new(MigrationReferenceState.Active, MigrationFindingCategory.Reference, $"migration_{name}_active", $"The {name} reference is active.", id.ToString());
-    private static MigrationReferenceCheck Duplicate(string name, object id) => new(MigrationReferenceState.Missing, MigrationFindingCategory.Duplicate, $"migration_{name}_already_exists", $"The {name} identity already exists in this Tenant.", id.ToString());
+    private static MigrationReferenceCheck Active(string name, object id) => new(MigrationReferenceState.Active, MigrationFindingCategory.Reference, $"migration_{CodeName(name)}_active", $"The {name} reference is active.", id.ToString());
+    private static MigrationReferenceCheck Duplicate(string name, object id) => new(MigrationReferenceState.Missing, MigrationFindingCategory.Duplicate, $"migration_{CodeName(name)}_already_exists", $"The {name} identity already exists in this Tenant.", id.ToString());
     private static MigrationReferenceCheck InvalidIdentity(string name, object id) => new(MigrationReferenceState.Missing, MigrationFindingCategory.Reference, "migration_business_identity_invalid", $"The {name} business identity is invalid according to its owner module.", id.ToString());
-    private static MigrationReferenceCheck Missing(string name, object id) => new(MigrationReferenceState.Missing, MigrationFindingCategory.Reference, $"migration_{name}_missing", $"The {name} reference was not found in this Tenant.", id.ToString());
-    private static MigrationReferenceCheck Invalid(string name, object id) => new(MigrationReferenceState.Missing, name is "uom-conversion" ? MigrationFindingCategory.Uom : name is "exchange-rate" ? MigrationFindingCategory.Currency : MigrationFindingCategory.Reference, $"migration_{name.Replace('-', '_')}_invalid", $"The {name} reference is invalid for this migration.", id.ToString());
-    private static MigrationReferenceCheck Lifecycle(bool active, string name, object id) => active ? Active(name, id) : new(MigrationReferenceState.Inactive, MigrationFindingCategory.Reference, $"migration_{name}_inactive", $"The {name} reference is inactive.", id.ToString());
+    private static MigrationReferenceCheck Missing(string name, object id) => new(MigrationReferenceState.Missing, MigrationFindingCategory.Reference, $"migration_{CodeName(name)}_missing", $"The {name} reference was not found in this Tenant.", id.ToString());
+    private static MigrationReferenceCheck Invalid(string name, object id) => new(MigrationReferenceState.Missing, name is "uom-conversion" ? MigrationFindingCategory.Uom : name is "exchange-rate" ? MigrationFindingCategory.Currency : MigrationFindingCategory.Reference, $"migration_{CodeName(name)}_invalid", $"The {name} reference is invalid for this migration.", id.ToString());
+    private static MigrationReferenceCheck Lifecycle(bool active, string name, object id) => active ? Active(name, id) : new(MigrationReferenceState.Inactive, MigrationFindingCategory.Reference, $"migration_{CodeName(name)}_inactive", $"The {name} reference is inactive.", id.ToString());
+    private static string CodeName(string name) => name.Replace('-', '_');
     private static MigrationReferenceCheck Unavailable(string code) => new(MigrationReferenceState.Unavailable, MigrationFindingCategory.Reference, code, "The owner-module reference authority is unavailable.");
 }
 

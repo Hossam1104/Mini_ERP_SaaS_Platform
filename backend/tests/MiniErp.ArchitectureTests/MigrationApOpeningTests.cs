@@ -56,13 +56,14 @@ public sealed class MigrationApOpeningTests
     {
         var json = """
         {
-          "packageVersion": "migration-package-v1",
+          "packageVersion": "migration-package-v2",
           "definitionId": "tenant-onboarding.foundation",
           "definitionVersion": "1",
           "sourceProfileId": "neutral-source-profile",
           "sourceProfileVersion": "1",
           "logicalDataset": "opening",
           "sourceSnapshot": { "objectId": "11111111-1111-1111-1111-111111111111", "sha256": "ABC", "length": 1, "concurrencyVersion": 1 },
+          "domainContracts": [{ "recordType": "ApOpening", "contractVersion": "migration-ap-opening-v1", "sourceOwner": "Source owner", "targetOwner": "Target owner", "sourceSet": "Source set", "extractedAt": "1970-01-01T00:00:00+00:00", "scope": "Source scope", "status": "Extracted", "cleansingNote": "" }],
           "records": [
             { "sourceSequence": 1, "sourceRecordId": "ap-1", "recordType": "ApOpening", "payload": {
               "companyId": "22222222-2222-2222-2222-222222222222",

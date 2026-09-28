@@ -494,6 +494,8 @@ public sealed class MigrationExecutionTests
     [InlineData(MigrationCanonicalRecordType.Tax)]
     [InlineData(MigrationCanonicalRecordType.PaymentTerm)]
     [InlineData(MigrationCanonicalRecordType.UnitOfMeasure)]
+    [InlineData(MigrationCanonicalRecordType.PriceList)]
+    [InlineData(MigrationCanonicalRecordType.ExchangeRate)]
     public async Task Valid_reference_only_rows_become_non_effects(MigrationCanonicalRecordType type)
     {
         await using var fixture = await ExecutionFixture.CreateAsync(referenceState: MigrationReferenceState.Active);

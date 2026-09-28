@@ -17,7 +17,13 @@ public sealed class MigrationApiContractTests
         var tenantId = new TenantId(Guid.NewGuid());
         var validation = new MigrationValidationSummary(
             Guid.NewGuid(), tenantId, Guid.NewGuid(), Guid.NewGuid(), "package-hash", "source-hash",
-            0, 0, 0, 0, new Dictionary<string, int>(), [], DateTimeOffset.UtcNow);
+            0, 0, 0, 0, new Dictionary<string, int>(), [], DateTimeOffset.UtcNow)
+        {
+            OwnerActorId = Guid.NewGuid(),
+            StageStatus = MigrationRunStatus.Validated,
+            AttemptOutcome = MigrationAttemptOutcome.Succeeded,
+            NextAction = "Review the validation findings before any separately authorized operation."
+        };
         var dryRun = new MigrationDryRunPreview(
             Guid.NewGuid(), tenantId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "package-hash", "source-hash",
             0, 0, 0, 0, new Dictionary<string, int>(), new Dictionary<string, decimal>(), 0, 0, [], DateTimeOffset.UtcNow);
@@ -25,6 +31,10 @@ public sealed class MigrationApiContractTests
         var validationResponse = Project("ToValidationResponse", validation);
         Assert.Equal("validation-only", validationResponse.GetProperty("outcome").GetString());
         Assert.False(validationResponse.GetProperty("authoritativeImport").GetBoolean());
+        Assert.Equal(validation.OwnerActorId!.Value, validationResponse.GetProperty("ownerActorId").GetGuid());
+        Assert.Equal(MigrationRunStatus.Validated.ToString(), validationResponse.GetProperty("stageStatus").GetString());
+        Assert.Equal(MigrationAttemptOutcome.Succeeded.ToString(), validationResponse.GetProperty("attemptOutcome").GetString());
+        Assert.True(validationResponse.GetProperty("nextAction").GetString()!.Contains("authorized", StringComparison.Ordinal));
 
         var dryRunResponse = Project("ToDryRunResponse", dryRun);
         Assert.Equal("dry-run", dryRunResponse.GetProperty("outcome").GetString());

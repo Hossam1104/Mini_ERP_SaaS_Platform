@@ -27,7 +27,9 @@ public enum MigrationCanonicalRecordType
     Currency = 10,
     Tax = 11,
     PaymentTerm = 12,
-    UnitOfMeasure = 13
+    UnitOfMeasure = 13,
+    PriceList = 14,
+    ExchangeRate = 15
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -114,6 +116,17 @@ public sealed record MigrationBusinessIdentityResolution(
 /// Internal normalized staging contract. It is not a customer transport
 /// choice; future source adapters may normalize into this package later.
 /// </summary>
+public sealed record MigrationCanonicalDomainContract(
+    MigrationCanonicalRecordType RecordType,
+    string ContractVersion,
+    string SourceOwner,
+    string TargetOwner,
+    string SourceSet,
+    DateTimeOffset ExtractedAt,
+    string Scope,
+    string Status,
+    string CleansingNote);
+
 public sealed record MigrationCanonicalPackage(
     string PackageVersion,
     string DefinitionId,
@@ -122,6 +135,7 @@ public sealed record MigrationCanonicalPackage(
     string SourceProfileVersion,
     string LogicalDataset,
     MigrationCanonicalSourceSnapshot SourceSnapshot,
+    IReadOnlyList<MigrationCanonicalDomainContract>? DomainContracts,
     IReadOnlyList<MigrationCanonicalRow> Records);
 
 public sealed record MigrationCanonicalSourceSnapshot(
@@ -226,7 +240,9 @@ public sealed record MigrationCashBankOpeningPayload(
 public sealed record MigrationReferencePayload(
     Guid? ReferenceId = null,
     string? Code = null,
-    DateOnly? EffectiveDate = null) : MigrationCanonicalPayload;
+    DateOnly? EffectiveDate = null,
+    string? SourceCurrencyCode = null,
+    string? TargetCurrencyCode = null) : MigrationCanonicalPayload;
 
 public sealed record MigrationParsedCanonicalRow(
     int SourceSequence,
@@ -236,6 +252,7 @@ public sealed record MigrationParsedCanonicalRow(
     string PayloadJson,
     bool HasForbiddenControlAccountId = false,
     bool HasForbiddenMonetaryInput = false,
+    bool HasForbiddenTargetAuthority = false,
     string? CorrectionOwner = null);
 
 /// <summary>Length-prefixed SHA-256 encoding shared by Migration operations.</summary>
@@ -307,6 +324,46 @@ public static class MigrationValidationFingerprint
             validation.SourceSnapshotHash));
 }
 
+public sealed record MigrationCanonicalDomainContractDefinition(
+    MigrationCanonicalRecordType RecordType,
+    string Version,
+    string Schema);
+
+/// <summary>
+/// Normalized package schemas. Every row also requires a unique sourceSequence and stable sourceRecordId.
+/// Schema text lists required and optional payload fields; owner references and lifecycle remain authoritative.
+/// </summary>
+public static class MigrationCanonicalDomainContractCatalog
+{
+    private static readonly IReadOnlyDictionary<MigrationCanonicalRecordType, MigrationCanonicalDomainContractDefinition> Definitions =
+        new Dictionary<MigrationCanonicalRecordType, MigrationCanonicalDomainContractDefinition>
+        {
+            [MigrationCanonicalRecordType.Product] = new(MigrationCanonicalRecordType.Product, "migration-product-v1", "Required: sku and at least one of nameEnglish/nameArabic. Optional: productId (existing active Product reference), categoryId (existing active Category reference), baseUnitOfMeasureId (existing active UOM reference). SKU is the source identity; target identity and lifecycle are owner-assigned."),
+            [MigrationCanonicalRecordType.Supplier] = new(MigrationCanonicalRecordType.Supplier, "migration-supplier-v1", "Required: code and at least one of nameEnglish/nameArabic. Optional: supplierId may reference only an existing active Business Parties record. Code is the source identity; target identity and lifecycle are owner-assigned."),
+            [MigrationCanonicalRecordType.Customer] = new(MigrationCanonicalRecordType.Customer, "migration-customer-v1", "Required: code and at least one of nameEnglish/nameArabic. Optional: customerId may reference only an existing active Business Parties record. Code is the source identity; target identity and lifecycle are owner-assigned."),
+            [MigrationCanonicalRecordType.Organization] = new(MigrationCanonicalRecordType.Organization, "migration-organization-v2", "Fields: companyId, branchId, warehouseId. At least one is required; branchId requires companyId and warehouseId requires branchId. Duplicate identity is the exact (companyId, branchId, warehouseId) tuple with absent levels null, scoped to the Tenant. Values reference existing organization scope; this record validates scope and creates no organization."),
+            [MigrationCanonicalRecordType.InventoryOpening] = new(MigrationCanonicalRecordType.InventoryOpening, "migration-inventory-opening-v1", "Required: companyId, branchId, warehouseId, productId, unitOfMeasureId, quantity, unitCost, currencyCode, openingDate and sourceLineReference. Optional: trackingIdentity when required by the Product owner. Organization, Product and UOM values are owner-validated references; controlAccountId is forbidden; quantity conversion is never guessed."),
+            [MigrationCanonicalRecordType.GlOpening] = new(MigrationCanonicalRecordType.GlOpening, "migration-gl-opening-v1", "Required: companyId, accountId, debit, credit, currencyCode, openingDate and sourceLineReference. Company and account are Finance references; debit/credit are non-negative one-sided values. Finance owns journals, posting and approval state."),
+            [MigrationCanonicalRecordType.ApOpening] = new(MigrationCanonicalRecordType.ApOpening, "migration-ap-opening-v1", "Required: companyId, supplierId, sourceReference, documentDate, openingDate, amount and currencyCode; at least one of dueDate/paymentTermId. Optional: dueDate and paymentTermId when the other is supplied. Company, Supplier and Payment Term are owner-validated references; controlAccountId is forbidden; Finance owns journal and approval state."),
+            [MigrationCanonicalRecordType.ArOpening] = new(MigrationCanonicalRecordType.ArOpening, "migration-ar-opening-v1", "Required: companyId, customerId, sourceReference, documentDate, openingDate, amount and currencyCode; at least one of dueDate/paymentTermId. Optional: dueDate and paymentTermId when the other is supplied. Company, Customer and Payment Term are owner-validated references; controlAccountId is forbidden; Finance owns journal and approval state."),
+            [MigrationCanonicalRecordType.CashBankOpening] = new(MigrationCanonicalRecordType.CashBankOpening, "migration-cash-bank-opening-v1", "Required: companyId, cashAccountId, sourceReference, amount, currencyCode and openingDate. Company and Cash Account are Finance references; controlAccountId is forbidden; Finance owns journal, posting and approval state."),
+            [MigrationCanonicalRecordType.Currency] = new(MigrationCanonicalRecordType.Currency, "migration-currency-v1", "Required: one of code/referenceId identifying an existing active Master Data Currency. Optional: effectiveDate records the source reference date. Rate, precision and target lifecycle remain owner-controlled."),
+            [MigrationCanonicalRecordType.Tax] = new(MigrationCanonicalRecordType.Tax, "migration-tax-v1", "Required: one of code/referenceId for an existing active Master Data Tax and effectiveDate selecting exactly one owner rate version. Tax rules and rates remain owner-controlled."),
+            [MigrationCanonicalRecordType.PaymentTerm] = new(MigrationCanonicalRecordType.PaymentTerm, "migration-payment-term-v1", "Required: one of code/referenceId for an existing active Master Data Payment Term. Term, schedule and due-date behavior remain owner-controlled."),
+            [MigrationCanonicalRecordType.UnitOfMeasure] = new(MigrationCanonicalRecordType.UnitOfMeasure, "migration-unit-of-measure-v1", "Required: one of code/referenceId for an existing active Master Data UOM. Quantity conversion is owner-controlled and is never guessed."),
+            [MigrationCanonicalRecordType.PriceList] = new(MigrationCanonicalRecordType.PriceList, "migration-price-list-v1", "Required: one of code/referenceId for an existing active Master Data Price List. Currency, customer scope, prices and lifecycle remain owner-controlled."),
+            [MigrationCanonicalRecordType.ExchangeRate] = new(MigrationCanonicalRecordType.ExchangeRate, "migration-exchange-rate-v1", "Required: sourceCurrencyCode, targetCurrencyCode and effectiveDate identifying exactly one active owner rate version. No rate amount, rate version or target lifecycle is accepted from the source.")
+        };
+
+    public static IReadOnlyList<MigrationCanonicalDomainContractDefinition> All => Definitions.Values.OrderBy(item => item.RecordType).ToArray();
+
+    public static MigrationCanonicalDomainContractDefinition For(MigrationCanonicalRecordType recordType) => Definitions[recordType];
+
+    public static bool IsCompatible(MigrationCanonicalDomainContract contract) =>
+        Definitions.TryGetValue(contract.RecordType, out var definition)
+        && string.Equals(contract.ContractVersion, definition.Version, StringComparison.Ordinal);
+}
+
 public sealed record MigrationCanonicalPackageParseResult(
     MigrationCanonicalPackage? Package,
     IReadOnlyList<MigrationParsedCanonicalRow> Rows,
@@ -321,7 +378,14 @@ public sealed record MigrationCanonicalPackageParseResult(
 
 public static class MigrationCanonicalPackageParser
 {
-    public const string Version = "migration-package-v1";
+    public const string Version = "migration-package-v2";
+
+    private static readonly HashSet<string> ForbiddenSourceAuthorityFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "id", "recordId", "targetId", "targetRecordId", "targetResourceId", "ownerId", "ownerRecordId", "resultingResourceId",
+        "tenantId", "targetTenantId", "postingStatus", "posted", "postedAt", "journalId", "journalStatus",
+        "approval", "approvals", "approvalId", "approvalStatus", "approvedAt", "approvedBy", "reconciliationStatus"
+    };
 
     private static readonly HashSet<string> ForbiddenSourceMonetaryFields = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -352,7 +416,7 @@ public static class MigrationCanonicalPackageParser
         try
         {
             var package = JsonSerializer.Deserialize<MigrationCanonicalPackage>(bytes.Span, Options);
-            if (package is null || package.SourceSnapshot is null || package.Records is null)
+            if (package is null || package.SourceSnapshot is null || package.DomainContracts is null || package.Records is null)
             {
                 return MigrationCanonicalPackageParseResult.Failure(
                     "migration_package_metadata_missing",
@@ -399,6 +463,12 @@ public static class MigrationCanonicalPackageParser
                     string.Equals(item.Name, "controlAccountId", StringComparison.OrdinalIgnoreCase) && item.Value.ValueKind != JsonValueKind.Null);
                 var hasForbiddenMonetaryInput = isOpening && row.Payload.EnumerateObject().Any(item =>
                     ForbiddenSourceMonetaryFields.Contains(item.Name) && item.Value.ValueKind != JsonValueKind.Null);
+                var hasForbiddenTargetAuthority = row.Payload.EnumerateObject().Any(item =>
+                    ForbiddenSourceAuthorityFields.Contains(item.Name) && item.Value.ValueKind != JsonValueKind.Null);
+                if (HasUnknownPayloadField(type, row.Payload) && !hasForbiddenTargetAuthority && !hasForbiddenMonetaryInput)
+                    return MigrationCanonicalPackageParseResult.Failure(
+                        "migration_package_payload_invalid",
+                        "A canonical record contains a field that is not in its domain contract.");
                 rows.Add(new(
                     row.SourceSequence,
                     row.SourceRecordId,
@@ -407,8 +477,12 @@ public static class MigrationCanonicalPackageParser
                     JsonSerializer.Serialize(payload, payload.GetType(), Options),
                     HasForbiddenControlAccountId: hasForbiddenControlAccountId,
                     HasForbiddenMonetaryInput: hasForbiddenMonetaryInput,
+                    HasForbiddenTargetAuthority: hasForbiddenTargetAuthority,
                     CorrectionOwner: BoundedCorrectionOwner(row.CorrectionOwner)));
             }
+
+            if (!ValidateDomainContracts(package.DomainContracts, rows.Select(item => item.RecordType).Distinct().ToArray(), out var contractFailure))
+                return MigrationCanonicalPackageParseResult.Failure(contractFailure.Code, contractFailure.Message);
 
             return new(package, rows, null, null);
         }
@@ -444,6 +518,7 @@ public static class MigrationCanonicalPackageParser
                 package.SourceProfileVersion,
                 package.LogicalDataset,
                 package.SourceSnapshot,
+                DomainContracts = package.DomainContracts!.OrderBy(item => item.RecordType).ToArray(),
                 Records = rows.Select(item => new
                 {
                     item.SourceSequence,
@@ -491,6 +566,13 @@ public static class MigrationCanonicalPackageParser
             var hasForbiddenMonetaryInput = isOpening && document.RootElement.EnumerateObject().Any(item =>
                 ForbiddenSourceMonetaryFields.Contains(item.Name)
                 && item.Value.ValueKind != JsonValueKind.Null);
+            var hasForbiddenTargetAuthority = document.RootElement.EnumerateObject().Any(item =>
+                ForbiddenSourceAuthorityFields.Contains(item.Name)
+                && item.Value.ValueKind != JsonValueKind.Null);
+            if (HasUnknownPayloadField(type, document.RootElement)
+                && !hasForbiddenTargetAuthority
+                && !hasForbiddenMonetaryInput)
+                return false;
 
             row = new MigrationParsedCanonicalRow(
                 sourceSequence,
@@ -500,6 +582,7 @@ public static class MigrationCanonicalPackageParser
                 JsonSerializer.Serialize(payload, payload.GetType(), Options),
                 hasForbiddenControlAccountId,
                 hasForbiddenMonetaryInput,
+                hasForbiddenTargetAuthority,
                 correctionOwner?.Trim());
             return true;
         }
@@ -515,6 +598,82 @@ public static class MigrationCanonicalPackageParser
         {
             return false;
         }
+    }
+
+    private static bool ValidateDomainContracts(
+        IReadOnlyList<MigrationCanonicalDomainContract> contracts,
+        IReadOnlyList<MigrationCanonicalRecordType> recordTypes,
+        out (string Code, string Message) failure)
+    {
+        if (contracts.Count is 0 or > 32
+            || contracts.Any(item => item is null || !Enum.IsDefined(item.RecordType)))
+        {
+            failure = ("migration_package_domain_contract_required", "A versioned domain source contract is required for each batch.");
+            return false;
+        }
+        if (contracts.Select(item => item.RecordType).Distinct().Count() != contracts.Count
+            || !contracts.Select(item => item.RecordType).OrderBy(item => item).SequenceEqual(recordTypes.OrderBy(item => item)))
+        {
+            failure = ("migration_package_domain_contract_mismatch", "The domain source contracts do not match the records in the package.");
+            return false;
+        }
+        if (contracts.Any(item => !MigrationCanonicalDomainContractCatalog.IsCompatible(item)))
+        {
+            failure = ("migration_package_domain_contract_incompatible", "A domain source contract version is unknown or incompatible.");
+            return false;
+        }
+        if (contracts.Any(item =>
+            !ValidLineageText(item.SourceOwner, 256)
+            || !ValidLineageText(item.TargetOwner, 256)
+            || !ValidLineageText(item.SourceSet, 512)
+            || !ValidLineageText(item.Scope, 512)
+            || !ValidLineageText(item.Status, 128)
+            || item.CleansingNote is null
+            || item.CleansingNote.Length > 2048
+            || item.CleansingNote.Any(char.IsControl)
+            || item.ExtractedAt == default))
+        {
+            failure = ("migration_package_domain_lineage_invalid", "A domain source contract is missing bounded lineage metadata.");
+            return false;
+        }
+        failure = default;
+        return true;
+    }
+
+    private static bool ValidLineageText(string? value, int maximumLength) =>
+        !string.IsNullOrWhiteSpace(value)
+        && value.Length <= maximumLength
+        && !value.Any(char.IsControl);
+
+    private static bool HasUnknownPayloadField(MigrationCanonicalRecordType type, JsonElement payload)
+    {
+        string[]? referenceFields = type switch
+        {
+            MigrationCanonicalRecordType.Currency or MigrationCanonicalRecordType.Tax => ["referenceId", "code", "effectiveDate"],
+            MigrationCanonicalRecordType.PaymentTerm or MigrationCanonicalRecordType.UnitOfMeasure or MigrationCanonicalRecordType.PriceList => ["referenceId", "code"],
+            MigrationCanonicalRecordType.ExchangeRate => ["sourceCurrencyCode", "targetCurrencyCode", "effectiveDate"],
+            _ => null
+        };
+        if (referenceFields is not null)
+            return payload.EnumerateObject().Any(item => !referenceFields.Contains(item.Name, StringComparer.OrdinalIgnoreCase));
+
+        var payloadType = type switch
+        {
+            MigrationCanonicalRecordType.Product => typeof(MigrationProductPayload),
+            MigrationCanonicalRecordType.Supplier => typeof(MigrationSupplierPayload),
+            MigrationCanonicalRecordType.Customer => typeof(MigrationCustomerPayload),
+            MigrationCanonicalRecordType.Organization => typeof(MigrationOrganizationPayload),
+            MigrationCanonicalRecordType.InventoryOpening => typeof(MigrationInventoryOpeningPayload),
+            MigrationCanonicalRecordType.GlOpening => typeof(MigrationGlOpeningPayload),
+            MigrationCanonicalRecordType.ApOpening => typeof(MigrationApOpeningPayload),
+            MigrationCanonicalRecordType.ArOpening => typeof(MigrationArOpeningPayload),
+            MigrationCanonicalRecordType.CashBankOpening => typeof(MigrationCashBankOpeningPayload),
+            _ => typeof(MigrationReferencePayload)
+        };
+        var names = payloadType.GetProperties()
+            .Select(item => JsonNamingPolicy.CamelCase.ConvertName(item.Name))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return payload.EnumerateObject().Any(item => !names.Contains(item.Name));
     }
 
     private static string? BoundedCorrectionOwner(string? value)
@@ -550,7 +709,9 @@ public static class MigrationCanonicalPackageParser
             MigrationCanonicalRecordType.Currency or
             MigrationCanonicalRecordType.Tax or
             MigrationCanonicalRecordType.PaymentTerm or
-            MigrationCanonicalRecordType.UnitOfMeasure => payload.Deserialize<MigrationReferencePayload>(Options),
+            MigrationCanonicalRecordType.UnitOfMeasure or
+            MigrationCanonicalRecordType.PriceList or
+            MigrationCanonicalRecordType.ExchangeRate => payload.Deserialize<MigrationReferencePayload>(Options),
             _ => null
         };
 }
@@ -616,6 +777,16 @@ public sealed record MigrationValidationSummary(
     public string Outcome => "validation-only";
 
     public byte[]? RunVersion { get; init; }
+
+    public Guid? OwnerActorId { get; init; }
+
+    public MigrationRunStatus? StageStatus { get; init; }
+
+    public MigrationAttemptOutcome? AttemptOutcome { get; init; }
+
+    public string? Failure { get; init; }
+
+    public string? NextAction { get; init; }
 }
 
 public sealed record MigrationPreviewRow(
@@ -675,7 +846,8 @@ public sealed record StageMigrationPackageCommand(
     string PackageHash,
     string PackageVersion,
     DateTimeOffset CapturedAt,
-    IReadOnlyList<MigrationStagedRecord> Records);
+    IReadOnlyList<MigrationStagedRecord> Records,
+    string? DomainContractsJson = null);
 
 public sealed record MigrationStagingResult(
     string PackageHash,
@@ -787,6 +959,16 @@ public static class MigrationValidationRules
             if (missing) target.Add((MigrationFindingCategory.MandatoryData, "migration_required_field_missing", $"A required field is missing: {field}."));
         }
 
+        if (string.IsNullOrWhiteSpace(row.SourceRecordId))
+            Required(findings, true, "sourceRecordId");
+        else if (row.SourceRecordId.Length > 256)
+            findings.Add((MigrationFindingCategory.MandatoryData, "migration_source_record_id_too_long", "SourceRecordId must be 256 characters or fewer."));
+        else if (row.SourceRecordId.Any(char.IsControl))
+            findings.Add((MigrationFindingCategory.MandatoryData, "migration_source_record_id_invalid", "SourceRecordId cannot contain control characters."));
+
+        if (row.HasForbiddenTargetAuthority)
+            findings.Add((MigrationFindingCategory.Reference, "migration_source_target_authority_not_allowed", "The source cannot assign target identifiers, posting state, approvals, or resulting resources."));
+
         if (row.HasForbiddenMonetaryInput && row.Payload is MigrationInventoryOpeningPayload or MigrationArOpeningPayload or MigrationApOpeningPayload or MigrationCashBankOpeningPayload or MigrationGlOpeningPayload)
             findings.Add((MigrationFindingCategory.FinancialBalance, "migration_opening_source_monetary_fields_not_allowed", "Opening FX identity, rate, or functional carrying values are resolved and owned by Finance; source-supplied monetary evidence is not accepted."));
 
@@ -874,6 +1056,15 @@ public static class MigrationValidationRules
                 if (cash.Amount == 0m) findings.Add((MigrationFindingCategory.FinancialBalance, "migration_cash_bank_opening_zero_amount", "Opening amount must be positive; zero does not create an economic effect."));
                 if (row.HasForbiddenControlAccountId || cash.ControlAccountId is not null)
                     findings.Add((MigrationFindingCategory.FinancialBalance, "migration_cash_bank_control_account_not_allowed", "Cash/Bank opening control-account selection is owned by Finance and is not accepted in the migration payload."));
+                break;
+            case MigrationReferencePayload reference when row.RecordType == MigrationCanonicalRecordType.ExchangeRate:
+                Required(findings, string.IsNullOrWhiteSpace(reference.SourceCurrencyCode), "sourceCurrencyCode");
+                Required(findings, string.IsNullOrWhiteSpace(reference.TargetCurrencyCode), "targetCurrencyCode");
+                Required(findings, reference.EffectiveDate is null, "effectiveDate");
+                break;
+            case MigrationReferencePayload reference when row.RecordType == MigrationCanonicalRecordType.Tax:
+                Required(findings, reference.ReferenceId is null && string.IsNullOrWhiteSpace(reference.Code), "reference");
+                Required(findings, reference.EffectiveDate is null, "effectiveDate");
                 break;
             case MigrationReferencePayload reference:
                 Required(findings, reference.ReferenceId is null && string.IsNullOrWhiteSpace(reference.Code), "reference");

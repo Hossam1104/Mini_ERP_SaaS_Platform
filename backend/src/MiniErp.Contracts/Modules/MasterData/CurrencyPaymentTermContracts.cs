@@ -150,4 +150,35 @@ public sealed record PaymentTermDueDatePreviewResponse(
     decimal? EarlySettlementDiscountPercentage,
     string ReferenceValue);
 
+public static class PaymentTermDueDateCalculator
+{
+    public static IReadOnlyList<PaymentTermDueDateResponse> CalculateDueDates(
+        DateOnly baseDate,
+        PaymentTermScheduleMode scheduleMode,
+        int dueOffsetDays,
+        int dueOffsetMonths,
+        IReadOnlyList<PaymentTermInstallmentResponse> installments) =>
+        scheduleMode == PaymentTermScheduleMode.SingleDueDate
+            ? [new PaymentTermDueDateResponse(1, 100m, AddOffset(baseDate, dueOffsetDays, dueOffsetMonths))]
+            : installments
+                .OrderBy(item => item.Sequence)
+                .Select(item => new PaymentTermDueDateResponse(
+                    item.Sequence,
+                    item.Percentage,
+                    AddOffset(baseDate, item.Days, item.Months)))
+                .ToArray();
+
+    public static DateOnly CalculateFinalDueDate(
+        DateOnly baseDate,
+        PaymentTermScheduleMode scheduleMode,
+        int dueOffsetDays,
+        int dueOffsetMonths,
+        IReadOnlyList<PaymentTermInstallmentResponse> installments) =>
+        CalculateDueDates(baseDate, scheduleMode, dueOffsetDays, dueOffsetMonths, installments)
+            .LastOrDefault()?.DueDate ?? baseDate;
+
+    public static DateOnly AddOffset(DateOnly baseDate, int days, int months) =>
+        baseDate.AddMonths(months).AddDays(days);
+}
+
 #pragma warning restore CS1591
