@@ -46,6 +46,7 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
 - Deviations from the prompt: stopped on the unrelated full-gate red; did not restart, deliver a PR/comment, or switch to main. Uncommitted feature changes and the unrelated .claude/ artifact are preserved; .playwright-mcp/ was not accessed.
 - Status files updated: RESULT.md; TASK.md prompt status set to CONSUMED.
 - Exact next action: **Opus 5.5 reviews MESP-170 (#293).**
+
 ## 2026-09-28 — Opus: accept MESP-174 harness optimization — Claude Opus 5.5 / medium — MESP-174 (#300)
 - Status: **ACCEPTED** (MESP-174). PR #301 merged at `e20b257`; #300 closed.
 - Branch / starting SHA / ending SHA: #301 `chore/mesp-174-harness-context` from `7f569ce`: Luna `55762e0`, Opus corrections `1b374f2`, `88e2afc`, merge `e20b257`. This entry: `docs/mesp-174-accept` from `e20b257`.
