@@ -4,6 +4,7 @@ import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@ang
 import { BehaviorSubject, of } from 'rxjs';
 import { vi } from 'vitest';
 import { LanguageService } from '../../core/i18n/language.service';
+import { CurrencyPresentationService } from '../../core/presentation/currency-presentation.service';
 import { MasterDataService } from '../master-data/master-data.service';
 import { PurchaseRequestListItemResponse, PurchaseRequestOrganizationScopeResponse, PurchaseRequestResponse } from './purchase-request.model';
 import { PurchaseRequestService } from './purchase-request.service';
@@ -209,6 +210,7 @@ describe('SupplierQuotationWorkspaceComponent', () => {
       providers: [
         provideRouter([]),
         LanguageService,
+        { provide: CurrencyPresentationService, useValue: { symbolAssetUrl: () => null, symbolText: (code: string) => code, formatMoneyParts: (amount: number, code: string, locale = 'en-US') => [...new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(amount), { type: 'literal', value: ' ' }, { type: 'currency', value: code }] } },
         { provide: ActivatedRoute, useValue: { url: routeUrls.asObservable(), snapshot: { get url() { return routeUrls.value; }, get paramMap() { return routeParams.value; } } } },
         { provide: PurchaseRequestService, useValue: purchaseRequests },
         { provide: SupplierQuotationService, useValue: quotations },

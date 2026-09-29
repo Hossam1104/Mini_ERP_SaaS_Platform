@@ -432,6 +432,7 @@ public sealed record FoundationTenantBrandingProfile(
     string CurrencyCode,
     string? CurrencySymbolAssetUrl,
     string CurrencySymbolTextFallback,
+    string? DefaultTheme,
     bool TenantConfigured);
 
 public interface IFoundationTenantBrandingProvider
@@ -473,6 +474,7 @@ internal sealed class ConfiguredFoundationTenantBrandingProvider : IFoundationTe
             currencyCode,
             SafeAssetPath(section["CurrencySymbolAssetUrl"]),
             fallback,
+            string.IsNullOrWhiteSpace(section["DefaultTheme"]) ? null : section["DefaultTheme"]!.Trim(),
             section.Exists());
     }
 
@@ -697,7 +699,8 @@ internal sealed class TenantEntryAuthority : ITenantEntryAuthority
                 tenantBranding.LogoLightUrl,
                 tenantBranding.LogoDarkUrl,
                 tenantBranding.LogoAltText,
-                tenantBranding.TenantConfigured);
+                tenantBranding.TenantConfigured,
+                tenantBranding.DefaultTheme);
         var entryMode = resolution.Mode switch
         {
             TenantEntryMode.CommonHost when !authorizedTenants.Any()

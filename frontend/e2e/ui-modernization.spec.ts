@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Route } from '@playwright/test';
 
 const tenantId = 'tenant-ui';
 const companyId = 'company-ui';
@@ -42,6 +42,20 @@ const orderDetail = (id: string) => {
   };
 };
 
+const entryResponse = (defaultTheme: string | null = null, symbolAssetUrl: string | null = null) => ({
+  entryMode: 'TenantHost',
+  canonicalHost: '127.0.0.1',
+  candidateTenantId: tenantId,
+  candidateTenantDisplayName: 'Alpha Tenant',
+  authorizedTenants: [{ tenantId, displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
+  operationalContexts,
+  selectedOperationalContextId: 'operation-ui',
+  operationalSelectionVersion: 1,
+  branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true, defaultTheme },
+  currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl, symbolTextFallback: 'SAR' },
+  code: null,
+});
+
 async function installMocks(page: Page): Promise<void> {
   await page.addInitScript(() => {
     if (!sessionStorage.getItem('mesp.ui-test-clean')) {
@@ -52,7 +66,7 @@ async function installMocks(page: Page): Promise<void> {
   await page.route('**/api/v1/auth/development-bypass', (route) => route.fulfill({ json: { authenticated: false } }));
   await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: { authenticated: true, actorId: 'actor-ui', sessionId: 'session-ui', lifecycleState: 'Active', absoluteExpiresAt: null, selectedPath: 'OrdinaryMembership', selectedTenantId: tenantId, selectedContextId: 'context-ui', selectionVersion: 1 } }));
   await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [{ contextId: 'context-ui', kind: 'OrdinaryMembership', tenantId, displayName: 'Alpha Company', eligibilityVersion: 1 }] } }));
-  await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: { entryMode: 'TenantHost', canonicalHost: '127.0.0.1', candidateTenantId: tenantId, candidateTenantDisplayName: 'Alpha Tenant', authorizedTenants: [{ tenantId, displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }], operationalContexts, selectedOperationalContextId: 'operation-ui', operationalSelectionVersion: 1, branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true }, currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null } }));
+  await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: entryResponse() }));
   await page.route('**/api/v1/auth/antiforgery', (route) => route.fulfill({ headers: { 'X-CSRF-TOKEN': 'test-token' }, json: { status: 'issued' } }));
   await page.route('**/api/v1/procurement/**', async (route: Route) => {
     const path = new URL(route.request().url()).pathname;
@@ -97,7 +111,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(trigger).not.toHaveAttribute('aria-controls');
     await trigger.click();
     const menu = page.getByRole('menu', { name: 'Choose a theme' });
-    await expect(menu.getByRole('menuitemradio')).toHaveCount(8);
+    await expect(menu.getByRole('menuitemradio')).toHaveCount(9);
     await expect(trigger).toHaveAttribute('aria-controls', 'theme-menu');
     await expect(menu.getByRole('menuitemradio', { name: 'Sapphire' })).toHaveAttribute('aria-checked', 'true');
     await page.keyboard.press('End');
@@ -123,6 +137,52 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  });
+
+  test('uses the Tenant branding theme when there is no saved user choice', async ({ page }) => {
+    await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: entryResponse('forest') }));
+    await page.goto('/app');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'forest');
+    await page.getByRole('button', { name: 'Themes' }).click();
+    await expect(page.getByRole('menu', { name: 'Choose a theme' }).getByRole('menuitemradio', { name: 'Forest' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('renders the SAR asset accessibly in grid and detail views across RTL and dark mode', async ({ page }) => {
+    await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: entryResponse('forest', '/assets/Saudi_Riyal.svg') }));
+    await page.goto('/app/procurement/purchase-orders');
+
+    const assertMaskedSymbol = async (symbol: Locator): Promise<void> => {
+      await expect(symbol).toHaveAccessibleName('SAR');
+      await expect(symbol).toBeVisible();
+      const style = await symbol.evaluate((element) => {
+        const computed = getComputedStyle(element);
+        return { mask: computed.maskImage, background: computed.backgroundColor, color: computed.color };
+      });
+      expect(style.mask).toContain('Saudi_Riyal.svg');
+      expect(style.background).toBe(style.color);
+    };
+
+    const sarGridSymbol = page.locator('tr[data-row-id=\"po-1\"] .data-grid-money [role=\"img\"]');
+    await assertMaskedSymbol(sarGridSymbol);
+    const usdGridCell = page.locator('tr[data-row-id=\"po-2\"] .data-grid-money');
+    await expect(usdGridCell).toContainText('USD');
+    await expect(usdGridCell.getByRole('img')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Switch to dark mode' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'dark');
+    await assertMaskedSymbol(sarGridSymbol);
+    await page.locator('.language-button').click();
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await assertMaskedSymbol(sarGridSymbol);
+
+    await page.getByRole('link', { name: 'QT-001' }).click();
+    await expect(page).toHaveURL(/purchase-orders\/po-1$/);
+    await page.getByRole('tab').nth(1).click();
+    const sarDetailSymbol = page.locator('.detail-grid [role=\"img\"]');
+    await assertMaskedSymbol(sarDetailSymbol);
+    await page.locator('.scheme-toggle').click();
+    await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'light');
+    await assertMaskedSymbol(sarDetailSymbol);
   });
 
   test('keeps header controls reachable without horizontal overflow at 360px with several contexts', async ({ page }) => {

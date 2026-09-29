@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { CurrencyAmountComponent } from '../../shared/ui/currency-amount.component';
 import { SafeUiError, toSafeUiError } from '../../core/api/safe-error';
 import { LanguageService } from '../../core/i18n/language.service';
 import {
@@ -42,7 +43,7 @@ interface CreateHandoffLineDraft {
 @Component({
   selector: 'app-purchase-invoice-handoff-workspace',
   standalone: true,
-  imports: [FormsModule, RouterLink, DataGridComponent, PageHeaderComponent],
+  imports: [FormsModule, RouterLink, DataGridComponent, PageHeaderComponent, CurrencyAmountComponent],
   template: `
     @if (mode() === 'list') {
       <section class="ui-page invoice-handoff-page" data-testid="invoice-handoff-list">
@@ -70,7 +71,10 @@ interface CreateHandoffLineDraft {
             @if (filteredRecords().length === 0) {
               <div class="empty-ledger"><span aria-hidden="true">◌</span><h2>{{ pihText('noInvoiceHandoffs') }}</h2><p>{{ pihText('noInvoiceHandoffsLead') }}</p></div>
             } @else {
-              <app-data-grid [rows]="filteredRecords()" [columns]="handoffColumns" [language]="language.language()" [clientPaging]="true" [showPager]="true" [scopeLabel]="gridScopeLabel()" [caption]="pihText('invoiceHandoffs')" [countLabel]="pihText('invoiceHandoffs')" [filterInputLabel]="pihText('invoiceHandoffSearch')" [previousPageLabel]="language.text('previous')" [nextPageLabel]="language.text('next')" />
+              <ng-template #handoffAmount let-row>
+                <app-currency-amount [amount]="row.totalHandoffAmount" [currencyCode]="row.currencyCode" [locale]="language.language()" />
+              </ng-template>
+              <app-data-grid [rows]="filteredRecords()" [columns]="handoffColumns(handoffAmount)" [language]="language.language()" [clientPaging]="true" [showPager]="true" [scopeLabel]="gridScopeLabel()" [caption]="pihText('invoiceHandoffs')" [countLabel]="pihText('invoiceHandoffs')" [filterInputLabel]="pihText('invoiceHandoffSearch')" [previousPageLabel]="language.text('previous')" [nextPageLabel]="language.text('next')" />
             }
           </section>
         }
@@ -128,16 +132,23 @@ interface CreateHandoffLineDraft {
                 <h2>{{ pihText('invoiceHandoffLineEntryTitle') }}</h2>
                 <p class="detail-copy">{{ pihText('invoiceHandoffLineEntryLead') }}</p>
 
-                <app-data-grid [rows]="createLines" [columns]="createLineColumns" [rowActionsTemplate]="createLineActions" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="pihText('invoiceHandoffLineEntryTitle')" [countLabel]="pihText('invoiceHandoffLines')" [rowActionsLabel]="pihText('handoffQty')">
+                <ng-template #createAmount let-line let-column="column">
+                  @if (column.key === 'unitPrice') {
+                    <app-currency-amount [amount]="line.unitPrice" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" />
+                  } @else {
+                    <app-currency-amount [amount]="calculateLineTotal(line)" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" />
+                  }
+                </ng-template>
+                <app-data-grid [rows]="createLines" [columns]="createLineColumns(createAmount)" [rowActionsTemplate]="createLineActions" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="pihText('invoiceHandoffLineEntryTitle')" [countLabel]="pihText('invoiceHandoffLines')" [rowActionsLabel]="pihText('handoffQty')">
                   <ng-template #createLineActions let-line>
                     <label class="handoff-quantity-editor"><span>{{ pihText('handoffQty') }} *</span><input class="table-input numeric" type="number" min="0" [max]="line.remainingHandoffQuantity" step="0.000001" [(ngModel)]="line.handoffQuantity" (ngModelChange)="onLineQuantityChange()" [ngModelOptions]="{standalone: true}" [attr.aria-label]="pihText('handoffQty')" /></label>
                   </ng-template>
                 </app-data-grid>
 
                 <div class="summary-box">
-                  <div class="summary-row"><span>{{ pihText('subtotal') }}:</span><strong>{{ formatMoney(computedSubtotal(), selectedCurrencyCode()) }}</strong></div>
-                  <div class="summary-row"><span>{{ pihText('taxTotal') }}:</span><strong>{{ formatMoney(computedTaxTotal(), selectedCurrencyCode()) }}</strong></div>
-                  <div class="summary-row summary-row--grand"><span>{{ pihText('grandTotal') }}:</span><strong>{{ formatMoney(computedGrandTotal(), selectedCurrencyCode()) }}</strong></div>
+                  <div class="summary-row"><span>{{ pihText('subtotal') }}:</span><strong><app-currency-amount [amount]="computedSubtotal()" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" /></strong></div>
+                  <div class="summary-row"><span>{{ pihText('taxTotal') }}:</span><strong><app-currency-amount [amount]="computedTaxTotal()" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" /></strong></div>
+                  <div class="summary-row summary-row--grand"><span>{{ pihText('grandTotal') }}:</span><strong><app-currency-amount [amount]="computedGrandTotal()" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" /></strong></div>
                 </div>
 
                 @if (validationError()) {
@@ -215,7 +226,14 @@ interface CreateHandoffLineDraft {
           <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('lines')">
             <p class="section-kicker">{{ pihText('invoiceHandoffLines') }}</p>
             <h2>{{ pihText('invoiceHandoffLinesTitle') }}</h2>
-            <app-data-grid [rows]="currentHandoff.lines" [columns]="detailLineColumns(currentHandoff.currencyCode)" [language]="language.language()" [clientPaging]="true" [showPager]="true" [caption]="pihText('invoiceHandoffLinesTitle')" [countLabel]="pihText('invoiceHandoffLines')" />
+            <ng-template #detailAmount let-line let-column="column">
+              @switch (column.key) {
+                @case ('unitPrice') { <app-currency-amount [amount]="line.unitPrice" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /> }
+                @case ('taxAmount') { @if (line.taxAmount !== null) { <app-currency-amount [amount]="line.taxAmount" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /> } @else { — } }
+                @case ('lineAmount') { <app-currency-amount [amount]="line.lineAmount" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /> }
+              }
+            </ng-template>
+            <app-data-grid [rows]="currentHandoff.lines" [columns]="detailLineColumns(currentHandoff.currencyCode, detailAmount)" [language]="language.language()" [clientPaging]="true" [showPager]="true" [caption]="pihText('invoiceHandoffLinesTitle')" [countLabel]="pihText('invoiceHandoffLines')" />
           </section>
         } @else if (activeTab() === 'sources') {
           <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('sources')">
@@ -398,7 +416,7 @@ export class PurchaseInvoiceHandoffWorkspaceComponent implements OnInit {
       return matchStatus && matchQuery;
     });
   });
-  get handoffColumns(): DataGridColumn<PurchaseInvoiceHandoffListItemResponse>[] {
+  handoffColumns(amountCell: DataGridColumn<PurchaseInvoiceHandoffListItemResponse>['cellTemplate']): DataGridColumn<PurchaseInvoiceHandoffListItemResponse>[] {
     return [
     { key: 'supplierInvoiceReference', label: this.pihText('invoiceHandoffRefColumn'), value: row => row.supplierInvoiceReference, link: row => `/app/procurement/invoice-handoffs/${row.id}`, secondaryText: row => `${row.lineCount} ${this.pihText('invoiceHandoffLines')}`, filter: 'text' },
     { key: 'supplierName', label: this.pihText('invoiceHandoffSupplierColumn'), value: row => row.supplierName, secondaryText: row => row.supplierCode, filter: 'text' },
@@ -406,21 +424,21 @@ export class PurchaseInvoiceHandoffWorkspaceComponent implements OnInit {
     { key: 'supplierInvoiceDate', label: this.pihText('invoiceHandoffDateColumn'), value: row => row.supplierInvoiceDate, display: row => this.formatDate(row.supplierInvoiceDate), filter: 'date-range' },
     { key: 'currencyCode', label: this.pihText('invoiceHandoffCurrencyColumn'), value: row => row.currencyCode, filter: 'select' },
     { key: 'totalHandoffQuantity', label: this.pihText('invoiceHandoffQtyColumn'), value: row => row.totalHandoffQuantity, display: row => this.formatQuantity(row.totalHandoffQuantity), filter: 'number-range', align: 'end' },
-    { key: 'totalHandoffAmount', label: this.pihText('invoiceHandoffAmountColumn'), value: row => row.totalHandoffAmount, display: row => this.formatMoney(row.totalHandoffAmount, row.currencyCode), filter: 'number-range', align: 'end' },
+    { key: 'totalHandoffAmount', label: this.pihText('invoiceHandoffAmountColumn'), value: row => row.totalHandoffAmount, display: row => this.formatMoney(row.totalHandoffAmount, row.currencyCode), cellTemplate: amountCell, filter: 'number-range', align: 'end' },
     { key: 'updatedAt', label: this.pihText('invoiceHandoffUpdatedColumn'), value: row => row.updatedAt, display: row => this.formatDateTime(row.updatedAt), filter: 'date-range' },
     ];
   }
-  get createLineColumns(): DataGridColumn<CreateHandoffLineDraft>[] {
+  createLineColumns(amountCell: DataGridColumn<CreateHandoffLineDraft>['cellTemplate']): DataGridColumn<CreateHandoffLineDraft>[] {
     return [
     { key: 'productSku', label: this.pihText('invoiceHandoffProductColumn'), value: row => row.productSku, secondaryText: row => `${row.productName} · ${row.unitOfMeasureCode} · GR ${row.goodsReceiptId.substring(0, 8)}`, filter: 'text' },
     { key: 'receivedDate', label: this.pihText('receiptDate'), value: row => row.receivedDate, display: row => this.formatDate(row.receivedDate), filter: 'date-range' },
     { key: 'acceptedQuantity', label: this.pihText('acceptedQty'), value: row => row.acceptedQuantity, display: row => this.formatQuantity(row.acceptedQuantity), filter: 'number-range', align: 'end' },
     { key: 'alreadyHandedOffQuantity', label: this.pihText('alreadyHandedOff'), value: row => row.alreadyHandedOffQuantity, display: row => this.formatQuantity(row.alreadyHandedOffQuantity), filter: 'number-range', align: 'end' },
     { key: 'remainingHandoffQuantity', label: this.pihText('remainingHandoffQty'), value: row => row.remainingHandoffQuantity, display: row => this.formatQuantity(row.remainingHandoffQuantity), filter: 'number-range', align: 'end' },
-    { key: 'unitPrice', label: this.pihText('unitPrice'), value: row => row.unitPrice, display: row => this.formatMoney(row.unitPrice, this.selectedCurrencyCode()), filter: 'number-range', align: 'end' },
+    { key: 'unitPrice', label: this.pihText('unitPrice'), value: row => row.unitPrice, display: row => this.formatMoney(row.unitPrice, this.selectedCurrencyCode()), cellTemplate: amountCell, filter: 'number-range', align: 'end' },
     { key: 'taxRatePercentage', label: this.pihText('taxRate'), value: row => row.taxRatePercentage, display: row => row.taxRatePercentage !== null ? `${row.taxRatePercentage}%` : '—', filter: 'number-range', align: 'end' },
     { key: 'handoffQuantity', label: this.pihText('handoffQty'), value: row => row.handoffQuantity, display: row => this.formatQuantity(row.handoffQuantity), filter: 'number-range', align: 'end' },
-    { key: 'lineTotal', label: this.pihText('lineTotal'), value: row => this.calculateLineTotal(row), display: row => this.formatMoney(this.calculateLineTotal(row), this.selectedCurrencyCode()), filter: 'number-range', align: 'end' },
+    { key: 'lineTotal', label: this.pihText('lineTotal'), value: row => this.calculateLineTotal(row), display: row => this.formatMoney(this.calculateLineTotal(row), this.selectedCurrencyCode()), cellTemplate: amountCell, filter: 'number-range', align: 'end' },
     ];
   }
   get sourceColumns(): DataGridColumn<PurchaseInvoiceHandoffSourceResponse>[] {
@@ -432,14 +450,14 @@ export class PurchaseInvoiceHandoffWorkspaceComponent implements OnInit {
     ];
   }
 
-  detailLineColumns(currencyCode: string): DataGridColumn<PurchaseInvoiceHandoffLineResponse>[] {
+  detailLineColumns(currencyCode: string, amountCell: DataGridColumn<PurchaseInvoiceHandoffLineResponse>['cellTemplate']): DataGridColumn<PurchaseInvoiceHandoffLineResponse>[] {
     return [
       { key: 'productSku', label: this.pihText('invoiceHandoffProductColumn'), value: row => row.productSku, secondaryText: row => `${row.productName} · ${row.unitOfMeasureCode}`, filter: 'text' },
       { key: 'handoffQuantity', label: this.pihText('handoffQty'), value: row => row.handoffQuantity, display: row => this.formatQuantity(row.handoffQuantity), filter: 'number-range', align: 'end' },
-      { key: 'unitPrice', label: this.pihText('unitPrice'), value: row => row.unitPrice, display: row => this.formatMoney(row.unitPrice, currencyCode), filter: 'number-range', align: 'end' },
+      { key: 'unitPrice', label: this.pihText('unitPrice'), value: row => row.unitPrice, display: row => this.formatMoney(row.unitPrice, currencyCode), cellTemplate: amountCell, filter: 'number-range', align: 'end' },
       { key: 'taxRatePercentage', label: this.pihText('taxRate'), value: row => row.taxRatePercentage, display: row => row.taxRatePercentage !== null ? `${row.taxRatePercentage}%` : '—', filter: 'number-range', align: 'end' },
-      { key: 'taxAmount', label: this.pihText('taxAmount'), value: row => row.taxAmount, display: row => row.taxAmount !== null ? this.formatMoney(row.taxAmount, currencyCode) : '—', filter: 'number-range', align: 'end' },
-      { key: 'lineAmount', label: this.pihText('lineTotal'), value: row => row.lineAmount, display: row => this.formatMoney(row.lineAmount, currencyCode), filter: 'number-range', align: 'end' },
+      { key: 'taxAmount', label: this.pihText('taxAmount'), value: row => row.taxAmount, display: row => row.taxAmount !== null ? this.formatMoney(row.taxAmount, currencyCode) : '—', cellTemplate: amountCell, filter: 'number-range', align: 'end' },
+      { key: 'lineAmount', label: this.pihText('lineTotal'), value: row => row.lineAmount, display: row => this.formatMoney(row.lineAmount, currencyCode), cellTemplate: amountCell, filter: 'number-range', align: 'end' },
     ];
   }
 

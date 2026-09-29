@@ -1,32 +1,75 @@
 # Results
 
+## 2026-09-29 - MESP-175 (#305) Opus correction: Meadow, Tenant logo and preview diagnosis - GPT-6 Luna / max - MESP-175 (#305)
+- Status: DONE. PR #311 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
+- Branch / starting SHA / ending SHA: feat/mesp-175-tenant-theme-sar started at 93090f1c7fe5af535dc2966b49b87b670fb78cb1; UI commits 8056780adb414c938e57a6eda3df70e2cdc3a45f and 919c2643f8b704145592b2da0f8cc2e90cea849d; this RESULT hand-back commit follows.
+- What changed: Added generic Meadow and light/dark tokens (theme.service.ts:5-15; styles.scss:84,118); Tenant preference and invalid fallback remain covered (theme.service.ts:26-39; theme.service.spec.ts:26-64). Wafra Development branding now selects Meadow and /assets/wafra-logo.jpeg with alt Wafra, no LogoDarkUrl (appsettings.Development.json:4-7). Overview resolves dark logo then light fallback, hides the image without a URL, and uses the M fallback (workspace-home.component.ts:39-40,165-170; workspace-home.component.spec.ts:42-53). Tile is white, rounded, min-width 160px and max-height 72px; image uses width:auto/object-fit:contain (workspace-home.component.ts:90-91). Shell header/backplate and frontend/assets were untouched.
+- B1/B2: Tests cover user choice > Tenant default > Sapphire and invalid Tenant value (theme.service.spec.ts:26-64). Read-only JPEG samples include #8BC01A, #66A415, #2E7C0F and #7AB219; Meadow uses a leaf-green midpoint. WCAG ratios: white on #3C7D1E 5.0672:1; #2F6517 on #EEF7E4 6.3646:1; #9BD872 on dark #161C26 10.1441:1; #BFE8A0 on #22391A 9.1510:1. Wafra behavior is configuration-only; no Wafra-specific branch was added.
+- B3: Currency presentation remains amount-neutral. 5310 Purchase Orders still returns 503 code persistence_unavailable. Purchase Requests and Currencies return 200, but the pages using CurrencyAmountComponent had no loaded rows/SAR symbol; SAR evidence therefore uses the unit cases "renders the configured SAR asset with an accessible name" and "keeps non-SAR currencies as text" (currency-amount.component.spec.ts:34-48). No SAR screenshot is claimed.
+- B4: git diff --stat -- frontend/assets is empty; owner SVG/JPEG assets are served as-is.
+- B5: npm test -- --watch=false --no-progress: 49 files, 335 passed, 0 failed. npm run build: passed, initial total 497.47 kB, no budget warning. Chromium e2e: 60 passed (prior run; Step 1 made no code change). Backend wrapper: 1,589 passed, 0 failed, 0 skipped; Release build 0 warnings/errors (prior run; Step 1 made no code change). git diff --check clean; no EF model changed.
+- B6 screenshots (git-excluded): .playwright-mcp/mesp-175/login.png; overview-light.png; overview-dark.png; themes-meadow-active.png. Both Overview captures were made after animations settled and show the Wafra logo; the dark hero tile is white.
+- Evidence: Draft PR https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/311. Main-lane start-backend.ps1 sets ASPNETCORE_ENVIRONMENT, Scalar__Enabled, MESP_DEV_BOOTSTRAP_ENABLED, MESP_DEV_ADMIN_LOGIN, MESP_DEV_ADMIN_PASSWORD and MESP_DEV_API_URL; the restarted 5310 process received all six plus MESP_DEV_AUTH_BYPASS. No database connection/directory variable names were present. The API was relaunched with the same launcher, port changed to 5310 and working directory set to the worktree Release API directory; branding then loaded correctly.
+- Deviations: The PO list still fails after the matching environment and working-directory restart. Program.cs:137-160 falls back to the Development Procurement SQLite store procurement.db because no explicit store/directory variable is present. The Purchase Requests list succeeds while PurchaseOrderPersistence.ListAsync fails; the likely missing/incompatible object is the PurchaseOrders store/table, but the underlying exception is not exposed. No first exception line was available: PurchaseOrderService.cs:48-56 catches without logging, and the HTTP detail is generic. No connection string or secret value was printed.
+- Failures and opacity findings: The earlier washed-out captures were mid-animation timing, not a reveal-on-scroll defect: after animations settled, all 15 Overview cards had opacity 1 before and after scrolling. Staggered card-enter is at workspace-home.component.ts:110 and its opacity keyframes at styles.scss:237; cards/surfaces also animate for 380ms at styles.scss:207. The .36 mobile hero-art opacity at workspace-home.component.ts:128 is decorative; disabled Purchase Order buttons use .55 at purchase-order-workspace.component.ts:172.
+- Status files updated: RESULT.md only; the existing #305 evidence comment remains, with no new tracker write. Issue #305 remains OPEN.
+- Exact next action: Opus 5.5 reviews MESP-175 (#305); owner approval before merge.
+
 The shared results log, newest entry first. Every model adds exactly one entry per session, using the
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
-## 2026-09-29 - MESP-178 (#309) UI Slice A2 - GPT-6 Luna / max - MESP-178 (#309)
-- Status: DONE.
-- Branch / starting SHA / ending SHA: `feat/mesp-178-shell-rail-grids`; started at `9e476f51abeb2cf372693103d5cf6358ba85327f`; implementation commits `30d6bc0` and `1186780`. The final RESULT hand-back commit follows this entry.
+## 2026-09-29 — MESP-173 acceptance — Claude Opus 5.5 / medium — MESP-173 (#299)
+- Status: ACCEPTED
+- Branch / starting SHA / ending SHA:
+  - `fix/mesp-173-mesp-169-correction` head `858a5ed`; merged to `main` as `79a8f93` (PR #310); #299 closed.
 - What changed:
-  - Resume inventory: Opus's verified pre-resume state was 29 modified files plus untracked `page-header.component.spec.ts`; it was preserved. The four scope items are DONE: icon rail/flyout, shared module headers, Master Data tabs, and grids.
-  - Opus repair recorded: damaged work saved on local read-only `backup/mesp-178-damaged-wip` at `47773e2`. Opus repaired 9 files: finance-close, finance-reports, finance-settlement, finance-tax-fx, finance-workspace, inventory-workspace, purchase-order, supplier-quotation, reporting-workspace. Opus reset 11 files to HEAD for manual redo: inventory-valuation; master-data-import; master-data-workspace and its spec; price-list; goods-receipt; purchase-invoice-handoff; purchase-invoice-matching; purchase-request; supplier-return; sales. Shell rail, navigation config, data grid, and page header files were retained.
-  - C1: 76px glass rail, 44px tiles, active gradient/indicator, positioned/clamped 320px flyout, dark surface, RTL, reduced motion, keyboard navigation, Tab-out close, Escape/focus return, and persisted expanded mode. Evidence: `application-shell.component.ts:39-56,459-570`; `application-shell-rail.scss:5-321`; `application-shell.component.spec.ts:108-185`. Captures 01-04, 14, 17, 19 below.
-  - C2: shared header with eyebrow, 28px title, subtitle, breadcrumb, and actions slot; all module hero markup removed. Evidence: `page-header.component.ts:7-39`; usage `finance-reports-workspace.component.ts:39-42`; test `page-header.component.spec.ts:22`. `rg -n 'class="hero"' frontend/src/app/features` returns 0 lines.
-  - C3: Resource index removed; routes retained and the nine deep-linkable resource tabs use overflow observation and reveal the active tab. Evidence: `master-data-workspace.component.ts:57-76,250-264,380-405`; test `master-data-workspace.component.spec.ts:190-202`. Captures 05-07, 15, 20.
-  - C4 grid inventory: at starting SHA, 64 `<table>` instances were in 18 feature components. By area: Finance - finance-reports (4), finance-settlement (8), finance-tax-fx (2), finance-workspace (6); Inventory - inventory-valuation (4), inventory-workspace (1); Master Data - master-data-import (6), master-data-workspace (2), price-list (3); Procurement - goods-receipt (3), purchase-invoice-handoff (4), purchase-invoice-matching (3), purchase-order (4), purchase-request (4), supplier-quotation (3), supplier-return (3); Reporting - reporting-workspace (1); Sales - sales-workspace (3). Total: 64 across 18 components. After: 0 feature tables, 74 `app-data-grid` uses, no key/value table exceptions. Evidence: `data-grid.component.ts:8,27,56-62,254-279,434-443`; `rg -n '<table' frontend/src/app/features` returns 0 lines. Client filters/sorts apply only to loaded rows; server paging is retained.
+  - Accepted A1-A6 plus the PR #310 review fixes (`3548c4d`): correction preflight requires equal staged and validation-snapshot key sets before any attempt; reconciliation preview reads the validation linked by `dryRun.ValidationAttemptId`.
 - Gates:
-  - `npm test -- --watch=false --no-progress`: Test Files 48 passed (48); Tests 334 passed (334); 0 failed.
-  - `npm run build`: passed; initial JS 479.18 kB + CSS 19.00 kB = 498.18 kB; no budget warning or anyComponentStyle error.
-  - `$env:MESP_E2E_BASE_URL='http://localhost:4320'; npm run test:e2e -- --project=chromium`: 58 passed, 0 failed, against this worktree preview (API 5320 / frontend 4320), 39.1s.
-  - `git diff --check`: clean.
+  - Executor wrapper 1,594 passed, 0 failed, 0 skipped; Migration EF check clean; hosted Repository Validation, Backend and Frontend green on `858a5ed`; all review threads resolved.
 - Evidence:
-  - C5 tests: shell rail keyboard/persistence `application-shell.component.spec.ts:108-185`; tabs `master-data-workspace.component.spec.ts:190-202`; shared header `page-header.component.spec.ts:22`. Existing assertions were retained; changed e2e selectors were updated only for changed grid/rail selectors.
-  - C6 screenshots (all under `.playwright-mcp/mesp-178/`): `01-collapsed-rail.png`, `02-flyout-master-data.png`, `03-flyout-procurement.png`, `04-expanded-navigation.png`, `05-master-data-categories.png`, `06-master-data-units.png`, `07-master-data-products.png`, `08-grid-filter-open.png`, `09-grid-sorted.png`, `10-grid-resized-column.png`, `11-procurement-purchase-orders.png`, `12-finance-ap.png`, `13-inventory.png`, `14-rtl-flyout-procurement.png`, `15-rtl-master-data-categories.png`, `16-rtl-grid-filter-open.png`, `17-dark-flyout-master-data.png`, `18-dark-master-data-categories.png`, `19-mobile-drawer-scrolled-tabs.png`, `20-mobile-scrolled-tabs.png`. Captures wait for animations to stop; full-page captures scroll to the bottom and back first.
-  - Draft PR: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/313 (OPEN, Draft, base main). The initial implementation commits are `30d6bc0` and `1186780`; RESULT hand-back is the third commit.
-- Deviations from the prompt: `frontend/src/styles.scss` has no content diff; rail styles remain in the lazy shell component stylesheet. No API/backend, route, permission, business behavior, theme/branding/currency, or owner asset changes.
-- Failures and classification: an initial final Chromium run was 57/58 because the rail offset broke the existing full-height sticky geometry test. The rail retained its 100vh geometry with the 16px visual gap under the top bar; the final run passed 58/58. The Wafra preview shows safe-load fallback on Procurement Purchase Orders and Finance AP, and empty Inventory grids; this is recorded as a preview data limitation, not a code/test gate failure.
-- Status files updated: Replaced the prior STOPPED entry with this final RESULT entry. One evidence comment on issue #309 is the only tracker write.
-- Exact next action: Opus 5.5 reviews MESP-178 (#309); owner approval before merge.
+  - Opus ruling: a validation after a dry run is unreachable (`run.PermitsAttempt`, `MigrationApplicationContracts.cs:769`), so the linked-read change is defensive parity without a reachable regression test.
+- Deviations from the prompt:
+  - Subledger-to-GL control-account tie-out remains a recorded gap (BRD 40 defines no mapping).
+- Failures and classification:
+  - None in the accepted state. The executor's invalid linked-validation test (unreachable run state) was removed by Opus ruling; not a product defect.
+- Status files updated:
+  - `ORCHESTRATION_STATE.yaml` (cycle 6 → 7, current result), `docs/ROADMAP.md` (reconciled date, cycle count, next items), this entry; #299 closed.
+- Exact next action:
+  - Sol re-review of MESP-169 + MESP-173 inside the early window (cycle 8–10); UI lanes MESP-178 (#309) and MESP-175 (#305) continue under owner approval.
+
+## 2026-09-29 — MESP-173 correction and handback — GPT-6 Luna / max — MESP-173 (#299)
+- Status: DONE
+- Branch / starting SHA / ending SHA:
+  - `fix/mesp-173-mesp-169-correction`; start `9e476f51abeb2cf372693103d5cf6358ba85327f` on `main`; prior A2-A5 code/test commit `2ad355c9ba4b9c04a8d8c628a8f5742455078e2c`; A1 correction commit `2c3061c3d31a5a253e0eb18cf880e56534c98b68` (RESULT/audit handback commit follows).
+- What changed:
+  - `MigrationReconciliationService.cs:146,184-250` projects every dry-run control total, GL balance difference and deterministic source, outcome, duplicate and per-type planned-action counts; `MigrationValidationContracts.cs:822-868` defines the typed response evidence.
+  - `MigrationEndpoints.cs:64-65,808-809` exposes both reconciliation response properties; `MigrationApiContractTests.cs:63,185` verifies the seeded projection and OpenAPI contract.
+  - `MigrationValidationApplication.cs:256,577,598` uses immutable staged payloads for unchanged legacy rows and preflights snapshots before creating a retry attempt.
+  - `MigrationRunSafetySqlServerTests.cs:358,451-531,611,747,861` seeds GL, AR, AP, cash/bank, inventory and master records for A1 and verifies the ordered controls/counts and no-effect preview alongside the existing A2-A5 safety cases; `MigrationOwnerExecutionSqlServerIntegrationTests.cs:134` adds the concurrent cancel/execute SQL race.
+  - Updated only M40-REQ-027, M40-REQ-032, M40-REQ-040, M40-AC-014, M40-AC-015, M40-AC-016, M40-AC-021 and M40-AC-033 in `docs/audit/mesp-141-m40-traceability.md`.
+  - Prior A2-A5 code/test commit: `2ad355c` (`fix(migration): MESP-173 (#299) correct MESP-169 review findings`).
+  - A1 code/test commit: `2c3061c` (`fix(migration): MESP-173 (#299) reconciliation preview presents M40-REQ-033 controls and counts`).
+- Gates:
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build succeeded, 0 warnings / 0 errors; 1,593 passed, 0 failed, 0 skipped; `Backend suite passed against disposable database MiniErpFoundation_20260929111137_dfd3fb66.`; `MESP_SQLSERVER_CONNECTION_STRING (runtime): unchanged. MESP data is intact.` Wall time 00:03:09.
+  - EF pending-model check for Migration context: no changes have been made to the model since the last migration.
+  - `git diff --check`: clean.
+  - Prior Q-S restart after the initial MESP-173 delivery: Release build succeeded, 0 warnings / 0 errors; backend health passed on 5300 (PID 4516); Angular health passed on 4300 (PID 31552). The A1 correction restart follows its authorized post-push sequence.
+- Evidence:
+  - Start state: `main` at `9e476f51abeb2cf372693103d5cf6358ba85327f`, same as `origin/main`; ancestor checks for `b52364a` and `3472671` succeeded; #299 was OPEN. Initial status contained only `?? .claude/` and `?? .mcp.json.bak-harness-20260928`, excluded as owner harness files and never staged.
+  - Draft PR #310: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/310.
+  - Single #299 evidence comment: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/299#issuecomment-5879527016.
+  - Runtime state: `.runtime/processes.json`; 4310/5310 UI lane was not touched.
+- Deviations from the prompt:
+  - Subledger-to-GL control-account tie-out (AR/AP/cash/inventory vs GL accounts) is not computed: BRD 40 does not define the control-account mapping; recorded as a gap.
+  - The newer-validation-after-dry-run regression scenario is unreachable: `run.PermitsAttempt(Validation)` rejects validation after dry run (`MigrationApplicationContracts.cs:769`); the by-attempt read remains defensive parity with ordinary preview, with no reachable regression test.
+- Failures and classification:
+  - The first resumed full wrapper run found one A1 SQL-test failure because the expected `ByRecordType` sequence used dictionary insertion order instead of enum order. The test now compares the expected sequence sorted by `MigrationCanonicalRecordType`; the next full wrapper passed 1,593/1,593.
+  - Initial EF design-time context creation failed because `MESP_SQLSERVER_CONNECTION_STRING` was unset in this shell. The model checks were rerun with a process-local LocalDB placeholder; all seven contexts reported no pending model changes, with no database write.
+  - Initial backend build hit MSB3026/MSB3027 because `MiniErp.Api` PID 9252 held Release DLLs. Its executable path and port-5300 listeners were verified; only that PID was stopped as allowed by §8. The final full wrapper passed.
+  - The first expanded no-effect SQL test used imbalanced fixture data (GL debit 125 / credit 100), which existing validation correctly rejected. The fixture was corrected to 125 / 125; the focused test passed and the final full wrapper passed.
+- Status files updated: `RESULT.md`; `TASK.md` prompt Status set to CONSUMED.
+- Exact next action: Opus 5.5 reviews MESP-173 (#299); Sol re-reviews.
 
 ## 2026-09-28 — Opus: accept MESP-170 and MESP-153 Slice A, release MESP-173 — Claude Opus 5.5 / medium — MESP-170 (#293), MESP-153 (#268), MESP-173 (#299)
 - Status: **ACCEPTED** MESP-170 (PR #304, merged at `3472671`) and MESP-153 Slice A (PR #302, merged at `b52364a`; the **owner approved the design**, Q-U). MESP-173 (#299) is released as the OPEN prompt in `TASK.md`. #293 is closed.

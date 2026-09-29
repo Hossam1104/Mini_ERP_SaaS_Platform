@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ContextService } from '../../core/context/context.service';
 import { LanguageService } from '../../core/i18n/language.service';
+import { ThemeService } from '../../core/presentation/theme.service';
 import { StatusCardComponent } from '../../shared/ui/status-card.component';
 import { NAVIGATION_GROUPS } from '../shell/navigation.config';
 
@@ -35,8 +36,8 @@ interface OverviewModule {
             <p class="overview-hero__lead">{{ language.text('tenantOverviewLead') }}</p>
             <a class="overview-manage" routerLink="/app/workspaces"><svg class="icon" aria-hidden="true"><use href="#icon-sliders" /></svg>{{ language.text('manageContexts') }}</a>
           </div>
-          <div class="overview-hero__art" aria-hidden="true"><span class="hero-orbit hero-orbit--one"></span><span class="hero-orbit hero-orbit--two"></span><span class="hero-orbit hero-orbit--three"></span><span class="hero-mark">M</span></div>
-          <label class="overview-search"><svg class="icon" aria-hidden="true"><use href="#icon-search" /></svg><input type="search" [value]="searchQuery()" (input)="searchQuery.set($any($event.target).value)" [placeholder]="label('Search modules and destinations', 'ابحث في الوحدات والصفحات')" [attr.aria-label]="label('Search modules and destinations', 'ابحث في الوحدات والصفحات')" /></label>
+          <div class="overview-hero__art" aria-hidden="true"><span class="hero-orbit hero-orbit--one"></span><span class="hero-orbit hero-orbit--two"></span><span class="hero-orbit hero-orbit--three"></span>@if (!tenantLogoUrl()) { <span class="hero-mark">M</span> }</div>
+          @if (tenantLogoUrl()) { <span class="overview-hero__tenant-logo"><img [src]="tenantLogoUrl()" [alt]="context.entry()?.branding?.logoAltText" /></span> } <label class="overview-search"><svg class="icon" aria-hidden="true"><use href="#icon-search" /></svg><input type="search" [value]="searchQuery()" (input)="searchQuery.set($any($event.target).value)" [placeholder]="label('Search modules and destinations', 'ابحث في الوحدات والصفحات')" [attr.aria-label]="label('Search modules and destinations', 'ابحث في الوحدات والصفحات')" /></label>
         </header>
 
         <section class="overview-modules" aria-labelledby="capability-title">
@@ -86,6 +87,8 @@ interface OverviewModule {
     .overview-search input { width: 100%; min-width: 0; min-height: 44px; border: 0 !important; padding: 0; color: var(--ink); background: transparent !important; box-shadow: none !important; outline: 0; }
     .overview-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent), 0 8px 22px color-mix(in srgb, var(--accent) 12%, transparent); }
     .overview-hero__art { position: relative; width: 190px; height: 150px; grid-column: 2; grid-row: 1 / span 2; }
+    .overview-hero__tenant-logo { position: relative; z-index: 2; display: flex; width: auto; min-width: 160px; max-width: 190px; max-height: 72px; grid-column: 2; grid-row: 1 / span 2; align-items: center; justify-content: center; justify-self: center; border-radius: 12px; padding: 8px; background: #fff; box-shadow: var(--shadow-soft); }
+    .overview-hero__tenant-logo img { display: block; width: auto; max-width: 100%; max-height: 56px; object-fit: contain; }
     .hero-orbit { position: absolute; inset-block-start: 50%; inset-inline-start: 50%; display: block; border: 1px solid color-mix(in srgb, var(--accent) 27%, transparent); border-radius: 50%; transform: translate(-50%, -50%); }
     .hero-orbit--one { width: 145px; height: 145px; }
     .hero-orbit--two { width: 190px; height: 110px; transform: translate(-50%, -50%) rotate(-35deg); }
@@ -122,7 +125,7 @@ interface OverviewModule {
     .module-card__view .icon { width: 16px; height: 16px; }
     .module-empty { grid-column: 1 / -1; margin: 0; border: 1px dashed var(--line-strong); border-radius: 14px; padding: 1.5rem; color: var(--ink-muted); text-align: center; }
     @media (max-width: 760px) { .overview-hero { min-height: 0; grid-template-columns: minmax(0, 1fr) 112px; padding: 1.25rem; } .overview-hero__art { width: 112px; height: 120px; } .overview-search { width: 100%; } .hero-orbit--one { width: 116px; height: 116px; } .hero-orbit--two, .hero-orbit--three { width: 120px; height: 90px; } .hero-mark { width: 58px; height: 58px; border-radius: 19px; font-size: 1.65rem; } .overview-section-heading__hint { display: none; } }
-    @media (max-width: 500px) { .overview-hero { grid-template-columns: minmax(0, 1fr); } .overview-hero__art { position: absolute; inset-inline-end: -3rem; inset-block-end: 2rem; width: 112px; height: 112px; opacity: .36; } :host-context(html[dir='rtl']) .overview-hero__art { inset-inline-end: 1rem; } .overview-search { grid-column: 1; grid-row: 2; } .module-chips { margin-inline: -.2rem; } .capability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; } .module-card { padding: .65rem; } .module-card__banner { min-height: 88px; } .module-card__banner .icon { width: 34px; height: 34px; } .module-card strong { font-size: 14px; } .module-card__tag, .module-card__view { font-size: 14px; } }
+    @media (max-width: 500px) { .overview-hero { grid-template-columns: minmax(0, 1fr); } .overview-hero__art { position: absolute; inset-inline-end: -3rem; inset-block-end: 2rem; width: 112px; height: 112px; opacity: .36; } .overview-hero__tenant-logo { position: absolute; inset-inline-end: 1rem; inset-block-end: 4rem; width: auto; max-width: calc(100% - 2rem); } :host-context(html[dir='rtl']) .overview-hero__art { inset-inline-end: 1rem; } .overview-search { grid-column: 1; grid-row: 2; } .module-chips { margin-inline: -.2rem; } .capability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; } .module-card { padding: .65rem; } .module-card__banner { min-height: 88px; } .module-card__banner .icon { width: 34px; height: 34px; } .module-card strong { font-size: 14px; } .module-card__tag, .module-card__view { font-size: 14px; } }
     @media (max-width: 350px) { .capability-grid { grid-template-columns: 1fr; } }
     @media (prefers-reduced-motion: reduce) { .overview-hero, .module-card { animation: none; } }
   `,
@@ -130,6 +133,7 @@ interface OverviewModule {
 export class WorkspaceHomeComponent implements OnInit {
   readonly context = inject(ContextService);
   readonly language = inject(LanguageService);
+  private readonly theme = inject(ThemeService);
   readonly navigationGroups = NAVIGATION_GROUPS;
   readonly searchQuery = signal('');
   readonly selectedGroup = signal('all');
@@ -156,6 +160,13 @@ export class WorkspaceHomeComponent implements OnInit {
     return this.context.entry()?.candidateTenantDisplayName
       ?? this.context.entry()?.branding.displayName
       ?? this.language.text('tenantOverview');
+  }
+
+  tenantLogoUrl(): string | null {
+    const branding = this.context.entry()?.branding;
+    return this.theme.darkMode()
+      ? branding?.logoDarkUrl ?? branding?.logoLightUrl ?? null
+      : branding?.logoLightUrl ?? branding?.logoDarkUrl ?? null;
   }
 
   isNoAccess(): boolean { return this.context.entry()?.entryMode === 'NoAccess'; }
