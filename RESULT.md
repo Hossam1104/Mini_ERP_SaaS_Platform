@@ -4,29 +4,32 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
-## 2026-09-29 — MESP-173 correction and handback — GPT-6 Codex / default — MESP-173 (#299)
+## 2026-09-29 — MESP-173 correction and handback — GPT-6 Luna / max — MESP-173 (#299)
 - Status: DONE
 - Branch / starting SHA / ending SHA:
-  - `fix/mesp-173-mesp-169-correction`; start `9e476f51abeb2cf372693103d5cf6358ba85327f` on `main`; product/test commit `2ad355c9ba4b9c04a8d8c628a8f5742455078e2c` (status handback commit follows).
+  - `fix/mesp-173-mesp-169-correction`; start `9e476f51abeb2cf372693103d5cf6358ba85327f` on `main`; prior A2-A5 code/test commit `2ad355c9ba4b9c04a8d8c628a8f5742455078e2c`; A1 correction commit `2c3061c3d31a5a253e0eb18cf880e56534c98b68` (RESULT/audit handback commit follows).
 - What changed:
-  - `MigrationReconciliationService.cs:146` derives the GL balance control from persisted dry-run totals; `MigrationValidationContracts.cs:837` adds the optional reconciliation-controls field.
+  - `MigrationReconciliationService.cs:146,184-250` projects every dry-run control total, GL balance difference and deterministic source, outcome, duplicate and per-type planned-action counts; `MigrationValidationContracts.cs:822-868` defines the typed response evidence.
+  - `MigrationEndpoints.cs:64-65,808-809` exposes both reconciliation response properties; `MigrationApiContractTests.cs:63,185` verifies the seeded projection and OpenAPI contract.
   - `MigrationValidationApplication.cs:256,577,598` uses immutable staged payloads for unchanged legacy rows and preflights snapshots before creating a retry attempt.
-  - `MigrationRunSafetySqlServerTests.cs:358,611,747,861` strengthens owner snapshots and adds the legacy upgrade-path SQL case; `MigrationOwnerExecutionSqlServerIntegrationTests.cs:134` adds the concurrent cancel/execute SQL race.
+  - `MigrationRunSafetySqlServerTests.cs:358,451-531,611,747,861` seeds GL, AR, AP, cash/bank, inventory and master records for A1 and verifies the ordered controls/counts and no-effect preview alongside the existing A2-A5 safety cases; `MigrationOwnerExecutionSqlServerIntegrationTests.cs:134` adds the concurrent cancel/execute SQL race.
   - Updated only M40-REQ-027, M40-REQ-032, M40-REQ-040, M40-AC-014, M40-AC-015, M40-AC-016, M40-AC-021 and M40-AC-033 in `docs/audit/mesp-141-m40-traceability.md`.
-  - Code/test commit: `2ad355c` (`fix(migration): MESP-173 (#299) correct MESP-169 review findings`).
+  - Prior A2-A5 code/test commit: `2ad355c` (`fix(migration): MESP-173 (#299) correct MESP-169 review findings`).
+  - A1 code/test commit: `2c3061c` (`fix(migration): MESP-173 (#299) reconciliation preview presents M40-REQ-033 controls and counts`).
 - Gates:
-  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build succeeded, 0 warnings / 0 errors; 1,591 passed, 0 failed, 0 skipped; `Backend suite passed against disposable database MiniErpFoundation_20260929004437_7edf7645.`; `MESP_SQLSERVER_CONNECTION_STRING (runtime): unchanged. MESP data is intact.` Wall time 00:08:27.017.
-  - EF pending-model checks: no model changes for Migration, Master Data, Business Parties, Procurement, Inventory, Finance and Sales contexts.
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build succeeded, 0 warnings / 0 errors; 1,593 passed, 0 failed, 0 skipped; `Backend suite passed against disposable database MiniErpFoundation_20260929111137_dfd3fb66.`; `MESP_SQLSERVER_CONNECTION_STRING (runtime): unchanged. MESP data is intact.` Wall time 00:03:09.
+  - EF pending-model check for Migration context: no changes have been made to the model since the last migration.
   - `git diff --check`: clean.
-  - Q-S restart: Release build succeeded, 0 warnings / 0 errors; backend health passed on 5300 (PID 4516); Angular health passed on 4300 (PID 31552).
+  - Prior Q-S restart after the initial MESP-173 delivery: Release build succeeded, 0 warnings / 0 errors; backend health passed on 5300 (PID 4516); Angular health passed on 4300 (PID 31552). The A1 correction restart follows its authorized post-push sequence.
 - Evidence:
   - Start state: `main` at `9e476f51abeb2cf372693103d5cf6358ba85327f`, same as `origin/main`; ancestor checks for `b52364a` and `3472671` succeeded; #299 was OPEN. Initial status contained only `?? .claude/` and `?? .mcp.json.bak-harness-20260928`, excluded as owner harness files and never staged.
   - Draft PR #310: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/310.
   - Single #299 evidence comment: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/issues/299#issuecomment-5879527016.
   - Runtime state: `.runtime/processes.json`; 4310/5310 UI lane was not touched.
 - Deviations from the prompt:
-  - Execution used the available GPT-6 Codex / default session, not the GPT-6 Luna / max profile prescribed for executors by `AGENTS.md` §7; Opus review remains the acceptance gate.
+  - Subledger-to-GL control-account tie-out (AR/AP/cash/inventory vs GL accounts) is not computed: BRD 40 does not define the control-account mapping; recorded as a gap.
 - Failures and classification:
+  - The first resumed full wrapper run found one A1 SQL-test failure because the expected `ByRecordType` sequence used dictionary insertion order instead of enum order. The test now compares the expected sequence sorted by `MigrationCanonicalRecordType`; the next full wrapper passed 1,593/1,593.
   - Initial EF design-time context creation failed because `MESP_SQLSERVER_CONNECTION_STRING` was unset in this shell. The model checks were rerun with a process-local LocalDB placeholder; all seven contexts reported no pending model changes, with no database write.
   - Initial backend build hit MSB3026/MSB3027 because `MiniErp.Api` PID 9252 held Release DLLs. Its executable path and port-5300 listeners were verified; only that PID was stopped as allowed by §8. The final full wrapper passed.
   - The first expanded no-effect SQL test used imbalanced fixture data (GL debit 125 / credit 100), which existing validation correctly rejected. The fixture was corrected to 125 / 125; the focused test passed and the final full wrapper passed.
