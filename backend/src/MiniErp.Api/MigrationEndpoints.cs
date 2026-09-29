@@ -60,7 +60,9 @@ public sealed record MigrationNonAuthoritativePreviewResponse(
     bool ApprovalCreated,
     bool ReadinessCreated,
     bool RunStateChanged,
-    IReadOnlyList<MigrationPreviewRow> Rows);
+    IReadOnlyList<MigrationPreviewRow> Rows,
+    IReadOnlyList<MigrationReconciliationControlTotal> ReconciliationControls,
+    MigrationReconciliationCounts? ReconciliationCounts);
 
 public sealed record MigrationCancellationResponse(
     Guid RunId,
@@ -802,7 +804,9 @@ public static class MigrationEndpoints
         value.ApprovalCreated,
         value.ReadinessCreated,
         value.RunStateChanged,
-        value.Rows);
+        value.Rows,
+        value.ReconciliationControls,
+        value.ReconciliationCounts);
 
     private static MigrationCancellationResponse ToCancellationResponse(MigrationCancellationResult value) => new(
         value.RunId,

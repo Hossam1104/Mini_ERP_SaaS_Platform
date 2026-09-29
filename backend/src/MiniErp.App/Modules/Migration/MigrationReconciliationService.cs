@@ -151,8 +151,105 @@ public sealed class MigrationReconciliationService
         if (!TryCaller(requestContext, out var tenant, out _)
             || !await validation.IsResourceAuthorizedAsync(requestContext, runId, cancellationToken))
             return null;
+        var dryRun = await validation.ReadDryRunAsync(tenant, runId, cancellationToken);
+        if (dryRun is null)
+            return null;
+        var validationSummary = await validation.ReadValidationAsync(tenant, runId, dryRun.ValidationAttemptId, cancellationToken);
+        if (validationSummary is null)
+            return null;
+        var evidence = ProjectDryRunEvidence(dryRun, validationSummary);
+        if (evidence is null)
+            return null;
         var preview = await validation.ReadPreviewAsync(tenant, runId, cancellationToken);
-        return preview is null ? null : preview with { Outcome = "reconciliation-preview" };
+        if (preview is null
+            || preview.DuplicateOutcomes != evidence.Value.Counts.DuplicateCount
+            || preview.ExpectedAdditions != dryRun.Rows.Count(item => item.PlannedAction == MigrationPlannedAction.Create)
+            || preview.UnresolvedDependencies != dryRun.UnresolvedDependencyCount
+            || preview.Exceptions != dryRun.ExceptionCount
+            || !preview.Rows.SequenceEqual(dryRun.Rows)
+            || preview.ControlTotals.Count != dryRun.ControlTotals.Count
+            || dryRun.ControlTotals.Any(item => !preview.ControlTotals.TryGetValue(item.Key, out var amount) || amount != item.Value))
+            return null;
+
+        return preview with
+        {
+            Outcome = "reconciliation-preview",
+            ReconciliationControls = evidence.Value.Controls,
+            ReconciliationCounts = evidence.Value.Counts
+        };
+    }
+
+    internal static (
+        IReadOnlyList<MigrationReconciliationControlTotal> Controls,
+        MigrationReconciliationCounts Counts)? ProjectDryRunEvidence(
+            MigrationDryRunPreview dryRun,
+            MigrationValidationSummary validationSummary)
+    {
+        if (dryRun.ValidationAttemptId != validationSummary.AttemptId
+            || dryRun.TotalStagedRecords != validationSummary.TotalStagedRecords
+            || validationSummary.Records.Count != validationSummary.TotalStagedRecords
+            || validationSummary.Records.Select(item => item.StagedRecordId).Distinct().Count() != validationSummary.Records.Count
+            || dryRun.Rows.Select(item => item.StagedRecordId).Distinct().Count() != dryRun.Rows.Count)
+            return null;
+
+        var validationById = validationSummary.Records.ToDictionary(item => item.StagedRecordId);
+        if (dryRun.Rows.Any(item => !validationById.TryGetValue(item.StagedRecordId, out var record) || record.RecordType != item.RecordType))
+            return null;
+
+        var acceptedCount = validationSummary.Records.Count(item => item.Disposition == MigrationRecordDisposition.Accepted);
+        var rejectedCount = validationSummary.Records.Count(item => item.Disposition == MigrationRecordDisposition.Rejected);
+        var quarantinedCount = validationSummary.Records.Count(item => item.Disposition == MigrationRecordDisposition.Quarantined);
+        if (acceptedCount != dryRun.AcceptedCount
+            || rejectedCount != dryRun.RejectedCount
+            || quarantinedCount != dryRun.QuarantinedCount)
+            return null;
+
+        var plannedByType = dryRun.Rows.GroupBy(item => item.RecordType)
+            .ToDictionary(group => group.Key, group => group.ToArray());
+        var byRecordType = validationSummary.Records
+            .GroupBy(item => item.RecordType)
+            .OrderBy(group => group.Key)
+            .Select(group =>
+            {
+                var plannedRows = plannedByType.GetValueOrDefault(group.Key, []);
+                var completePlan = plannedRows.Length == group.Count();
+                IReadOnlyList<MigrationReconciliationPlannedActionCount> plannedActionCounts = completePlan
+                    ? Enum.GetValues<MigrationPlannedAction>()
+                        .OrderBy(action => action)
+                        .Select(action => new MigrationReconciliationPlannedActionCount(
+                            action,
+                            plannedRows.Count(item => item.PlannedAction == action)))
+                        .ToArray()
+                    : [];
+
+                return new MigrationReconciliationRecordCount(
+                    group.Key,
+                    group.Count(),
+                    group.Count(item => item.Disposition == MigrationRecordDisposition.Accepted),
+                    group.Count(item => item.Disposition == MigrationRecordDisposition.Rejected),
+                    group.Count(item => item.Disposition == MigrationRecordDisposition.Quarantined),
+                    group.Count(item => item.FindingCodes.Any(code => code.Contains("duplicate", StringComparison.OrdinalIgnoreCase))),
+                    completePlan ? MigrationReconciliationTargetBasisStatus.DryRunPlan : MigrationReconciliationTargetBasisStatus.NotYetAvailable,
+                    plannedActionCounts);
+            })
+            .ToArray();
+
+        var controls = new SortedDictionary<string, decimal>(StringComparer.Ordinal);
+        foreach (var item in dryRun.ControlTotals)
+            controls[item.Key] = item.Value;
+        if (controls.TryGetValue("glDebit", out var debit) && controls.TryGetValue("glCredit", out var credit))
+            controls["glBalanceDifference"] = debit - credit;
+
+        var duplicateCount = byRecordType.Sum(item => item.DuplicateCount);
+        return (
+            controls.Select(item => new MigrationReconciliationControlTotal(item.Key, item.Value)).ToArray(),
+            new MigrationReconciliationCounts(
+                dryRun.TotalStagedRecords,
+                dryRun.AcceptedCount,
+                dryRun.RejectedCount,
+                dryRun.QuarantinedCount,
+                duplicateCount,
+                byRecordType));
     }
 
     public Task<MigrationOperationResult<MigrationReconciliationApprovalRecord>> ApproveAsync(
