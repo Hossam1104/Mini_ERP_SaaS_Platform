@@ -4,6 +4,25 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-29 — MESP-173 acceptance — Claude Opus 5.5 / medium — MESP-173 (#299)
+- Status: ACCEPTED
+- Branch / starting SHA / ending SHA:
+  - `fix/mesp-173-mesp-169-correction` head `858a5ed`; merged to `main` as `79a8f93` (PR #310); #299 closed.
+- What changed:
+  - Accepted A1-A6 plus the PR #310 review fixes (`3548c4d`): correction preflight requires equal staged and validation-snapshot key sets before any attempt; reconciliation preview reads the validation linked by `dryRun.ValidationAttemptId`.
+- Gates:
+  - Executor wrapper 1,594 passed, 0 failed, 0 skipped; Migration EF check clean; hosted Repository Validation, Backend and Frontend green on `858a5ed`; all review threads resolved.
+- Evidence:
+  - Opus ruling: a validation after a dry run is unreachable (`run.PermitsAttempt`, `MigrationApplicationContracts.cs:769`), so the linked-read change is defensive parity without a reachable regression test.
+- Deviations from the prompt:
+  - Subledger-to-GL control-account tie-out remains a recorded gap (BRD 40 defines no mapping).
+- Failures and classification:
+  - None in the accepted state. The executor's invalid linked-validation test (unreachable run state) was removed by Opus ruling; not a product defect.
+- Status files updated:
+  - `ORCHESTRATION_STATE.yaml` (cycle 6 → 7, current result), `docs/ROADMAP.md` (reconciled date, cycle count, next items), this entry; #299 closed.
+- Exact next action:
+  - Sol re-review of MESP-169 + MESP-173 inside the early window (cycle 8–10); UI lanes MESP-178 (#309) and MESP-175 (#305) continue under owner approval.
+
 ## 2026-09-29 — MESP-173 correction and handback — GPT-6 Luna / max — MESP-173 (#299)
 - Status: DONE
 - Branch / starting SHA / ending SHA:
