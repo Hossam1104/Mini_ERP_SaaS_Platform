@@ -109,7 +109,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(trigger).not.toHaveAttribute('aria-controls');
     await trigger.click();
     const menu = page.getByRole('menu', { name: 'Choose a theme' });
-    await expect(menu.getByRole('menuitemradio')).toHaveCount(8);
+    await expect(menu.getByRole('menuitemradio')).toHaveCount(9);
     await expect(trigger).toHaveAttribute('aria-controls', 'theme-menu');
     await expect(menu.getByRole('menuitemradio', { name: 'Sapphire' })).toHaveAttribute('aria-checked', 'true');
     await page.keyboard.press('End');

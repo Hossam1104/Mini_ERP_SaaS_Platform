@@ -26,14 +26,14 @@ describe('ThemeService', () => {
   it('uses the Tenant default when no user choice exists', () => {
     const service = TestBed.inject(ThemeService);
     expect(service.selectedTheme()).toBe('sapphire');
-    entry.set({ branding: { defaultTheme: 'forest' } });
+    entry.set({ branding: { defaultTheme: 'meadow' } });
     TestBed.flushEffects();
-    expect(service.selectedTheme()).toBe('forest');
-    expect(document.documentElement.dataset['theme']).toBe('forest');
+    expect(service.selectedTheme()).toBe('meadow');
+    expect(document.documentElement.dataset['theme']).toBe('meadow');
   });
 
   it('persists a user choice over the Tenant default across instances', () => {
-    entry.set({ branding: { defaultTheme: 'forest' } });
+    entry.set({ branding: { defaultTheme: 'meadow' } });
     const service = TestBed.inject(ThemeService);
     service.select('teal');
     service.toggleDarkMode();

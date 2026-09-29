@@ -6,6 +6,7 @@ export const THEME_OPTIONS = [
   { id: 'sapphire', label: 'Sapphire', color: '#1d4ed8' },
   { id: 'luxury', label: 'Luxury', color: '#111827' },
   { id: 'forest', label: 'Forest', color: '#1e8449' },
+  { id: 'meadow', label: 'Meadow', color: '#5da234' },
   { id: 'ruby', label: 'Ruby', color: '#e60000' },
   { id: 'purple', label: 'Purple', color: '#7b2fbe' },
   { id: 'amber', label: 'Amber', color: '#e85d04' },
