@@ -176,10 +176,14 @@ test.describe('Supplier Quotation workspace', () => {
 
   test('navigates from the sidebar into the real list and approved-request create context', async ({ page }) => {
     await mockProcurementAndReferences(page);
-    await page.goto('/app/procurement/supplier-quotations');
+    await page.goto('/app');
+    const procurementTile = page.locator('#app-sidebar').getByRole('button', { name: 'Procurement' });
+    await procurementTile.click();
+    await page.getByRole('link', { name: 'Supplier Quotations' }).click();
 
     await expect(page.getByTestId('supplier-quotation-list')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Supplier Quotations' })).toHaveClass(/is-active/);
+    await procurementTile.click();
+    await expect(page.getByRole('link', { name: 'Supplier Quotations' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText('Supplier One')).toBeVisible();
     await expect(page.getByText('Acme Trading Co.')).toBeVisible();
     await expect(page.getByText(companyId)).toHaveCount(0);

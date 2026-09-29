@@ -148,7 +148,9 @@ describe('FinanceSettlementWorkspaceComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('[data-testid="ap-source-ready"]')).not.toBeNull();
     expect(element.textContent).toContain('PI-READY-1');
-    expect(element.textContent).toContain('Recognize payable');
+    (element.querySelector('[data-testid="ap-source-ready"] .grid-row-menu-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(element.querySelector('[data-testid="ap-source-ready"] [role="menuitem"]')?.textContent).toContain('Recognize payable');
     expect(element.querySelectorAll('input[type="text"]').length).toBe(0);
   });
 
@@ -228,10 +230,17 @@ describe('FinanceSettlementWorkspaceComponent', () => {
       postedPayment,
     ]);
     fixture.detectChanges();
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Approve');
-    expect(text).toContain('Post');
-    expect(text).toContain('Reverse');
+    const element = fixture.nativeElement as HTMLElement;
+    const menuItems = (id: string): string[] => {
+      const row = element.querySelector(`tr[data-row-id="${id}"]`);
+      (row?.querySelector('.grid-row-menu-trigger') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      return Array.from(row?.querySelectorAll('[role="menuitem"]') ?? []).map(item => item.textContent?.trim() ?? '');
+    };
+    expect(menuItems('submitted-required')).toContain('Approve');
+    expect(menuItems('submitted-direct')).toContain('Post');
+    expect(menuItems('approved')).toContain('Post');
+    expect(menuItems('payment-a')).toContain('Reverse');
   });
 
   it('creates a partial compatible allocation and exposes explicit allocation reversal', async () => {

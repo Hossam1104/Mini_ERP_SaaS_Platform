@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { ContextService } from '../../core/context/context.service';
@@ -18,6 +19,7 @@ describe('ReportingWorkspaceComponent', () => {
     TestBed.configureTestingModule({
       imports: [ReportingWorkspaceComponent],
       providers: [
+        provideRouter([]),
         { provide: ContextService, useValue: { currentOperationalContext: () => null, entry: () => null } },
         {
         provide: ReportingService,

@@ -12,11 +12,14 @@ import {
   GoodsReceiptEligibleSourceResponse,
   GoodsReceiptHistoryResponse,
   GoodsReceiptListItemResponse,
+  GoodsReceiptLineResponse,
   GoodsReceiptResponse,
   GoodsReceiptStatus,
   GoodsReceiptWarehouseOptionResponse,
 } from './goods-receipt.model';
 import { GoodsReceiptService } from './goods-receipt.service';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 
 type WorkspaceMode = 'list' | 'create' | 'detail';
 type DetailTab = 'summary' | 'lines' | 'history' | 'audit';
@@ -41,18 +44,18 @@ interface CreateReceiptLineDraft {
 @Component({
   selector: 'app-goods-receipt-workspace',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, DataGridComponent, PageHeaderComponent],
   template: `
     @if (mode() === 'list') {
       <section class="ui-page goods-receipt-page" data-testid="goods-receipt-list">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header>
+          <div page-header-copy>
             <p class="eyebrow">{{ grText('goodsReceiptKicker') }}</p>
             <h1>{{ grText('goodsReceipts') }}</h1>
-            <p class="lede">{{ grText('goodsReceiptsLead') }}</p>
+            <p>{{ grText('goodsReceiptsLead') }}</p>
           </div>
-          <a class="button button--primary" routerLink="/app/procurement/goods-receipts/new" data-testid="new-goods-receipt">＋ {{ grText('newGoodsReceipt') }}</a>
-        </header>
+          <div page-header-actions><a class="button button--primary" routerLink="/app/procurement/goods-receipts/new" data-testid="new-goods-receipt">＋ {{ grText('newGoodsReceipt') }}</a></div>
+        </app-page-header>
         <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ grText('goodsReceiptBoundary') }}</span></div>
 
         @if (loading()) {
@@ -69,7 +72,7 @@ interface CreateReceiptLineDraft {
             @if (filteredRecords().length === 0) {
               <div class="empty-ledger"><span aria-hidden="true">◌</span><h2>{{ grText('noGoodsReceipts') }}</h2><p>{{ grText('noGoodsReceiptsLead') }}</p></div>
             } @else {
-              <div class="ui-grid-shell goods-receipt-grid-shell"><table class="ui-grid goods-receipt-grid"><caption class="sr-only">{{ grText('goodsReceipts') }}</caption><thead><tr><th scope="col">{{ grText('goodsReceiptReferenceColumn') }}</th><th scope="col">{{ grText('goodsReceiptSupplierColumn') }}</th><th scope="col">{{ grText('goodsReceiptStatusColumn') }}</th><th scope="col">{{ grText('goodsReceiptDateColumn') }}</th><th scope="col" class="numeric">{{ grText('goodsReceiptAcceptedColumn') }}</th><th scope="col" class="numeric">{{ grText('goodsReceiptRejectedColumn') }}</th><th scope="col">{{ grText('goodsReceiptUpdatedColumn') }}</th></tr></thead><tbody>@for (record of filteredRecords(); track record.id) {<tr><td><a class="record-link" [routerLink]="['/app/procurement/goods-receipts', record.id]">{{ record.referenceNote || record.id.substring(0, 8) }}</a><small>{{ record.lineCount }} {{ grText('goodsReceiptLines') }}</small></td><td><strong>{{ record.supplierName }}</strong><small>{{ record.supplierCode }}</small></td><td><span class="status-badge" [class]="statusClass(record.status)"><span aria-hidden="true"></span>{{ statusLabel(record.status) }}</span></td><td>{{ formatDate(record.receivedDate) }}</td><td class="numeric">{{ formatQuantity(record.totalAcceptedQuantity) }}</td><td class="numeric">{{ formatQuantity(record.totalRejectedQuantity) }}</td><td>{{ formatDateTime(record.updatedAt) }}</td></tr>}</tbody></table></div>
+              <app-data-grid [rows]="filteredRecords()" [columns]="receiptColumns" [language]="language.language()" [clientPaging]="true" [showPager]="true" [scopeLabel]="gridScopeLabel()" [caption]="grText('goodsReceipts')" [countLabel]="grText('goodsReceipts')" [filterInputLabel]="grText('goodsReceiptSearch')" [previousPageLabel]="language.text('previous')" [nextPageLabel]="language.text('next')" />
             }
           </section>
         }
@@ -78,14 +81,14 @@ interface CreateReceiptLineDraft {
 
     @if (mode() === 'create') {
       <section class="ui-page goods-receipt-page" data-testid="goods-receipt-create">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header>
+          <div page-header-copy>
             <p class="eyebrow">{{ grText('goodsReceiptKicker') }}</p>
             <h1>{{ grText('createGoodsReceipt') }}</h1>
-            <p class="lede">{{ grText('goodsReceiptCreateLead') }}</p>
+            <p>{{ grText('goodsReceiptCreateLead') }}</p>
           </div>
-          <a class="button button--secondary" routerLink="/app/procurement/goods-receipts">{{ grText('backToGoodsReceipts') }}</a>
-        </header>
+          <div page-header-actions><a class="button button--secondary" routerLink="/app/procurement/goods-receipts">{{ grText('backToGoodsReceipts') }}</a></div>
+        </app-page-header>
         <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ grText('goodsReceiptSourceRule') }}</span></div>
 
         @if (loading()) {
@@ -137,49 +140,17 @@ interface CreateReceiptLineDraft {
                 <h2>{{ grText('goodsReceiptLineEntryTitle') }}</h2>
                 <p class="detail-copy">{{ grText('goodsReceiptLineEntryLead') }}</p>
 
-                <div class="ui-grid-shell">
-                  <table class="ui-grid compact-grid">
-                    <thead>
-                      <tr>
-                        <th scope="col">{{ grText('goodsReceiptProductColumn') }}</th>
-                        <th scope="col" class="numeric">{{ grText('goodsReceiptConfirmedQty') }}</th>
-                        <th scope="col" class="numeric">{{ grText('goodsReceiptRemainingQty') }}</th>
-                        <th scope="col">{{ grText('goodsReceiptReceivedQty') }} *</th>
-                        <th scope="col">{{ grText('goodsReceiptAcceptedQty') }} *</th>
-                        <th scope="col">{{ grText('goodsReceiptRejectedQty') }}</th>
-                        <th scope="col">{{ grText('goodsReceiptDamagedQty') }}</th>
-                        <th scope="col">{{ grText('goodsReceiptDamageNotes') }}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (line of createLines; track line.purchaseOrderLineId) {
-                        <tr>
-                          <td>
-                            <strong>{{ line.productSku }} · {{ line.productName }}</strong>
-                            <small>{{ line.unitOfMeasureCode }}</small>
-                          </td>
-                          <td class="numeric">{{ formatQuantity(line.confirmedQuantity) }}</td>
-                          <td class="numeric remaining-highlight">{{ formatQuantity(line.remainingReceivableQuantity) }}</td>
-                          <td>
-                            <input class="table-input numeric" type="number" min="0" step="0.000001" [(ngModel)]="line.receivedQuantity" (ngModelChange)="onLineReceivedChange(line)" />
-                          </td>
-                          <td>
-                            <input class="table-input numeric" type="number" min="0" [max]="line.receivedQuantity" step="0.000001" [(ngModel)]="line.acceptedQuantity" (ngModelChange)="onLineAcceptedChange(line)" />
-                          </td>
-                          <td>
-                            <input class="table-input numeric" type="number" min="0" [max]="line.receivedQuantity" step="0.000001" [(ngModel)]="line.rejectedQuantity" (ngModelChange)="onLineRejectedChange(line)" />
-                          </td>
-                          <td>
-                            <input class="table-input numeric" type="number" min="0" [max]="line.receivedQuantity" step="0.000001" [(ngModel)]="line.damagedQuantity" />
-                          </td>
-                          <td>
-                            <input class="table-input" type="text" maxlength="2048" [placeholder]="grText('damageNotesPlaceholder')" [(ngModel)]="line.damageNotes" />
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
+                <app-data-grid [rows]="createLines" [columns]="createLineColumns" [rowActionsTemplate]="createLineActions" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="grText('goodsReceiptLineEntryTitle')" [countLabel]="grText('goodsReceiptLines')" [rowActionsLabel]="grText('goodsReceiptLinesTitle')">
+                  <ng-template #createLineActions let-line>
+                    <div class="grid-line-editors">
+                      <label><span>{{ grText('goodsReceiptReceivedQty') }} *</span><input class="table-input numeric" type="number" min="0" step="0.000001" [(ngModel)]="line.receivedQuantity" (ngModelChange)="onLineReceivedChange(line)" [ngModelOptions]="{standalone: true}" [attr.aria-label]="grText('goodsReceiptReceivedQty')" /></label>
+                      <label><span>{{ grText('goodsReceiptAcceptedQty') }} *</span><input class="table-input numeric" type="number" min="0" [max]="line.receivedQuantity" step="0.000001" [(ngModel)]="line.acceptedQuantity" (ngModelChange)="onLineAcceptedChange(line)" [ngModelOptions]="{standalone: true}" [attr.aria-label]="grText('goodsReceiptAcceptedQty')" /></label>
+                      <label><span>{{ grText('goodsReceiptRejectedQty') }}</span><input class="table-input numeric" type="number" min="0" [max]="line.receivedQuantity" step="0.000001" [(ngModel)]="line.rejectedQuantity" (ngModelChange)="onLineRejectedChange(line)" [ngModelOptions]="{standalone: true}" [attr.aria-label]="grText('goodsReceiptRejectedQty')" /></label>
+                      <label><span>{{ grText('goodsReceiptDamagedQty') }}</span><input class="table-input numeric" type="number" min="0" [max]="line.receivedQuantity" step="0.000001" [(ngModel)]="line.damagedQuantity" [ngModelOptions]="{standalone: true}" [attr.aria-label]="grText('goodsReceiptDamagedQty')" /></label>
+                      <label><span>{{ grText('goodsReceiptDamageNotes') }}</span><input class="table-input" type="text" maxlength="2048" [placeholder]="grText('damageNotesPlaceholder')" [(ngModel)]="line.damageNotes" [ngModelOptions]="{standalone: true}" [attr.aria-label]="grText('goodsReceiptDamageNotes')" /></label>
+                    </div>
+                  </ng-template>
+                </app-data-grid>
 
                 @if (validationError()) {
                   <div class="inline-error" role="alert">{{ validationError() }}</div>
@@ -201,23 +172,18 @@ interface CreateReceiptLineDraft {
 
     @if (mode() === 'detail' && receipt(); as currentReceipt) {
       <section class="ui-page goods-receipt-page" data-testid="goods-receipt-detail">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header>
+          <div page-header-copy>
             <p class="eyebrow">{{ grText('goodsReceiptKicker') }}</p>
             <h1>{{ currentReceipt.referenceNote || grText('goodsReceipt') + ' ' + currentReceipt.id.substring(0, 8) }}</h1>
-            <p class="lede">{{ currentReceipt.supplierName }} ({{ currentReceipt.supplierCode }}) · {{ formatDate(currentReceipt.receivedDate) }}</p>
+            <p>{{ currentReceipt.supplierName }} ({{ currentReceipt.supplierCode }}) · {{ formatDate(currentReceipt.receivedDate) }}</p>
           </div>
-          <span class="status-badge status-badge--hero" [class]="statusClass(currentReceipt.status)">
-            <span aria-hidden="true"></span>{{ statusLabel(currentReceipt.status) }}
-          </span>
-        </header>
-
-        <div class="action-rail" role="toolbar" [attr.aria-label]="grText('goodsReceiptActions')">
-          <a class="button button--secondary" routerLink="/app/procurement/goods-receipts">{{ grText('backToGoodsReceipts') }}</a>
-          @if (currentReceipt.canCancel) {
-            <button class="button button--danger" type="button" (click)="openCancelDialog()" data-testid="cancel-goods-receipt">{{ grText('cancelGoodsReceipt') }}</button>
-          }
-        </div>
+          <div page-header-actions>
+            <span class="status-badge" [class]="statusClass(currentReceipt.status)"><span aria-hidden="true"></span>{{ statusLabel(currentReceipt.status) }}</span>
+            <a class="button button--secondary" routerLink="/app/procurement/goods-receipts">{{ grText('backToGoodsReceipts') }}</a>
+            @if (currentReceipt.canCancel) { <button class="button button--danger" type="button" (click)="openCancelDialog()" data-testid="cancel-goods-receipt">{{ grText('cancelGoodsReceipt') }}</button> }
+          </div>
+        </app-page-header>
 
         @if (currentReceipt.status === 'Cancelled') {
           <section class="boundary-note terminal-recovery-note" role="note">
@@ -261,47 +227,13 @@ interface CreateReceiptLineDraft {
           <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('lines')">
             <p class="section-kicker">{{ grText('goodsReceiptLines') }}</p>
             <h2>{{ grText('goodsReceiptLinesTitle') }}</h2>
-            <div class="ui-grid-shell">
-              <table class="ui-grid detail-grid">
-                <thead>
-                  <tr>
-                    <th scope="col">{{ grText('goodsReceiptProductColumn') }}</th>
-                    <th scope="col" class="numeric">{{ grText('orderedAtReceipt') }}</th>
-                    <th scope="col" class="numeric">{{ grText('receivedQty') }}</th>
-                    <th scope="col" class="numeric">{{ grText('acceptedQty') }}</th>
-                    <th scope="col" class="numeric">{{ grText('rejectedQty') }}</th>
-                    <th scope="col" class="numeric">{{ grText('damagedQty') }}</th>
-                    <th scope="col" class="numeric">{{ grText('remainingReceivableAfter') }}</th>
-                    <th scope="col">{{ grText('damageNotes') }}</th>
-                    <th scope="col">{{ grText('inventoryMovement') }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (line of currentReceipt.lines; track line.id) {
-                    <tr>
-                      <td>
-                        <strong>{{ line.productSku }} · {{ line.productName }}</strong>
-                        <small>{{ line.unitOfMeasureCode }}</small>
-                      </td>
-                      <td class="numeric">{{ formatQuantity(line.orderedQuantityAtReceipt) }}</td>
-                      <td class="numeric">{{ formatQuantity(line.receivedQuantity) }}</td>
-                      <td class="numeric accepted-highlight">{{ formatQuantity(line.acceptedQuantity) }}</td>
-                      <td class="numeric" [class.rejected-highlight]="line.rejectedQuantity > 0">{{ formatQuantity(line.rejectedQuantity) }}</td>
-                      <td class="numeric" [class.damaged-highlight]="(line.damagedQuantity ?? 0) > 0">{{ line.damagedQuantity ? formatQuantity(line.damagedQuantity) : '0' }}</td>
-                      <td class="numeric">{{ formatQuantity(line.remainingReceivableQuantityAfter) }}</td>
-                      <td>{{ line.damageNotes || grText('notAvailable') }}</td>
-                      <td>
-                        @if (currentReceipt.status === 'Recorded' && line.acceptedQuantity > 0) {
-                          <button class="button button--secondary" type="button" [disabled]="saving()" (click)="postAcceptedLine(currentReceipt, line)">{{ grText('postToInventory') }}</button>
-                        } @else {
-                          <span class="muted">{{ grText('notAvailable') }}</span>
-                        }
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
+            <app-data-grid [rows]="currentReceipt.lines" [columns]="detailLineColumns" [rowActionsTemplate]="detailLineActions" [language]="language.language()" [clientPaging]="true" [showPager]="true" [caption]="grText('goodsReceiptLinesTitle')" [countLabel]="grText('goodsReceiptLines')" [rowActionsLabel]="grText('inventoryMovement')">
+              <ng-template #detailLineActions let-line>
+                @if (currentReceipt.status === 'Recorded' && line.acceptedQuantity > 0) {
+                  <button class="button button--secondary" type="button" [disabled]="saving()" (click)="postAcceptedLine(currentReceipt, line)">{{ grText('postToInventory') }}</button>
+                } @else { <span class="muted">{{ grText('notAvailable') }}</span> }
+              </ng-template>
+            </app-data-grid>
           </section>
         } @else if (activeTab() === 'history') {
           <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('history')">
@@ -366,8 +298,6 @@ interface CreateReceiptLineDraft {
   `,
   styles: `
     :host { display: block; }
-    .page-header { align-items: center; }
-    .page-header .lede { max-width: 54rem; margin-bottom: 0; line-height: 1.55; }
     .button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.4rem; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .82rem; color: var(--ink); background: var(--surface-raised); font-size: .74rem; font-weight: 800; text-decoration: none; cursor: pointer; }
     .button:hover:not(:disabled) { transform: translateY(-1px); }
     .button:disabled { cursor: wait; opacity: .55; }
@@ -390,15 +320,8 @@ interface CreateReceiptLineDraft {
     .filter-field { display: grid; gap: .25rem; min-width: 12rem; color: var(--ink-muted); font-size: .64rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
     .filter-field select { min-height: 2.4rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: .4rem .5rem; color: var(--ink); background: var(--surface-raised); font-size: .75rem; text-transform: none; letter-spacing: normal; }
     .filter-note { flex: 1 1 100%; margin: 0; color: var(--ink-muted); font-size: .66rem; }
-    .goods-receipt-grid-shell { border: 0; border-radius: 0; }
-    .goods-receipt-grid { min-width: 58rem; }
-    .goods-receipt-grid th, .goods-receipt-grid td { padding: .68rem .6rem; }
-    .goods-receipt-grid td small, .detail-grid td small { display: block; margin-top: .16rem; color: var(--ink-muted); font-size: .66rem; }
-    .record-link { color: var(--ink); font-weight: 900; text-decoration: none; }
-    .record-link:hover { color: var(--accent-strong); text-decoration: underline; }
     .status-badge { display: inline-flex; align-items: center; gap: .35rem; border: 1px solid var(--line); border-radius: 99px; padding: .28rem .5rem; color: var(--ink-muted); background: var(--surface); font-size: .63rem; font-weight: 900; white-space: nowrap; }
     .status-badge > span { width: .4rem; height: .4rem; border-radius: 50%; background: currentColor; }
-    .status-badge--hero { align-self: center; padding: .45rem .7rem; font-size: .74rem; }
     .status-badge--recorded { color: var(--success); background: var(--accent-soft); }
     .status-badge--cancelled { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }
     .numeric { font-variant-numeric: tabular-nums; }
@@ -412,11 +335,11 @@ interface CreateReceiptLineDraft {
     .field__label { color: var(--ink-muted); font-size: .68rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
     .field input, .field select, .field textarea, .table-input { width: 100%; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: .55rem .6rem; color: var(--ink); background: var(--surface-raised); font: inherit; }
     .field textarea { resize: vertical; }
-    .form-actions, .action-rail, .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
+    .form-actions, .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
     .form-actions { justify-content: flex-end; }
-    .action-rail { margin-block: .9rem 1rem; }
     .source-lines-section { display: grid; gap: 1rem; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 1rem; background: var(--surface); }
-    .section-kicker, .eyebrow { color: var(--ink-muted); font-size: .66rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; margin: 0; }
+    .section-kicker { color: var(--ink-muted); font-size: .66rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; margin: 0; }
+    .eyebrow { color: var(--primary); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
     .fact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .8rem; margin: 0; }
     .fact-grid div { display: grid; gap: .2rem; }
     .fact-grid dt { color: var(--ink-muted); font-size: .66rem; font-weight: 800; }
@@ -424,10 +347,11 @@ interface CreateReceiptLineDraft {
     .detail-tabs { display: flex; gap: .3rem; overflow-x: auto; margin-block: 0 1rem; border-bottom: 1px solid var(--line); }
     .detail-tabs button { border: 0; border-bottom: 2px solid transparent; padding: .65rem .8rem; color: var(--ink-muted); background: transparent; font: 800 .72rem var(--font-sans); cursor: pointer; white-space: nowrap; }
     .detail-tabs button.is-active { border-color: var(--accent-strong); color: var(--ink-strong); }
-    .ui-grid-shell { overflow-x: auto; }
-    .compact-grid, .detail-grid { min-width: 50rem; }
-    .compact-grid th, .compact-grid td, .detail-grid th, .detail-grid td { padding: .65rem .55rem; }
     .table-input { min-width: 6rem; padding: .42rem .45rem; font-size: .72rem; }
+    .grid-line-editors { display: grid; grid-template-columns: repeat(5, minmax(8rem, 1fr)); gap: .45rem; min-width: 43rem; }
+    .grid-line-editors label { display: grid; gap: .2rem; color: var(--ink-muted); font-size: .62rem; font-weight: 800; }
+    .grid-line-editors label span { white-space: nowrap; }
+    .grid-line-editors input { min-width: 0; }
     .remaining-highlight { color: var(--accent-strong); font-weight: 800; }
     .accepted-highlight { color: var(--success); font-weight: 800; }
     .rejected-highlight { color: var(--danger); font-weight: 800; }
@@ -490,6 +414,45 @@ export class GoodsReceiptWorkspaceComponent implements OnInit {
       return matchStatus && matchQuery;
     });
   });
+  get receiptColumns(): DataGridColumn<GoodsReceiptListItemResponse>[] {
+    return [
+    { key: 'referenceNote', label: this.grText('goodsReceiptReferenceColumn'), value: row => row.referenceNote || row.id.substring(0, 8), link: row => `/app/procurement/goods-receipts/${row.id}`, secondaryText: row => `${row.lineCount} ${this.grText('goodsReceiptLines')}`, filter: 'text' },
+    { key: 'supplierName', label: this.grText('goodsReceiptSupplierColumn'), value: row => row.supplierName, secondaryText: row => row.supplierCode, filter: 'text' },
+    { key: 'status', label: this.grText('goodsReceiptStatusColumn'), value: row => this.statusLabel(row.status), badge: true, filter: 'select' },
+    { key: 'receivedDate', label: this.grText('goodsReceiptDateColumn'), value: row => row.receivedDate, display: row => this.formatDate(row.receivedDate), filter: 'date-range' },
+    { key: 'totalAcceptedQuantity', label: this.grText('goodsReceiptAcceptedColumn'), value: row => row.totalAcceptedQuantity, display: row => this.formatQuantity(row.totalAcceptedQuantity), filter: 'number-range', align: 'end' },
+    { key: 'totalRejectedQuantity', label: this.grText('goodsReceiptRejectedColumn'), value: row => row.totalRejectedQuantity, display: row => this.formatQuantity(row.totalRejectedQuantity), filter: 'number-range', align: 'end' },
+    { key: 'updatedAt', label: this.grText('goodsReceiptUpdatedColumn'), value: row => row.updatedAt, display: row => this.formatDateTime(row.updatedAt), filter: 'date-range' },
+    ];
+  }
+  get createLineColumns(): DataGridColumn<CreateReceiptLineDraft>[] {
+    return [
+    { key: 'productSku', label: this.grText('goodsReceiptProductColumn'), value: row => row.productSku, secondaryText: row => `${row.productName} · ${row.unitOfMeasureCode}`, filter: 'text' },
+    { key: 'confirmedQuantity', label: this.grText('goodsReceiptConfirmedQty'), value: row => row.confirmedQuantity, display: row => this.formatQuantity(row.confirmedQuantity), filter: 'number-range', align: 'end' },
+    { key: 'remainingReceivableQuantity', label: this.grText('goodsReceiptRemainingQty'), value: row => row.remainingReceivableQuantity, display: row => this.formatQuantity(row.remainingReceivableQuantity), filter: 'number-range', align: 'end' },
+    { key: 'receivedQuantity', label: this.grText('goodsReceiptReceivedQty'), value: row => row.receivedQuantity, filter: 'number-range', align: 'end' },
+    { key: 'acceptedQuantity', label: this.grText('goodsReceiptAcceptedQty'), value: row => row.acceptedQuantity, filter: 'number-range', align: 'end' },
+    { key: 'rejectedQuantity', label: this.grText('goodsReceiptRejectedQty'), value: row => row.rejectedQuantity, filter: 'number-range', align: 'end' },
+    { key: 'damagedQuantity', label: this.grText('goodsReceiptDamagedQty'), value: row => row.damagedQuantity, filter: 'number-range', align: 'end' },
+    { key: 'damageNotes', label: this.grText('goodsReceiptDamageNotes'), value: row => row.damageNotes, filter: 'text' },
+    ];
+  }
+  get detailLineColumns(): DataGridColumn<GoodsReceiptLineResponse>[] {
+    return [
+    { key: 'productSku', label: this.grText('goodsReceiptProductColumn'), value: row => row.productSku, secondaryText: row => `${row.productName} · ${row.unitOfMeasureCode}`, filter: 'text' },
+    { key: 'orderedQuantityAtReceipt', label: this.grText('orderedAtReceipt'), value: row => row.orderedQuantityAtReceipt, display: row => this.formatQuantity(row.orderedQuantityAtReceipt), filter: 'number-range', align: 'end' },
+    { key: 'receivedQuantity', label: this.grText('receivedQty'), value: row => row.receivedQuantity, display: row => this.formatQuantity(row.receivedQuantity), filter: 'number-range', align: 'end' },
+    { key: 'acceptedQuantity', label: this.grText('acceptedQty'), value: row => row.acceptedQuantity, display: row => this.formatQuantity(row.acceptedQuantity), filter: 'number-range', align: 'end' },
+    { key: 'rejectedQuantity', label: this.grText('rejectedQty'), value: row => row.rejectedQuantity, display: row => this.formatQuantity(row.rejectedQuantity), filter: 'number-range', align: 'end' },
+    { key: 'damagedQuantity', label: this.grText('damagedQty'), value: row => row.damagedQuantity ?? 0, display: row => this.formatQuantity(row.damagedQuantity ?? 0), filter: 'number-range', align: 'end' },
+    { key: 'remainingReceivableQuantityAfter', label: this.grText('remainingReceivableAfter'), value: row => row.remainingReceivableQuantityAfter, display: row => this.formatQuantity(row.remainingReceivableQuantityAfter), filter: 'number-range', align: 'end' },
+    { key: 'damageNotes', label: this.grText('damageNotes'), value: row => row.damageNotes || this.grText('notAvailable'), filter: 'text' },
+    ];
+  }
+
+  gridScopeLabel(): string {
+    return this.language.language() === 'ar' ? 'تطبق تصفية الشبكة وترتيبها على الإيصالات المحملة فقط' : 'Grid filters and sorting apply to loaded receipts only';
+  }
 
   private readonly copy: Record<'en' | 'ar', Record<string, string>> = {
     en: {

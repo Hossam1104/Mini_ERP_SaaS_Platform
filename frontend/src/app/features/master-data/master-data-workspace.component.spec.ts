@@ -187,9 +187,14 @@ describe('MasterDataWorkspaceComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders all nine bounded resource entries and a connected category list', () => {
+  it('renders nine deep-linkable resource tabs under the shared page header', () => {
     const element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelectorAll('.resource-link')).toHaveLength(9);
+    const tabs = Array.from(element.querySelectorAll<HTMLAnchorElement>('.md-tabs__tab'));
+    expect(tabs).toHaveLength(9);
+    expect(element.querySelector('.md-tabs')?.getAttribute('aria-label')).toBe('Master data resources');
+    expect(element.querySelector('app-page-header h1#master-data-title')?.textContent).toContain('Categories');
+    expect(tabs.map((tab) => tab.getAttribute('href'))).toContain('/app/master-data/categories');
+    expect(tabs.every((tab) => tab.tabIndex === 0)).toBe(true);
     expect(element.textContent).toContain('Categories');
     expect(element.textContent).toContain('CAT-01');
     expect(data.list).toHaveBeenCalledWith('categories');

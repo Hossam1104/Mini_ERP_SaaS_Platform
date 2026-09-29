@@ -77,7 +77,9 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('.module-card').first().locator('strong')).toHaveText('Master Data');
 
     const sidebar = page.locator('#app-sidebar');
-    await expect(sidebar.locator('.nav-link').first()).toHaveAttribute('title', 'Overview');
+    const overviewTile = sidebar.getByRole('button', { name: 'Overview' });
+    await expect(overviewTile).toHaveClass(/is-active/);
+    await expect(overviewTile).toHaveAttribute('aria-current', 'page');
     await page.getByRole('button', { name: 'Expand navigation' }).click();
     await expect(sidebar).toHaveClass(/sidebar--expanded/);
     await expect(sidebar.locator('.nav-group__title').first()).toBeVisible();

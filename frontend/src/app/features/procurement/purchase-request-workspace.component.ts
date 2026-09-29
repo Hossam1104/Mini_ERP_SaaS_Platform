@@ -19,6 +19,8 @@ import {
   PurchaseRequestWriteRequest,
 } from './purchase-request.model';
 import { PurchaseRequestService } from './purchase-request.service';
+import { DataGridAction, DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 
 type Mode = 'list' | 'create' | 'edit' | 'view';
 type DetailTab = 'summary' | 'lines' | 'history' | 'audit';
@@ -42,20 +44,36 @@ interface RequestDraft {
 @Component({
   selector: 'app-purchase-request-workspace',
   standalone: true,
-  imports: [DatePipe, FormsModule, NgTemplateOutlet],
+  imports: [DatePipe, FormsModule, NgTemplateOutlet, DataGridComponent, PageHeaderComponent],
   template: `
     <section class="pr-workspace" aria-labelledby="pr-title">
-      <header class="pr-hero ui-page-header">
-        <div class="hero-copy">
+      <app-page-header class="page-header">
+        <div page-header-copy>
           <p class="eyebrow">{{ language.text('procurementNavLabel') }} / {{ language.text('purchaseRequestsNavLabel') }}</p>
-          <h1 id="pr-title">{{ language.text('purchaseRequests') }}</h1>
-          <p class="hero-lede">{{ language.text('purchaseRequestsLead') }}</p>
+          @if (mode() === 'list') { <h1 id="pr-title">{{ language.text('purchaseRequests') }}</h1> }
+          @else if (mode() === 'create') { <h1 id="pr-title">{{ language.text('newPurchaseRequest') }}</h1> }
+          @else if (selectedRecord(); as record) { <h1 id="pr-title">{{ language.text('purchaseRequestSingular') }} · {{ shortReference(record.id) }}</h1> }
+          @else { <h1 id="pr-title">{{ language.text('purchaseRequestDetail') }}</h1> }
+          <p class="lead">{{ language.text('purchaseRequestsLead') }} · {{ language.text('serverAuthority') }} · {{ language.text('purchaseRequestBoundary') }}@if (mode() === 'list') { · {{ language.text('clientSideSearch') }} · {{ language.text('clientSideSearchHint') }} }</p>
         </div>
-        <div class="hero-facts">
-          <div class="hero-fact"><span class="hero-fact__mark">01</span><span><b>{{ language.text('serverAuthority') }}</b><small>{{ language.text('purchaseRequestBoundary') }}</small></span></div>
-          <div class="hero-fact hero-fact--quiet"><span class="hero-fact__mark">02</span><span><b>{{ language.text('clientSideSearch') }}</b><small>{{ language.text('clientSideSearchHint') }}</small></span></div>
+        <div page-header-actions role="group" [attr.aria-label]="language.text('purchaseRequests')">
+          @if (mode() === 'list') {
+            <button class="button button--quiet" type="button" (click)="loadList()" [disabled]="loading()" [attr.aria-label]="language.text('refresh')">↻ <span>{{ language.text('refresh') }}</span></button>
+            <button class="button button--primary" type="button" (click)="startCreate()" [disabled]="!canMutate()" [title]="canMutate() ? '' : language.text('accessUnavailable')">＋ {{ language.text('newPurchaseRequest') }}</button>
+          } @else {
+            <button class="back-link" type="button" (click)="backToList()">← {{ language.text('purchaseRequests') }}</button>
+            @if (mode() === 'view' && selectedRecord(); as record) {
+              <span class="status-pill ui-status-chip" [class]="'status-pill ui-status-chip status-pill--' + statusTone(record.status)"><i aria-hidden="true">{{ statusIcon(record.status) }}</i>{{ statusLabel(record.status) }}</span>
+              @if (record.canEdit) { <button class="button button--quiet" type="button" (click)="startEdit()">{{ language.text('editRecord') }}</button> }
+              @if (record.canSubmit) { <button class="button button--primary" type="button" (click)="openLifecycle('submit')">{{ language.text('submitForApproval') }}</button> }
+              @if (record.canApprove) { <button class="button button--primary" type="button" (click)="openLifecycle('approve')">{{ language.text('approveRequest') }}</button> }
+              @if (record.canReturnForChange) { <button class="button button--quiet" type="button" (click)="openLifecycle('return')">{{ language.text('returnForChange') }}</button> }
+              @if (record.canReject) { <button class="button button--danger" type="button" (click)="openLifecycle('reject')">{{ language.text('rejectRequest') }}</button> }
+              @if (record.canCancel) { <button class="button button--danger" type="button" (click)="openLifecycle('cancel')">{{ language.text('cancelRequest') }}</button> }
+            }
+          }
         </div>
-      </header>
+      </app-page-header>
 
       <div class="workspace-panel ui-surface--glass">
         @switch (mode()) {
@@ -66,18 +84,7 @@ interface RequestDraft {
     </section>
 
     <ng-template #listView>
-      <section class="list-view ui-page" aria-labelledby="pr-title-list">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow eyebrow--soft">{{ language.text('purchaseRequests') }}</p>
-            <h2 id="pr-title-list">{{ language.text('purchaseRequests') }}</h2>
-            <p>{{ language.text('purchaseRequestsLead') }}</p>
-          </div>
-          <div class="section-heading__actions">
-            <button class="button button--quiet" type="button" (click)="loadList()" [disabled]="loading()" [attr.aria-label]="language.text('refresh')">↻ <span>{{ language.text('refresh') }}</span></button>
-            <button class="button button--primary" type="button" (click)="startCreate()" [disabled]="!canMutate()" [title]="canMutate() ? '' : language.text('accessUnavailable')">＋ {{ language.text('newPurchaseRequest') }}</button>
-          </div>
-        </div>
+      <section class="list-view ui-page" [attr.aria-label]="language.text('purchaseRequests')">
 
         <form class="toolbar ui-toolbar" role="search" (ngSubmit)="onSearchSubmit()">
           <label class="form-field toolbar__status">
@@ -108,65 +115,17 @@ interface RequestDraft {
           <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(listError()) }}</b><p>{{ language.text('purchaseRequestListLoadFailed') }}</p><button class="text-button" type="button" (click)="loadList()">{{ language.text('retry') }} ↗</button></div></div>
         } @else if (filteredRecords().length === 0) {
           <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><div><b>{{ language.text('noPurchaseRequests') }}</b><p>{{ language.text('noPurchaseRequestsLead') }}</p></div></div>
-        } @else {
-          <div class="record-table-wrap ui-grid-shell">
-            <table class="record-table ui-grid">
-              <caption class="sr-only">{{ language.text('purchaseRequests') }}</caption>
-              <thead><tr><th scope="col">{{ language.text('prStatusColumn') }}</th><th scope="col">{{ language.text('purpose') }}</th><th scope="col">{{ language.text('prOrganizationColumn') }}</th><th scope="col">{{ language.text('organizationScopeBranch') }}</th><th scope="col">{{ language.text('requestLines') }}</th><th scope="col">{{ language.text('prUpdatedColumn') }}</th><th scope="col"><span class="sr-only">{{ language.text('viewRecord') }}</span></th></tr></thead>
-              <tbody>
-                @for (record of filteredRecords(); track record.id) {
-                  <tr>
-                    <td><span class="status-pill ui-status-chip" [class]="'status-pill ui-status-chip status-pill--' + statusTone(record.status)"><i aria-hidden="true">{{ statusIcon(record.status) }}</i>{{ statusLabel(record.status) }}</span></td>
-                    <td><button class="record-code" type="button" (click)="openRecord(record.id)">{{ valueOrEmpty(record.purpose) }}</button><small>{{ shortReference(record.id) }}</small></td>
-                    <td><span class="record-name">{{ companyLabel(record.companyId) }}</span></td>
-                    <td><span class="record-name">{{ branchLabel(record.branchId) }}</span></td>
-                    <td><span class="record-name">{{ record.lineCount }}</span></td>
-                    <td><span class="record-name">{{ record.updatedAt | date:'mediumDate' }}</span></td>
-                    <td class="table-action"><button class="icon-button" type="button" (click)="openRecord(record.id)" [attr.aria-label]="language.text('viewRecord')">↗</button></td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-          <div class="record-cards">
-            @for (record of filteredRecords(); track record.id) {
-              <button class="record-card" type="button" (click)="openRecord(record.id)">
-                <div class="record-card__top"><span class="record-code">{{ companyLabel(record.companyId) }}</span><span class="status-pill ui-status-chip" [class]="'status-pill ui-status-chip status-pill--' + statusTone(record.status)"><i aria-hidden="true">{{ statusIcon(record.status) }}</i>{{ statusLabel(record.status) }}</span></div>
-                <span class="record-name">{{ valueOrEmpty(record.purpose) }}</span>
-                <div class="record-card__facts">
-                  <div><span>{{ language.text('organizationScopeBranch') }}</span><b>{{ branchLabel(record.branchId) }}</b></div>
-                  <div><span>{{ language.text('requestLines') }}</span><b>{{ record.lineCount }}</b></div>
-                </div>
-              </button>
-            }
-          </div>
-        }
+        } @else { <app-data-grid [rows]="filteredRecords()" [columns]="listColumns" [rowActions]="rowActions" (rowAction)="onRowAction($event)" [clientPaging]="true" [showPager]="true" [language]="language.language()" [scopeLabel]="gridScopeLabel()" [caption]="language.text('purchaseRequests')" [countLabel]="language.text('recordCount')" [filterInputLabel]="language.text('clientSideSearch')" [previousPageLabel]="language.text('previous')" [nextPageLabel]="language.text('next')" /> }
       </section>
     </ng-template>
 
     <ng-template #detailView>
-      <section class="detail-view ui-page" aria-labelledby="detail-title">
-        <div class="detail-topline"><button class="back-link" type="button" (click)="backToList()">← {{ language.text('purchaseRequests') }}</button></div>
+      <section class="detail-view ui-page" aria-labelledby="pr-title">
         @if (detailLoading()) {
           <div class="state-card state-card--loading" role="status"><span class="loader" aria-hidden="true"></span><b>{{ language.text('loadingRecord') }}</b></div>
         } @else if (detailError()) {
           <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(detailError()) }}</b><p>{{ language.text('detailLoadFailed') }}</p><button class="text-button" type="button" (click)="reloadDetail()">{{ language.text('retryLoad') }} ↗</button></div></div>
         } @else {
-          <div class="detail-heading">
-            <div><p class="eyebrow eyebrow--soft">{{ mode() === 'create' ? language.text('newPurchaseRequest') : language.text('purchaseRequestDetail') }}</p><h2 id="detail-title">{{ mode() === 'create' ? language.text('newPurchaseRequest') : (language.text('purchaseRequestSingular') + ' · ' + shortReference(selectedRecord()!.id)) }}</h2><p>{{ language.text('purchaseRequestsLead') }}</p></div>
-            @if (mode() === 'view' && selectedRecord(); as record) {
-              <div class="detail-heading__actions">
-                <span class="status-pill ui-status-chip" [class]="'status-pill ui-status-chip status-pill--' + statusTone(record.status)"><i aria-hidden="true">{{ statusIcon(record.status) }}</i>{{ statusLabel(record.status) }}</span>
-                @if (record.canEdit) { <button class="button button--quiet" type="button" (click)="startEdit()">{{ language.text('editRecord') }}</button> }
-                @if (record.canSubmit) { <button class="button button--primary" type="button" (click)="openLifecycle('submit')">{{ language.text('submitForApproval') }}</button> }
-                @if (record.canApprove) { <button class="button button--primary" type="button" (click)="openLifecycle('approve')">{{ language.text('approveRequest') }}</button> }
-                @if (record.canReturnForChange) { <button class="button button--quiet" type="button" (click)="openLifecycle('return')">{{ language.text('returnForChange') }}</button> }
-                @if (record.canReject) { <button class="button button--danger" type="button" (click)="openLifecycle('reject')">{{ language.text('rejectRequest') }}</button> }
-                @if (record.canCancel) { <button class="button button--danger" type="button" (click)="openLifecycle('cancel')">{{ language.text('cancelRequest') }}</button> }
-              </div>
-            }
-          </div>
-
           @if (mutationError()) {
             <div class="inline-alert" role="alert">
               <b>{{ errorMessage(mutationError()) }}</b>
@@ -245,22 +204,7 @@ interface RequestDraft {
         @if (record.lines.length === 0) {
           <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><div><b>{{ language.text('noLines') }}</b></div></div>
         } @else {
-          <div class="record-table-wrap ui-grid-shell">
-            <table class="record-table ui-grid">
-              <thead><tr><th scope="col">{{ language.text('product') }}</th><th scope="col">{{ language.text('unitOfMeasure') }}</th><th scope="col">{{ language.text('quantity') }}</th><th scope="col">{{ language.text('needByDate') }}</th><th scope="col">{{ language.text('purpose') }}</th></tr></thead>
-              <tbody>
-                @for (line of record.lines; track line.id) {
-                  <tr>
-                    <td><span class="record-name">{{ line.productSku }}</span><small>{{ line.productName }}</small></td>
-                    <td><span class="record-name">{{ line.unitOfMeasureCode }}</span></td>
-                    <td><span class="record-name">{{ line.quantity }}</span></td>
-                    <td><span class="record-name">{{ line.needByDate | date:'mediumDate' }}</span></td>
-                    <td><span class="record-name">{{ valueOrEmpty(line.purpose) }}</span></td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+          <app-data-grid [rows]="record.lines" [columns]="lineColumns" [clientPaging]="false" [showPager]="false" [language]="language.language()" [scopeLabel]="gridScopeLabel()" [caption]="language.text('requestLines')" />
         }
       }
     </ng-template>
@@ -273,16 +217,7 @@ interface RequestDraft {
       } @else if (historyEntries().length === 0) {
         <p class="muted-line">{{ language.text('noRecords') }}</p>
       } @else {
-        <div class="audit-table-wrap">
-          <table class="audit-table">
-            <thead><tr><th>{{ language.text('auditWhen') }}</th><th>{{ language.text('auditAction') }}</th><th>{{ language.text('scope') }}</th><th>{{ language.text('auditReason') }}</th></tr></thead>
-            <tbody>
-              @for (entry of historyEntries(); track entry.evidenceId) {
-                <tr><td>{{ entry.occurredAt | date:'medium' }}</td><td>{{ entry.action }}</td><td>{{ statusLabel(entry.fromStatus) }} → {{ statusLabel(entry.toStatus) }}</td><td>{{ valueOrEmpty(entry.reason) }}</td></tr>
-              }
-            </tbody>
-          </table>
-        </div>
+        <app-data-grid [rows]="historyEntries()" [columns]="historyColumns" [clientPaging]="false" [showPager]="false" [language]="language.language()" [scopeLabel]="gridScopeLabel()" [caption]="language.text('prTabHistory')" />
       }
     </ng-template>
 
@@ -294,16 +229,7 @@ interface RequestDraft {
       } @else if (auditEntries().length === 0) {
         <p class="muted-line">{{ language.text('auditEmpty') }}</p>
       } @else {
-        <div class="audit-table-wrap">
-          <table class="audit-table">
-            <thead><tr><th>{{ language.text('auditWhen') }}</th><th>{{ language.text('auditAction') }}</th><th>{{ language.text('auditDecision') }}</th><th>{{ language.text('auditReason') }}</th></tr></thead>
-            <tbody>
-              @for (entry of auditEntries(); track entry.evidenceId) {
-                <tr><td>{{ entry.occurredAt | date:'medium' }}</td><td>{{ entry.operationId }}</td><td>{{ entry.decision }}</td><td><span>{{ valueOrEmpty(entry.reason) }}</span>@if (entry.afterSummary) { <small>{{ entry.afterSummary }}</small> }</td></tr>
-              }
-            </tbody>
-          </table>
-        </div>
+        <app-data-grid [rows]="auditEntries()" [columns]="auditColumns" [clientPaging]="false" [showPager]="false" [language]="language.language()" [scopeLabel]="gridScopeLabel()" [caption]="language.text('prTabAudit')" />
       }
     </ng-template>
 
@@ -400,29 +326,12 @@ interface RequestDraft {
   styles: `
     :host { display: block; }
     .pr-workspace { display: grid; gap: 1.35rem; }
-    .pr-hero { display: flex; justify-content: space-between; gap: 2rem; border-radius: 1.25rem; padding: clamp(1.35rem, 3vw, 2.3rem); color: #f6fbf8; background: linear-gradient(124deg, #163a37 0%, #234f48 56%, #926c35 145%); box-shadow: var(--shadow-card); overflow: hidden; position: relative; }
-    .pr-hero::after { content: ''; position: absolute; width: 18rem; height: 18rem; inset-inline-end: -6rem; inset-block-start: -9rem; border: 1px solid rgb(255 255 255 / 18%); border-radius: 50%; box-shadow: 0 0 0 2rem rgb(255 255 255 / 3%), 0 0 0 4rem rgb(255 255 255 / 3%); }
-    .hero-copy, .hero-facts { position: relative; z-index: 1; }
-    .hero-copy { max-width: 42rem; }
     .eyebrow { margin: 0 0 .55rem; color: #bee5d0; font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
     .eyebrow--soft { color: var(--accent-strong); }
-    h1, h2, h3, p { margin-block-start: 0; }
-    h1 { margin-block-end: .85rem; font: 800 clamp(2rem, 5vw, 3.4rem)/.98 var(--font-display); letter-spacing: -.05em; }
-    .hero-lede { max-width: 38rem; margin: 0; color: #d7e7e1; font-size: .95rem; line-height: 1.6; }
-    .hero-facts { display: grid; align-content: end; gap: .7rem; min-width: 15rem; }
-    .hero-fact { display: flex; align-items: center; gap: .7rem; border-block-start: 1px solid rgb(255 255 255 / 25%); padding-block-start: .65rem; }
-    .hero-fact--quiet { opacity: .72; }
-    .hero-fact__mark { color: #e9b965; font: 700 .72rem/1 ui-monospace, monospace; }
-    .hero-fact b, .hero-fact small { display: block; }
-    .hero-fact b { font-size: .75rem; }
-    .hero-fact small { margin-block-start: .2rem; color: #b9d0c8; font-size: .68rem; }
+    h2, h3, p { margin-block-start: 0; }
     .workspace-panel { min-width: 0; border: 1px solid var(--line); border-radius: 1.15rem; background: var(--surface-raised); box-shadow: var(--shadow-soft); }
     .list-view, .detail-view { padding: clamp(1rem, 2.5vw, 1.65rem); }
-    .section-heading, .detail-heading, .detail-topline, .toolbar, .form-section__heading, .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-    .section-heading { align-items: flex-end; margin-block-end: 1.35rem; flex-wrap: wrap; }
-    .section-heading h2, .detail-heading h2, .section-heading h3 { margin: 0; color: var(--ink); font: 800 clamp(1.3rem, 3vw, 1.9rem)/1 var(--font-display); letter-spacing: -.04em; }
-    .section-heading p:not(.eyebrow), .detail-heading p:not(.eyebrow) { max-width: 37rem; margin: .5rem 0 0; color: var(--ink-muted); font-size: .82rem; line-height: 1.5; }
-    .section-heading__actions, .detail-heading__actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
+    .toolbar, .form-section__heading, .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
     .button { min-height: 2.35rem; border: 1px solid transparent; border-radius: .55rem; padding: .58rem .82rem; font-size: .76rem; font-weight: 800; cursor: pointer; }
     .button:disabled { cursor: not-allowed; opacity: .45; }
     .button--primary { color: #173b35; background: var(--accent); }
@@ -439,15 +348,6 @@ interface RequestDraft {
     .search-field input { min-width: 0; width: 100%; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: .8rem; }
     .toolbar__count { align-self: center; margin-inline-start: auto; color: var(--ink-muted); font: 700 .68rem/1 ui-monospace, monospace; white-space: nowrap; }
     .term-hint { margin: 0 0 1rem; color: var(--ink-muted); font-size: .72rem; line-height: 1.45; }
-    .record-table-wrap, .audit-table-wrap { overflow-x: auto; }
-    .record-table, .audit-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
-    .record-table th, .record-table td, .audit-table th, .audit-table td { border-block-end: 1px solid var(--line); padding: .85rem .7rem; text-align: start; vertical-align: middle; }
-    .record-table th, .audit-table th { color: var(--ink-muted); font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; }
-    .record-table tbody tr:hover { background: #f7faf7; }
-    .record-code { display: block; border: 0; padding: 0; color: var(--accent-strong); background: none; font: 800 .82rem/1.2 ui-monospace, monospace; cursor: pointer; }
-    .record-code:hover { text-decoration: underline; }
-    .record-table small, .audit-table small { display: block; max-width: 22rem; margin-block-start: .25rem; overflow: hidden; color: var(--ink-muted); font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }
-    .record-name { display: block; color: var(--ink); font-weight: 700; }
     .status-pill { display: inline-flex; align-items: center; gap: .35rem; border-radius: 99px; padding: .3rem .55rem; font-size: .66rem; font-weight: 800; white-space: nowrap; }
     .status-pill i { font-style: normal; font-size: .8rem; line-height: 1; }
     .status-pill--neutral { color: var(--ink-muted); background: var(--support-soft); }
@@ -456,10 +356,6 @@ interface RequestDraft {
     .status-pill--danger { color: #fff; background: var(--danger); }
     .status-pill--warning { color: color-mix(in srgb, var(--danger) 55%, var(--ink)); background: color-mix(in srgb, var(--danger) 14%, var(--surface-raised)); }
     .status-pill--muted { color: var(--ink-muted); background: var(--canvas); }
-    .table-action { text-align: end !important; }
-    .icon-button { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border: 1px solid var(--line); border-radius: .5rem; color: var(--accent-strong); background: transparent; cursor: pointer; }
-    .icon-button:hover { border-color: var(--accent-strong); background: var(--accent-soft); }
-    .record-cards { display: none; }
     .state-card { display: flex; align-items: flex-start; gap: .8rem; border: 1px dashed var(--line-strong); border-radius: .8rem; padding: 1.35rem; background: var(--canvas); }
     .state-card b { color: var(--ink); font-size: .85rem; }
     .state-card p { margin: .3rem 0 0; color: var(--ink-muted); font-size: .75rem; line-height: 1.5; }
@@ -471,10 +367,8 @@ interface RequestDraft {
     .text-button, .back-link { border: 0; padding: 0; color: var(--accent-strong); background: transparent; font-size: .74rem; font-weight: 800; cursor: pointer; }
     .text-button:disabled { color: var(--ink-muted); cursor: not-allowed; opacity: .5; }
     .text-button { display: block; margin-block-start: .7rem; }
-    .detail-topline { margin-block-end: 1.25rem; justify-content: flex-start; }
     .back-link { color: var(--ink-muted); }
     .back-link:hover { color: var(--accent-strong); }
-    .detail-heading { align-items: flex-end; margin-block-end: 1.25rem; flex-wrap: wrap; }
     .tabs { display: flex; gap: .2rem; margin-block-end: 1.1rem; border-block-end: 1px solid var(--line); overflow-x: auto; }
     .tabs button { border: 0; border-block-end: 2px solid transparent; padding: .65rem .2rem; margin-inline-end: 1.2rem; color: var(--ink-muted); background: transparent; font: 800 .78rem/1 var(--font-sans); cursor: pointer; white-space: nowrap; }
     .tabs button:hover { color: var(--ink); }
@@ -522,25 +416,16 @@ interface RequestDraft {
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
-    @media (max-width: 980px) { .pr-hero { flex-direction: column; } .hero-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; } .line-row__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 980px) { .line-row__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 720px) {
-      .record-table-wrap { display: none; }
-      .record-cards { display: grid; gap: .65rem; }
-      .record-card { display: grid; gap: .5rem; border: 1px solid var(--line); border-radius: .8rem; padding: .85rem; text-align: start; background: var(--canvas); cursor: pointer; }
-      .record-card__top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-      .record-card__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem .8rem; margin-block-start: .3rem; }
-      .record-card__facts span { display: block; color: var(--ink-muted); font-size: .64rem; font-weight: 700; }
-      .record-card__facts b { display: block; margin-block-start: .15rem; color: var(--ink); font-size: .76rem; }
-      .section-heading, .detail-heading, .toolbar { align-items: stretch; flex-direction: column; }
-      .section-heading__actions, .detail-heading__actions { justify-content: flex-start; }
+      .toolbar { align-items: stretch; flex-direction: column; }
       .toolbar__count { margin-inline-start: 0; }
       .form-grid { grid-template-columns: 1fr; }
       .field-read-grid { grid-template-columns: 1fr; }
       .field-read-grid__wide { grid-column: auto; }
-      .hero-facts { grid-template-columns: 1fr; }
       .line-row__grid { grid-template-columns: 1fr; }
     }
-    @media (max-width: 460px) { .pr-hero { border-radius: .9rem; } .pr-hero h1 { font-size: 1.9rem; } .list-view, .detail-view { padding: .8rem; } .button span { display: none; } .form-actions { flex-wrap: wrap; } .form-actions .button { flex: 1; } }
+    @media (max-width: 460px) { .list-view, .detail-view { padding: .8rem; } .button span { display: none; } .form-actions { flex-wrap: wrap; } .form-actions .button { flex: 1; } }
   `,
 })
 export class PurchaseRequestWorkspaceComponent {
@@ -591,6 +476,54 @@ export class PurchaseRequestWorkspaceComponent {
   readonly auditLoading = signal(false);
   readonly auditError = signal<SafeUiError | null>(null);
   readonly auditLoaded = signal(false);
+
+  get listColumns(): DataGridColumn<PurchaseRequestListItemResponse>[] {
+    const statuses: PurchaseRequestStatus[] = ['Draft', 'PendingApproval', 'Approved', 'Rejected', 'ReturnedForChange', 'Cancelled'];
+    return [
+      { key: 'status', label: this.language.text('prStatusColumn'), value: row => row.status, display: row => this.statusLabel(row.status), filter: 'select', filterOptions: statuses.map(status => ({ value: status, label: this.statusLabel(status) })), badge: true },
+      { key: 'purpose', label: this.language.text('purpose'), value: row => row.purpose ?? '', display: row => this.valueOrEmpty(row.purpose), filter: 'text', link: row => `/app/procurement/purchase-requests/${row.id}`, secondaryText: row => this.shortReference(row.id) },
+      { key: 'company', label: this.language.text('prOrganizationColumn'), value: row => this.companyLabel(row.companyId), filter: 'text' },
+      { key: 'branch', label: this.language.text('organizationScopeBranch'), value: row => this.branchLabel(row.branchId), filter: 'text' },
+      { key: 'lineCount', label: this.language.text('requestLines'), value: row => row.lineCount, filter: 'number-range', align: 'end' },
+      { key: 'updatedAt', label: this.language.text('prUpdatedColumn'), value: row => row.updatedAt, display: row => this.formatShortDate(row.updatedAt), filter: 'date-range' },
+    ];
+  }
+
+  get lineColumns(): DataGridColumn<PurchaseRequestResponse['lines'][number]>[] {
+    return [
+      { key: 'productSku', label: this.language.text('product'), value: line => line.productSku, filter: 'text', secondaryText: line => line.productName },
+      { key: 'unitOfMeasureCode', label: this.language.text('unitOfMeasure'), value: line => line.unitOfMeasureCode, filter: 'text' },
+      { key: 'quantity', label: this.language.text('quantity'), value: line => line.quantity, filter: 'number-range', align: 'end' },
+      { key: 'needByDate', label: this.language.text('needByDate'), value: line => line.needByDate, display: line => this.formatShortDate(line.needByDate), filter: 'date-range' },
+      { key: 'purpose', label: this.language.text('purpose'), value: line => line.purpose, filter: 'text' },
+    ];
+  }
+
+  get historyColumns(): DataGridColumn<PurchaseRequestHistoryResponse>[] {
+    return [
+      { key: 'occurredAt', label: this.language.text('auditWhen'), value: row => row.occurredAt, display: row => this.formatShortDate(row.occurredAt), filter: 'date-range' },
+      { key: 'action', label: this.language.text('auditAction'), value: row => row.action, filter: 'text' },
+      { key: 'status', label: this.language.text('scope'), value: row => `${this.statusLabel(row.fromStatus)} → ${this.statusLabel(row.toStatus)}`, filter: 'text' },
+      { key: 'reason', label: this.language.text('auditReason'), value: row => row.reason ?? '', display: row => this.valueOrEmpty(row.reason), filter: 'text' },
+    ];
+  }
+
+  get auditColumns(): DataGridColumn<PurchaseRequestAuditResponse>[] {
+    return [
+      { key: 'occurredAt', label: this.language.text('auditWhen'), value: row => row.occurredAt, display: row => this.formatShortDate(row.occurredAt), filter: 'date-range' },
+      { key: 'operationId', label: this.language.text('auditAction'), value: row => row.operationId, filter: 'text' },
+      { key: 'decision', label: this.language.text('auditDecision'), value: row => row.decision, filter: 'text' },
+      { key: 'reason', label: this.language.text('auditReason'), value: row => row.reason ?? '', display: row => this.valueOrEmpty(row.reason), secondaryText: row => row.afterSummary ?? '', filter: 'text' },
+    ];
+  }
+
+  get rowActions(): { key: string; label: string }[] { return [{ key: 'view', label: this.language.text('viewRecord') }]; }
+
+  gridScopeLabel(): string {
+    return this.language.language() === 'ar'
+      ? 'تطبق عوامل التصفية والترتيب على السجلات المحملة فقط.'
+      : 'Filtering and sorting apply only to the records currently loaded.';
+  }
 
   readonly filteredRecords = computed(() => {
     const query = this.searchQuery().trim().toLowerCase();
@@ -707,6 +640,15 @@ export class PurchaseRequestWorkspaceComponent {
   openRecord(id: string): void {
     this.formNotice.set(null);
     void this.router.navigate(['/app/procurement/purchase-requests', id]);
+  }
+
+  onRowAction(action: DataGridAction<PurchaseRequestListItemResponse>): void {
+    if (action.action === 'view') this.openRecord(action.row.id);
+  }
+
+  formatShortDate(value: string): string {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(this.language.language() === 'ar' ? 'ar-SA' : 'en-US', { dateStyle: 'medium' });
   }
 
   backToList(): void {

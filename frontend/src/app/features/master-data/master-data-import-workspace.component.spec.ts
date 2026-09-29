@@ -715,9 +715,11 @@ describe('MasterDataImportWorkspaceComponent', () => {
       await settleAsyncWork();
       fixture.detectChanges();
 
-      const historicalRow = fixture.nativeElement.querySelector('.evidence-row--historical') as HTMLElement;
+      const historicalCell = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.grid-cell-detail'))
+        .find((cell) => cell.textContent?.trim() === language.text('importEvidenceHistorical'));
+      const historicalRow = historicalCell?.closest('tr') as HTMLElement | null;
       expect(historicalRow).not.toBeNull();
-      expect(historicalRow.textContent).toContain(language.text('importEvidenceHistorical'));
+      expect(historicalRow?.textContent ?? '').toContain(language.text('importEvidenceHistorical'));
     });
 
     it('shows a loading state, then a safe error with Retry when the evidence request fails, and recovers on retry', async () => {
