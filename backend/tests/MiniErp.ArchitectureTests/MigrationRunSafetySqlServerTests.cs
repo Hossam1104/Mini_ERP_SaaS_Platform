@@ -368,11 +368,24 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         var resolver = new MutableScopeResolver(TenantWorkScopeRequest.TenantWide());
         var objectId = Guid.NewGuid();
         var glCompanyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var warehouseId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+        var unitId = Guid.NewGuid();
+        var supplierId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var cashAccountId = Guid.NewGuid();
+        var openingDate = new DateOnly(2026, 9, 29);
         var content = Package(objectId,
             new { SourceSequence = 1, SourceRecordId = "product-1", RecordType = "Product", Payload = new { Sku = "M169-P1", NameEnglish = "Preview product 1" } },
             new { SourceSequence = 2, SourceRecordId = "product-2", RecordType = "Product", Payload = new { Sku = "M169-P2", NameEnglish = "Preview product 2" } },
-            new { SourceSequence = 3, SourceRecordId = "gl-debit", RecordType = "GlOpening", Payload = new { CompanyId = glCompanyId, AccountId = Guid.NewGuid(), Debit = 125m, Credit = 0m, CurrencyCode = "SAR", OpeningDate = new DateOnly(2026, 9, 29), SourceLineReference = "opening-debit" } },
-            new { SourceSequence = 4, SourceRecordId = "gl-credit", RecordType = "GlOpening", Payload = new { CompanyId = glCompanyId, AccountId = Guid.NewGuid(), Debit = 0m, Credit = 125m, CurrencyCode = "SAR", OpeningDate = new DateOnly(2026, 9, 29), SourceLineReference = "opening-credit" } });
+            new { SourceSequence = 3, SourceRecordId = "supplier-1", RecordType = "Supplier", Payload = new { Code = "M169-S1", NameEnglish = "Preview supplier 1" } },
+            new { SourceSequence = 4, SourceRecordId = "gl-debit", RecordType = "GlOpening", Payload = new { CompanyId = glCompanyId, AccountId = Guid.NewGuid(), Debit = 125m, Credit = 0m, CurrencyCode = "SAR", OpeningDate = openingDate, SourceLineReference = "opening-debit" } },
+            new { SourceSequence = 5, SourceRecordId = "gl-credit", RecordType = "GlOpening", Payload = new { CompanyId = glCompanyId, AccountId = Guid.NewGuid(), Debit = 0m, Credit = 125m, CurrencyCode = "SAR", OpeningDate = openingDate, SourceLineReference = "opening-credit" } },
+            new { SourceSequence = 6, SourceRecordId = "ar-opening", RecordType = "ArOpening", Payload = new { CompanyId = glCompanyId, CustomerId = customerId, SourceReference = "AR-OPEN-001", DocumentDate = openingDate, OpeningDate = openingDate, Amount = 175m, CurrencyCode = "SAR", DueDate = openingDate.AddDays(30) } },
+            new { SourceSequence = 7, SourceRecordId = "ap-opening", RecordType = "ApOpening", Payload = new { CompanyId = glCompanyId, SupplierId = supplierId, SourceReference = "AP-OPEN-001", DocumentDate = openingDate, OpeningDate = openingDate, Amount = 150m, CurrencyCode = "SAR", DueDate = openingDate.AddDays(30) } },
+            new { SourceSequence = 8, SourceRecordId = "cash-opening", RecordType = "CashBankOpening", Payload = new { CompanyId = glCompanyId, CashAccountId = cashAccountId, SourceReference = "CASH-OPEN-001", Amount = 50m, CurrencyCode = "SAR", OpeningDate = openingDate } },
+            new { SourceSequence = 9, SourceRecordId = "inventory-opening", RecordType = "InventoryOpening", Payload = new { CompanyId = glCompanyId, BranchId = branchId, WarehouseId = warehouseId, ProductId = productId, UnitOfMeasureId = unitId, Quantity = 3m, UnitCost = 12.5m, CurrencyCode = "SAR", OpeningDate = openingDate, TrackingIdentity = "M169-LOT-001", SourceLineReference = "M169-INVENTORY-001" } });
         var storage = Storage(tenant, objectId, content);
         var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
         Assert.True(intake.Succeeded, intake.Code);
@@ -409,14 +422,14 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.False(preview.ApprovalCreated);
         Assert.False(preview.ReadinessCreated);
         Assert.False(preview.RunStateChanged);
-        Assert.Equal(4, preview.ExpectedAdditions);
+        Assert.Equal(9, preview.ExpectedAdditions);
         Assert.Equal(0, preview.DuplicateOutcomes);
         Assert.Equal(dryRun.Value.UnresolvedDependencyCount, preview.UnresolvedDependencies);
         Assert.Equal(
             dryRun.Value.ControlTotals.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray(),
             preview.ControlTotals.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray());
         Assert.Equal(dryRun.Value.ExceptionCount, preview.Exceptions);
-        Assert.Equal(4, preview.Rows.Count);
+        Assert.Equal(9, preview.Rows.Count);
         AssertOwnerSnapshotUnchanged(before, connection.ConnectionString, tenant);
 
         var reconciliation = new MigrationReconciliationService(
@@ -431,6 +444,11 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         before = SnapshotOwnerStores(connection.ConnectionString, tenant);
         var runBeforeReconciliationPreview = await persistence.FindRunAsync(tenant, runId);
         var attemptsBeforeReconciliationPreview = await persistence.ListAttemptsAsync(tenant, runId);
+        var reconciliationBeforePreview = await persistence.FindLatestAsync(tenant, runId);
+        Assert.Null(reconciliationBeforePreview);
+        var migrationAuditCountBeforePreview = audit.Evidence.Count;
+        var ownerAuditCountBeforePreview = before.AuditRows.Length;
+        var ownerOutboxCountBeforePreview = before.OutboxRows.Length;
         var reconciliationPreview = await reconciliation.ReadPreviewAsync(request, runId);
         Assert.NotNull(reconciliationPreview);
         Assert.Equal("reconciliation-preview", reconciliationPreview!.Outcome);
@@ -440,9 +458,60 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.False(reconciliationPreview.RunStateChanged);
         Assert.Equal(preview.Rows, reconciliationPreview.Rows);
         Assert.Empty(preview.ReconciliationControls);
+        Assert.Null(preview.ReconciliationCounts);
         Assert.Equal(125m, preview.ControlTotals["glDebit"]);
         Assert.Equal(125m, preview.ControlTotals["glCredit"]);
-        Assert.Equal(0m, reconciliationPreview.ReconciliationControls["glBalanceDifference"]);
+        Assert.Equal(3m, preview.ControlTotals["inventoryQuantity"]);
+        Assert.Equal(37.5m, preview.ControlTotals["inventoryValue"]);
+        Assert.Equal(150m, preview.ControlTotals["apAmount"]);
+        Assert.Equal(175m, preview.ControlTotals["arAmount"]);
+        Assert.Equal(50m, preview.ControlTotals["cashBankAmount"]);
+        Assert.Equal(7, preview.ControlTotals.Count);
+        Assert.Equal(
+            dryRun.Value.ControlTotals.Append(new KeyValuePair<string, decimal>("glBalanceDifference", 0m))
+                .OrderBy(item => item.Key, StringComparer.Ordinal)
+                .Select(item => new MigrationReconciliationControlTotal(item.Key, item.Value)),
+            reconciliationPreview.ReconciliationControls);
+        Assert.Equal(0m, Assert.Single(reconciliationPreview.ReconciliationControls, item => item.Name == "glBalanceDifference").Amount);
+        Assert.NotEmpty(reconciliationPreview.ReconciliationControls);
+        var reconciliationCounts = Assert.IsType<MigrationReconciliationCounts>(reconciliationPreview.ReconciliationCounts);
+        Assert.Equal(dryRun.Value.TotalStagedRecords, reconciliationCounts.SourceRecordCount);
+        Assert.Equal(dryRun.Value.AcceptedCount, reconciliationCounts.AcceptedCount);
+        Assert.Equal(0, reconciliationCounts.RejectedCount);
+        Assert.Equal(0, reconciliationCounts.QuarantinedCount);
+        Assert.Equal(preview.DuplicateOutcomes, reconciliationCounts.DuplicateCount);
+        var expectedByRecordType = new Dictionary<MigrationCanonicalRecordType, int>
+        {
+            [MigrationCanonicalRecordType.Product] = 2,
+            [MigrationCanonicalRecordType.Supplier] = 1,
+            [MigrationCanonicalRecordType.GlOpening] = 2,
+            [MigrationCanonicalRecordType.ArOpening] = 1,
+            [MigrationCanonicalRecordType.ApOpening] = 1,
+            [MigrationCanonicalRecordType.CashBankOpening] = 1,
+            [MigrationCanonicalRecordType.InventoryOpening] = 1
+        };
+        Assert.Equal(
+            expectedByRecordType.OrderBy(item => item.Key).Select(item => item.Key),
+            reconciliationCounts.ByRecordType.Select(item => item.RecordType));
+        foreach (var recordCount in reconciliationCounts.ByRecordType)
+        {
+            Assert.Equal(expectedByRecordType[recordCount.RecordType], recordCount.SourceRecordCount);
+            var sourceRecords = validation.Value.Records.Where(item => item.RecordType == recordCount.RecordType).ToArray();
+            Assert.Equal(sourceRecords.Length, recordCount.SourceRecordCount);
+            Assert.Equal(sourceRecords.Count(item => item.Disposition == MigrationRecordDisposition.Accepted), recordCount.AcceptedCount);
+            Assert.Equal(sourceRecords.Count(item => item.Disposition == MigrationRecordDisposition.Rejected), recordCount.RejectedCount);
+            Assert.Equal(sourceRecords.Count(item => item.Disposition == MigrationRecordDisposition.Quarantined), recordCount.QuarantinedCount);
+            Assert.Equal(sourceRecords.Count(item => item.FindingCodes.Any(code => code.Contains("duplicate", StringComparison.OrdinalIgnoreCase))), recordCount.DuplicateCount);
+            Assert.Equal(
+                Enum.GetValues<MigrationPlannedAction>().OrderBy(action => action)
+                    .Select(action => new MigrationReconciliationPlannedActionCount(
+                        action,
+                        dryRun.Value.Rows.Count(row => row.RecordType == recordCount.RecordType && row.PlannedAction == action))),
+                recordCount.PlannedActionCounts);
+            Assert.Equal(recordCount.SourceRecordCount, recordCount.PlannedActionCounts.Sum(item => item.Count));
+            Assert.Equal(MigrationReconciliationTargetBasisStatus.DryRunPlan, recordCount.TargetBasisStatus);
+        }
+        Assert.NotEqual(preview, reconciliationPreview);
         var runAfterReconciliationPreview = await persistence.FindRunAsync(tenant, runId);
         Assert.Equal(runBeforeReconciliationPreview!.Status, runAfterReconciliationPreview!.Status);
         Assert.Equal(
@@ -451,6 +520,11 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
         Assert.Equal(
             attemptsBeforeReconciliationPreview.Select(item => item.AttemptId).ToArray(),
             (await persistence.ListAttemptsAsync(tenant, runId)).Select(item => item.AttemptId).ToArray());
+        Assert.Null(await persistence.FindLatestAsync(tenant, runId));
+        Assert.Equal(migrationAuditCountBeforePreview, audit.Evidence.Count);
+        var ownerStoresAfterPreview = SnapshotOwnerStores(connection.ConnectionString, tenant);
+        Assert.Equal(ownerAuditCountBeforePreview, ownerStoresAfterPreview.AuditRows.Length);
+        Assert.Equal(ownerOutboxCountBeforePreview, ownerStoresAfterPreview.OutboxRows.Length);
         AssertOwnerSnapshotUnchanged(before, connection.ConnectionString, tenant);
     }
 
