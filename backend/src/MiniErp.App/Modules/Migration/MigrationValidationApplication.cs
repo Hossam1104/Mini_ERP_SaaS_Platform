@@ -253,18 +253,10 @@ public sealed class MigrationValidationService
                 }
 
                 if (!priorRecords.TryGetValue(stagedRecord.StagedRecordId, out var previous)
-                    || string.IsNullOrWhiteSpace(previous.CanonicalPayload)
-                    || !MigrationCanonicalPackageParser.TryParsePayload(
-                        stagedRecord.SourceSequence,
-                        stagedRecord.SourceRecordId,
-                        stagedRecord.RecordType,
-                        previous.CanonicalPayload,
-                        previous.CorrectionOwner,
-                        out var priorPayload)
-                    || priorPayload is null)
+                    || !TryParseUnchangedPayload(previous, stagedRecord, out var priorPayload))
                     return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_correction_snapshot_invalid");
 
-                validationRows[stagedRecord.SourceSequence] = priorPayload;
+                validationRows[stagedRecord.SourceSequence] = priorPayload!;
             }
         }
 
@@ -518,6 +510,8 @@ public sealed class MigrationValidationService
         var staged = await persistence.ListStagedRecordsAsync(tenant!, runId, 0, int.MaxValue, cancellationToken);
         var stagedById = staged.ToDictionary(item => item.StagedRecordId);
         var validationById = validation.Records.ToDictionary(item => item.StagedRecordId);
+        if (!stagedById.Keys.ToHashSet().SetEquals(validationById.Keys))
+            return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_correction_snapshot_invalid");
         var corrections = new Dictionary<Guid, MigrationParsedCanonicalRow>();
         foreach (var submission in submissions)
         {
@@ -585,6 +579,15 @@ public sealed class MigrationValidationService
         if (submissions.Any(item => validationById[item.StagedRecordId].Disposition == MigrationRecordDisposition.Accepted))
             return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_correction_row_ineligible");
 
+        foreach (var previous in validation.Records)
+        {
+            if (corrections.ContainsKey(previous.StagedRecordId))
+                continue;
+            if (!stagedById.TryGetValue(previous.StagedRecordId, out var source)
+                || !TryParseUnchangedPayload(previous, source, out _))
+                return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_correction_snapshot_invalid");
+        }
+
         return await ValidateCoreAsync(
             requestContext,
             runId,
@@ -592,6 +595,30 @@ public sealed class MigrationValidationService
             corrections,
             correctionFingerprint,
             cancellationToken);
+    }
+
+    private static bool TryParseUnchangedPayload(
+        MigrationValidationRecordResult previous,
+        MigrationStagedRecord stagedRecord,
+        out MigrationParsedCanonicalRow? payload)
+    {
+        var canonicalPayload = string.IsNullOrWhiteSpace(previous.CanonicalPayload)
+            ? stagedRecord.CanonicalPayload
+            : previous.CanonicalPayload;
+        if (string.IsNullOrWhiteSpace(canonicalPayload))
+        {
+            payload = null;
+            return false;
+        }
+
+        return MigrationCanonicalPackageParser.TryParsePayload(
+            stagedRecord.SourceSequence,
+            stagedRecord.SourceRecordId,
+            stagedRecord.RecordType,
+            canonicalPayload,
+            previous.CorrectionOwner,
+            out payload)
+            && payload is not null;
     }
 
     public async Task<MigrationOperationResult<MigrationDryRunPreview>> DryRunAsync(
@@ -703,6 +730,25 @@ public sealed class MigrationValidationService
             return null;
         var run = await foundation.FindRunAsync(tenant, runId, cancellationToken);
         var attempt = await foundation.FindAttemptAsync(tenant, runId, validation.AttemptId, cancellationToken);
+        return WithAttemptContext(
+            run.Value is null ? validation : validation with { RunVersion = run.Value.Version },
+            run.Value,
+            attempt);
+    }
+
+    public async Task<MigrationValidationSummary?> ReadValidationAsync(
+        TenantContext tenant,
+        Guid runId,
+        Guid attemptId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!await IsResourceAuthorizedAsync(tenant, runId, cancellationToken))
+            return null;
+        var validation = await persistence.FindValidationAsync(tenant, runId, attemptId, cancellationToken);
+        if (validation is null)
+            return null;
+        var run = await foundation.FindRunAsync(tenant, runId, cancellationToken);
+        var attempt = await foundation.FindAttemptAsync(tenant, runId, attemptId, cancellationToken);
         return WithAttemptContext(
             run.Value is null ? validation : validation with { RunVersion = run.Value.Version },
             run.Value,

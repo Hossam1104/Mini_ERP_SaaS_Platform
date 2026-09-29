@@ -819,6 +819,35 @@ public sealed record MigrationDryRunPreview(
     public string Outcome => "dry-run";
 }
 
+public sealed record MigrationReconciliationControlTotal(string Name, decimal Amount);
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum MigrationReconciliationTargetBasisStatus
+{
+    DryRunPlan = 1,
+    NotYetAvailable = 2
+}
+
+public sealed record MigrationReconciliationPlannedActionCount(MigrationPlannedAction Action, int Count);
+
+public sealed record MigrationReconciliationRecordCount(
+    MigrationCanonicalRecordType RecordType,
+    int SourceRecordCount,
+    int AcceptedCount,
+    int RejectedCount,
+    int QuarantinedCount,
+    int DuplicateCount,
+    MigrationReconciliationTargetBasisStatus TargetBasisStatus,
+    IReadOnlyList<MigrationReconciliationPlannedActionCount> PlannedActionCounts);
+
+public sealed record MigrationReconciliationCounts(
+    int SourceRecordCount,
+    int AcceptedCount,
+    int RejectedCount,
+    int QuarantinedCount,
+    int DuplicateCount,
+    IReadOnlyList<MigrationReconciliationRecordCount> ByRecordType);
+
 public sealed record MigrationNonAuthoritativePreview(
     Guid RunId,
     TenantId TenantId,
@@ -832,7 +861,12 @@ public sealed record MigrationNonAuthoritativePreview(
     bool ApprovalCreated,
     bool ReadinessCreated,
     bool RunStateChanged,
-    IReadOnlyList<MigrationPreviewRow> Rows);
+    IReadOnlyList<MigrationPreviewRow> Rows)
+{
+    public IReadOnlyList<MigrationReconciliationControlTotal> ReconciliationControls { get; init; } = [];
+
+    public MigrationReconciliationCounts? ReconciliationCounts { get; init; }
+}
 
 public sealed record MigrationCorrectionSubmission(
     Guid StagedRecordId,
