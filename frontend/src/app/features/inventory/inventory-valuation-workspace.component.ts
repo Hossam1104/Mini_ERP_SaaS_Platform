@@ -1,3 +1,5 @@
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -77,38 +79,24 @@ const copy = {
 @Component({
   selector: 'app-inventory-valuation-workspace',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [PageHeaderComponent, DataGridComponent, CommonModule, FormsModule, RouterLink],
   template: `
     <section class="ui-page valuation-page" data-testid="inventory-valuation-workspace">
-      <header class="ui-page-header ui-page-header--compact valuation-header">
-        <div>
+      <app-page-header class="page-header">
+        <div page-header-copy>
           <p class="eyebrow">{{ text('kicker') }}</p>
           <h1>{{ text('title') }}</h1>
           <p class="lede">{{ text('lead') }}</p>
         </div>
+          <div page-header-actions>
         <div class="valuation-header__actions">
           <a class="button button--secondary" routerLink="/app/inventory">{{ text('stockLedger') }}</a>
           <button class="button button--secondary" type="button" data-testid="valuation-export" (click)="exportValuation()" [disabled]="loading() || !selectedWarehouse()">{{ text('export') }}</button>
           <button class="button button--primary" type="button" data-testid="valuation-process" (click)="processValuation()" [disabled]="loading() || !selectedWarehouse()">{{ text('process') }}</button>
         </div>
-      </header>
-
-      <section class="valuation-hero" aria-label="Moving Weighted Average">
-        <div class="valuation-hero__mark" aria-hidden="true"><span>MWA</span><i></i><i></i><i></i></div>
-        <div class="valuation-hero__copy">
-          <p class="eyebrow">{{ text('immutable') }}</p>
-          <strong>Physical movement → durable sequence → explainable value</strong>
-          <span>{{ text('noJournal') }}</span>
-        </div>
-        <div class="valuation-hero__scope">
-          <span>{{ text('authorizedScope') }}</span>
-          <strong>{{ selectedWarehouse()?.displayName ?? text('chooseWarehouse') }}</strong>
-          <small>{{ text('scopeLead') }}</small>
-        </div>
-      </section>
-
-      @if (loading()) {
-        <section class="ui-surface state-card" aria-live="polite"><span class="spinner" aria-hidden="true"></span><h2>{{ text('loading') }}</h2></section>
+      
+          </div>
+        </app-page-header>ext('loading') }}</h2></section>
       } @else if (error(); as currentError) {
         <section class="ui-surface state-card state-card--error" role="alert"><strong>{{ text('loadFailed') }}</strong><p>{{ currentError }}</p><button class="button button--secondary" type="button" (click)="load()">{{ text('retry') }}</button></section>
       } @else if (!selectedWarehouse()) {
@@ -155,34 +143,34 @@ const copy = {
         @if (activeTab() === 'history') {
           <section class="ui-surface valuation-panel" data-testid="valuation-history">
             <div class="panel-heading"><div><p class="eyebrow">{{ text('history') }}</p><h2>{{ text('immutable') }}</h2></div><span class="status-badge">{{ historyEvents().length }}</span></div>
-            @if (historyEvents().length === 0) {<p class="empty-copy">{{ text('noEvents') }}</p>} @else {<div class="ui-grid-shell"><table class="ui-grid"><thead><tr><th>{{ text('sequence') }}</th><th>{{ text('status') }}</th><th>{{ text('source') }}</th><th>{{ text('quantity') }}</th><th>{{ text('unitCost') }}</th><th>{{ text('movementValue') }}</th><th>{{ text('resultingValue') }}</th><th>{{ text('effectiveDate') }}</th></tr></thead><tbody>@for (event of historyEvents(); track event.id) {<tr><td class="sequence-cell">#{{ event.ledgerSequence }}</td><td><span class="status-badge" [class]="statusClass(event.status)">{{ event.status }}</span><small>{{ event.statusCode }}</small></td><td><strong>{{ event.sourceType }}</strong><small>{{ event.sourceReference ?? event.sourceDocumentId.substring(0, 8) }}</small></td><td class="numeric">{{ formatQuantity(event.quantity) }}<small>{{ event.direction }}</small></td><td class="numeric">{{ event.baseUnitCost === null ? '—' : formatAmount(event.baseUnitCost) }}</td><td class="numeric">{{ event.movementValue === null ? '—' : formatAmount(event.movementValue) }}</td><td class="numeric">{{ formatAmount(event.newValue) }}</td><td>{{ event.effectiveOn }}</td></tr>}</tbody></table></div>}
+            @if (historyEvents().length === 0) {<p class="empty-copy">{{ text('noEvents') }}</p>} @else {<app-data-grid [rows]="historyEvents()" [columns]="historyColumns" [rowActions]="[]" [language]="language.language()" [caption]="text('history')" [countLabel]="gridLabel('count')" [emptyLabel]="text('noEvents')" [filterInputLabel]="gridLabel('filter')" [allValuesLabel]="gridLabel('all')" [clearFiltersLabel]="gridLabel('clear')" [pageSize]="historyEvents().length || 1" [showPager]="false" />}
           </section>
         }
 
         @if (activeTab() === 'pending') {
           <section class="ui-surface valuation-panel" data-testid="valuation-pending">
             <div class="panel-heading"><div><p class="eyebrow">{{ text('pendingTab') }}</p><h2>{{ text('reason') }}</h2></div><span class="status-badge status-badge--warning">{{ pendingEvents().length }}</span></div>
-            @if (pendingEvents().length === 0) {<p class="empty-copy">{{ text('noPending') }}</p>} @else {<div class="ui-grid-shell"><table class="ui-grid"><thead><tr><th>{{ text('sequence') }}</th><th>{{ text('status') }}</th><th>{{ text('source') }}</th><th>{{ text('reason') }}</th><th>{{ text('effectiveDate') }}</th></tr></thead><tbody>@for (event of pendingEvents(); track event.id) {<tr><td class="sequence-cell">#{{ event.ledgerSequence }}</td><td><span class="status-badge" [class]="statusClass(event.status)">{{ event.status }}</span></td><td><strong>{{ event.sourceType }}</strong><small>{{ event.sourceReference ?? event.sourceDocumentId.substring(0, 8) }}</small></td><td>{{ event.pendingReason ?? event.statusCode }}</td><td>{{ event.effectiveOn }}</td></tr>}</tbody></table></div>}
+            @if (pendingEvents().length === 0) {<p class="empty-copy">{{ text('noPending') }}</p>} @else {<app-data-grid [rows]="pendingEvents()" [columns]="pendingColumns" [rowActions]="[]" [language]="language.language()" [caption]="text('pendingTab')" [countLabel]="gridLabel('count')" [emptyLabel]="text('noPending')" [filterInputLabel]="gridLabel('filter')" [allValuesLabel]="gridLabel('all')" [clearFiltersLabel]="gridLabel('clear')" [pageSize]="pendingEvents().length || 1" [showPager]="false" />}
           </section>
         }
 
         @if (activeTab() === 'reconciliation') {
           <section class="ui-surface valuation-panel" data-testid="valuation-reconciliation">
             <div class="panel-heading"><div><p class="eyebrow">{{ text('reconciliation') }}</p><h2>{{ text('onHand') }} / {{ text('valuedQuantity') }}</h2></div><span class="status-badge" [class.status-badge--active]="currentSummary()?.isComplete">{{ currentSummary()?.reconciliationStatus ?? '—' }}</span></div>
-            <div class="ui-grid-shell"><table class="ui-grid"><thead><tr><th>{{ text('status') }}</th><th>{{ text('onHand') }}</th><th>{{ text('valuedQuantity') }}</th><th>{{ text('valuedAmount') }}</th><th>{{ text('inTransit') }}</th><th>{{ text('handoff') }}</th><th>{{ text('lastApplied') }}</th></tr></thead><tbody>@for (record of reconciliation(); track record.warehouseId + record.productId + record.unitOfMeasureId) {<tr><td><span class="status-badge" [class.status-badge--active]="record.status === 'Reconciled'">{{ record.status }}</span></td><td class="numeric">{{ formatQuantity(record.physicalOnHandQuantity) }}</td><td class="numeric">{{ formatQuantity(record.valuedQuantity) }}</td><td class="numeric">{{ formatAmount(record.valuedAmount) }}<small>{{ record.functionalCurrencyCode }}</small></td><td class="numeric">{{ formatQuantity(record.inTransitQuantity) }}<small>{{ formatAmount(record.inTransitValue) }}</small></td><td>{{ record.financeHandoffStatus }}</td><td class="sequence-cell">#{{ record.lastAppliedLedgerSequence }}</td></tr>} @empty {<tr><td colspan="7"><p class="empty-copy">{{ text('noEvents') }}</p></td></tr>}</tbody></table></div>
+            <app-data-grid [rows]="reconciliation()" [columns]="reconciliationColumns" [rowActions]="[]" [language]="language.language()" [caption]="text('reconciliation')" [countLabel]="gridLabel('count')" [emptyLabel]="text('noEvents')" [filterInputLabel]="gridLabel('filter')" [allValuesLabel]="gridLabel('all')" [clearFiltersLabel]="gridLabel('clear')" [pageSize]="reconciliation().length || 1" [showPager]="false" [rowIdFor]="reconciliationRowId" />
           </section>
         }
 
         @if (activeTab() === 'handoff') {
           <section class="ui-surface valuation-panel" data-testid="valuation-finance-handoff">
             <div class="panel-heading"><div><p class="eyebrow">{{ text('handoff') }}</p><h2>{{ text('financeReady') }}</h2></div><span class="boundary-chip">{{ text('noJournal') }}</span></div>
-            @if (handoffs().length === 0) {<p class="empty-copy">{{ text('noHandoff') }}</p>} @else {<div class="ui-grid-shell"><table class="ui-grid"><thead><tr><th>{{ text('sequence') }}</th><th>{{ text('source') }}</th><th>{{ text('direction') }}</th><th>{{ text('quantity') }}</th><th>{{ text('unitCost') }}</th><th>{{ text('signedAmount') }}</th><th>{{ text('status') }}</th><th>Contract</th></tr></thead><tbody>@for (handoff of handoffs(); track handoff.id) {<tr><td class="sequence-cell">#{{ handoff.ledgerSequence }}</td><td><strong>{{ handoff.sourceType }}</strong><small>{{ handoff.sourceDocumentId.substring(0, 8) }}</small></td><td>{{ handoff.direction }}</td><td class="numeric">{{ formatQuantity(handoff.quantity) }}</td><td class="numeric">{{ formatAmount(handoff.baseUnitCost) }}</td><td class="numeric">{{ formatAmount(handoff.signedBaseAmount) }}<small>{{ handoff.functionalCurrencyCode }}</small></td><td><span class="status-badge status-badge--active">{{ handoff.status }}</span></td><td><code>{{ handoff.contractVersion }}</code></td></tr>}</tbody></table></div>}
+            @if (handoffs().length === 0) {<p class="empty-copy">{{ text('noHandoff') }}</p>} @else {<app-data-grid [rows]="handoffs()" [columns]="handoffColumns" [rowActions]="[]" [language]="language.language()" [caption]="text('handoff')" [countLabel]="gridLabel('count')" [emptyLabel]="text('noHandoff')" [filterInputLabel]="gridLabel('filter')" [allValuesLabel]="gridLabel('all')" [clearFiltersLabel]="gridLabel('clear')" [pageSize]="handoffs().length || 1" [showPager]="false" />}
           </section>
         }
       }
     </section>
   `,
-  styles: [`.valuation-page{--valuation-ink:#172f32;--valuation-teal:#2f7b72;--valuation-copper:#c17a4a}.valuation-header{align-items:end}.valuation-header__actions{display:flex;gap:.65rem;flex-wrap:wrap}.valuation-hero{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(14rem,.65fr);gap:1rem;align-items:center;margin:1rem 0;padding:1.2rem 1.35rem;border:1px solid #d7e3df;border-radius:1rem;background:linear-gradient(115deg,#173735,#254b48 62%,#d9a078);color:#eff8f4;box-shadow:0 1rem 2.5rem rgb(23 47 50 / 10%)}.valuation-hero__mark{position:relative;display:grid;place-items:center;width:4.6rem;height:4.6rem;border:1px solid rgb(255 255 255 / 28%);border-radius:1rem;background:rgb(255 255 255 / 7%);font:800 .78rem/1 var(--font-display);letter-spacing:.12em}.valuation-hero__mark i{position:absolute;width:.4rem;height:.4rem;border-radius:50%;background:#f2b17d}.valuation-hero__mark i:nth-child(2){inset:1rem 1rem auto auto}.valuation-hero__mark i:nth-child(3){inset:auto 1rem 1rem auto}.valuation-hero__mark i:nth-child(4){inset:auto auto 1rem 1rem}.valuation-hero__copy{display:grid;gap:.3rem}.valuation-hero__copy .eyebrow,.valuation-hero__scope>span{color:#b9d8ce}.valuation-hero__copy strong{font:700 1.05rem/1.25 var(--font-display)}.valuation-hero__copy span,.valuation-hero__scope small{color:#d6e6df;font-size:.74rem}.valuation-hero__scope{display:grid;gap:.32rem;padding-inline-start:1rem;border-inline-start:1px solid rgb(255 255 255 / 25%)}.valuation-hero__scope strong{font:700 .95rem/1.25 var(--font-display)}.valuation-controlbar{display:grid;grid-template-columns:minmax(12rem,1.2fr) minmax(13rem,1fr) auto;gap:1rem;align-items:end;padding:1rem 1.2rem;border-inline-start:.25rem solid var(--valuation-copper)}.scope-select,.policy-readout,.controlbar-meta{display:grid;gap:.28rem}.scope-select span,.policy-readout>span,.controlbar-meta>span{color:var(--ink-muted);font-size:.66rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.scope-select select{width:100%;border:1px solid var(--line-strong);border-radius:.55rem;padding:.62rem;background:var(--surface-raised);color:var(--ink);font:700 .8rem/1.2 var(--font-sans)}.policy-readout strong,.controlbar-meta strong{color:var(--valuation-ink);font-size:.88rem}.policy-readout small{color:var(--ink-muted);font-size:.72rem}.controlbar-meta{text-align:end}.valuation-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.65rem;margin:1rem 0}.metric-card{display:grid;min-height:7.2rem;align-content:space-between;padding:1rem;border:1px solid var(--line);border-radius:.85rem;background:var(--surface-raised)}.metric-card span,.metric-card small{color:var(--ink-muted);font-size:.68rem;font-weight:750}.metric-card strong{color:var(--valuation-ink);font:750 1.45rem/1.1 var(--font-display)}.metric-card--accent{border-color:#abd3c9;background:#e9f5f0}.metric-card--warn{border-color:#e8c4a7;background:#fff5ec}.metric-card--ink{color:#eff8f4;background:var(--valuation-ink)}.metric-card--ink strong,.metric-card--ink span,.metric-card--ink small{color:#eff8f4}.valuation-tabs{display:flex;gap:.25rem;overflow:auto;margin:1.1rem 0 .85rem;border-bottom:1px solid var(--line)}.valuation-tabs button{border:0;border-bottom:.18rem solid transparent;padding:.7rem .85rem;color:var(--ink-muted);background:transparent;font:750 .75rem/1 var(--font-sans);white-space:nowrap;cursor:pointer}.valuation-tabs button:hover,.valuation-tabs button.is-active{border-bottom-color:var(--valuation-copper);color:var(--valuation-ink)}.valuation-tabs em{display:inline-grid;place-items:center;min-width:1.2rem;height:1.2rem;margin-inline-start:.2rem;border-radius:99px;color:#fff;background:var(--valuation-teal);font-size:.62rem;font-style:normal}.valuation-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(16rem,.6fr);gap:1rem}.valuation-panel{padding:1.25rem}.valuation-panel--wide{min-height:14rem}.panel-heading{display:flex;justify-content:space-between;gap:1rem;align-items:start;margin-bottom:1rem}.panel-heading h2{margin:.2rem 0;color:var(--valuation-ink);font-size:1.2rem}.recon-line{display:grid;grid-template-columns:.22fr repeat(3,1fr);gap:.75rem;align-items:center}.recon-line>span{width:3.6rem;height:3.6rem;border:.65rem solid #e6f0ed;border-inline-end-color:var(--valuation-copper);border-radius:50%}.recon-line div{display:grid;gap:.25rem;padding-inline-start:.75rem;border-inline-start:1px solid var(--line)}.recon-line strong{color:var(--valuation-ink);font:750 1rem/1.15 var(--font-display)}.recon-line small,.panel-note{color:var(--ink-muted);font-size:.72rem}.panel-note{margin:1.3rem 0 0;padding-top:1rem;border-top:1px solid var(--line);line-height:1.5}.fact-list{display:grid;gap:.75rem;margin:0}.fact-list div{display:flex;justify-content:space-between;gap:1rem;padding-bottom:.7rem;border-bottom:1px solid var(--line)}.fact-list dt{color:var(--ink-muted);font-size:.72rem}.fact-list dd{margin:0;color:var(--valuation-ink);font-size:.75rem;font-weight:750;text-align:end}.ui-grid-shell{overflow:auto}.ui-grid{min-width:48rem}.ui-grid th,.ui-grid td{vertical-align:top}.ui-grid td small{display:block;margin-top:.18rem;color:var(--ink-muted);font-size:.67rem}.sequence-cell{color:var(--valuation-teal);font:800 .78rem/1 var(--font-display)}.status-badge--warning{color:#8a4c20;background:#fff0df}.boundary-chip{display:inline-flex;max-width:15rem;border:1px solid #d8e6e2;border-radius:99px;padding:.35rem .6rem;color:var(--valuation-teal);font-size:.66rem;font-weight:800}.empty-copy{color:var(--ink-muted);font-size:.82rem;line-height:1.55}@media(max-width:1100px){.valuation-metrics{grid-template-columns:repeat(3,1fr)}.valuation-hero{grid-template-columns:auto minmax(0,1fr)}.valuation-hero__scope{grid-column:1/-1;padding:0;border:0}}@media(max-width:760px){.valuation-header{align-items:start;gap:1rem}.valuation-hero,.valuation-controlbar,.valuation-grid{grid-template-columns:1fr}.valuation-controlbar{align-items:start}.controlbar-meta{text-align:start}.valuation-metrics{grid-template-columns:repeat(2,1fr)}.recon-line{grid-template-columns:1fr 1fr}.recon-line>span{display:none}.recon-line div{border-inline-start:0;padding:0}.valuation-tabs button{padding-inline:.55rem}}@media(max-width:480px){.valuation-metrics{grid-template-columns:1fr}.valuation-header__actions{width:100%}.valuation-header__actions .button{flex:1;text-align:center}}`],
+  styles: [`.valuation-page{--valuation-ink:#172f32;--valuation-teal:#2f7b72;--valuation-copper:#c17a4a}.valuation-context{display:grid;grid-template-columns:minmax(0,1fr) minmax(14rem,.65fr);gap:1rem;align-items:center;margin:0;padding:1rem 1.2rem;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));border-radius:var(--radius-card);color:var(--ink);background:var(--surface-glass);box-shadow:var(--shadow-card);backdrop-filter:blur(12px) saturate(140%)}.valuation-context__copy{display:grid;gap:.3rem}.valuation-context__copy .eyebrow{margin:0;color:var(--accent);font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.valuation-context__copy strong{font:700 1rem/1.35 var(--font-sans)}.valuation-context__copy span,.valuation-context__scope small{color:var(--ink-muted);font-size:.74rem;line-height:1.45}.valuation-context__scope{display:grid;gap:.32rem;padding-inline-start:1rem;border-inline-start:1px solid var(--line)}.valuation-context__scope>span{color:var(--ink-muted);font-size:.66rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.valuation-context__scope strong{color:var(--ink-strong);font-size:.9rem}.valuation-header__actions{display:flex;gap:.65rem;flex-wrap:wrap}.valuation-controlbar{display:grid;grid-template-columns:minmax(12rem,1.2fr) minmax(13rem,1fr) auto;gap:1rem;align-items:end;padding:1rem 1.2rem;border-inline-start:.25rem solid var(--valuation-copper)}.scope-select,.policy-readout,.controlbar-meta{display:grid;gap:.28rem}.scope-select span,.policy-readout>span,.controlbar-meta>span{color:var(--ink-muted);font-size:.66rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.scope-select select{width:100%;border:1px solid var(--line-strong);border-radius:.55rem;padding:.62rem;background:var(--surface-raised);color:var(--ink);font:700 .8rem/1.2 var(--font-sans)}.policy-readout strong,.controlbar-meta strong{color:var(--valuation-ink);font-size:.88rem}.policy-readout small{color:var(--ink-muted);font-size:.72rem}.controlbar-meta{text-align:end}.valuation-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.65rem;margin:1rem 0}.metric-card{display:grid;min-height:7.2rem;align-content:space-between;padding:1rem;border:1px solid var(--line);border-radius:.85rem;background:var(--surface-raised)}.metric-card span,.metric-card small{color:var(--ink-muted);font-size:.68rem;font-weight:750}.metric-card strong{color:var(--valuation-ink);font:750 1.45rem/1.1 var(--font-display)}.metric-card--accent{border-color:#abd3c9;background:#e9f5f0}.metric-card--warn{border-color:#e8c4a7;background:#fff5ec}.metric-card--ink{color:#eff8f4;background:var(--valuation-ink)}.metric-card--ink strong,.metric-card--ink span,.metric-card--ink small{color:#eff8f4}.valuation-tabs{display:flex;gap:.25rem;overflow:auto;margin:1.1rem 0 .85rem;border-bottom:1px solid var(--line)}.valuation-tabs button{border:0;border-bottom:.18rem solid transparent;padding:.7rem .85rem;color:var(--ink-muted);background:transparent;font:750 .75rem/1 var(--font-sans);white-space:nowrap;cursor:pointer}.valuation-tabs button:hover,.valuation-tabs button.is-active{border-bottom-color:var(--valuation-copper);color:var(--valuation-ink)}.valuation-tabs em{display:inline-grid;place-items:center;min-width:1.2rem;height:1.2rem;margin-inline-start:.2rem;border-radius:99px;color:#fff;background:var(--valuation-teal);font-size:.62rem;font-style:normal}.valuation-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(16rem,.6fr);gap:1rem}.valuation-panel{padding:1.25rem}.valuation-panel--wide{min-height:14rem}.panel-heading{display:flex;justify-content:space-between;gap:1rem;align-items:start;margin-bottom:1rem}.panel-heading h2{margin:.2rem 0;color:var(--valuation-ink);font-size:1.2rem}.recon-line{display:grid;grid-template-columns:.22fr repeat(3,1fr);gap:.75rem;align-items:center}.recon-line>span{width:3.6rem;height:3.6rem;border:.65rem solid #e6f0ed;border-inline-end-color:var(--valuation-copper);border-radius:50%}.recon-line div{display:grid;gap:.25rem;padding-inline-start:.75rem;border-inline-start:1px solid var(--line)}.recon-line strong{color:var(--valuation-ink);font:750 1rem/1.15 var(--font-display)}.recon-line small,.panel-note{color:var(--ink-muted);font-size:.72rem}.panel-note{margin:1.3rem 0 0;padding-top:1rem;border-top:1px solid var(--line);line-height:1.5}.fact-list{display:grid;gap:.75rem;margin:0}.fact-list div{display:flex;justify-content:space-between;gap:1rem;padding-bottom:.7rem;border-bottom:1px solid var(--line)}.fact-list dt{color:var(--ink-muted);font-size:.72rem}.fact-list dd{margin:0;color:var(--valuation-ink);font-size:.75rem;font-weight:750;text-align:end}.ui-grid-shell{overflow:auto}.ui-grid{min-width:48rem}.ui-grid th,.ui-grid td{vertical-align:top}.ui-grid td small{display:block;margin-top:.18rem;color:var(--ink-muted);font-size:.67rem}.sequence-cell{color:var(--valuation-teal);font:800 .78rem/1 var(--font-display)}.status-badge--warning{color:#8a4c20;background:#fff0df}.boundary-chip{display:inline-flex;max-width:15rem;border:1px solid #d8e6e2;border-radius:99px;padding:.35rem .6rem;color:var(--valuation-teal);font-size:.66rem;font-weight:800}.empty-copy{color:var(--ink-muted);font-size:.82rem;line-height:1.55}@media(max-width:1100px){.valuation-metrics{grid-template-columns:repeat(3,1fr)}}@media(max-width:760px){.valuation-context,.valuation-controlbar,.valuation-grid{grid-template-columns:1fr}.valuation-context__scope{padding-inline-start:0;border-inline-start:0;border-block-start:1px solid var(--line);padding-block-start:.75rem}.valuation-controlbar{align-items:start}.controlbar-meta{text-align:start}.valuation-metrics{grid-template-columns:repeat(2,1fr)}.recon-line{grid-template-columns:1fr 1fr}.recon-line>span{display:none}.recon-line div{border-inline-start:0;padding:0}.valuation-tabs button{padding-inline:.55rem}}@media(max-width:480px){.valuation-metrics{grid-template-columns:1fr}.valuation-header__actions{width:100%}.valuation-header__actions .button{flex:1;text-align:center}}`],
 })
 export class InventoryValuationWorkspaceComponent implements OnInit {
   readonly language = inject(LanguageService);
@@ -197,6 +185,43 @@ export class InventoryValuationWorkspaceComponent implements OnInit {
   readonly historyEvents = signal<InventoryValuationEvent[]>([]);
   readonly pendingEvents = signal<InventoryValuationEvent[]>([]);
   readonly handoffs = signal<InventoryFinanceValuationHandoff[]>([]);
+  readonly historyColumns: DataGridColumn<InventoryValuationEvent>[] = [
+    { key: 'sequence', label: this.text('sequence'), value: row => row.ledgerSequence, display: row => `#${row.ledgerSequence}`, align: 'end', filter: 'number-range' },
+    { key: 'status', label: this.text('status'), value: row => row.status, secondaryText: row => row.statusCode, badge: true, filter: 'text' },
+    { key: 'source', label: this.text('source'), value: row => row.sourceType, secondaryText: row => row.sourceReference ?? row.sourceDocumentId.substring(0, 8), filter: 'text' },
+    { key: 'quantity', label: this.text('quantity'), value: row => row.quantity, display: row => this.formatQuantity(row.quantity), secondaryText: row => row.direction, align: 'end', filter: 'number-range' },
+    { key: 'unitCost', label: this.text('unitCost'), value: row => row.baseUnitCost, display: row => row.baseUnitCost === null ? '\u2014' : this.formatAmount(row.baseUnitCost), align: 'end', filter: 'number-range' },
+    { key: 'movement', label: this.text('movementValue'), value: row => row.movementValue, display: row => row.movementValue === null ? '\u2014' : this.formatAmount(row.movementValue), align: 'end', filter: 'number-range' },
+    { key: 'result', label: this.text('resultingValue'), value: row => row.newValue, display: row => this.formatAmount(row.newValue), align: 'end', filter: 'number-range' },
+    { key: 'date', label: this.text('effectiveDate'), value: row => row.effectiveOn, filter: 'date-range' },
+  ];
+  readonly pendingColumns: DataGridColumn<InventoryValuationEvent>[] = [
+    { key: 'sequence', label: this.text('sequence'), value: row => row.ledgerSequence, display: row => `#${row.ledgerSequence}`, align: 'end', filter: 'number-range' },
+    { key: 'status', label: this.text('status'), value: row => row.status, badge: true, filter: 'text' },
+    { key: 'source', label: this.text('source'), value: row => row.sourceType, secondaryText: row => row.sourceReference ?? row.sourceDocumentId.substring(0, 8), filter: 'text' },
+    { key: 'reason', label: this.text('reason'), value: row => row.pendingReason ?? row.statusCode, filter: 'text' },
+    { key: 'date', label: this.text('effectiveDate'), value: row => row.effectiveOn, filter: 'date-range' },
+  ];
+  readonly reconciliationColumns: DataGridColumn<InventoryValuationReconciliation>[] = [
+    { key: 'status', label: this.text('status'), value: row => row.status, badge: true, filter: 'text' },
+    { key: 'onHand', label: this.text('onHand'), value: row => row.physicalOnHandQuantity, display: row => this.formatQuantity(row.physicalOnHandQuantity), align: 'end', filter: 'number-range' },
+    { key: 'quantity', label: this.text('valuedQuantity'), value: row => row.valuedQuantity, display: row => this.formatQuantity(row.valuedQuantity), align: 'end', filter: 'number-range' },
+    { key: 'amount', label: this.text('valuedAmount'), value: row => row.valuedAmount, display: row => `${this.formatAmount(row.valuedAmount)} ${row.functionalCurrencyCode}`, align: 'end', filter: 'number-range' },
+    { key: 'transit', label: this.text('inTransit'), value: row => row.inTransitQuantity, display: row => this.formatQuantity(row.inTransitQuantity), secondaryText: row => this.formatAmount(row.inTransitValue), align: 'end', filter: 'number-range' },
+    { key: 'handoff', label: this.text('handoff'), value: row => row.financeHandoffStatus, filter: 'text' },
+    { key: 'lastApplied', label: this.text('lastApplied'), value: row => row.lastAppliedLedgerSequence, display: row => `#${row.lastAppliedLedgerSequence}`, align: 'end', filter: 'number-range' },
+  ];
+  readonly handoffColumns: DataGridColumn<InventoryFinanceValuationHandoff>[] = [
+    { key: 'sequence', label: this.text('sequence'), value: row => row.ledgerSequence, display: row => `#${row.ledgerSequence}`, align: 'end', filter: 'number-range' },
+    { key: 'source', label: this.text('source'), value: row => row.sourceType, secondaryText: row => row.sourceDocumentId.substring(0, 8), filter: 'text' },
+    { key: 'direction', label: this.text('direction'), value: row => row.direction, filter: 'text' },
+    { key: 'quantity', label: this.text('quantity'), value: row => row.quantity, display: row => this.formatQuantity(row.quantity), align: 'end', filter: 'number-range' },
+    { key: 'unitCost', label: this.text('unitCost'), value: row => row.baseUnitCost, display: row => this.formatAmount(row.baseUnitCost), align: 'end', filter: 'number-range' },
+    { key: 'amount', label: this.text('signedAmount'), value: row => row.signedBaseAmount, display: row => `${this.formatAmount(row.signedBaseAmount)} ${row.functionalCurrencyCode}`, align: 'end', filter: 'number-range' },
+    { key: 'status', label: this.text('status'), value: row => row.status, badge: true, filter: 'text' },
+    { key: 'contract', label: 'Contract', value: row => row.contractVersion, filter: 'text' },
+  ];
+  readonly reconciliationRowId = (row: InventoryValuationReconciliation) => `${row.warehouseId}:${row.productId}:${row.unitOfMeasureId}`;
   readonly loading = signal(false);
   readonly error = signal('');
   readonly activeTab = signal<ValuationTab>('summary');
@@ -207,6 +232,12 @@ export class InventoryValuationWorkspaceComponent implements OnInit {
   ngOnInit(): void { void this.load(); }
 
   text(key: keyof typeof copy): string { return copy[key][this.language.language()]; }
+  gridLabel(key: 'count' | 'filter' | 'all' | 'clear'): string {
+    const labels = this.language.language() === 'ar'
+      ? { count: '\u0633\u062c\u0644\u0627\u062a', filter: '\u062a\u0635\u0641\u064a\u0629', all: '\u0627\u0644\u0643\u0644', clear: '\u0645\u0633\u062d \u0639\u0648\u0627\u0645\u0644 \u0627\u0644\u062a\u0635\u0641\u064a\u0629' }
+      : { count: 'records', filter: 'Filter', all: 'All', clear: 'Clear filters' };
+    return labels[key];
+  }
 
   async load(): Promise<void> {
     this.loading.set(true);

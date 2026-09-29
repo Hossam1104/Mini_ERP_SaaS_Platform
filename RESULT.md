@@ -4,6 +4,17 @@ The shared results log, newest entry first. Every model adds exactly one entry p
 template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are archived verbatim in
 [`docs/history/`](docs/history/).
 
+## 2026-09-29 ? MESP-178 (#309) resume stopped after header migration error ? GPT-6 Luna / max ? MESP-178 (#309)
+- Status: STOPPED. The pre-existing worktree edits were retained; no commit, push, PR, issue comment, tests, or screenshots were created.
+- Branch / starting SHA / ending SHA: `feat/mesp-178-shell-rail-grids`; `9e476f51abeb2cf372693103d5cf6358ba85327f`; same HEAD, with uncommitted work.
+- What changed: Initial inventory before this turn: 29 modified files plus 2 untracked page-header files. Scope inventory then: rail PARTIAL, shared headers PARTIAL, Master Data tabs PARTIAL, grids PARTIAL. During this turn the shell rail was edited and 31 page-header tags in 19 feature files were mechanically migrated. The migration sliced away content after each header because a relative close-tag offset was added to an absolute index. The damage is visible in malformed suffixes such as [finance-reports-workspace.component.ts:42] and [master-data-workspace.component.ts:73]. Exact C1-C6 acceptance evidence is incomplete.
+- Gates: `npm test -- --watch=false --no-progress`: NOT RUN after the damaged edit. `npm run build`: NOT RUN. `npm run test:e2e -- --project=chromium`: NOT RUN. `git diff --check`: NOT RUN.
+- Evidence: `rg` found malformed `</app-page-header>` suffixes across 19 feature files. No screenshots in `.playwright-mcp/mesp-178/`. PR URL: N/A; not opened after STOP.
+- Deviations from the prompt: Stopped before delivery because the header migration damaged existing uncommitted work and its exact lost content could not be safely reconstructed from the current worktree.
+- Failures and classification: EXECUTOR_TOOLING_ERROR ? header migration used an offset relative to the post-opening-tag slice as an absolute slice offset, truncating following content. No backend, theme/branding/currency, asset, or other worktree was touched.
+- Status files updated: Added this RESULT.md entry only. No tracker write was made.
+- Exact next action: Opus 5.5 reviews MESP-178 (#309); owner approval before merge.
+
 ## 2026-09-28 — Opus: accept MESP-170 and MESP-153 Slice A, release MESP-173 — Claude Opus 5.5 / medium — MESP-170 (#293), MESP-153 (#268), MESP-173 (#299)
 - Status: **ACCEPTED** MESP-170 (PR #304, merged at `3472671`) and MESP-153 Slice A (PR #302, merged at `b52364a`; the **owner approved the design**, Q-U). MESP-173 (#299) is released as the OPEN prompt in `TASK.md`. #293 is closed.
 - Branch / starting SHA / ending SHA:

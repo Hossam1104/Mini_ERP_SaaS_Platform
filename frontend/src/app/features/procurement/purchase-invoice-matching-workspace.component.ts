@@ -1,7 +1,9 @@
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { SafeUiError, toSafeUiError } from '../../core/api/safe-error';
 import { LanguageService } from '../../core/i18n/language.service';
@@ -28,27 +30,24 @@ type WorkspaceMode = 'list' | 'detail';
 @Component({
   selector: 'app-purchase-invoice-matching-workspace',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [PageHeaderComponent, DataGridComponent, FormsModule, RouterLink],
   template: `
     @if (mode() === 'list') {
       <section class="ui-page matching-page" data-testid="invoice-matching-list">
-        <header class="ui-page-header ui-page-header--compact matching-header">
-          <div><p class="eyebrow">{{ text('kicker') }}</p><h1>{{ text('title') }}</h1><p class="lede">{{ text('lead') }}</p></div>
+        <app-page-header class="page-header">
+          <div page-header-copy><p class="eyebrow">{{ text('kicker') }}</p><h1>{{ text('title') }}</h1><p class="lede">{{ text('lead') }}</p></div>
+          <div page-header-actions>
           <div class="control-mark" aria-hidden="true"><span>PO</span><i></i><span>GR</span><i></i><span>INV</span></div>
-        </header>
-        <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ text('boundary') }}</span></div>
-        <section class="ui-surface matching-panel">
-          <div class="filter-toolbar">
-            <label class="filter-field"><span>{{ text('resultFilter') }}</span><select [value]="resultFilter()" (change)="setResultFilter($any($event.target).value)"><option value="">{{ text('allResults') }}</option>@for (result of results; track result) {<option [value]="result">{{ resultLabel(result) }}</option>}</select></label>
+        
+          </div>
+        </app-page-header>{ text('resultFilter') }}</span><select [value]="resultFilter()" (change)="setResultFilter($any($event.target).value)"><option value="">{{ text('allResults') }}</option>@for (result of results; track result) {<option [value]="result">{{ resultLabel(result) }}</option>}</select></label>
             <p class="filter-note">{{ text('filterNote') }}</p>
           </div>
           @if (loading()) { <div class="state-card"><span class="spinner" aria-hidden="true"></span><h2>{{ text('loading') }}</h2></div> }
           @else if (error(); as currentError) { <div class="state-card state-card--error" role="alert"><strong>{{ text('loadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadList()">{{ language.text('retry') }}</button></div> }
           @else if (records().length === 0) { <div class="empty-ledger"><span class="empty-glyph" aria-hidden="true">◎</span><h2>{{ text('emptyTitle') }}</h2><p>{{ text('emptyLead') }}</p></div> }
           @else {
-            <div class="ui-grid-shell"><table class="ui-grid matching-grid"><caption class="sr-only">{{ text('title') }}</caption><thead><tr><th scope="col">{{ text('po') }}</th><th scope="col">{{ text('handoff') }}</th><th scope="col">{{ text('result') }}</th><th scope="col" class="numeric">{{ text('variances') }}</th><th scope="col">{{ text('evaluated') }}</th></tr></thead><tbody>
-              @for (record of records(); track record.id) { <tr><td><a class="record-link" [routerLink]="['/app/procurement/invoice-matching', record.id]">{{ shortRef(record.purchaseOrderId) }}</a><small>{{ record.lifecycle }}</small></td><td><span class="record-ref">{{ shortRef(record.purchaseInvoiceHandoffId) }}</span></td><td><span class="match-status" [class]="resultClass(record.result)"><span aria-hidden="true"></span>{{ resultLabel(record.result) }}</span></td><td class="numeric">{{ record.varianceCount }}</td><td>{{ formatDateTime(record.evaluatedAt) }}</td></tr> }
-            </tbody></table></div>
+            <app-data-grid [caption]="text('title')" [rows]="records()" [columns]="gridColumns()" [language]="language.language()" [pageSize]="records().length || 1" [showPager]="false" [rowActions]="gridActions()" [countLabel]="language.text('recordCount')" [rowActionsLabel]="text('actions')" (rowAction)="onGridAction($event)" />
           }
         </section>
       </section>
@@ -59,8 +58,10 @@ type WorkspaceMode = 'list' | 'detail';
         @if (loading()) { <section class="ui-surface state-card"><span class="spinner" aria-hidden="true"></span><h2>{{ text('loading') }}</h2></section> }
         @else if (error(); as currentError) { <section class="ui-surface state-card state-card--error" role="alert"><strong>{{ text('loadFailed') }}</strong><p>{{ errorText(currentError) }}</p><a class="button button--secondary" routerLink="/app/procurement/invoice-matching">{{ text('back') }}</a></section> }
         @else if (match(); as currentMatch) {
-           <header class="ui-page-header ui-page-header--compact matching-header detail-header"><div><p class="eyebrow">{{ text('kicker') }}</p><h1>{{ resultLabel(currentMatch.result) }}</h1><p class="lede">{{ text('detailLead') }} · {{ orderReference() }} · {{ invoiceReference() }}</p></div><span class="match-status match-status--hero" [class]="resultClass(currentMatch.result)"><span aria-hidden="true"></span>{{ resultLabel(currentMatch.result) }}</span></header>
-          <div class="action-rail" role="toolbar" [attr.aria-label]="text('actions')"><a class="button button--secondary" routerLink="/app/procurement/invoice-matching">{{ text('back') }}</a><button class="button button--primary" type="button" [disabled]="evaluating()" (click)="evaluateCurrent()">{{ evaluating() ? text('evaluating') : text('reevaluate') }}</button></div>
+           <app-page-header class="page-header"><div page-header-copy><p class="eyebrow">{{ text('kicker') }}</p><h1>{{ resultLabel(currentMatch.result) }}</h1><p class="lede">{{ text('detailLead') }} · {{ orderReference() }} · {{ invoiceReference() }}</p></div>
+          <div page-header-actions><span class="match-status match-status--hero" [class]="resultClass(currentMatch.result)"><span aria-hidden="true"></span>{{ resultLabel(currentMatch.result) }}</span>
+          </div>
+        </app-page-header>utton></div>
           <div class="evidence-spine" aria-label="Three-way evidence lineage">
              <article class="evidence-card"><div class="evidence-index">01</div><p class="section-kicker">{{ text('purchaseOrder') }}</p><h2>{{ orderReference() }}</h2><p>{{ supplierLabel() }} · {{ text('versionCaptured') }} <code>{{ shortRef(currentMatch.purchaseOrderVersion) }}</code></p></article>
             <div class="evidence-connector" aria-hidden="true">→</div>
@@ -101,7 +102,7 @@ type WorkspaceMode = 'list' | 'detail';
   styles: [`
     :host { display: block; }
     .matching-page { --match-ink: #253340; --match-muted: #6d7b84; --match-line: #d7e0df; --match-accent: #c47a32; --match-cool: #2c7180; }
-    .matching-header { align-items: center; }
+    
     .control-mark { display: flex; align-items: center; gap: .65rem; color: var(--match-cool); font: 700 .72rem/1 system-ui; letter-spacing: .1em; }
     .control-mark i { width: 2rem; height: 1px; background: var(--match-accent); display: block; }
     .matching-panel, .detail-card, .variance-card { padding: clamp(1rem, 2vw, 1.6rem); }
@@ -152,6 +153,7 @@ type WorkspaceMode = 'list' | 'detail';
 export class PurchaseInvoiceMatchingWorkspaceComponent implements OnInit {
   readonly language = inject(LanguageService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly matchingService = inject(PurchaseInvoiceMatchingService);
   private readonly handoffService = inject(PurchaseInvoiceHandoffService);
@@ -179,6 +181,17 @@ export class PurchaseInvoiceMatchingWorkspaceComponent implements OnInit {
   resolutionReason = '';
   readonly results: PurchaseInvoiceMatchResult[] = ['NotMatchReady', 'ExactMatch', 'WithinTolerance', 'ExceptionHold', 'ResolvedException'];
   selectedExchangeRateId = '';
+
+  gridColumns(): DataGridColumn<PurchaseInvoiceMatchListItemResponse>[] { return [
+    { key: 'purchaseOrder', label: this.text('po'), value: (record) => this.shortRef(record.purchaseOrderId), secondaryText: (record) => record.lifecycle, link: (record) => `/app/procurement/invoice-matching/${record.id}`, filter: 'text' },
+    { key: 'handoff', label: this.text('handoff'), value: (record) => this.shortRef(record.purchaseInvoiceHandoffId), filter: 'text' },
+    { key: 'result', label: this.text('result'), value: (record) => record.result, display: (record) => this.resultLabel(record.result), badge: true, filter: 'select', filterOptions: this.results.map((result) => ({ value: result, label: this.resultLabel(result) })) },
+    { key: 'variances', label: this.text('variances'), value: (record) => record.varianceCount, filter: 'number-range', align: 'end' },
+    { key: 'evaluated', label: this.text('evaluated'), value: (record) => record.evaluatedAt, display: (record) => this.formatDateTime(record.evaluatedAt), filter: 'date-range' },
+  ]; }
+
+  gridActions(): readonly { key: string; label: string }[] { return [{ key: 'view', label: this.text('back') }]; }
+  onGridAction(event: { row: PurchaseInvoiceMatchListItemResponse }): void { void this.router.navigate(['/app/procurement/invoice-matching', event.row.id]); }
 
   ngOnInit(): void {
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {

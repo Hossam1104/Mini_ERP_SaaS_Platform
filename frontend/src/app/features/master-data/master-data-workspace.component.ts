@@ -1,3 +1,5 @@
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -49,52 +51,28 @@ type LifecycleAction = 'deactivate' | 'reactivate';
 @Component({
   selector: 'app-master-data-workspace',
   standalone: true,
-  imports: [DatePipe, FormsModule, NgTemplateOutlet, RouterLink, RouterLinkActive],
+  imports: [PageHeaderComponent, DataGridComponent, DatePipe, FormsModule, NgTemplateOutlet, RouterLink, RouterLinkActive],
   template: `
     <section class="master-data" aria-labelledby="master-data-title">
-      <header class="master-data__hero">
-        <div class="hero-copy">
+      <app-page-header class="page-header" [pageLabelOverride]="language.text(currentDefinition().labelKey)">
+        <div page-header-copy>
           <p class="eyebrow">{{ language.text('masterData') }} / {{ language.text('tenantCatalog') }}</p>
-          <h1 id="master-data-title">{{ language.text('masterData') }}<span class="hero-slash"> / </span>{{ language.text(currentDefinition().labelKey) }}</h1>
+          <h1 id="master-data-title">{{ language.text(currentDefinition().labelKey) }}</h1>
           <p class="hero-lede">{{ language.text('masterDataLead') }} {{ language.text(currentDefinition().leadKey) }}</p>
         </div>
-        <div class="hero-facts" aria-label="{{ language.text('serverAuthority') }}">
-          <div class="hero-fact">
-            <span class="hero-fact__mark">01</span>
-            <span><b>{{ language.text('serverAuthority') }}</b><small>{{ language.text('tenantWide') }}</small></span>
+          <div page-header-actions>
+        
+        @if (!detailMode()) {
+          <div class="header-actions">
+            <button class="button button--quiet" type="button" (click)="loadList()" [disabled]="loading()" [attr.aria-label]="language.text('refresh')">↻ <span>{{ language.text('refresh') }}</span></button>
+            <button class="button button--primary" type="button" (click)="startCreate()" [disabled]="!canMutate()" [title]="canMutate() ? '' : language.text('accessUnavailable')">＋ {{ language.text('newRecord') }}</button>
           </div>
-          <div class="hero-fact hero-fact--quiet">
-            <span class="hero-fact__mark">02</span>
-            <span><b>{{ language.text('lifecycle') }}</b><small>{{ language.text('noDraftDelete') }}</small></span>
+        }
+      
           </div>
+        </app-page-header>/span>
         </div>
-      </header>
-
-      <div class="workspace-grid">
-        <nav class="resource-rail" [attr.aria-label]="language.text('resourceIndex')">
-          <div class="resource-rail__heading">
-            <span>{{ language.text('resourceIndex') }}</span>
-            <span class="resource-rail__count">{{ records().length }}</span>
-          </div>
-          @for (definition of definitions; track definition.key; let index = $index) {
-            <a
-              class="resource-link"
-              [class.is-selected]="resource() === definition.key"
-              [class]="'resource-link resource-link--' + definition.accent"
-              [routerLink]="['/app/master-data', definition.key]"
-              routerLinkActive="is-selected"
-              [routerLinkActiveOptions]="{ exact: false }"
-            >
-              <span class="resource-link__index">0{{ index + 1 }}</span>
-              <span class="resource-link__copy"><b>{{ language.text(definition.labelKey) }}</b><small>{{ language.text(definition.leadKey) }}</small></span>
-              <span class="resource-link__arrow" aria-hidden="true">↗</span>
-            </a>
-          }
-          <div class="resource-rail__note">
-            <span class="note-dot" aria-hidden="true"></span>
-            <p>{{ language.text('serverAuthority') }}</p>
-          </div>
-        </nav>
+        <p class="master-data__note" role="note">{{ language.text('serverAuthority') }} · {{ language.text('tenantWide') }} · {{ language.text('lifecycle') }} · {{ language.text('noDraftDelete') }}</p>
 
         <div class="workspace-panel">
           @if (detailMode()) {
@@ -107,18 +85,9 @@ type LifecycleAction = 'deactivate' | 'reactivate';
     </section>
 
     <ng-template #listView>
-      <section class="list-view" aria-labelledby="resource-title">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow eyebrow--soft">{{ language.text('tenantCatalog') }}</p>
-            <h2 id="resource-title">{{ language.text(currentDefinition().labelKey) }}</h2>
-            <p>{{ language.text(currentDefinition().leadKey) }}</p>
-          </div>
-          <div class="section-heading__actions">
-            <button class="button button--quiet" type="button" (click)="loadList()" [disabled]="loading()" [attr.aria-label]="language.text('refresh')">↻ <span>{{ language.text('refresh') }}</span></button>
-            <button class="button button--primary" type="button" (click)="startCreate()" [disabled]="!canMutate()" [title]="canMutate() ? '' : language.text('accessUnavailable')">＋ {{ language.text('newRecord') }}</button>
-          </div>
-        </div>
+      <section class="list-view" aria-labelledby="resource-title" aria-describedby="resource-description">
+        <h2 id="resource-title" class="sr-only">{{ language.text(currentDefinition().labelKey) }}</h2>
+        <p id="resource-description" class="sr-only">{{ language.text(currentDefinition().leadKey) }}</p>
 
         <div class="toolbar" role="search">
           <label class="search-field">
@@ -144,26 +113,24 @@ type LifecycleAction = 'deactivate' | 'reactivate';
         } @else if (filteredRecords().length === 0) {
           <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><div><b>{{ records().length === 0 ? language.text('noRecords') : language.text('noSearchMatches') }}</b><p>{{ records().length === 0 ? language.text('noRecordsLead') : language.text('noSearchMatchesLead') }}</p></div></div>
         } @else {
-          <div class="record-table-wrap">
-            <table class="record-table">
-              <caption class="sr-only">{{ language.text(currentDefinition().labelKey) }}</caption>
-              <thead><tr><th scope="col">{{ language.text('code') }}</th><th scope="col">{{ language.text('englishName') }}</th><th scope="col">{{ language.text('lifecycle') }}</th><th scope="col"><span class="sr-only">{{ language.text('viewRecord') }}</span></th></tr></thead>
-              <tbody>
-                @for (record of pagedRecords(); track record.id) {
-                  <tr>
-                    <td><button class="record-code" type="button" (click)="openRecord(record.id)">{{ recordCode(record) }}</button><small>{{ recordSecondary(record) }}</small></td>
-                    <td><span class="record-name">{{ recordName(record) }}</span><small>{{ record.id }}</small></td>
-                    <td><span class="status-pill" [class.status-pill--inactive]="!isActive(record)"><i aria-hidden="true"></i>{{ statusLabel(record.lifecycleState) }}</span></td>
-                    <td class="table-action"><button class="icon-button" type="button" (click)="openRecord(record.id)" [attr.aria-label]="language.text('viewRecord')">↗</button></td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-          <div class="pagination" aria-label="Pagination">
-            <span>{{ pageLabel() }}</span>
-            <div><button class="pager-button" type="button" (click)="previousPage()" [disabled]="page() === 1">← {{ language.text('previous') }}</button><button class="pager-button" type="button" (click)="nextPage()" [disabled]="page() === totalPages()">{{ language.text('next') }} →</button></div>
-          </div>
+          <app-data-grid
+            [caption]="language.text(currentDefinition().labelKey)"
+            [rows]="filteredRecords()"
+            [columns]="recordColumns()"
+            [language]="language.language()"
+            [rowActions]="gridRowActions()"
+            [pageSize]="pageSize"
+            [countLabel]="language.text('recordCount')"
+            [loadingLabel]="language.text('loadingRecords')"
+            [emptyLabel]="language.text('noRecords')"
+            [emptyHint]="language.text('noRecordsLead')"
+            [noMatchesLabel]="language.text('noSearchMatches')"
+            [clearFiltersLabel]="language.language() === 'ar' ? 'مسح عوامل التصفية' : 'Clear filters'"
+            [filterInputLabel]="language.text('searchRecords')"
+            [allValuesLabel]="language.text('allStatuses')"
+            [rowActionsLabel]="language.text('viewRecord')"
+            (rowAction)="onGridAction($event)"
+          />
         }
       </section>
     </ng-template>
@@ -283,41 +250,12 @@ type LifecycleAction = 'deactivate' | 'reactivate';
   styles: `
     :host { display: block; }
     .master-data { display: grid; gap: 1.35rem; }
-    .master-data__hero { display: flex; justify-content: space-between; gap: 2rem; border-radius: 1.25rem; padding: clamp(1.35rem, 3vw, 2.3rem); color: #f6fbf8; background: linear-gradient(124deg, #163a37 0%, #234f48 56%, #926c35 145%); box-shadow: var(--shadow-card); overflow: hidden; position: relative; }
-    .master-data__hero::after { content: ''; position: absolute; width: 18rem; height: 18rem; inset-inline-end: -6rem; inset-block-start: -9rem; border: 1px solid rgb(255 255 255 / 18%); border-radius: 50%; box-shadow: 0 0 0 2rem rgb(255 255 255 / 3%), 0 0 0 4rem rgb(255 255 255 / 3%); }
-    .hero-copy, .hero-facts { position: relative; z-index: 1; }
-    .hero-copy { max-width: 42rem; }
-    .eyebrow { margin: 0 0 .55rem; color: #bee5d0; font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .eyebrow { margin: 0 0 .55rem; color: var(--accent); font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
     .eyebrow--soft { color: var(--accent-strong); }
     h1, h2, h3, p { margin-block-start: 0; }
-    h1 { margin-block-end: .85rem; font: 800 clamp(2rem, 5vw, 3.8rem)/.98 var(--font-display); letter-spacing: -.06em; }
-    .hero-slash { color: #e9b965; font-weight: 400; }
-    .hero-lede { max-width: 38rem; margin: 0; color: #d7e7e1; font-size: .95rem; line-height: 1.6; }
-    .hero-facts { display: grid; align-content: end; gap: .7rem; min-width: 15rem; }
-    .hero-fact { display: flex; align-items: center; gap: .7rem; border-block-start: 1px solid rgb(255 255 255 / 25%); padding-block-start: .65rem; }
-    .hero-fact--quiet { opacity: .72; }
-    .hero-fact__mark { color: #e9b965; font: 700 .72rem/1 var(--font-mono, ui-monospace); }
-    .hero-fact b, .hero-fact small { display: block; }
-    .hero-fact b { font-size: .75rem; }
-    .hero-fact small { margin-block-start: .2rem; color: #b9d0c8; font-size: .68rem; }
-    .workspace-grid { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); align-items: start; gap: 1.35rem; }
-    .resource-rail { display: grid; gap: .55rem; position: sticky; inset-block-start: 1rem; }
-    .resource-rail__heading { display: flex; justify-content: space-between; padding: 0 .45rem .45rem; color: var(--ink-muted); font-size: .65rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-    .resource-rail__count { color: var(--accent-strong); font-family: ui-monospace, monospace; }
-    .resource-link { display: grid; grid-template-columns: 1.65rem 1fr auto; align-items: center; gap: .55rem; min-height: 4.35rem; border: 1px solid transparent; border-radius: .8rem; padding: .55rem .65rem; color: var(--ink-muted); text-decoration: none; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
-    .resource-link:hover, .resource-link.is-selected { border-color: var(--line); background: var(--surface-raised); box-shadow: var(--shadow-soft); transform: translateX(2px); }
-    .resource-link.is-selected { color: var(--ink); }
-    .resource-link__index { align-self: start; padding-block-start: .25rem; color: var(--line-strong); font: 700 .65rem/1 ui-monospace, monospace; }
-    .resource-link.is-selected .resource-link__index { color: var(--accent-strong); }
-    .resource-link__copy b, .resource-link__copy small { display: block; }
-    .resource-link__copy b { font-size: .8rem; }
-    .resource-link__copy small { margin-block-start: .25rem; color: var(--ink-muted); font-size: .65rem; line-height: 1.35; }
-    .resource-link__arrow { color: var(--line-strong); font-size: 1rem; }
-    .resource-link--gold .resource-link__index { color: #bd8a31; }.resource-link--blue .resource-link__index { color: #4b7d9b; }.resource-link--orange .resource-link__index { color: #b66d3d; }.resource-link--violet .resource-link__index { color: #756ca1; }
-    .resource-rail__note { display: flex; gap: .55rem; margin-block-start: .55rem; border-block-start: 1px solid var(--line); padding: .9rem .45rem; color: var(--ink-muted); }
-    .resource-rail__note p { margin: 0; font-size: .7rem; line-height: 1.45; }.note-dot { flex: 0 0 .45rem; height: .45rem; margin-block-start: .25rem; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 .25rem var(--accent-soft); }
+    .workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
     .workspace-panel { min-width: 0; border: 1px solid var(--line); border-radius: 1.15rem; background: var(--surface-raised); box-shadow: var(--shadow-soft); }
-    .list-view, .detail-view { padding: clamp(1rem, 2.5vw, 1.65rem); }.section-heading, .detail-heading, .detail-topline, .toolbar, .pagination, .audit-heading, .form-section__heading, .contacts-edit__heading, .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }.section-heading { align-items: flex-end; margin-block-end: 1.35rem; }.section-heading h2, .detail-heading h2 { margin: 0; color: var(--ink); font: 800 clamp(1.45rem, 3vw, 2.1rem)/1 var(--font-display); letter-spacing: -.045em; }.section-heading p:not(.eyebrow), .detail-heading p:not(.eyebrow) { max-width: 37rem; margin: .5rem 0 0; color: var(--ink-muted); font-size: .82rem; line-height: 1.5; }.section-heading__actions, .detail-heading__actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }.button { min-height: 2.35rem; border: 1px solid transparent; border-radius: .55rem; padding: .58rem .82rem; font-size: .76rem; font-weight: 800; cursor: pointer; }.button:disabled { cursor: not-allowed; opacity: .45; }.button--primary { color: #173b35; background: var(--accent); }.button--primary:hover:not(:disabled) { background: #c4ead1; }.button--quiet { border-color: var(--line); color: var(--ink-muted); background: transparent; }.button--quiet:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); background: var(--canvas); }.button--danger { color: #fff; background: var(--danger); }.toolbar { align-items: stretch; margin-block-end: 1rem; border-block: 1px solid var(--line); padding-block: .75rem; }.search-field { display: flex; align-items: center; flex: 1 1 16rem; gap: .5rem; border: 1px solid var(--line); border-radius: .55rem; padding-inline: .7rem; background: var(--canvas); }.search-field:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px rgb(13 138 131 / 12%); }.search-field__icon { color: var(--accent-strong); font-size: 1.3rem; }.search-field input, .filter-field select { min-width: 0; width: 100%; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: .8rem; }.filter-field { display: flex; align-items: center; min-width: 9rem; border: 1px solid var(--line); border-radius: .55rem; padding-inline: .6rem; background: var(--canvas); }.filter-field select { cursor: pointer; }.toolbar__count { align-self: center; color: var(--ink-muted); font: 700 .68rem/1 ui-monospace, monospace; white-space: nowrap; }.record-table-wrap, .audit-table-wrap { overflow-x: auto; }.record-table, .audit-table { width: 100%; border-collapse: collapse; font-size: .78rem; }.record-table th, .record-table td, .audit-table th, .audit-table td { border-block-end: 1px solid var(--line); padding: .85rem .7rem; text-align: start; vertical-align: middle; }.record-table th, .audit-table th { color: var(--ink-muted); font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; }.record-table tbody tr:hover { background: #f7faf7; }.record-table td:first-child { width: 31%; }.record-table td:nth-child(2) { width: 43%; }.record-code { display: block; border: 0; padding: 0; color: var(--accent-strong); background: none; font: 800 .82rem/1.2 ui-monospace, monospace; cursor: pointer; }.record-code:hover { text-decoration: underline; }.record-table small, .audit-table small { display: block; max-width: 26rem; margin-block-start: .25rem; overflow: hidden; color: var(--ink-muted); font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }.record-name { display: block; color: var(--ink); font-weight: 700; }.status-pill { display: inline-flex; align-items: center; gap: .35rem; border-radius: 99px; padding: .3rem .5rem; color: var(--success); background: var(--accent-soft); font-size: .66rem; font-weight: 800; white-space: nowrap; }.status-pill i { width: .38rem; height: .38rem; border-radius: 50%; background: currentColor; }.status-pill--inactive { color: var(--support); background: var(--support-soft); }.table-action { text-align: end !important; }.icon-button { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border: 1px solid var(--line); border-radius: .5rem; color: var(--accent-strong); background: transparent; cursor: pointer; }.icon-button:hover { border-color: var(--accent-strong); background: var(--accent-soft); }.pagination { margin-block-start: .8rem; color: var(--ink-muted); font: 700 .68rem/1 ui-monospace, monospace; }.pagination > div { display: flex; gap: .4rem; }.pager-button { border: 0; color: var(--accent-strong); background: transparent; font-size: .7rem; font-weight: 800; cursor: pointer; }.pager-button:disabled { color: var(--line-strong); cursor: not-allowed; }.state-card { display: flex; align-items: flex-start; gap: .8rem; border: 1px dashed var(--line-strong); border-radius: .8rem; padding: 1.35rem; background: var(--canvas); }.state-card b { color: var(--ink); font-size: .85rem; }.state-card p { margin: .3rem 0 0; color: var(--ink-muted); font-size: .75rem; line-height: 1.5; }.state-card--error { border-style: solid; border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); background: color-mix(in srgb, var(--danger) 5%, var(--surface-raised)); }.state-card--empty { min-height: 10rem; align-items: center; }.state-icon { display: grid; flex: 0 0 1.8rem; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: .5rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface-raised)); font-weight: 900; }.state-card--empty .state-icon { color: var(--accent-strong); background: var(--accent-soft); }.loader { width: 1.2rem; height: 1.2rem; border: 2px solid var(--line); border-top-color: var(--accent-strong); border-radius: 50%; animation: spin .8s linear infinite; }.text-button, .back-link { border: 0; padding: 0; color: var(--accent-strong); background: transparent; font-size: .74rem; font-weight: 800; cursor: pointer; }.text-button { display: block; margin-block-start: .7rem; }.detail-topline { margin-block-end: 1.25rem; }.back-link { color: var(--ink-muted); }.back-link:hover { color: var(--accent-strong); }.detail-scope { color: var(--ink-muted); font: 700 .65rem/1 ui-monospace, monospace; }.detail-heading { align-items: flex-end; margin-block-end: 1.25rem; }.detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(13rem, 18rem); gap: 1rem; }.detail-card, .audit-panel, .edit-card { border: 1px solid var(--line); border-radius: .8rem; padding: 1rem; background: #fcfdfb; }.detail-card--main { min-width: 0; }.detail-card--rail { background: var(--canvas); }.card-kicker { color: var(--ink-muted); font: 800 .65rem/1 ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; }.field-read-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem 1.2rem; margin-block-start: 1.3rem; }.field-read-grid > div { min-width: 0; border-block-start: 2px solid var(--line); padding-block-start: .5rem; }.field-read-grid span, .fact-stack span, .contacts-read > span { display: block; color: var(--ink-muted); font-size: .67rem; font-weight: 700; }.field-read-grid b { display: block; margin-block-start: .3rem; overflow-wrap: anywhere; color: var(--ink); font-size: .8rem; line-height: 1.4; }.field-read-grid__wide { grid-column: 1 / -1; }.fact-stack { display: grid; gap: 1rem; margin-block-start: 1.3rem; }.fact-stack b { display: block; margin-block-start: .28rem; color: var(--ink); font-size: .75rem; line-height: 1.4; }.boundary-note { margin: 1rem 0 0; border-inline-start: 3px solid var(--accent); padding-inline-start: .7rem; color: var(--ink-muted); font-size: .72rem; line-height: 1.5; }.contacts-read { display: grid; gap: .55rem; margin-block-start: 1.35rem; border-block-start: 1px solid var(--line); padding-block-start: .85rem; }.contact-line { display: flex; justify-content: space-between; gap: 1rem; border-radius: .5rem; padding: .55rem; background: var(--canvas); }.contact-line b { font-size: .75rem; }.contact-line small { margin: 0; color: var(--ink-muted); font-size: .68rem; }.audit-panel { margin-block-start: 1rem; }.audit-heading { align-items: flex-end; margin-block-end: .7rem; }.audit-heading h3 { margin: 0; font: 800 1.1rem/1 var(--font-display); }.audit-count { display: grid; place-items: center; min-width: 1.75rem; height: 1.75rem; border-radius: 50%; color: var(--accent-strong); background: var(--accent-soft); font: 800 .7rem/1 ui-monospace, monospace; }.audit-table th, .audit-table td { padding: .65rem .45rem; font-size: .7rem; }.audit-table th { font-size: .6rem; }.muted-line { margin: 0; color: var(--ink-muted); font-size: .75rem; }.edit-card { padding: 0; overflow: hidden; }.form-section { padding: 1rem; }.form-section__heading, .contacts-edit__heading { align-items: flex-start; margin-block-end: 1rem; }.form-section__heading h3, .contacts-edit__heading h3 { margin: 0; font: 800 1.05rem/1 var(--font-display); }.form-section__heading > span { color: var(--ink-muted); font-size: .68rem; }.form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .9rem; }.form-grid--secondary { margin-block-start: .9rem; }.form-field { display: grid; gap: .35rem; min-width: 0; }.form-field > span, .check-field span { color: var(--ink-muted); font-size: .7rem; font-weight: 800; }.form-field em { color: var(--danger); font-style: normal; }.form-field input, .form-field select, .form-field textarea { width: 100%; border: 1px solid var(--line); border-radius: .45rem; padding: .6rem .65rem; color: var(--ink); background: var(--surface-raised); font-size: .78rem; }.form-field textarea { resize: vertical; }.form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--focus); outline: 0; box-shadow: 0 0 0 3px rgb(13 138 131 / 10%); }.form-field.has-error input { border-color: var(--danger); }.form-field small { min-height: 1rem; color: var(--danger); font-size: .62rem; line-height: 1.35; }.form-field:not(.has-error) small { color: var(--ink-muted); }.check-field { display: flex; align-items: center; gap: .5rem; align-self: center; min-height: 2.4rem; border: 1px solid var(--line); border-radius: .45rem; padding: .55rem .65rem; background: var(--canvas); cursor: pointer; }.check-field input { accent-color: var(--accent-strong); }.form-field--full { margin-block-start: .9rem; }.check-row { display: flex; flex-wrap: wrap; gap: .55rem; margin-block-start: .25rem; }.contacts-edit { margin-block-start: 1.25rem; border-block-start: 1px solid var(--line); padding-block-start: 1rem; }.contact-edit-row { display: grid; grid-template-columns: 1.1fr 1.1fr 1fr auto; align-items: end; gap: .6rem; margin-block-end: .6rem; }.icon-button--remove { margin-block-end: 1rem; color: var(--danger); }.form-summary, .inline-alert { margin: 1rem 1rem 0; border-radius: .55rem; padding: .65rem .8rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); font-size: .74rem; }.inline-alert { display: flex; gap: .5rem; justify-content: space-between; margin-block-end: 1rem; }.inline-alert span { color: var(--ink-muted); }.inline-alert--success { color: var(--success); background: var(--accent-soft); }.form-actions { justify-content: flex-end; border-block-start: 1px solid var(--line); padding: .85rem 1rem; background: var(--canvas); }.dialog-backdrop { display: grid; position: fixed; z-index: 5; inset: 0; place-items: center; padding: 1rem; background: rgb(16 39 37 / 48%); }.lifecycle-dialog { width: min(100%, 27rem); border: 1px solid var(--line); border-radius: 1rem; padding: 1.35rem; background: var(--surface-raised); box-shadow: var(--shadow-card); }.lifecycle-dialog h2 { margin: 0 0 1rem; font: 800 1.35rem/1.05 var(--font-display); }.lifecycle-dialog .form-actions { margin: 1.25rem -1.35rem -1.35rem; }.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    .list-view, .detail-view { padding: clamp(1rem, 2.5vw, 1.65rem); }.section-heading, .detail-heading, .detail-topline, .toolbar, .pagination, .audit-heading, .form-section__heading, .contacts-edit__heading, .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }.section-heading { align-items: flex-end; margin-block-end: 1.35rem; }.section-heading h2, .detail-heading h2 { margin: 0; color: var(--ink); font: 800 clamp(1.45rem, 3vw, 2.1rem)/1 var(--font-display); letter-spacing: -.045em; }.section-heading p:not(.eyebrow), .detail-heading p:not(.eyebrow) { max-width: 37rem; margin: .5rem 0 0; color: var(--ink-muted); font-size: .82rem; line-height: 1.5; }.section-heading__actions, .detail-heading__actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }.button { min-height: 2.35rem; border: 1px solid transparent; border-radius: .55rem; padding: .58rem .82rem; font-size: .76rem; font-weight: 800; cursor: pointer; }.button:disabled { cursor: not-allowed; opacity: .45; }.button--primary { color: #173b35; background: var(--accent); }.button--primary:hover:not(:disabled) { background: #c4ead1; }.button--quiet { border-color: var(--line); color: var(--ink-muted); background: transparent; }.button--quiet:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); background: var(--canvas); }.button--danger { color: #fff; background: var(--danger); }.toolbar { align-items: stretch; margin-block-end: 1rem; border-block: 1px solid var(--line); padding-block: .75rem; }.search-field { display: flex; align-items: center; flex: 1 1 16rem; gap: .5rem; border: 1px solid var(--line); border-radius: .55rem; padding-inline: .7rem; background: var(--canvas); }.search-field:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px rgb(13 138 131 / 12%); }.search-field__icon { color: var(--accent-strong); font-size: 1.3rem; }.search-field input, .filter-field select { min-width: 0; width: 100%; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: .8rem; }.filter-field { display: flex; align-items: center; min-width: 9rem; border: 1px solid var(--line); border-radius: .55rem; padding-inline: .6rem; background: var(--canvas); }.filter-field select { cursor: pointer; }.toolbar__count { align-self: center; color: var(--ink-muted); font: 700 .68rem/1 ui-monospace, monospace; white-space: nowrap; }.record-code { display: block; border: 0; padding: 0; color: var(--accent-strong); background: none; font: 800 .82rem/1.2 ui-monospace, monospace; cursor: pointer; }.record-code:hover { text-decoration: underline; }.record-name { display: block; color: var(--ink); font-weight: 700; }.status-pill { display: inline-flex; align-items: center; gap: .35rem; border-radius: 99px; padding: .3rem .5rem; color: var(--success); background: var(--accent-soft); font-size: .66rem; font-weight: 800; white-space: nowrap; }.status-pill i { width: .38rem; height: .38rem; border-radius: 50%; background: currentColor; }.status-pill--inactive { color: var(--support); background: var(--support-soft); }.table-action { text-align: end !important; }.icon-button { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border: 1px solid var(--line); border-radius: .5rem; color: var(--accent-strong); background: transparent; cursor: pointer; }.icon-button:hover { border-color: var(--accent-strong); background: var(--accent-soft); }.pagination { margin-block-start: .8rem; color: var(--ink-muted); font: 700 .68rem/1 ui-monospace, monospace; }.pagination > div { display: flex; gap: .4rem; }.pager-button { border: 0; color: var(--accent-strong); background: transparent; font-size: .7rem; font-weight: 800; cursor: pointer; }.pager-button:disabled { color: var(--line-strong); cursor: not-allowed; }.state-card { display: flex; align-items: flex-start; gap: .8rem; border: 1px dashed var(--line-strong); border-radius: .8rem; padding: 1.35rem; background: var(--canvas); }.state-card b { color: var(--ink); font-size: .85rem; }.state-card p { margin: .3rem 0 0; color: var(--ink-muted); font-size: .75rem; line-height: 1.5; }.state-card--error { border-style: solid; border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); background: color-mix(in srgb, var(--danger) 5%, var(--surface-raised)); }.state-card--empty { min-height: 10rem; align-items: center; }.state-icon { display: grid; flex: 0 0 1.8rem; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: .5rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface-raised)); font-weight: 900; }.state-card--empty .state-icon { color: var(--accent-strong); background: var(--accent-soft); }.loader { width: 1.2rem; height: 1.2rem; border: 2px solid var(--line); border-top-color: var(--accent-strong); border-radius: 50%; animation: spin .8s linear infinite; }.text-button, .back-link { border: 0; padding: 0; color: var(--accent-strong); background: transparent; font-size: .74rem; font-weight: 800; cursor: pointer; }.text-button { display: block; margin-block-start: .7rem; }.detail-topline { margin-block-end: 1.25rem; }.back-link { color: var(--ink-muted); }.back-link:hover { color: var(--accent-strong); }.detail-scope { color: var(--ink-muted); font: 700 .65rem/1 ui-monospace, monospace; }.detail-heading { align-items: flex-end; margin-block-end: 1.25rem; }.detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(13rem, 18rem); gap: 1rem; }.detail-card, .audit-panel, .edit-card { border: 1px solid var(--line); border-radius: .8rem; padding: 1rem; background: #fcfdfb; }.detail-card--main { min-width: 0; }.detail-card--rail { background: var(--canvas); }.card-kicker { color: var(--ink-muted); font: 800 .65rem/1 ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; }.field-read-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem 1.2rem; margin-block-start: 1.3rem; }.field-read-grid > div { min-width: 0; border-block-start: 2px solid var(--line); padding-block-start: .5rem; }.field-read-grid span, .fact-stack span, .contacts-read > span { display: block; color: var(--ink-muted); font-size: .67rem; font-weight: 700; }.field-read-grid b { display: block; margin-block-start: .3rem; overflow-wrap: anywhere; color: var(--ink); font-size: .8rem; line-height: 1.4; }.field-read-grid__wide { grid-column: 1 / -1; }.fact-stack { display: grid; gap: 1rem; margin-block-start: 1.3rem; }.fact-stack b { display: block; margin-block-start: .28rem; color: var(--ink); font-size: .75rem; line-height: 1.4; }.boundary-note { margin: 1rem 0 0; border-inline-start: 3px solid var(--accent); padding-inline-start: .7rem; color: var(--ink-muted); font-size: .72rem; line-height: 1.5; }.contacts-read { display: grid; gap: .55rem; margin-block-start: 1.35rem; border-block-start: 1px solid var(--line); padding-block-start: .85rem; }.contact-line { display: flex; justify-content: space-between; gap: 1rem; border-radius: .5rem; padding: .55rem; background: var(--canvas); }.contact-line b { font-size: .75rem; }.contact-line small { margin: 0; color: var(--ink-muted); font-size: .68rem; }.audit-panel { margin-block-start: 1rem; }.audit-heading { align-items: flex-end; margin-block-end: .7rem; }.audit-heading h3 { margin: 0; font: 800 1.1rem/1 var(--font-display); }.audit-count { display: grid; place-items: center; min-width: 1.75rem; height: 1.75rem; border-radius: 50%; color: var(--accent-strong); background: var(--accent-soft); font: 800 .7rem/1 ui-monospace, monospace; }.audit-table th, .audit-table td { padding: .65rem .45rem; font-size: .7rem; }.audit-table th { font-size: .6rem; }.muted-line { margin: 0; color: var(--ink-muted); font-size: .75rem; }.edit-card { padding: 0; overflow: hidden; }.form-section { padding: 1rem; }.form-section__heading, .contacts-edit__heading { align-items: flex-start; margin-block-end: 1rem; }.form-section__heading h3, .contacts-edit__heading h3 { margin: 0; font: 800 1.05rem/1 var(--font-display); }.form-section__heading > span { color: var(--ink-muted); font-size: .68rem; }.form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .9rem; }.form-grid--secondary { margin-block-start: .9rem; }.form-field { display: grid; gap: .35rem; min-width: 0; }.form-field > span, .check-field span { color: var(--ink-muted); font-size: .7rem; font-weight: 800; }.form-field em { color: var(--danger); font-style: normal; }.form-field input, .form-field select, .form-field textarea { width: 100%; border: 1px solid var(--line); border-radius: .45rem; padding: .6rem .65rem; color: var(--ink); background: var(--surface-raised); font-size: .78rem; }.form-field textarea { resize: vertical; }.form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--focus); outline: 0; box-shadow: 0 0 0 3px rgb(13 138 131 / 10%); }.form-field.has-error input { border-color: var(--danger); }.form-field small { min-height: 1rem; color: var(--danger); font-size: .62rem; line-height: 1.35; }.form-field:not(.has-error) small { color: var(--ink-muted); }.check-field { display: flex; align-items: center; gap: .5rem; align-self: center; min-height: 2.4rem; border: 1px solid var(--line); border-radius: .45rem; padding: .55rem .65rem; background: var(--canvas); cursor: pointer; }.check-field input { accent-color: var(--accent-strong); }.form-field--full { margin-block-start: .9rem; }.check-row { display: flex; flex-wrap: wrap; gap: .55rem; margin-block-start: .25rem; }.contacts-edit { margin-block-start: 1.25rem; border-block-start: 1px solid var(--line); padding-block-start: 1rem; }.contact-edit-row { display: grid; grid-template-columns: 1.1fr 1.1fr 1fr auto; align-items: end; gap: .6rem; margin-block-end: .6rem; }.icon-button--remove { margin-block-end: 1rem; color: var(--danger); }.form-summary, .inline-alert { margin: 1rem 1rem 0; border-radius: .55rem; padding: .65rem .8rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); font-size: .74rem; }.inline-alert { display: flex; gap: .5rem; justify-content: space-between; margin-block-end: 1rem; }.inline-alert span { color: var(--ink-muted); }.inline-alert--success { color: var(--success); background: var(--accent-soft); }.form-actions { justify-content: flex-end; border-block-start: 1px solid var(--line); padding: .85rem 1rem; background: var(--canvas); }.dialog-backdrop { display: grid; position: fixed; z-index: 5; inset: 0; place-items: center; padding: 1rem; background: rgb(16 39 37 / 48%); }.lifecycle-dialog { width: min(100%, 27rem); border: 1px solid var(--line); border-radius: 1rem; padding: 1.35rem; background: var(--surface-raised); box-shadow: var(--shadow-card); }.lifecycle-dialog h2 { margin: 0 0 1rem; font: 800 1.35rem/1.05 var(--font-display); }.lifecycle-dialog .form-actions { margin: 1.25rem -1.35rem -1.35rem; }.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     .term-config-block { margin-block-start: 1rem; border-block-start: 1px solid var(--line); padding-block-start: 1rem; }
     .tax-engine-panel, .tax-edit-panel, .exchange-reference-panel, .exchange-edit-panel { margin-block-start: 1rem; border-block-start: 1px solid var(--line); padding-block-start: 1rem; }
     .exchange-reference-result { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; margin-block-start: 1rem; border: 1px solid var(--line); border-radius: .6rem; padding: .75rem; background: var(--canvas); }
@@ -329,16 +267,30 @@ type LifecycleAction = 'deactivate' | 'reactivate';
     .tax-result span { color: var(--ink-muted); font-size: .64rem; font-weight: 700; }
     .tax-result b { margin-block-start: .25rem; color: var(--ink); font-size: .78rem; overflow-wrap: anywhere; }
     .term-hint { margin: -.35rem 0 .85rem; color: var(--ink-muted); font-size: .72rem; line-height: 1.45; }
+    .page-header__note { margin: 0; color: var(--ink-muted); font-size: .75rem; line-height: 1.4; }
+    .workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+    .resource-tabs-wrap { display: flex; min-width: 0; align-items: center; gap: .8rem; border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line)); border-radius: var(--radius-card); padding: .35rem .8rem; background: linear-gradient(145deg, var(--surface-glass), var(--surface-raised)); box-shadow: var(--shadow-soft); }
+    .resource-tabs { display: flex; min-width: 0; flex: 1; gap: .2rem; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: none; mask-image: linear-gradient(90deg, transparent, #000 1.1rem, #000 calc(100% - 1.1rem), transparent); }
+    .resource-tabs::-webkit-scrollbar { display: none; }
+    .resource-tabs__link { position: relative; display: inline-flex; min-height: 2.7rem; flex: none; align-items: center; border-radius: .6rem; padding: .5rem .75rem; color: var(--ink-muted); font-size: .78rem; font-weight: 750; text-decoration: none; white-space: nowrap; transition: color var(--motion-fast) ease, background var(--motion-fast) ease; }
+    .resource-tabs__link:hover, .resource-tabs__link.is-active { color: var(--accent-strong); background: var(--accent-soft); }
+    .resource-tabs__link::after { position: absolute; inset-inline: .75rem; inset-block-end: .15rem; height: 2px; border-radius: 2px; background: var(--accent); content: ''; transform: scaleX(0); transform-origin: center; transition: transform var(--motion-fast) ease; }
+    .resource-tabs__link.is-active::after { transform: scaleX(1); }
+    .resource-tabs__count { flex: none; color: var(--ink-muted); font: 700 .68rem/1 ui-monospace, monospace; white-space: nowrap; }
+    @media (max-width: 680px) { .resource-tabs-wrap { align-items: stretch; flex-direction: column; gap: .2rem; padding: .4rem; }.resource-tabs__count { padding-inline: .65rem; } }
+    @media (prefers-reduced-motion: reduce) { .resource-tabs__link, .resource-tabs__link::after { transition: none; } }
     .term-installment-row { display: grid; grid-template-columns: 1fr 1.2fr 1fr 1fr auto; align-items: end; gap: .6rem; margin-block-end: .65rem; }
     .term-installment-row .icon-button--remove { margin-block-end: 1rem; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 680px) { .term-installment-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .term-installment-row .icon-button--remove { margin-block-end: 0; justify-self: start; } }
     @media (max-width: 460px) { .term-installment-row { grid-template-columns: 1fr; } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
-    @media (max-width: 980px) { .master-data__hero { flex-direction: column; }.hero-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; }.workspace-grid { grid-template-columns: 1fr; }.resource-rail { position: static; grid-template-columns: repeat(9, minmax(8.5rem, 1fr)); overflow-x: auto; padding-block-end: .25rem; }.resource-rail__heading, .resource-rail__note { display: none; }.resource-link { min-height: 5.2rem; }.detail-grid { grid-template-columns: 1fr; }.detail-card--rail { display: none; } }
-    @media (max-width: 680px) { .section-heading, .detail-heading, .toolbar { align-items: stretch; flex-direction: column; }.section-heading__actions, .detail-heading__actions { justify-content: flex-start; }.toolbar__count { align-self: flex-start; }.form-grid { grid-template-columns: 1fr; }.contact-edit-row { grid-template-columns: 1fr 1fr; }.contact-edit-row .icon-button { margin-block-end: 0; }.field-read-grid { grid-template-columns: 1fr; }.field-read-grid__wide { grid-column: auto; }.hero-facts { grid-template-columns: 1fr; }.resource-rail { grid-template-columns: repeat(9, 10rem); }.tax-result, .exchange-reference-result { grid-template-columns: repeat(2, minmax(0, 1fr)); }.record-table th, .record-table td { padding-inline: .45rem; } }
-    @media (max-width: 460px) { .master-data__hero { border-radius: .9rem; }.master-data__hero h1 { font-size: 2.2rem; }.list-view, .detail-view { padding: .8rem; }.button span { display: none; }.contact-edit-row { grid-template-columns: 1fr; }.contact-edit-row .icon-button { justify-self: start; }.contact-line { align-items: flex-start; flex-direction: column; gap: .25rem; }.form-actions { flex-wrap: wrap; }.form-actions .button { flex: 1; } }
-  `,
+    @media (max-width: 980px) {.workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }.detail-grid { grid-template-columns: 1fr; }.detail-card--rail { display: none; } }
+    @media (max-width: 680px) { .section-heading, .detail-heading, .toolbar { align-items: stretch; flex-direction: column; }.section-heading__actions, .detail-heading__actions { justify-content: flex-start; }.toolbar__count { align-self: flex-start; }.form-grid { grid-template-columns: 1fr; }.contact-edit-row { grid-template-columns: 1fr 1fr; }.contact-edit-row .icon-button { margin-block-end: 0; }.field-read-grid { grid-template-columns: 1fr; }.field-read-grid__wide { grid-column: auto; }.tax-result, .exchange-reference-result { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 460px) {.list-view, .detail-view { padding: .8rem; }.button span { display: none; }.contact-edit-row { grid-template-columns: 1fr; }.contact-edit-row .icon-button { justify-self: start; }.contact-line { align-items: flex-start; flex-direction: column; gap: .25rem; }.form-actions { flex-wrap: wrap; }.form-actions .button { flex: 1; } }
+  
+    .master-data__note { margin: -.8rem 0 0; color: var(--ink-muted); font-size: .75rem; }
+`,
 })
 export class MasterDataWorkspaceComponent implements OnInit {
   readonly definitions = RESOURCE_DEFINITIONS;
@@ -355,7 +307,6 @@ export class MasterDataWorkspaceComponent implements OnInit {
   readonly listError = signal<SafeUiError | null>(null);
   readonly filterQuery = signal('');
   readonly statusFilter = signal<StatusFilter>('all');
-  readonly page = signal(1);
   readonly pageSize = 8;
   readonly detailMode = signal<DetailMode | null>(null);
   readonly detailLoading = signal(false);
@@ -392,11 +343,11 @@ export class MasterDataWorkspaceComponent implements OnInit {
       return matchesStatus && (!query || searchable.includes(query));
     });
   });
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredRecords().length / this.pageSize)));
-  readonly pagedRecords = computed(() => {
-    const start = (this.page() - 1) * this.pageSize;
-    return this.filteredRecords().slice(start, start + this.pageSize);
-  });
+  readonly recordColumns = computed<DataGridColumn<MasterDataRecord>[]>(() => [
+    { key: 'code', label: this.language.text('code'), value: (record) => this.recordCode(record), secondaryText: (record) => this.recordSecondary(record), link: (record) => `/app/master-data/${this.resource()}/${record.id}`, filter: 'text' },
+    { key: 'name', label: this.language.text('englishName'), value: (record) => this.recordName(record), secondaryText: (record) => record.id, filter: 'text' },
+    { key: 'lifecycle', label: this.language.text('lifecycle'), value: (record) => record.lifecycleState, display: (record) => this.statusLabel(record.lifecycleState), badge: true, filter: 'select', filterOptions: [{ value: 'Active', label: this.language.text('activeStatus') }, { value: 'Inactive', label: this.language.text('inactiveStatus') }] },
+  ]);
   draft: MasterDataDraft = this.emptyDraft('categories');
   taxCalculationDraft: TaxCalculationRequest = this.emptyTaxCalculationDraft();
   private loadSequence = 0;
@@ -410,7 +361,6 @@ export class MasterDataWorkspaceComponent implements OnInit {
       this.resetTaxCalculation();
       this.filterQuery.set('');
       this.statusFilter.set('all');
-      this.page.set(1);
       this.loadList(nextResource);
       if (id === 'new') {
         this.prepareCreate(nextResource);
@@ -439,7 +389,6 @@ export class MasterDataWorkspaceComponent implements OnInit {
       .then((records) => {
         if (sequence !== this.loadSequence) return;
         this.records.set(records ?? []);
-        this.page.set(1);
         if (resource === 'products' || resource === 'exchange-rates') void this.loadReferences(sequence, resource);
       })
       .catch((error: unknown) => {
@@ -636,25 +585,20 @@ export class MasterDataWorkspaceComponent implements OnInit {
 
   onSearch(event: Event): void {
     this.filterQuery.set((event.target as HTMLInputElement).value);
-    this.page.set(1);
   }
 
   onStatusChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
     this.statusFilter.set(value === 'Active' || value === 'Inactive' ? value : 'all');
-    this.page.set(1);
   }
 
   onLifecycleReason(event: Event): void {
     this.lifecycleReason.set((event.target as HTMLTextAreaElement).value);
   }
 
-  previousPage(): void { if (this.page() > 1) this.page.update((page) => page - 1); }
-  nextPage(): void { if (this.page() < this.totalPages()) this.page.update((page) => page + 1); }
+  gridRowActions(): readonly { key: string; label: string }[] { return [{ key: 'view', label: this.language.text('viewRecord') }]; }
 
-  pageLabel(): string {
-    return this.language.text('pageOf').replace('{page}', String(this.page())).replace('{pages}', String(this.totalPages()));
-  }
+  onGridAction(event: { action: string; row: MasterDataRecord }): void { if (event.action === 'view') this.openRecord(event.row.id); }
 
   recordCode(record: MasterDataRecord | null): string {
     if (!record) return this.language.text('createRecord');

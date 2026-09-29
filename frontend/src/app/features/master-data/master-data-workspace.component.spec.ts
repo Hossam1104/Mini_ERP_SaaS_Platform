@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { BehaviorSubject, of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
@@ -187,12 +187,25 @@ describe('MasterDataWorkspaceComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders all nine bounded resource entries and a connected category list', () => {
+  it('renders all nine resource tabs and a connected category list', () => {
     const element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelectorAll('.resource-link')).toHaveLength(9);
+    expect(element.querySelectorAll('.resource-tabs__link')).toHaveLength(9);
     expect(element.textContent).toContain('Categories');
     expect(element.textContent).toContain('CAT-01');
     expect(data.list).toHaveBeenCalledWith('categories');
+  });
+
+  it('keeps resource tabs as deep-linkable keyboard links with the current page announced', async () => {
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/app/master-data/categories');
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const links = Array.from(element.querySelectorAll('.resource-tabs__link')) as HTMLAnchorElement[];
+    expect(links.find(link => link.getAttribute('aria-current') === 'page')?.getAttribute('href')).toBe('/app/master-data/categories');
+    expect(links.map(link => link.getAttribute('href'))).toContain('/app/master-data/suppliers');
+    expect(links.every(link => link.tabIndex === 0)).toBe(true);
+    links.find(link => link.getAttribute('href') === '/app/master-data/suppliers')?.focus();
+    expect(document.activeElement).toBe(links.find(link => link.getAttribute('href') === '/app/master-data/suppliers'));
   });
 
   it('filters the current list and exposes server-aware mutation affordances', () => {

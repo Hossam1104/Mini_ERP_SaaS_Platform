@@ -3,6 +3,7 @@ export const NAVIGATION_GROUPS = [
     id: 'master-data',
     labelEn: 'Master data',
     labelAr: 'البيانات الرئيسية',
+    icon: 'database',
     items: [
       { path: '/app/master-data/categories', labelEn: 'Master Data', labelAr: 'البيانات الرئيسية', icon: 'database' },
       { path: '/app/price-lists', labelEn: 'Price Lists', labelAr: 'قوائم الأسعار', icon: 'tag' },
@@ -13,6 +14,7 @@ export const NAVIGATION_GROUPS = [
     id: 'procurement',
     labelEn: 'Procurement',
     labelAr: 'المشتريات',
+    icon: 'shopping-cart',
     items: [
       { path: '/app/procurement/purchase-requests', labelEn: 'Purchase Requests', labelAr: 'طلبات الشراء', icon: 'shopping-cart' },
       { path: '/app/procurement/supplier-quotations', labelEn: 'Supplier Quotations', labelAr: 'عروض الموردين', icon: 'file-check' },
@@ -27,6 +29,7 @@ export const NAVIGATION_GROUPS = [
     id: 'operations',
     labelEn: 'Operations',
     labelAr: 'العمليات',
+    icon: 'boxes',
     items: [
       { path: '/app/inventory', labelEn: 'Inventory', labelAr: 'المخزون', icon: 'boxes' },
       { path: '/app/inventory/valuation', labelEn: 'Inventory Valuation', labelAr: 'تقييم المخزون', icon: 'chart-column' },
@@ -36,6 +39,7 @@ export const NAVIGATION_GROUPS = [
     id: 'finance-sales',
     labelEn: 'Finance and sales',
     labelAr: 'المالية والمبيعات',
+    icon: 'chart-combined',
     items: [
       { path: '/app/finance', labelEn: 'Finance', labelAr: 'المالية', icon: 'chart-combined' },
       { path: '/app/sales/quotations', labelEn: 'Sales', labelAr: 'المبيعات', icon: 'chart-line' },

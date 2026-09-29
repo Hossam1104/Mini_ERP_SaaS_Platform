@@ -1,3 +1,5 @@
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -38,24 +40,21 @@ interface CreateHandoffLineDraft {
 @Component({
   selector: 'app-purchase-invoice-handoff-workspace',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [PageHeaderComponent, DataGridComponent, FormsModule, RouterLink],
   template: `
     @if (mode() === 'list') {
       <section class="ui-page invoice-handoff-page" data-testid="invoice-handoff-list">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header class="page-header">
+          <div page-header-copy>
             <p class="eyebrow">{{ pihText('invoiceHandoffKicker') }}</p>
             <h1>{{ pihText('invoiceHandoffs') }}</h1>
             <p class="lede">{{ pihText('invoiceHandoffsLead') }}</p>
           </div>
+          <div page-header-actions>
           <a class="button button--primary" routerLink="/app/procurement/invoice-handoffs/new" data-testid="new-invoice-handoff">＋ {{ pihText('newInvoiceHandoff') }}</a>
-        </header>
-        <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ pihText('invoiceHandoffBoundary') }}</span></div>
-
-        @if (loading()) {
-          <section class="ui-surface state-card" aria-live="polite"><span class="spinner" aria-hidden="true"></span><h2>{{ pihText('loadingInvoiceHandoffs') }}</h2></section>
-        } @else if (error(); as currentError) {
-          <section class="ui-surface state-card state-card--error" role="alert"><strong>{{ pihText('invoiceHandoffListLoadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadList()">{{ language.text('retry') }}</button></section>
+        
+          </div>
+        </app-page-header>class="ui-surface state-card state-card--error" role="alert"><strong>{{ pihText('invoiceHandoffListLoadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadList()">{{ language.text('retry') }}</button></section>
         } @else {
           <section class="ui-surface ledger-panel">
             <div class="filter-toolbar">
@@ -66,7 +65,7 @@ interface CreateHandoffLineDraft {
             @if (filteredRecords().length === 0) {
               <div class="empty-ledger"><span aria-hidden="true">◌</span><h2>{{ pihText('noInvoiceHandoffs') }}</h2><p>{{ pihText('noInvoiceHandoffsLead') }}</p></div>
             } @else {
-              <div class="ui-grid-shell invoice-handoff-grid-shell"><table class="ui-grid invoice-handoff-grid"><caption class="sr-only">{{ pihText('invoiceHandoffs') }}</caption><thead><tr><th scope="col">{{ pihText('invoiceHandoffRefColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffSupplierColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffStatusColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffDateColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffCurrencyColumn') }}</th><th scope="col" class="numeric">{{ pihText('invoiceHandoffQtyColumn') }}</th><th scope="col" class="numeric">{{ pihText('invoiceHandoffAmountColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffUpdatedColumn') }}</th></tr></thead><tbody>@for (record of filteredRecords(); track record.id) {<tr><td><a class="record-link" [routerLink]="['/app/procurement/invoice-handoffs', record.id]">{{ record.supplierInvoiceReference }}</a><small>{{ record.lineCount }} {{ pihText('invoiceHandoffLines') }}</small></td><td><strong>{{ record.supplierName }}</strong><small>{{ record.supplierCode }}</small></td><td><span class="status-badge" [class]="statusClass(record.status)"><span aria-hidden="true"></span>{{ statusLabel(record.status) }}</span></td><td>{{ formatDate(record.supplierInvoiceDate) }}</td><td><span class="currency-badge">{{ record.currencyCode }}</span></td><td class="numeric">{{ formatQuantity(record.totalHandoffQuantity) }}</td><td class="numeric money">{{ formatMoney(record.totalHandoffAmount, record.currencyCode) }}</td><td>{{ formatDateTime(record.updatedAt) }}</td></tr>}</tbody></table></div>
+              <app-data-grid [caption]="pihText('invoiceHandoffs')" [rows]="filteredRecords()" [columns]="gridColumns()" [language]="language.language()" [pageSize]="filteredRecords().length || 1" [showPager]="false" [rowActions]="gridActions()" [countLabel]="language.text('recordCount')" [rowActionsLabel]="language.text('viewRecord')" (rowAction)="onGridAction($event)" />
             }
           </section>
         }
@@ -75,20 +74,17 @@ interface CreateHandoffLineDraft {
 
     @if (mode() === 'create') {
       <section class="ui-page invoice-handoff-page" data-testid="invoice-handoff-create">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header class="page-header">
+          <div page-header-copy>
             <p class="eyebrow">{{ pihText('invoiceHandoffKicker') }}</p>
             <h1>{{ pihText('createInvoiceHandoff') }}</h1>
             <p class="lede">{{ pihText('invoiceHandoffCreateLead') }}</p>
           </div>
+          <div page-header-actions>
           <a class="button button--secondary" routerLink="/app/procurement/invoice-handoffs">{{ pihText('backToInvoiceHandoffs') }}</a>
-        </header>
-        <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ pihText('invoiceHandoffFinanceRule') }}</span></div>
-
-        @if (loading()) {
-          <section class="ui-surface state-card"><span class="spinner" aria-hidden="true"></span><h2>{{ pihText('loadingInvoiceHandoffSources') }}</h2></section>
-        } @else if (error(); as currentError) {
-          <section class="ui-surface state-card state-card--error" role="alert"><strong>{{ pihText('invoiceHandoffSourceLoadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadCreatePrerequisites()">{{ language.text('retry') }}</button></section>
+        
+          </div>
+        </app-page-header>     <section class="ui-surface state-card state-card--error" role="alert"><strong>{{ pihText('invoiceHandoffSourceLoadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadCreatePrerequisites()">{{ language.text('retry') }}</button></section>
         } @else {
           <section class="ui-surface form-card">
             <div class="create-meta-grid">
@@ -188,26 +184,19 @@ interface CreateHandoffLineDraft {
 
     @if (mode() === 'detail' && handoff(); as currentHandoff) {
       <section class="ui-page invoice-handoff-page" data-testid="invoice-handoff-detail">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header class="page-header">
+          <div page-header-copy>
             <p class="eyebrow">{{ pihText('invoiceHandoffKicker') }}</p>
             <h1>{{ currentHandoff.supplierInvoiceReference }}</h1>
             <p class="lede">{{ currentHandoff.supplierName }} ({{ currentHandoff.supplierCode }}) · {{ formatDate(currentHandoff.supplierInvoiceDate) }} · {{ currentHandoff.currencyCode }}</p>
           </div>
+          <div page-header-actions>
           <span class="status-badge status-badge--hero" [class]="statusClass(currentHandoff.status)">
             <span aria-hidden="true"></span>{{ statusLabel(currentHandoff.status) }}
           </span>
-        </header>
-
-        <div class="action-rail" role="toolbar" [attr.aria-label]="pihText('invoiceHandoffActions')">
-          <a class="button button--secondary" routerLink="/app/procurement/invoice-handoffs">{{ pihText('backToInvoiceHandoffs') }}</a>
-          @if (currentHandoff.canCancel) {
-            <button class="button button--danger" type="button" (click)="openCancelDialog()" data-testid="cancel-invoice-handoff">{{ pihText('cancelInvoiceHandoff') }}</button>
-          }
-        </div>
-
-        @if (currentHandoff.status === 'Cancelled') {
-          <section class="boundary-note terminal-recovery-note" role="note">
+        
+          </div>
+        </app-page-header>te terminal-recovery-note" role="note">
             <strong>{{ pihText('invoiceHandoffCancelledNotice') }}</strong>
             <span>{{ currentHandoff.cancellationReason || pihText('noCancellationReason') }} ({{ formatDateTime(currentHandoff.cancelledAt ?? '') }})</span>
           </section>
@@ -368,7 +357,7 @@ interface CreateHandoffLineDraft {
   `,
   styles: `
     :host { display: block; }
-    .page-header { align-items: center; }
+    
     .page-header .lede { max-width: 54rem; margin-bottom: 0; line-height: 1.55; }
     .button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.4rem; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .82rem; color: var(--ink); background: var(--surface-raised); font-size: .74rem; font-weight: 800; text-decoration: none; cursor: pointer; }
     .button:hover:not(:disabled) { transform: translateY(-1px); }
@@ -491,6 +480,20 @@ export class PurchaseInvoiceHandoffWorkspaceComponent implements OnInit {
       return matchStatus && matchQuery;
     });
   });
+
+  gridColumns(): DataGridColumn<PurchaseInvoiceHandoffListItemResponse>[] { return [
+    { key: 'reference', label: this.pihText('invoiceHandoffRefColumn'), value: (record) => record.supplierInvoiceReference, secondaryText: (record) => `${record.lineCount} ${this.pihText('invoiceHandoffLines')}`, link: (record) => `/app/procurement/invoice-handoffs/${record.id}`, filter: 'text' },
+    { key: 'supplier', label: this.pihText('invoiceHandoffSupplierColumn'), value: (record) => record.supplierName, secondaryText: (record) => record.supplierCode, filter: 'text' },
+    { key: 'status', label: this.pihText('invoiceHandoffStatusColumn'), value: (record) => record.status, display: (record) => this.statusLabel(record.status), badge: true, filter: 'select', filterOptions: this.statuses.map((status) => ({ value: status, label: this.statusLabel(status) })) },
+    { key: 'date', label: this.pihText('invoiceHandoffDateColumn'), value: (record) => record.supplierInvoiceDate, display: (record) => this.formatDate(record.supplierInvoiceDate), filter: 'date-range' },
+    { key: 'currency', label: this.pihText('invoiceHandoffCurrencyColumn'), value: (record) => record.currencyCode, filter: 'text' },
+    { key: 'quantity', label: this.pihText('invoiceHandoffQtyColumn'), value: (record) => record.totalHandoffQuantity, display: (record) => this.formatQuantity(record.totalHandoffQuantity), filter: 'number-range', align: 'end' },
+    { key: 'amount', label: this.pihText('invoiceHandoffAmountColumn'), value: (record) => record.totalHandoffAmount, display: (record) => this.formatMoney(record.totalHandoffAmount, record.currencyCode), filter: 'number-range', align: 'end' },
+    { key: 'updated', label: this.pihText('invoiceHandoffUpdatedColumn'), value: (record) => record.updatedAt, display: (record) => this.formatDateTime(record.updatedAt), filter: 'date-range' },
+  ]; }
+
+  gridActions(): readonly { key: string; label: string }[] { return [{ key: 'view', label: this.language.text('viewRecord') }]; }
+  onGridAction(event: { row: PurchaseInvoiceHandoffListItemResponse }): void { void this.router.navigate(['/app/procurement/invoice-handoffs', event.row.id]); }
 
   readonly selectedCurrencyCode = computed(() => {
     const source = this.eligibleSources().find(s => s.purchaseOrderId === this.selectedSourceId());

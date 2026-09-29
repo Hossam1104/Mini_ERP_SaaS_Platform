@@ -1,3 +1,5 @@
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -62,23 +64,17 @@ interface ResolveDraft {
 @Component({
   selector: 'app-price-list-workspace',
   standalone: true,
-  imports: [DatePipe, FormsModule, NgTemplateOutlet],
+  imports: [PageHeaderComponent, DataGridComponent, DatePipe, FormsModule, NgTemplateOutlet],
   template: `
     <section class="price-list-workspace" aria-labelledby="price-list-title">
-      <header class="price-list-hero">
-        <div class="hero-copy">
+      <app-page-header class="page-header">
+        <div class="page-header__copy" page-header-copy>
           <p class="eyebrow">{{ language.text('masterData') }} / {{ language.text('priceLists') }}</p>
           <h1 id="price-list-title">{{ language.text('priceLists') }}</h1>
           <p class="hero-lede">{{ language.text('priceListsLead') }}</p>
         </div>
-        <div class="hero-facts">
-          <div class="hero-fact"><span class="hero-fact__mark">01</span><span><b>{{ language.text('serverAuthority') }}</b><small>{{ language.text('priceListBoundary') }}</small></span></div>
-          <div class="hero-fact hero-fact--quiet"><span class="hero-fact__mark">02</span><span><b>{{ language.text('priority') }}</b><small>{{ language.text('priorityHint') }}</small></span></div>
-        </div>
-      </header>
-
-      <div class="workspace-panel">
-        @if (detailMode()) { <ng-container *ngTemplateOutlet="detailView" /> } @else { <ng-container *ngTemplateOutlet="listView" /> }
+        
+      </app-page-header>lse { <ng-container *ngTemplateOutlet="listView" /> }
       </div>
     </section>
 
@@ -114,42 +110,7 @@ interface ResolveDraft {
         } @else if (records().length === 0) {
           <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><div><b>{{ language.text('noRecords') }}</b><p>{{ language.text('noRecordsLead') }}</p></div></div>
         } @else {
-          <div class="record-table-wrap">
-            <table class="record-table">
-              <caption class="sr-only">{{ language.text('priceLists') }}</caption>
-              <thead><tr><th scope="col">{{ language.text('code') }}</th><th scope="col">{{ language.text('currency') }}</th><th scope="col">{{ language.text('priority') }}</th><th scope="col">{{ language.text('scope') }}</th><th scope="col">{{ language.text('lifecycle') }}</th><th scope="col"><span class="sr-only">{{ language.text('viewRecord') }}</span></th></tr></thead>
-              <tbody>
-                @for (record of pagedRecords(); track record.id) {
-                  <tr>
-                    <td><button class="record-code" type="button" (click)="openRecord(record.id)">{{ record.code }}</button><small>{{ record.englishName }}</small></td>
-                    <td><span class="record-name">{{ record.currencyCode }}</span></td>
-                    <td><span class="record-name">{{ record.priority }}</span></td>
-                    <td><span class="record-name">{{ customerDisplay(record.customerId) }}</span><small>{{ organizationScopeDisplay(record) }}</small></td>
-                    <td><span class="status-pill" [class.status-pill--inactive]="!isActive(record)"><i aria-hidden="true"></i>{{ statusLabel(record.lifecycleState) }}</span></td>
-                    <td class="table-action"><button class="icon-button" type="button" (click)="openRecord(record.id)" [attr.aria-label]="language.text('viewRecord')">↗</button></td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-          <div class="record-cards">
-            @for (record of pagedRecords(); track record.id) {
-              <button class="record-card" type="button" (click)="openRecord(record.id)">
-                <div class="record-card__top"><span class="record-code">{{ record.code }}</span><span class="status-pill" [class.status-pill--inactive]="!isActive(record)"><i aria-hidden="true"></i>{{ statusLabel(record.lifecycleState) }}</span></div>
-                <span class="record-name">{{ record.englishName }}</span>
-                <div class="record-card__facts">
-                  <div><span>{{ language.text('currency') }}</span><b>{{ record.currencyCode }}</b></div>
-                  <div><span>{{ language.text('priority') }}</span><b>{{ record.priority }}</b></div>
-                  <div><span>{{ language.text('customer') }}</span><b>{{ customerDisplay(record.customerId) }}</b></div>
-                  <div><span>{{ language.text('organizationScope') }}</span><b>{{ organizationScopeDisplay(record) }}</b></div>
-                </div>
-              </button>
-            }
-          </div>
-          <div class="pagination" aria-label="Pagination">
-            <span>{{ pageLabel() }}</span>
-            <div><button class="pager-button" type="button" (click)="previousPage()" [disabled]="page() === 1">← {{ language.text('previous') }}</button><button class="pager-button" type="button" (click)="nextPage()" [disabled]="page() === totalPages()">{{ language.text('next') }} →</button></div>
-          </div>
+          <app-data-grid [caption]="language.text('priceLists')" [rows]="records()" [columns]="gridColumns()" [language]="language.language()" [pageSize]="pageSize" [rowActions]="gridRowActions()" [countLabel]="language.text('recordCount')" [rowActionsLabel]="language.text('viewRecord')" (rowAction)="onGridAction($event)" />
         }
       </section>
     </ng-template>
@@ -387,8 +348,8 @@ interface ResolveDraft {
   styles: `
     :host { display: block; }
     .price-list-workspace { display: grid; gap: 1.35rem; }
-    .price-list-hero { display: flex; justify-content: space-between; gap: 2rem; border-radius: 1.25rem; padding: clamp(1.35rem, 3vw, 2.3rem); color: #f6fbf8; background: linear-gradient(124deg, #163a37 0%, #234f48 56%, #926c35 145%); box-shadow: var(--shadow-card); overflow: hidden; position: relative; }
-    .price-list-hero::after { content: ''; position: absolute; width: 18rem; height: 18rem; inset-inline-end: -6rem; inset-block-start: -9rem; border: 1px solid rgb(255 255 255 / 18%); border-radius: 50%; box-shadow: 0 0 0 2rem rgb(255 255 255 / 3%), 0 0 0 4rem rgb(255 255 255 / 3%); }
+    
+    
     .hero-copy, .hero-facts { position: relative; z-index: 1; }
     .hero-copy { max-width: 42rem; }
     .eyebrow { margin: 0 0 .55rem; color: #bee5d0; font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
@@ -504,7 +465,11 @@ interface ResolveDraft {
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
-    @media (max-width: 980px) { .price-list-hero { flex-direction: column; } .hero-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; } .tax-result { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    
+    
+    
+    .page-header__note { margin: 0; color: var(--ink-muted); font-size: .75rem; line-height: 1.4; }
+    @media (max-width: 980px) {  .hero-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; } .tax-result { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 720px) {
       .record-table-wrap { display: none; }
       .record-cards { display: grid; gap: .65rem; }
@@ -522,7 +487,7 @@ interface ResolveDraft {
       .hero-facts { grid-template-columns: 1fr; }
       .tax-result { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-    @media (max-width: 460px) { .price-list-hero { border-radius: .9rem; } .price-list-hero h1 { font-size: 1.9rem; } .list-view, .detail-view { padding: .8rem; } .button span { display: none; } .form-actions { flex-wrap: wrap; } .form-actions .button { flex: 1; } .tax-result { grid-template-columns: 1fr; } }
+    @media (max-width: 460px) {   .list-view, .detail-view { padding: .8rem; } .button span { display: none; } .form-actions { flex-wrap: wrap; } .form-actions .button { flex: 1; } .tax-result { grid-template-columns: 1fr; } }
   `,
 })
 export class PriceListWorkspaceComponent {
@@ -537,7 +502,6 @@ export class PriceListWorkspaceComponent {
   readonly loading = signal(false);
   readonly listError = signal<SafeUiError | null>(null);
   readonly filterQuery = signal('');
-  readonly page = signal(1);
   readonly pageSize = 8;
 
   readonly detailMode = signal<DetailMode | null>(null);
@@ -581,11 +545,16 @@ export class PriceListWorkspaceComponent {
   readonly resolveError = signal<SafeUiError | null>(null);
   readonly resolveFieldErrors = signal<ReadonlySet<string>>(new Set());
 
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.records().length / this.pageSize)));
-  readonly pagedRecords = computed(() => {
-    const start = (this.page() - 1) * this.pageSize;
-    return this.records().slice(start, start + this.pageSize);
-  });
+  gridColumns(): DataGridColumn<PriceListRecord>[] { return [
+    { key: 'code', label: this.language.text('code'), value: (record) => record.code, secondaryText: (record) => record.englishName, link: (record) => `/app/price-lists/${record.id}`, filter: 'text' },
+    { key: 'currency', label: this.language.text('currency'), value: (record) => record.currencyCode, filter: 'text' },
+    { key: 'priority', label: this.language.text('priority'), value: (record) => record.priority, filter: 'number-range', align: 'end' },
+    { key: 'scope', label: this.language.text('scope'), value: (record) => this.customerDisplay(record.customerId), secondaryText: (record) => this.organizationScopeDisplay(record), filter: 'text' },
+    { key: 'lifecycle', label: this.language.text('lifecycle'), value: (record) => record.lifecycleState, display: (record) => this.statusLabel(record.lifecycleState), badge: true, filter: 'select', filterOptions: [{ value: 'Active', label: this.language.text('activeStatus') }, { value: 'Inactive', label: this.language.text('inactiveStatus') }] },
+  ]; }
+
+  gridRowActions(): readonly { key: string; label: string }[] { return [{ key: 'view', label: this.language.text('viewRecord') }]; }
+  onGridAction(event: { action: string; row: PriceListRecord }): void { if (event.action === 'view') this.openRecord(event.row.id); }
   readonly sortedPrices = computed(() => {
     const record = this.selectedRecord();
     return record ? [...record.prices].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom) || b.versionNumber - a.versionNumber) : [];
@@ -604,7 +573,6 @@ export class PriceListWorkspaceComponent {
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       const id = params.get('id');
       this.filterQuery.set('');
-      this.page.set(1);
       if (!id) {
         this.detailMode.set(null);
         this.selectedRecord.set(null);
@@ -628,7 +596,6 @@ export class PriceListWorkspaceComponent {
       .then((records) => {
         if (sequence !== this.loadSequence) return;
         this.records.set(records ?? []);
-        this.page.set(1);
       })
       .catch((error: unknown) => {
         if (sequence === this.loadSequence) this.listError.set(toSafeUiError(error));
@@ -661,26 +628,12 @@ export class PriceListWorkspaceComponent {
   }
 
   onSearchSubmit(): void {
-    this.page.set(1);
     this.loadList(this.filterQuery());
   }
 
   clearSearch(): void {
     this.filterQuery.set('');
-    this.page.set(1);
     this.loadList('');
-  }
-
-  previousPage(): void {
-    if (this.page() > 1) this.page.set(this.page() - 1);
-  }
-
-  nextPage(): void {
-    if (this.page() < this.totalPages()) this.page.set(this.page() + 1);
-  }
-
-  pageLabel(): string {
-    return this.language.text('pageOf').replace('{page}', String(this.page())).replace('{pages}', String(this.totalPages()));
   }
 
   openRecord(id: string): void {

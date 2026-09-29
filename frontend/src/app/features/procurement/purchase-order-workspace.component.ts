@@ -1,3 +1,4 @@
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -50,24 +51,21 @@ interface ConfirmationLineDraft {
 @Component({
   selector: 'app-purchase-order-workspace',
   standalone: true,
-  imports: [FormsModule, RouterLink, DataGridComponent],
+  imports: [PageHeaderComponent, FormsModule, RouterLink, DataGridComponent],
   template: `
     @if (mode() === 'list') {
       <section class="ui-page purchase-order-page" data-testid="purchase-order-list">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header class="page-header">
+          <div page-header-copy>
             <p class="eyebrow">{{ poText('purchaseOrderKicker') }}</p>
             <h1>{{ poText('purchaseOrders') }}</h1>
             <p class="lede">{{ poText('purchaseOrdersLead') }}</p>
           </div>
+          <div page-header-actions>
           <a class="button button--primary" routerLink="/app/procurement/purchase-orders/new" data-testid="new-purchase-order"><svg class="icon" aria-hidden="true"><use href="#icon-plus" /></svg>{{ poText('newPurchaseOrder') }}</a>
-        </header>
-        <div class="boundary-note" role="note"><svg class="icon" aria-hidden="true"><use href="#icon-info" /></svg><span>{{ poText('purchaseOrderBoundary') }}</span></div>
-
-        @if (loading()) {
-          <section class="ui-surface state-card" aria-live="polite"><span class="spinner" aria-hidden="true"></span><h2>{{ poText('loadingPurchaseOrders') }}</h2></section>
-        } @else if (error(); as currentError) {
-          <section class="ui-surface state-card state-card--error" role="alert"><strong>{{ poText('purchaseOrderListLoadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadList()">{{ language.text('retry') }}</button></section>
+        
+          </div>
+        </app-page-header>ard state-card--error" role="alert"><strong>{{ poText('purchaseOrderListLoadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadList()">{{ language.text('retry') }}</button></section>
         } @else {
           <section class="ui-surface ledger-panel">
             <div class="filter-toolbar">
@@ -107,9 +105,10 @@ interface ConfirmationLineDraft {
 
     @if (mode() === 'create') {
       <section class="ui-page purchase-order-page" data-testid="purchase-order-create">
-        <header class="ui-page-header ui-page-header--compact page-header"><div><p class="eyebrow">{{ poText('purchaseOrderKicker') }}</p><h1>{{ poText('createPurchaseOrder') }}</h1><p class="lede">{{ poText('purchaseOrderCreateLead') }}</p></div><a class="button button--secondary" routerLink="/app/procurement/purchase-orders">{{ poText('backToPurchaseOrders') }}</a></header>
-        <div class="boundary-note" role="note"><svg class="icon" aria-hidden="true"><use href="#icon-info" /></svg><span>{{ poText('purchaseOrderSourceRule') }}</span></div>
-        @if (loading()) { <section class="ui-surface state-card"><span class="spinner" aria-hidden="true"></span><h2>{{ poText('loadingPurchaseOrderSources') }}</h2></section> }
+        <app-page-header class="page-header"><div page-header-copy><p class="eyebrow">{{ poText('purchaseOrderKicker') }}</p><h1>{{ poText('createPurchaseOrder') }}</h1><p class="lede">{{ poText('purchaseOrderCreateLead') }}</p></div>
+          <div page-header-actions><a class="button button--secondary" routerLink="/app/procurement/purchase-orders">{{ poText('backToPurchaseOrders') }}</a>
+          </div>
+        </app-page-header>{{ poText('loadingPurchaseOrderSources') }}</h2></section> }
         @else if (error(); as currentError) { <section class="ui-surface state-card state-card--error" role="alert"><strong>{{ poText('purchaseOrderSourceLoadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadSources()">{{ language.text('retry') }}</button></section> }
         @else {
           <section class="ui-surface form-card">
@@ -124,7 +123,10 @@ interface ConfirmationLineDraft {
     }
 
     @if (mode() === 'edit' && order(); as currentOrder) {
-      <section class="ui-page purchase-order-page" data-testid="purchase-order-edit"><header class="ui-page-header ui-page-header--compact page-header"><div><p class="eyebrow">{{ poText('purchaseOrderKicker') }}</p><h1>{{ poText('editPurchaseOrder') }}</h1><p class="lede">{{ currentOrder.source.purchaseRequestReference }} · {{ currentOrder.source.supplier.name }}</p></div><a class="button button--secondary" [routerLink]="['/app/procurement/purchase-orders', currentOrder.id]">{{ language.text('cancel') }}</a></header><section class="ui-surface form-card"><label class="field"><span class="field__label">{{ poText('purchaseOrderNotes') }}</span><textarea [(ngModel)]="editNotes" rows="3"></textarea></label><div class="ui-grid-shell"><table class="ui-grid compact-grid"><thead><tr><th scope="col">{{ poText('purchaseOrderProductColumn') }}</th><th scope="col">{{ poText('purchaseOrderQuantityColumn') }}</th><th scope="col">{{ poText('purchaseOrderUnitPriceColumn') }}</th><th scope="col">{{ poText('purchaseOrderDeliveryColumn') }}</th><th scope="col">{{ poText('purchaseOrderNotes') }}</th></tr></thead><tbody>@for (line of editLines; track line.id) {<tr><td><strong>{{ line.productSku }} · {{ line.productName }}</strong><small>{{ line.unitOfMeasureCode }}</small></td><td><input class="table-input numeric" type="number" min="0.000001" step="0.000001" [(ngModel)]="line.orderedQuantity" /></td><td><input class="table-input numeric" type="number" min="0" step="0.01" [(ngModel)]="line.unitPrice" /></td><td><input class="table-input" type="date" [(ngModel)]="line.deliveryDate" /></td><td><input class="table-input" type="text" maxlength="2048" [(ngModel)]="line.notes" /></td></tr>}</tbody></table></div><div class="form-actions"><button class="button button--secondary" type="button" [routerLink]="['/app/procurement/purchase-orders', currentOrder.id]">{{ language.text('cancel') }}</button><button class="button button--primary" type="button" [disabled]="saving()" (click)="saveEdit()">{{ saving() ? poText('saving') : poText('savePurchaseOrder') }}</button></div></section></section>
+      <section class="ui-page purchase-order-page" data-testid="purchase-order-edit"><app-page-header class="page-header"><div page-header-copy><p class="eyebrow">{{ poText('purchaseOrderKicker') }}</p><h1>{{ poText('editPurchaseOrder') }}</h1><p class="lede">{{ currentOrder.source.purchaseRequestReference }} · {{ currentOrder.source.supplier.name }}</p></div>
+          <div page-header-actions><a class="button button--secondary" [routerLink]="['/app/procurement/purchase-orders', currentOrder.id]">{{ language.text('cancel') }}</a>
+          </div>
+        </app-page-header>OrderQuantityColumn') }}</th><th scope="col">{{ poText('purchaseOrderUnitPriceColumn') }}</th><th scope="col">{{ poText('purchaseOrderDeliveryColumn') }}</th><th scope="col">{{ poText('purchaseOrderNotes') }}</th></tr></thead><tbody>@for (line of editLines; track line.id) {<tr><td><strong>{{ line.productSku }} · {{ line.productName }}</strong><small>{{ line.unitOfMeasureCode }}</small></td><td><input class="table-input numeric" type="number" min="0.000001" step="0.000001" [(ngModel)]="line.orderedQuantity" /></td><td><input class="table-input numeric" type="number" min="0" step="0.01" [(ngModel)]="line.unitPrice" /></td><td><input class="table-input" type="date" [(ngModel)]="line.deliveryDate" /></td><td><input class="table-input" type="text" maxlength="2048" [(ngModel)]="line.notes" /></td></tr>}</tbody></table></div><div class="form-actions"><button class="button button--secondary" type="button" [routerLink]="['/app/procurement/purchase-orders', currentOrder.id]">{{ language.text('cancel') }}</button><button class="button button--primary" type="button" [disabled]="saving()" (click)="saveEdit()">{{ saving() ? poText('saving') : poText('savePurchaseOrder') }}</button></div></section></section>
     }
 
     @if (mode() === 'detail' && !order() && error(); as currentError) {
@@ -135,8 +137,10 @@ interface ConfirmationLineDraft {
 
     @if (mode() === 'detail' && order(); as currentOrder) {
       <section class="ui-page purchase-order-page" data-testid="purchase-order-detail">
-        <header class="ui-page-header ui-page-header--compact page-header"><div><p class="eyebrow">{{ poText('purchaseOrderKicker') }}</p><h1>{{ currentOrder.source.supplierQuotationReference }}</h1><p class="lede">{{ currentOrder.source.purchaseRequestReference }} · {{ currentOrder.source.supplier.name }} · {{ currentOrder.source.currency.code }}</p></div><span class="status-badge status-badge--hero" [class]="statusClass(currentOrder.status)"><span aria-hidden="true"></span>{{ statusLabel(currentOrder.status) }}</span></header>
-        <div class="action-rail" role="toolbar" [attr.aria-label]="poText('purchaseOrderActions')"><a class="button button--secondary" routerLink="/app/procurement/purchase-orders">{{ poText('backToPurchaseOrders') }}</a>@if (currentOrder.canEdit) {<a class="button button--secondary" [routerLink]="['/app/procurement/purchase-orders', currentOrder.id, 'edit']">{{ poText('editPurchaseOrder') }}</a>}@if (currentOrder.canSubmit) {<button class="button button--primary" type="button" (click)="runSimpleAction('submit')">{{ poText('submitPurchaseOrder') }}</button>}@if (currentOrder.canApprove) {<button class="button button--primary" type="button" (click)="runSimpleAction('approve')">{{ poText('approvePurchaseOrder') }}</button>}@if (currentOrder.canIssue) {<button class="button button--primary" type="button" (click)="runSimpleAction('issue')">{{ poText('issuePurchaseOrder') }}</button>}@if (currentOrder.canCaptureConfirmation) {<button class="button button--primary" type="button" (click)="activeTab.set('confirmations')">{{ poText('recordSupplierConfirmation') }}</button>}@if (currentOrder.canApproveSupplierChange) {<button class="button button--primary" type="button" (click)="runSimpleAction('supplier-change-approve')">{{ poText('approveSupplierChange') }}</button>}@if (currentOrder.canRejectSupplierChange) {<button class="button button--danger" type="button" (click)="openAction('supplier-change-reject')">{{ poText('rejectSupplierChange') }}</button>}@if (currentOrder.canReject) {<button class="button button--danger" type="button" (click)="openAction('reject')">{{ poText('rejectPurchaseOrder') }}</button>}@if (currentOrder.canReturnForChange) {<button class="button button--secondary" type="button" (click)="openAction('return-for-change')">{{ poText('returnPurchaseOrderForChange') }}</button>}@if (currentOrder.canCancel) {<button class="button button--quiet" type="button" (click)="openAction('cancel')">{{ poText('cancelPurchaseOrder') }}</button>}</div>
+        <app-page-header class="page-header"><div page-header-copy><p class="eyebrow">{{ poText('purchaseOrderKicker') }}</p><h1>{{ currentOrder.source.supplierQuotationReference }}</h1><p class="lede">{{ currentOrder.source.purchaseRequestReference }} · {{ currentOrder.source.supplier.name }} · {{ currentOrder.source.currency.code }}</p></div>
+          <div page-header-actions><span class="status-badge status-badge--hero" [class]="statusClass(currentOrder.status)"><span aria-hidden="true"></span>{{ statusLabel(currentOrder.status) }}</span>
+          </div>
+        </app-page-header>ton button--primary" type="button" (click)="runSimpleAction('submit')">{{ poText('submitPurchaseOrder') }}</button>}@if (currentOrder.canApprove) {<button class="button button--primary" type="button" (click)="runSimpleAction('approve')">{{ poText('approvePurchaseOrder') }}</button>}@if (currentOrder.canIssue) {<button class="button button--primary" type="button" (click)="runSimpleAction('issue')">{{ poText('issuePurchaseOrder') }}</button>}@if (currentOrder.canCaptureConfirmation) {<button class="button button--primary" type="button" (click)="activeTab.set('confirmations')">{{ poText('recordSupplierConfirmation') }}</button>}@if (currentOrder.canApproveSupplierChange) {<button class="button button--primary" type="button" (click)="runSimpleAction('supplier-change-approve')">{{ poText('approveSupplierChange') }}</button>}@if (currentOrder.canRejectSupplierChange) {<button class="button button--danger" type="button" (click)="openAction('supplier-change-reject')">{{ poText('rejectSupplierChange') }}</button>}@if (currentOrder.canReject) {<button class="button button--danger" type="button" (click)="openAction('reject')">{{ poText('rejectPurchaseOrder') }}</button>}@if (currentOrder.canReturnForChange) {<button class="button button--secondary" type="button" (click)="openAction('return-for-change')">{{ poText('returnPurchaseOrderForChange') }}</button>}@if (currentOrder.canCancel) {<button class="button button--quiet" type="button" (click)="openAction('cancel')">{{ poText('cancelPurchaseOrder') }}</button>}</div>
         @if (currentOrder.status === 'Cancelled' || currentOrder.status === 'Rejected') {
           <section class="boundary-note terminal-recovery-note" role="note" data-testid="purchase-order-terminal-recovery"><strong>{{ terminalRecoveryTitle() }}</strong><span>{{ terminalRecoveryMessage() }}</span></section>
         }
@@ -164,7 +168,7 @@ interface ConfirmationLineDraft {
   `,
   styles: `
     :host { display: block; }
-    .page-header { align-items: center; }
+    
     .page-header .lede { max-width: 54rem; margin-bottom: 0; line-height: 1.55; }
     .button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 42px; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .9rem; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)); box-shadow: var(--shadow-soft), inset 0 1px var(--control-gloss); font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer; transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease, filter var(--motion-fast) ease; }
     .button:hover:not(:disabled) { transform: translateY(-1px); }

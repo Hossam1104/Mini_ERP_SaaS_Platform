@@ -1,3 +1,5 @@
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { DatePipe, LowerCasePipe, NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -34,38 +36,24 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
 @Component({
   selector: 'app-master-data-import-workspace',
   standalone: true,
-  imports: [DatePipe, LowerCasePipe, FormsModule, NgTemplateOutlet, RouterLink],
+  imports: [PageHeaderComponent, DataGridComponent, DatePipe, LowerCasePipe, FormsModule, NgTemplateOutlet, RouterLink],
   template: `
     <section class="import-workspace" aria-labelledby="import-title">
-      <header class="import-hero">
-        <div class="hero-copy">
+      <app-page-header class="page-header">
+        <div class="page-header__copy" page-header-copy>
           <p class="eyebrow">{{ language.text('masterData') }} / {{ language.text('importWorkspaceTitle') }}</p>
           <h1 id="import-title">{{ language.text('importWorkspaceTitle') }}</h1>
           <p class="hero-lede">{{ language.text('importWorkspaceLead') }}</p>
         </div>
+          <div page-header-actions>
         @if (viewMode() === 'list') {
           <button class="button button--primary" type="button" (click)="openNewImport()" [disabled]="!canMutate()" [title]="canMutate() ? '' : language.text('accessUnavailable')">＋ {{ language.text('newImport') }}</button>
         } @else {
           <a class="back-link" routerLink="/app/master-data/imports">← {{ language.text('backToImports') }}</a>
         }
-      </header>
-
-      <div class="workspace-panel">
-        @switch (viewMode()) {
-          @case ('list') { <ng-container *ngTemplateOutlet="listView" /> }
-          @case ('wizard') { <ng-container *ngTemplateOutlet="wizardView" /> }
-          @case ('detail') { <ng-container *ngTemplateOutlet="detailView" /> }
-        }
-      </div>
-    </section>
-
-    <!-- ==================== LIST / BATCH HISTORY ==================== -->
-    <ng-template #listView>
-      <section class="list-view" aria-labelledby="import-list-title">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow eyebrow--soft">{{ language.text('importBatchHistory') }}</p>
-            <h2 id="import-list-title">{{ language.text('importBatchListTitle') }}</h2>
+      
+          </div>
+        </app-page-header>rtBatchListTitle') }}</h2>
           </div>
           <button class="button button--quiet" type="button" (click)="facade.refreshBatchList()" [disabled]="facade.busy()" [attr.aria-label]="language.text('refresh')">↻ <span>{{ language.text('refresh') }}</span></button>
         </div>
@@ -77,42 +65,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
         } @else if (facade.batchList().length === 0) {
           <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><div><b>{{ language.text('importNoBatchesYet') }}</b><p>{{ language.text('importNoBatchesYetLead') }}</p></div></div>
         } @else {
-          <div class="record-table-wrap">
-            <table class="record-table">
-              <thead><tr>
-                <th>{{ language.text('importBatchResourceCol') }}</th>
-                <th>{{ language.text('importBatchModeCol') }}</th>
-                <th>{{ language.text('importBatchPolicyCol') }}</th>
-                <th>{{ language.text('importBatchStatusCol') }}</th>
-                <th>{{ language.text('importBatchSubmittedCol') }}</th>
-                <th>{{ language.text('importBatchTotalsCol') }}</th>
-                <th></th>
-              </tr></thead>
-              <tbody>
-                @for (batch of facade.batchList(); track batch.id) {
-                  <tr>
-                    <td>{{ resourceLabel(batch.resourceKind) }}</td>
-                    <td>{{ modeLabel(batch.mode) }}</td>
-                    <td>{{ policyLabel(batch.duplicatePolicy) }}</td>
-                    <td><span class="status-pill" [class]="statusPillClass(batch.status)"><i aria-hidden="true"></i>{{ statusLabel(batch.status) }}</span></td>
-                    <td><small>{{ batch.createdAt | date:'medium' }}</small></td>
-                    <td><small>{{ batch.acceptedCount }}/{{ batch.totalRows }} {{ language.text('importAccepted') | lowercase }}</small></td>
-                    <td><button class="record-code" type="button" (click)="openBatch(batch.id)">{{ language.text('importOpenBatch') }} ↗</button></td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-          <div class="record-cards">
-            @for (batch of facade.batchList(); track batch.id) {
-              <button class="record-card" type="button" (click)="openBatch(batch.id)">
-                <div class="record-card__top"><span class="record-code">{{ resourceLabel(batch.resourceKind) }}</span><span class="status-pill" [class]="statusPillClass(batch.status)"><i aria-hidden="true"></i>{{ statusLabel(batch.status) }}</span></div>
-                <small>{{ modeLabel(batch.mode) }} · {{ policyLabel(batch.duplicatePolicy) }}</small>
-                <small>{{ batch.createdAt | date:'medium' }}</small>
-                <small>{{ batch.acceptedCount }}/{{ batch.totalRows }} {{ language.text('importAccepted') | lowercase }}</small>
-              </button>
-            }
-          </div>
+          <app-data-grid [caption]="language.text('importBatchListTitle')" [rows]="facade.batchList()" [columns]="batchColumns()" [language]="language.language()" [rowActions]="batchGridActions()" [countLabel]="language.text('recordCount')" [rowActionsLabel]="language.text('importOpenBatch')" (rowAction)="onBatchGridAction($event)" />
         }
       </section>
     </ng-template>
@@ -541,36 +494,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
       @if (filteredRows().length === 0) {
         <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><b>{{ language.text('importNoRowsMatchFilter') }}</b></div>
       } @else {
-        <div class="record-table-wrap">
-          <table class="record-table">
-            <thead><tr>
-              <th>{{ language.text('importPreviewRowNumber') }}</th>
-              <th>{{ language.text('importRowOutcomesTitle') }}</th>
-              <th>{{ language.text('importSeverity') }}</th>
-              <th>{{ language.text('importResultingRecord') }}</th>
-              <th></th>
-            </tr></thead>
-            <tbody>
-              @for (row of filteredRows(); track row.id) {
-                <tr>
-                  <td><small>{{ row.originalRowNumber }}</small>@if (row.replaySequence > 0) { <small> · {{ language.text('importReplaySequence') }}{{ row.replaySequence }}</small> }</td>
-                  <td><span class="badge" [class]="outcomeBadgeClass(row.outcome)">{{ outcomeIcon(row.outcome) }} {{ outcomeLabel(row.outcome) }}</span></td>
-                  <td><span class="badge" [class]="severityBadgeClass(row.highestSeverity)">{{ severityIcon(row.highestSeverity) }} {{ severityLabel(row.highestSeverity) }}</span></td>
-                  <td><small>{{ row.resultingResourceCode || '—' }}</small></td>
-                  <td><button class="text-button" type="button" (click)="openRowDetail(row)">{{ language.text('importViewRowDetails') }} ↗</button></td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-        <div class="record-cards">
-          @for (row of filteredRows(); track row.id) {
-            <button class="record-card" type="button" (click)="openRowDetail(row)">
-              <div class="record-card__top"><span class="record-code">{{ language.text('importPreviewRowNumber') }} {{ row.originalRowNumber }}</span><span class="badge" [class]="outcomeBadgeClass(row.outcome)">{{ outcomeIcon(row.outcome) }} {{ outcomeLabel(row.outcome) }}</span></div>
-              <small>{{ severityLabel(row.highestSeverity) }} · {{ row.resultingResourceCode || '—' }}</small>
-            </button>
-          }
-        </div>
+        <app-data-grid [caption]="language.text('importRowOutcomesTitle')" [rows]="filteredRows()" [columns]="rowColumns()" [language]="language.language()" [rowActions]="rowGridActions()" [countLabel]="language.text('recordCount')" [rowActionsLabel]="language.text('importViewRowDetails')" (rowAction)="onRowGridAction($event)" />
       }
     </ng-template>
 
@@ -785,9 +709,9 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
   `,
   styles: `
     :host { display: block; }
-    .import-hero { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 1.2rem; border-radius: 1.25rem; padding: clamp(1.35rem, 3vw, 2.3rem); color: #f6fbf8; background: linear-gradient(124deg, #163a37 0%, #234f48 56%, #926c35 145%); box-shadow: var(--shadow-card); }
-    .import-hero h1 { margin: .3rem 0; font: 800 clamp(1.5rem, 4vw, 2.3rem)/1.05 var(--font-display); letter-spacing: -.04em; }
-    .import-hero .eyebrow { margin: 0; color: #cfe6df; font: 800 .68rem/1 var(--font-sans); letter-spacing: .1em; text-transform: uppercase; }
+    
+    
+    
     .hero-lede { max-width: 40rem; margin: 0; color: #dcece6; font-size: .85rem; line-height: 1.6; }
     .back-link { border: 0; padding: .5rem .8rem; border-radius: .5rem; color: #fff; background: rgb(255 255 255 / 12%); font-weight: 700; text-decoration: none; }
     .workspace-panel { min-width: 0; margin-block-start: 1.2rem; border: 1px solid var(--line); border-radius: 1.15rem; background: var(--surface-raised); box-shadow: var(--shadow-soft); }
@@ -932,7 +856,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
-    @media (max-width: 980px) { .import-hero { flex-direction: column; } }
+    @media (max-width: 980px) {  }
     @media (max-width: 720px) {
       .record-table-wrap { display: none; }
       .record-cards { display: grid; gap: .65rem; }
@@ -1026,6 +950,27 @@ export class MasterDataImportWorkspaceComponent {
 
   readonly previewRows = computed<MasterDataImportRowInput[]>(() => this.facade.normalizedRows().slice(0, 50));
   readonly previewTotal = computed<number>(() => this.facade.normalizedRows().length);
+
+  batchColumns(): DataGridColumn<MasterDataImportBatchResponse>[] { return [
+    { key: 'resource', label: this.language.text('importBatchResourceCol'), value: (batch) => batch.resourceKind, display: (batch) => this.resourceLabel(batch.resourceKind), secondaryText: (batch) => batch.id, link: (batch) => `/app/master-data/imports/${batch.id}`, filter: 'select', filterOptions: IMPORT_RESOURCE_DEFINITIONS.map((item) => ({ value: item.kind, label: this.resourceLabel(item.kind) })) },
+    { key: 'mode', label: this.language.text('importBatchModeCol'), value: (batch) => batch.mode, display: (batch) => this.modeLabel(batch.mode), filter: 'select', filterOptions: [{ value: 'DryRun', label: this.modeLabel('DryRun') }, { value: 'Commit', label: this.modeLabel('Commit') }] },
+    { key: 'policy', label: this.language.text('importBatchPolicyCol'), value: (batch) => batch.duplicatePolicy, display: (batch) => this.policyLabel(batch.duplicatePolicy), filter: 'select', filterOptions: [{ value: 'Reject', label: this.policyLabel('Reject') }, { value: 'SkipExisting', label: this.policyLabel('SkipExisting') }, { value: 'UpdateMutableFields', label: this.policyLabel('UpdateMutableFields') }] },
+    { key: 'status', label: this.language.text('importBatchStatusCol'), value: (batch) => batch.status, display: (batch) => this.statusLabel(batch.status), badge: true, filter: 'select', filterOptions: ['Draft', 'Simulating', 'Validated', 'Completed', 'CompletedWithErrors', 'Failed'].map((value) => ({ value, label: this.statusLabel(value as MasterDataImportStatus) })) },
+    { key: 'submitted', label: this.language.text('importBatchSubmittedCol'), value: (batch) => batch.createdAt, display: (batch) => new Date(batch.createdAt).toLocaleString(this.language.language()), filter: 'date-range' },
+    { key: 'totals', label: this.language.text('importBatchTotalsCol'), value: (batch) => `${batch.acceptedCount}/${batch.totalRows}`, display: (batch) => `${batch.acceptedCount}/${batch.totalRows} ${this.language.text('importAccepted').toLocaleLowerCase()}`, filter: 'text' },
+  ]; }
+
+  rowColumns(): DataGridColumn<MasterDataImportRowResponse>[] { return [
+    { key: 'row', label: this.language.text('importPreviewRowNumber'), value: (row) => row.originalRowNumber, secondaryText: (row) => row.replaySequence > 0 ? `${this.language.text('importReplaySequence')}${row.replaySequence}` : '', filter: 'number-range' },
+    { key: 'outcome', label: this.language.text('importRowOutcomesTitle'), value: (row) => row.outcome, display: (row) => this.outcomeLabel(row.outcome), badge: true, filter: 'select', filterOptions: ['Accepted', 'Rejected', 'Quarantined'].map((value) => ({ value, label: this.outcomeLabel(value as MasterDataImportRowResponse['outcome']) })) },
+    { key: 'severity', label: this.language.text('importSeverity'), value: (row) => row.highestSeverity, display: (row) => this.severityLabel(row.highestSeverity), badge: true, filter: 'select', filterOptions: ['Info', 'Warning', 'Error'].map((value) => ({ value, label: this.severityLabel(value as MasterDataImportRowResponse['highestSeverity']) })) },
+    { key: 'resource', label: this.language.text('importResultingRecord'), value: (row) => row.resultingResourceCode, filter: 'text' },
+  ]; }
+
+  batchGridActions(): readonly { key: string; label: string }[] { return [{ key: 'view', label: this.language.text('importOpenBatch') }]; }
+  rowGridActions(): readonly { key: string; label: string }[] { return [{ key: 'view', label: this.language.text('importViewRowDetails') }]; }
+  onBatchGridAction(event: { row: MasterDataImportBatchResponse }): void { this.openBatch(event.row.id); }
+  onRowGridAction(event: { row: MasterDataImportRowResponse }): void { this.openRowDetail(event.row); }
 
   readonly filteredRows = computed<MasterDataImportRowResponse[]>(() => {
     let rows = this.facade.batchRows().filter((r) => r.isCurrent);

@@ -1,3 +1,5 @@
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -41,24 +43,21 @@ interface CreateReceiptLineDraft {
 @Component({
   selector: 'app-goods-receipt-workspace',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [PageHeaderComponent, DataGridComponent, FormsModule, RouterLink],
   template: `
     @if (mode() === 'list') {
       <section class="ui-page goods-receipt-page" data-testid="goods-receipt-list">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header class="page-header">
+          <div page-header-copy>
             <p class="eyebrow">{{ grText('goodsReceiptKicker') }}</p>
             <h1>{{ grText('goodsReceipts') }}</h1>
             <p class="lede">{{ grText('goodsReceiptsLead') }}</p>
           </div>
+          <div page-header-actions>
           <a class="button button--primary" routerLink="/app/procurement/goods-receipts/new" data-testid="new-goods-receipt">＋ {{ grText('newGoodsReceipt') }}</a>
-        </header>
-        <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ grText('goodsReceiptBoundary') }}</span></div>
-
-        @if (loading()) {
-          <section class="ui-surface state-card" aria-live="polite"><span class="spinner" aria-hidden="true"></span><h2>{{ grText('loadingGoodsReceipts') }}</h2></section>
-        } @else if (error(); as currentError) {
-          <section class="ui-surface state-card state-card--error" role="alert"><strong>{{ grText('goodsReceiptListLoadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadList()">{{ language.text('retry') }}</button></section>
+        
+          </div>
+        </app-page-header> <section class="ui-surface state-card state-card--error" role="alert"><strong>{{ grText('goodsReceiptListLoadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadList()">{{ language.text('retry') }}</button></section>
         } @else {
           <section class="ui-surface ledger-panel">
             <div class="filter-toolbar">
@@ -69,7 +68,7 @@ interface CreateReceiptLineDraft {
             @if (filteredRecords().length === 0) {
               <div class="empty-ledger"><span aria-hidden="true">◌</span><h2>{{ grText('noGoodsReceipts') }}</h2><p>{{ grText('noGoodsReceiptsLead') }}</p></div>
             } @else {
-              <div class="ui-grid-shell goods-receipt-grid-shell"><table class="ui-grid goods-receipt-grid"><caption class="sr-only">{{ grText('goodsReceipts') }}</caption><thead><tr><th scope="col">{{ grText('goodsReceiptReferenceColumn') }}</th><th scope="col">{{ grText('goodsReceiptSupplierColumn') }}</th><th scope="col">{{ grText('goodsReceiptStatusColumn') }}</th><th scope="col">{{ grText('goodsReceiptDateColumn') }}</th><th scope="col" class="numeric">{{ grText('goodsReceiptAcceptedColumn') }}</th><th scope="col" class="numeric">{{ grText('goodsReceiptRejectedColumn') }}</th><th scope="col">{{ grText('goodsReceiptUpdatedColumn') }}</th></tr></thead><tbody>@for (record of filteredRecords(); track record.id) {<tr><td><a class="record-link" [routerLink]="['/app/procurement/goods-receipts', record.id]">{{ record.referenceNote || record.id.substring(0, 8) }}</a><small>{{ record.lineCount }} {{ grText('goodsReceiptLines') }}</small></td><td><strong>{{ record.supplierName }}</strong><small>{{ record.supplierCode }}</small></td><td><span class="status-badge" [class]="statusClass(record.status)"><span aria-hidden="true"></span>{{ statusLabel(record.status) }}</span></td><td>{{ formatDate(record.receivedDate) }}</td><td class="numeric">{{ formatQuantity(record.totalAcceptedQuantity) }}</td><td class="numeric">{{ formatQuantity(record.totalRejectedQuantity) }}</td><td>{{ formatDateTime(record.updatedAt) }}</td></tr>}</tbody></table></div>
+              <app-data-grid [caption]="grText('goodsReceipts')" [rows]="filteredRecords()" [columns]="gridColumns()" [language]="language.language()" [pageSize]="filteredRecords().length || 1" [showPager]="false" [rowActions]="gridActions()" [countLabel]="language.text('recordCount')" [rowActionsLabel]="language.text('viewRecord')" (rowAction)="onGridAction($event)" />
             }
           </section>
         }
@@ -78,19 +77,17 @@ interface CreateReceiptLineDraft {
 
     @if (mode() === 'create') {
       <section class="ui-page goods-receipt-page" data-testid="goods-receipt-create">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header class="page-header">
+          <div page-header-copy>
             <p class="eyebrow">{{ grText('goodsReceiptKicker') }}</p>
             <h1>{{ grText('createGoodsReceipt') }}</h1>
             <p class="lede">{{ grText('goodsReceiptCreateLead') }}</p>
           </div>
+          <div page-header-actions>
           <a class="button button--secondary" routerLink="/app/procurement/goods-receipts">{{ grText('backToGoodsReceipts') }}</a>
-        </header>
-        <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ grText('goodsReceiptSourceRule') }}</span></div>
-
-        @if (loading()) {
-          <section class="ui-surface state-card"><span class="spinner" aria-hidden="true"></span><h2>{{ grText('loadingGoodsReceiptSources') }}</h2></section>
-        } @else if (error(); as currentError) {
+        
+          </div>
+        </app-page-header>
           <section class="ui-surface state-card state-card--error" role="alert"><strong>{{ grText('goodsReceiptSourceLoadFailed') }}</strong><p>{{ errorText(currentError) }}</p><button class="button button--secondary" type="button" (click)="loadCreatePrerequisites()">{{ language.text('retry') }}</button></section>
         } @else {
           <section class="ui-surface form-card">
@@ -201,26 +198,19 @@ interface CreateReceiptLineDraft {
 
     @if (mode() === 'detail' && receipt(); as currentReceipt) {
       <section class="ui-page goods-receipt-page" data-testid="goods-receipt-detail">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header class="page-header">
+          <div page-header-copy>
             <p class="eyebrow">{{ grText('goodsReceiptKicker') }}</p>
             <h1>{{ currentReceipt.referenceNote || grText('goodsReceipt') + ' ' + currentReceipt.id.substring(0, 8) }}</h1>
             <p class="lede">{{ currentReceipt.supplierName }} ({{ currentReceipt.supplierCode }}) · {{ formatDate(currentReceipt.receivedDate) }}</p>
           </div>
+          <div page-header-actions>
           <span class="status-badge status-badge--hero" [class]="statusClass(currentReceipt.status)">
             <span aria-hidden="true"></span>{{ statusLabel(currentReceipt.status) }}
           </span>
-        </header>
-
-        <div class="action-rail" role="toolbar" [attr.aria-label]="grText('goodsReceiptActions')">
-          <a class="button button--secondary" routerLink="/app/procurement/goods-receipts">{{ grText('backToGoodsReceipts') }}</a>
-          @if (currentReceipt.canCancel) {
-            <button class="button button--danger" type="button" (click)="openCancelDialog()" data-testid="cancel-goods-receipt">{{ grText('cancelGoodsReceipt') }}</button>
-          }
-        </div>
-
-        @if (currentReceipt.status === 'Cancelled') {
-          <section class="boundary-note terminal-recovery-note" role="note">
+        
+          </div>
+        </app-page-header>e" role="note">
             <strong>{{ grText('goodsReceiptCancelledNotice') }}</strong>
             <span>{{ currentReceipt.cancellationReason || grText('noCancellationReason') }} ({{ formatDateTime(currentReceipt.cancelledAt ?? '') }})</span>
           </section>
@@ -366,7 +356,7 @@ interface CreateReceiptLineDraft {
   `,
   styles: `
     :host { display: block; }
-    .page-header { align-items: center; }
+    
     .page-header .lede { max-width: 54rem; margin-bottom: 0; line-height: 1.55; }
     .button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.4rem; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .82rem; color: var(--ink); background: var(--surface-raised); font-size: .74rem; font-weight: 800; text-decoration: none; cursor: pointer; }
     .button:hover:not(:disabled) { transform: translateY(-1px); }
@@ -490,6 +480,19 @@ export class GoodsReceiptWorkspaceComponent implements OnInit {
       return matchStatus && matchQuery;
     });
   });
+
+  gridColumns(): DataGridColumn<GoodsReceiptListItemResponse>[] { return [
+    { key: 'reference', label: this.grText('goodsReceiptReferenceColumn'), value: (record) => record.referenceNote || record.id.substring(0, 8), secondaryText: (record) => `${record.lineCount} ${this.grText('goodsReceiptLines')}`, link: (record) => `/app/procurement/goods-receipts/${record.id}`, filter: 'text' },
+    { key: 'supplier', label: this.grText('goodsReceiptSupplierColumn'), value: (record) => record.supplierName, secondaryText: (record) => record.supplierCode, filter: 'text' },
+    { key: 'status', label: this.grText('goodsReceiptStatusColumn'), value: (record) => record.status, display: (record) => this.statusLabel(record.status), badge: true, filter: 'select', filterOptions: this.statuses.map((status) => ({ value: status, label: this.statusLabel(status) })) },
+    { key: 'received', label: this.grText('goodsReceiptDateColumn'), value: (record) => record.receivedDate, display: (record) => this.formatDate(record.receivedDate), filter: 'date-range' },
+    { key: 'accepted', label: this.grText('goodsReceiptAcceptedColumn'), value: (record) => record.totalAcceptedQuantity, display: (record) => this.formatQuantity(record.totalAcceptedQuantity), filter: 'number-range', align: 'end' },
+    { key: 'rejected', label: this.grText('goodsReceiptRejectedColumn'), value: (record) => record.totalRejectedQuantity, display: (record) => this.formatQuantity(record.totalRejectedQuantity), filter: 'number-range', align: 'end' },
+    { key: 'updated', label: this.grText('goodsReceiptUpdatedColumn'), value: (record) => record.updatedAt, display: (record) => this.formatDateTime(record.updatedAt), filter: 'date-range' },
+  ]; }
+
+  gridActions(): readonly { key: string; label: string }[] { return [{ key: 'view', label: this.language.text('viewRecord') }]; }
+  onGridAction(event: { row: GoodsReceiptListItemResponse }): void { void this.router.navigate(['/app/procurement/goods-receipts', event.row.id]); }
 
   private readonly copy: Record<'en' | 'ar', Record<string, string>> = {
     en: {

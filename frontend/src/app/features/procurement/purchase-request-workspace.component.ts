@@ -1,3 +1,5 @@
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Component, inject, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -42,24 +44,17 @@ interface RequestDraft {
 @Component({
   selector: 'app-purchase-request-workspace',
   standalone: true,
-  imports: [DatePipe, FormsModule, NgTemplateOutlet],
+  imports: [PageHeaderComponent, DataGridComponent, DatePipe, FormsModule, NgTemplateOutlet],
   template: `
     <section class="pr-workspace" aria-labelledby="pr-title">
-      <header class="pr-hero ui-page-header">
-        <div class="hero-copy">
+      <app-page-header class="page-header">
+        <div class="page-header__copy" page-header-copy>
           <p class="eyebrow">{{ language.text('procurementNavLabel') }} / {{ language.text('purchaseRequestsNavLabel') }}</p>
           <h1 id="pr-title">{{ language.text('purchaseRequests') }}</h1>
           <p class="hero-lede">{{ language.text('purchaseRequestsLead') }}</p>
         </div>
-        <div class="hero-facts">
-          <div class="hero-fact"><span class="hero-fact__mark">01</span><span><b>{{ language.text('serverAuthority') }}</b><small>{{ language.text('purchaseRequestBoundary') }}</small></span></div>
-          <div class="hero-fact hero-fact--quiet"><span class="hero-fact__mark">02</span><span><b>{{ language.text('clientSideSearch') }}</b><small>{{ language.text('clientSideSearchHint') }}</small></span></div>
-        </div>
-      </header>
-
-      <div class="workspace-panel ui-surface--glass">
-        @switch (mode()) {
-          @case ('list') { <ng-container *ngTemplateOutlet="listView" /> }
+        
+      </app-page-header> *ngTemplateOutlet="listView" /> }
           @default { <ng-container *ngTemplateOutlet="detailView" /> }
         }
       </div>
@@ -109,37 +104,7 @@ interface RequestDraft {
         } @else if (filteredRecords().length === 0) {
           <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><div><b>{{ language.text('noPurchaseRequests') }}</b><p>{{ language.text('noPurchaseRequestsLead') }}</p></div></div>
         } @else {
-          <div class="record-table-wrap ui-grid-shell">
-            <table class="record-table ui-grid">
-              <caption class="sr-only">{{ language.text('purchaseRequests') }}</caption>
-              <thead><tr><th scope="col">{{ language.text('prStatusColumn') }}</th><th scope="col">{{ language.text('purpose') }}</th><th scope="col">{{ language.text('prOrganizationColumn') }}</th><th scope="col">{{ language.text('organizationScopeBranch') }}</th><th scope="col">{{ language.text('requestLines') }}</th><th scope="col">{{ language.text('prUpdatedColumn') }}</th><th scope="col"><span class="sr-only">{{ language.text('viewRecord') }}</span></th></tr></thead>
-              <tbody>
-                @for (record of filteredRecords(); track record.id) {
-                  <tr>
-                    <td><span class="status-pill ui-status-chip" [class]="'status-pill ui-status-chip status-pill--' + statusTone(record.status)"><i aria-hidden="true">{{ statusIcon(record.status) }}</i>{{ statusLabel(record.status) }}</span></td>
-                    <td><button class="record-code" type="button" (click)="openRecord(record.id)">{{ valueOrEmpty(record.purpose) }}</button><small>{{ shortReference(record.id) }}</small></td>
-                    <td><span class="record-name">{{ companyLabel(record.companyId) }}</span></td>
-                    <td><span class="record-name">{{ branchLabel(record.branchId) }}</span></td>
-                    <td><span class="record-name">{{ record.lineCount }}</span></td>
-                    <td><span class="record-name">{{ record.updatedAt | date:'mediumDate' }}</span></td>
-                    <td class="table-action"><button class="icon-button" type="button" (click)="openRecord(record.id)" [attr.aria-label]="language.text('viewRecord')">↗</button></td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-          <div class="record-cards">
-            @for (record of filteredRecords(); track record.id) {
-              <button class="record-card" type="button" (click)="openRecord(record.id)">
-                <div class="record-card__top"><span class="record-code">{{ companyLabel(record.companyId) }}</span><span class="status-pill ui-status-chip" [class]="'status-pill ui-status-chip status-pill--' + statusTone(record.status)"><i aria-hidden="true">{{ statusIcon(record.status) }}</i>{{ statusLabel(record.status) }}</span></div>
-                <span class="record-name">{{ valueOrEmpty(record.purpose) }}</span>
-                <div class="record-card__facts">
-                  <div><span>{{ language.text('organizationScopeBranch') }}</span><b>{{ branchLabel(record.branchId) }}</b></div>
-                  <div><span>{{ language.text('requestLines') }}</span><b>{{ record.lineCount }}</b></div>
-                </div>
-              </button>
-            }
-          </div>
+          <app-data-grid [caption]="language.text('purchaseRequests')" [rows]="filteredRecords()" [columns]="gridColumns()" [language]="language.language()" [pageSize]="filteredRecords().length || 1" [showPager]="false" [rowActions]="gridActions()" [countLabel]="language.text('recordCount')" [rowActionsLabel]="language.text('viewRecord')" (rowAction)="onGridAction($event)" />
         }
       </section>
     </ng-template>
@@ -400,8 +365,8 @@ interface RequestDraft {
   styles: `
     :host { display: block; }
     .pr-workspace { display: grid; gap: 1.35rem; }
-    .pr-hero { display: flex; justify-content: space-between; gap: 2rem; border-radius: 1.25rem; padding: clamp(1.35rem, 3vw, 2.3rem); color: #f6fbf8; background: linear-gradient(124deg, #163a37 0%, #234f48 56%, #926c35 145%); box-shadow: var(--shadow-card); overflow: hidden; position: relative; }
-    .pr-hero::after { content: ''; position: absolute; width: 18rem; height: 18rem; inset-inline-end: -6rem; inset-block-start: -9rem; border: 1px solid rgb(255 255 255 / 18%); border-radius: 50%; box-shadow: 0 0 0 2rem rgb(255 255 255 / 3%), 0 0 0 4rem rgb(255 255 255 / 3%); }
+    
+    
     .hero-copy, .hero-facts { position: relative; z-index: 1; }
     .hero-copy { max-width: 42rem; }
     .eyebrow { margin: 0 0 .55rem; color: #bee5d0; font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
@@ -522,7 +487,7 @@ interface RequestDraft {
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
-    @media (max-width: 980px) { .pr-hero { flex-direction: column; } .hero-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; } .line-row__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 980px) {  .hero-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; } .line-row__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 720px) {
       .record-table-wrap { display: none; }
       .record-cards { display: grid; gap: .65rem; }
@@ -540,7 +505,7 @@ interface RequestDraft {
       .hero-facts { grid-template-columns: 1fr; }
       .line-row__grid { grid-template-columns: 1fr; }
     }
-    @media (max-width: 460px) { .pr-hero { border-radius: .9rem; } .pr-hero h1 { font-size: 1.9rem; } .list-view, .detail-view { padding: .8rem; } .button span { display: none; } .form-actions { flex-wrap: wrap; } .form-actions .button { flex: 1; } }
+    @media (max-width: 460px) {   .list-view, .detail-view { padding: .8rem; } .button span { display: none; } .form-actions { flex-wrap: wrap; } .form-actions .button { flex: 1; } }
   `,
 })
 export class PurchaseRequestWorkspaceComponent {
@@ -602,6 +567,18 @@ export class PurchaseRequestWorkspaceComponent {
       || (record.purpose ?? '').toLowerCase().includes(query),
     );
   });
+
+  gridColumns(): DataGridColumn<PurchaseRequestListItemResponse>[] { return [
+    { key: 'status', label: this.language.text('prStatusColumn'), value: (record) => record.status, display: (record) => this.statusLabel(record.status), badge: true, filter: 'select', filterOptions: ['Draft', 'PendingApproval', 'Approved', 'Rejected', 'ReturnedForChange', 'Cancelled'].map((status) => ({ value: status, label: this.statusLabel(status as PurchaseRequestStatus) })) },
+    { key: 'purpose', label: this.language.text('purpose'), value: (record) => this.valueOrEmpty(record.purpose), secondaryText: (record) => this.shortReference(record.id), link: (record) => `/app/procurement/purchase-requests/${record.id}`, filter: 'text' },
+    { key: 'company', label: this.language.text('prOrganizationColumn'), value: (record) => this.companyLabel(record.companyId), filter: 'text' },
+    { key: 'branch', label: this.language.text('organizationScopeBranch'), value: (record) => this.branchLabel(record.branchId), filter: 'text' },
+    { key: 'lines', label: this.language.text('requestLines'), value: (record) => record.lineCount, filter: 'number-range', align: 'end' },
+    { key: 'updated', label: this.language.text('prUpdatedColumn'), value: (record) => record.updatedAt, display: (record) => new Date(record.updatedAt).toLocaleDateString(this.language.language()), filter: 'date-range' },
+  ]; }
+
+  gridActions(): readonly { key: string; label: string }[] { return [{ key: 'view', label: this.language.text('viewRecord') }]; }
+  onGridAction(event: { row: PurchaseRequestListItemResponse }): void { this.openRecord(event.row.id); }
 
   private readonly detailTabOrder: DetailTab[] = ['summary', 'lines', 'history', 'audit'];
   private lastFocusedElement: HTMLElement | null = null;
