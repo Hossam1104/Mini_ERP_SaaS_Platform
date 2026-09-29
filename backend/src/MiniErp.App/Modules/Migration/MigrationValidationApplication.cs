@@ -510,6 +510,8 @@ public sealed class MigrationValidationService
         var staged = await persistence.ListStagedRecordsAsync(tenant!, runId, 0, int.MaxValue, cancellationToken);
         var stagedById = staged.ToDictionary(item => item.StagedRecordId);
         var validationById = validation.Records.ToDictionary(item => item.StagedRecordId);
+        if (!stagedById.Keys.ToHashSet().SetEquals(validationById.Keys))
+            return MigrationOperationResult<MigrationValidationSummary>.Rejected("migration_correction_snapshot_invalid");
         var corrections = new Dictionary<Guid, MigrationParsedCanonicalRow>();
         foreach (var submission in submissions)
         {
@@ -728,6 +730,25 @@ public sealed class MigrationValidationService
             return null;
         var run = await foundation.FindRunAsync(tenant, runId, cancellationToken);
         var attempt = await foundation.FindAttemptAsync(tenant, runId, validation.AttemptId, cancellationToken);
+        return WithAttemptContext(
+            run.Value is null ? validation : validation with { RunVersion = run.Value.Version },
+            run.Value,
+            attempt);
+    }
+
+    public async Task<MigrationValidationSummary?> ReadValidationAsync(
+        TenantContext tenant,
+        Guid runId,
+        Guid attemptId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!await IsResourceAuthorizedAsync(tenant, runId, cancellationToken))
+            return null;
+        var validation = await persistence.FindValidationAsync(tenant, runId, attemptId, cancellationToken);
+        if (validation is null)
+            return null;
+        var run = await foundation.FindRunAsync(tenant, runId, cancellationToken);
+        var attempt = await foundation.FindAttemptAsync(tenant, runId, attemptId, cancellationToken);
         return WithAttemptContext(
             run.Value is null ? validation : validation with { RunVersion = run.Value.Version },
             run.Value,

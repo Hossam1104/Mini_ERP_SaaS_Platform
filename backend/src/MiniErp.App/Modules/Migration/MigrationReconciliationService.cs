@@ -154,7 +154,7 @@ public sealed class MigrationReconciliationService
         var dryRun = await validation.ReadDryRunAsync(tenant, runId, cancellationToken);
         if (dryRun is null)
             return null;
-        var validationSummary = await validation.ReadValidationAsync(tenant, runId, cancellationToken);
+        var validationSummary = await validation.ReadValidationAsync(tenant, runId, dryRun.ValidationAttemptId, cancellationToken);
         if (validationSummary is null)
             return null;
         var evidence = ProjectDryRunEvidence(dryRun, validationSummary);

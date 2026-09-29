@@ -682,6 +682,60 @@ public sealed class MigrationRunSafetySqlServerSafetyTests(SqlServerSafetyFixtur
     }
 
     [Fact]
+    public async Task MESP173_sql_server_correction_rejects_a_validation_snapshot_missing_a_staged_row_before_attempt()
+    {
+        await using var connection = await fixture.OpenConnectionAsync();
+        var options = SqlServerMigrationConfiguration.Configure(
+            connection.ConnectionString,
+            SqlServerMigrationConfiguration.MigrationHistoryTable);
+        var tenant = NewTenant("mesp173-missing-validation-row");
+        var request = Request(tenant);
+        var persistence = new MigrationPersistence(options);
+        var audit = new CapturingAuditSink();
+        var resolver = new MutableScopeResolver(TenantWorkScopeRequest.TenantWide());
+        var objectId = Guid.NewGuid();
+        var content = Package(objectId,
+            new { SourceSequence = 1, SourceRecordId = "missing-validation-product", RecordType = "Product", Payload = new { Sku = "M173-M1", NameEnglish = (string?)null } },
+            new { SourceSequence = 2, SourceRecordId = "present-validation-product", RecordType = "Product", Payload = new { Sku = "M173-M2", NameEnglish = "Present validation row" } });
+        var storage = Storage(tenant, objectId, content);
+        var intake = await RegisterAsync(persistence, storage, resolver, audit, request, objectId);
+        Assert.True(intake.Succeeded, intake.Code);
+        var runId = intake.Value!.Run.RunId;
+        var service = ValidationService(persistence, storage, resolver, new RecordingReferenceAuthority());
+        var first = await service.ValidateAsync(request, runId, "mesp173-missing-row-initial-validation");
+        Assert.Equal("migration_validation_failed", first.Code);
+
+        var initial = (await persistence.FindLatestValidationAsync(tenant, runId))!;
+        var rejected = Assert.Single(initial.Records, item => item.Disposition == MigrationRecordDisposition.Rejected);
+        var omitted = Assert.Single(initial.Records, item => item.Disposition == MigrationRecordDisposition.Accepted);
+        await using (var malformedDb = new MigrationDbContext(options, tenant))
+        {
+            var omittedRecord = await malformedDb.Set<MigrationValidationRecordEntity>().SingleAsync(item =>
+                item.RunId == runId && item.AttemptId == initial.AttemptId && item.StagedRecordId == omitted.StagedRecordId);
+            malformedDb.Set<MigrationValidationRecordEntity>().Remove(omittedRecord);
+            await malformedDb.SaveChangesAsync();
+        }
+
+        var validationAttemptCountBefore = (await persistence.ListAttemptsAsync(tenant, runId))
+            .Count(item => item.Operation == MigrationOperationKind.Validation);
+        var failedRun = (await persistence.FindRunAsync(tenant, runId))!;
+        var correction = new MigrationCorrectionSubmission(
+            rejected.StagedRecordId,
+            "{\"sku\":\"M173-M1\",\"nameEnglish\":\"Corrected missing-row product\"}",
+            "Owner supplied");
+        var result = await service.RetryCorrectedAsync(
+            request, runId, "mesp173-missing-row-correction", failedRun.Version, [correction]);
+
+        Assert.Equal(MigrationResultKind.Rejected, result.Kind);
+        Assert.Equal("migration_correction_snapshot_invalid", result.Code);
+        var attemptsAfter = await persistence.ListAttemptsAsync(tenant, runId);
+        Assert.Equal(
+            validationAttemptCountBefore,
+            attemptsAfter.Count(item => item.Operation == MigrationOperationKind.Validation));
+        Assert.DoesNotContain(attemptsAfter, item => item.Outcome == MigrationAttemptOutcome.Pending);
+    }
+
+    [Fact]
     public async Task MESP173_sql_server_upgrade_path_retries_legacy_rows_from_immutable_staging()
     {
         await using var connection = await fixture.OpenConnectionAsync();
