@@ -1,10 +1,12 @@
 import { DOCUMENT } from '@angular/common';
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal } from '@angular/core';
+import { ContextService } from '../context/context.service';
 
 export const THEME_OPTIONS = [
   { id: 'sapphire', label: 'Sapphire', color: '#1d4ed8' },
   { id: 'luxury', label: 'Luxury', color: '#111827' },
   { id: 'forest', label: 'Forest', color: '#1e8449' },
+  { id: 'meadow', label: 'Meadow', color: '#5da234' },
   { id: 'ruby', label: 'Ruby', color: '#e60000' },
   { id: 'purple', label: 'Purple', color: '#7b2fbe' },
   { id: 'amber', label: 'Amber', color: '#e85d04' },
@@ -19,17 +21,29 @@ const DARK_STORAGE_KEY = 'mesp.ui.dark';
 
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
+  private readonly context = inject(ContextService);
   private readonly document = inject(DOCUMENT);
   readonly options = THEME_OPTIONS;
-  readonly selectedTheme = signal<ThemeName>(this.readTheme());
+  private userChoice = this.readStoredTheme();
+  readonly selectedTheme = signal<ThemeName>(
+    this.userChoice ?? this.resolveTenantTheme(this.context.entry()?.branding.defaultTheme),
+  );
   readonly darkMode = signal(this.readDarkMode());
 
   constructor() {
     this.apply();
+    effect(() => {
+      const defaultTheme = this.context.entry()?.branding.defaultTheme;
+      if (this.userChoice === null) {
+        this.selectedTheme.set(this.resolveTenantTheme(defaultTheme));
+        this.apply();
+      }
+    });
   }
 
   select(theme: ThemeName): void {
     if (!this.options.some((option) => option.id === theme)) return;
+    this.userChoice = theme;
     this.selectedTheme.set(theme);
     this.persist(THEME_STORAGE_KEY, theme);
     this.apply();
@@ -42,9 +56,13 @@ export class ThemeService {
     this.apply();
   }
 
-  private readTheme(): ThemeName {
+  private readStoredTheme(): ThemeName | null {
     const saved = this.read(THEME_STORAGE_KEY);
-    return this.options.find((option) => option.id === saved)?.id ?? 'sapphire';
+    return this.options.find((option) => option.id === saved)?.id ?? null;
+  }
+
+  private resolveTenantTheme(theme: string | null | undefined): ThemeName {
+    return this.options.find((option) => option.id === theme)?.id ?? 'sapphire';
   }
 
   private readDarkMode(): boolean {

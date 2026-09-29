@@ -3,6 +3,7 @@ import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@ang
 import { BehaviorSubject, of } from 'rxjs';
 import { vi } from 'vitest';
 import { LanguageService } from '../../core/i18n/language.service';
+import { CurrencyPresentationService } from '../../core/presentation/currency-presentation.service';
 import {
   PurchaseInvoiceHandoffListItemResponse,
   PurchaseInvoiceHandoffResponse,
@@ -151,6 +152,7 @@ describe('PurchaseInvoiceHandoffWorkspaceComponent', () => {
       providers: [
         provideRouter([]),
         LanguageService,
+        { provide: CurrencyPresentationService, useValue: { symbolAssetUrl: () => null, symbolText: (code: string) => code, formatMoneyParts: (amount: number, code: string, locale = 'en-US') => [...new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(amount), { type: 'literal', value: ' ' }, { type: 'currency', value: code }] } },
         {
           provide: ActivatedRoute,
           useValue: {

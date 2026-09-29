@@ -55,6 +55,7 @@ export interface FoundationBranding {
   logoDarkUrl: string | null;
   logoAltText: string;
   tenantConfigured: boolean;
+  defaultTheme?: string | null;
 }
 
 export interface FoundationCurrencyPresentation {

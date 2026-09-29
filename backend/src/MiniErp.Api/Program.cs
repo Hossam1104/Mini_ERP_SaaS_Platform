@@ -643,6 +643,7 @@ app.MapGet("/api/v1/auth/entry", (
     return Results.Json(entryAuthority.BuildResponse(httpContext.User, httpContext.Request.Host.Value));
 })
     .WithName("auth.entry.read")
+    .Produces<FoundationEntryResponse>(StatusCodes.Status200OK)
     .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("auth.entry.read")));
 
 app.MapGet("/api/v1/auth/operational-contexts", (

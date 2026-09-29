@@ -116,7 +116,7 @@ describe('PurchaseOrderWorkspaceComponent', () => {
       providers: [
         provideRouter([]),
         LanguageService,
-        { provide: CurrencyPresentationService, useValue: { symbolAssetUrl: () => null, symbolText: (code: string) => code } },
+        { provide: CurrencyPresentationService, useValue: { symbolAssetUrl: () => null, symbolText: (code: string) => code, formatMoneyParts: (amount: number, code: string, locale = 'en-US') => [...new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(amount), { type: 'literal', value: ' ' }, { type: 'currency', value: code }] } },
         { provide: ActivatedRoute, useValue: { url: routeUrls.asObservable(), paramMap: routeParams.asObservable(), snapshot: { get url() { return routeUrls.value; }, get paramMap() { return routeParams.value; } } } },
         { provide: PurchaseOrderService, useValue: orders },
       ],

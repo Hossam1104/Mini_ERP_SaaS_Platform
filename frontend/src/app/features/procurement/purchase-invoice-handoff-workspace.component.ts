@@ -1,6 +1,7 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { CurrencyAmountComponent } from '../../shared/ui/currency-amount.component';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { SafeUiError, toSafeUiError } from '../../core/api/safe-error';
@@ -38,7 +39,7 @@ interface CreateHandoffLineDraft {
 @Component({
   selector: 'app-purchase-invoice-handoff-workspace',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, CurrencyAmountComponent],
   template: `
     @if (mode() === 'list') {
       <section class="ui-page invoice-handoff-page" data-testid="invoice-handoff-list">
@@ -66,7 +67,7 @@ interface CreateHandoffLineDraft {
             @if (filteredRecords().length === 0) {
               <div class="empty-ledger"><span aria-hidden="true">◌</span><h2>{{ pihText('noInvoiceHandoffs') }}</h2><p>{{ pihText('noInvoiceHandoffsLead') }}</p></div>
             } @else {
-              <div class="ui-grid-shell invoice-handoff-grid-shell"><table class="ui-grid invoice-handoff-grid"><caption class="sr-only">{{ pihText('invoiceHandoffs') }}</caption><thead><tr><th scope="col">{{ pihText('invoiceHandoffRefColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffSupplierColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffStatusColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffDateColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffCurrencyColumn') }}</th><th scope="col" class="numeric">{{ pihText('invoiceHandoffQtyColumn') }}</th><th scope="col" class="numeric">{{ pihText('invoiceHandoffAmountColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffUpdatedColumn') }}</th></tr></thead><tbody>@for (record of filteredRecords(); track record.id) {<tr><td><a class="record-link" [routerLink]="['/app/procurement/invoice-handoffs', record.id]">{{ record.supplierInvoiceReference }}</a><small>{{ record.lineCount }} {{ pihText('invoiceHandoffLines') }}</small></td><td><strong>{{ record.supplierName }}</strong><small>{{ record.supplierCode }}</small></td><td><span class="status-badge" [class]="statusClass(record.status)"><span aria-hidden="true"></span>{{ statusLabel(record.status) }}</span></td><td>{{ formatDate(record.supplierInvoiceDate) }}</td><td><span class="currency-badge">{{ record.currencyCode }}</span></td><td class="numeric">{{ formatQuantity(record.totalHandoffQuantity) }}</td><td class="numeric money">{{ formatMoney(record.totalHandoffAmount, record.currencyCode) }}</td><td>{{ formatDateTime(record.updatedAt) }}</td></tr>}</tbody></table></div>
+              <div class="ui-grid-shell invoice-handoff-grid-shell"><table class="ui-grid invoice-handoff-grid"><caption class="sr-only">{{ pihText('invoiceHandoffs') }}</caption><thead><tr><th scope="col">{{ pihText('invoiceHandoffRefColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffSupplierColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffStatusColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffDateColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffCurrencyColumn') }}</th><th scope="col" class="numeric">{{ pihText('invoiceHandoffQtyColumn') }}</th><th scope="col" class="numeric">{{ pihText('invoiceHandoffAmountColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffUpdatedColumn') }}</th></tr></thead><tbody>@for (record of filteredRecords(); track record.id) {<tr><td><a class="record-link" [routerLink]="['/app/procurement/invoice-handoffs', record.id]">{{ record.supplierInvoiceReference }}</a><small>{{ record.lineCount }} {{ pihText('invoiceHandoffLines') }}</small></td><td><strong>{{ record.supplierName }}</strong><small>{{ record.supplierCode }}</small></td><td><span class="status-badge" [class]="statusClass(record.status)"><span aria-hidden="true"></span>{{ statusLabel(record.status) }}</span></td><td>{{ formatDate(record.supplierInvoiceDate) }}</td><td><span class="currency-badge">{{ record.currencyCode }}</span></td><td class="numeric">{{ formatQuantity(record.totalHandoffQuantity) }}</td><td class="numeric money"><app-currency-amount [amount]="record.totalHandoffAmount" [currencyCode]="record.currencyCode" [locale]="language.language()" /></td><td>{{ formatDateTime(record.updatedAt) }}</td></tr>}</tbody></table></div>
             }
           </section>
         }
@@ -150,12 +151,12 @@ interface CreateHandoffLineDraft {
                           <td class="numeric">{{ formatQuantity(line.acceptedQuantity) }}</td>
                           <td class="numeric">{{ formatQuantity(line.alreadyHandedOffQuantity) }}</td>
                           <td class="numeric remaining-highlight">{{ formatQuantity(line.remainingHandoffQuantity) }}</td>
-                          <td class="numeric">{{ formatMoney(line.unitPrice, selectedCurrencyCode()) }}</td>
+                          <td class="numeric"><app-currency-amount [amount]="line.unitPrice" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" /></td>
                           <td class="numeric">{{ line.taxRatePercentage !== null ? line.taxRatePercentage + '%' : '—' }}</td>
                           <td>
                             <input class="table-input numeric" type="number" min="0" [max]="line.remainingHandoffQuantity" step="0.000001" [(ngModel)]="line.handoffQuantity" (ngModelChange)="onLineQuantityChange()" />
                           </td>
-                          <td class="numeric money">{{ formatMoney(calculateLineTotal(line), selectedCurrencyCode()) }}</td>
+                          <td class="numeric money"><app-currency-amount [amount]="calculateLineTotal(line)" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" /></td>
                         </tr>
                       }
                     </tbody>
@@ -163,9 +164,9 @@ interface CreateHandoffLineDraft {
                 </div>
 
                 <div class="summary-box">
-                  <div class="summary-row"><span>{{ pihText('subtotal') }}:</span><strong>{{ formatMoney(computedSubtotal(), selectedCurrencyCode()) }}</strong></div>
-                  <div class="summary-row"><span>{{ pihText('taxTotal') }}:</span><strong>{{ formatMoney(computedTaxTotal(), selectedCurrencyCode()) }}</strong></div>
-                  <div class="summary-row summary-row--grand"><span>{{ pihText('grandTotal') }}:</span><strong>{{ formatMoney(computedGrandTotal(), selectedCurrencyCode()) }}</strong></div>
+                  <div class="summary-row"><span>{{ pihText('subtotal') }}:</span><strong><app-currency-amount [amount]="computedSubtotal()" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" /></strong></div>
+                  <div class="summary-row"><span>{{ pihText('taxTotal') }}:</span><strong><app-currency-amount [amount]="computedTaxTotal()" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" /></strong></div>
+                  <div class="summary-row summary-row--grand"><span>{{ pihText('grandTotal') }}:</span><strong><app-currency-amount [amount]="computedGrandTotal()" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" /></strong></div>
                 </div>
 
                 @if (validationError()) {
@@ -268,10 +269,10 @@ interface CreateHandoffLineDraft {
                         <small>{{ line.unitOfMeasureCode }}</small>
                       </td>
                       <td class="numeric">{{ formatQuantity(line.handoffQuantity) }}</td>
-                      <td class="numeric">{{ formatMoney(line.unitPrice, currentHandoff.currencyCode) }}</td>
+                      <td class="numeric"><app-currency-amount [amount]="line.unitPrice" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /></td>
                       <td class="numeric">{{ line.taxRatePercentage !== null ? line.taxRatePercentage + '%' : '—' }}</td>
-                      <td class="numeric">{{ line.taxAmount !== null ? formatMoney(line.taxAmount, currentHandoff.currencyCode) : '—' }}</td>
-                      <td class="numeric money">{{ formatMoney(line.lineAmount, currentHandoff.currencyCode) }}</td>
+                      <td class="numeric">@if (line.taxAmount !== null) { <app-currency-amount [amount]="line.taxAmount" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /> } @else { — }</td>
+                      <td class="numeric money"><app-currency-amount [amount]="line.lineAmount" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /></td>
                     </tr>
                   }
                 </tbody>
