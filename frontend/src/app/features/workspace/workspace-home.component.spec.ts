@@ -43,6 +43,7 @@ describe('WorkspaceHomeComponent', () => {
     const fixture: ComponentFixture<WorkspaceHomeComponent> = TestBed.createComponent(WorkspaceHomeComponent);
     fixture.detectChanges();
     const image = fixture.nativeElement.querySelector('.overview-hero__tenant-logo img') as HTMLImageElement;
+    expect(image).not.toBeNull();
     expect(image?.getAttribute('src')).toBe('/assets/example-tenant-logo.png');
     expect(image?.alt).toBe('Example Tenant');
 
