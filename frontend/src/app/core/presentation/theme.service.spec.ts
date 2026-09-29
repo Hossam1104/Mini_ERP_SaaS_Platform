@@ -58,7 +58,7 @@ describe('ThemeService', () => {
   });
 
   it('falls back to Sapphire when the configured Tenant theme is invalid', () => {
-    entry.set({ branding: { defaultTheme: 'wafra-green' } });
+    entry.set({ branding: { defaultTheme: 'unknown-theme' } });
     const service = TestBed.inject(ThemeService);
     expect(service.selectedTheme()).toBe('sapphire');
   });
