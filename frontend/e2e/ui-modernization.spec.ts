@@ -178,7 +178,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await page.getByRole('link', { name: 'QT-001' }).click();
     await expect(page).toHaveURL(/purchase-orders\/po-1$/);
     await page.getByRole('tab').nth(1).click();
-    const sarDetailSymbol = page.locator('.detail-grid [role=\"img\"]');
+    const sarDetailSymbol = page.locator('app-data-grid [role=\"img\"]');
     await assertMaskedSymbol(sarDetailSymbol);
     await page.locator('.scheme-toggle').click();
     await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'light');
@@ -285,7 +285,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('.filter-search input')).toHaveAttribute('aria-label', 'Search supplier or quotation reference');
     await expect(page.locator('.filter-search input')).toHaveCSS('height', '44px');
     await expect(page.locator('.filter-search input')).toHaveCSS('border-top-width', '1px');
-    await expect(grid.locator('.data-grid-total')).toContainText('8');
+    await expect(grid.locator('.pager-summary')).toHaveText('1–7 / 8');
     await expect(grid.locator('.data-grid-pager')).toBeVisible();
     await expect(grid.locator('.data-grid-badge--issued').first()).toHaveText('Issued');
     await expect(grid.locator('.data-grid-money').first()).toContainText('SAR');

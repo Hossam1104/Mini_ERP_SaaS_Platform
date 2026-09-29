@@ -253,11 +253,11 @@ test.describe('Supplier Quotation workspace', () => {
     await page.goto('/app/procurement/supplier-quotations');
     await expect(page.getByTestId('supplier-quotation-list')).toBeVisible();
     await expect(page.getByText('SUP-Q-S2K-001')).toBeVisible();
-    await expect(page.getByText('1,250.00 S2K')).toBeVisible();
+    await expect(page.locator('app-data-grid app-currency-amount .currency-amount').first()).toHaveText(/1,250\.00\s*S2K/);
 
     await page.goto('/app/procurement/supplier-quotations/' + quotationId);
     await expect(page.getByTestId('supplier-quotation-detail')).toBeVisible();
-    await expect(page.getByText('1,250.00 S2K')).toBeVisible();
+    await expect(page.locator('app-currency-amount .currency-amount').first()).toHaveText(/1,250\.00\s*S2K/);
 
     expect(pageErrors.filter((e) => e.includes('RangeError'))).toHaveLength(0);
   });

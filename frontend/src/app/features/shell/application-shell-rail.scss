@@ -149,7 +149,7 @@
 
 .app-flyout.nav-flyout {
   position: fixed;
-  z-index: 85;
+  z-index: 1000;
   inset-block-start: 12px;
   inset-inline-start: 88px;
   display: grid;
@@ -164,7 +164,7 @@
   border-radius: 20px;
   padding: 16px;
   color: var(--ink);
-  background: rgb(255 255 255 / .84);
+  background: var(--surface, #fff);
   box-shadow: 0 24px 48px rgb(15 23 42 / .16);
   backdrop-filter: blur(18px) saturate(1.4);
   opacity: 0;
@@ -193,7 +193,7 @@ html[dir='rtl'] .app-flyout.nav-flyout.is-open {
 
 :host-context([data-color-scheme='dark']) .app-flyout.nav-flyout {
   border-color: rgb(255 255 255 / .08);
-  background: rgb(15 23 42 / .84);
+  background: var(--surface, #0f172a);
 }
 
 @supports not (backdrop-filter: blur(4px)) {

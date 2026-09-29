@@ -29,11 +29,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
   imports: [CommonModule, RouterLink],
   template: `
     <section class="data-grid-card" [attr.aria-label]="caption">
-      <div class="data-grid-toolbar">
-        <span class="data-grid-total"><span class="data-grid-total__dot" aria-hidden="true"></span><strong>{{ filteredRows().length }}</strong> {{ countLabel }}</span>
-        <span class="data-grid-summary" aria-live="polite">{{ summaryLabel() }}</span>
-        @if (scopeLabel) { <span class="data-grid-scope">{{ scopeLabel }}</span> }
-      </div>
+      @if (scopeLabel) { <div class="data-grid-toolbar"><span class="data-grid-scope">{{ scopeLabel }}</span></div> }
       @if (loading) {
         <div class="data-grid-state data-grid-state--loading" role="status" aria-live="polite"><span class="grid-spinner" aria-hidden="true"></span>{{ loadingLabel }}</div>
       } @else if (rows().length === 0) {
@@ -116,9 +112,9 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
       @if (activeFilterColumn(); as column) {
         <div class="grid-filter-popover" role="dialog" [attr.id]="filterPopoverId(column)" [attr.aria-label]="filterLabel(column)" [style.top.px]="filterPopoverPosition().top" [style.left.px]="filterPopoverPosition().left" (keydown.escape)="closeFilter(column.key, true)">
           @if (column.filter === 'text') {
-            <label><span>{{ filterInputLabel }}</span><input type="search" [value]="textFilterValue(column.key)" [attr.aria-label]="filterInputLabel + ' ' + column.label" (input)="setTextFilter(column.key, $any($event.target).value)" /></label>
+            <label><span>{{ filterLabel(column) }}</span><input type="search" [value]="textFilterValue(column.key)" [attr.aria-label]="filterLabel(column)" (input)="setTextFilter(column.key, $any($event.target).value)" /></label>
           } @else if (column.filter === 'select') {
-            <label><span>{{ filterInputLabel }}</span><select [value]="textFilterValue(column.key)" [attr.aria-label]="filterInputLabel + ' ' + column.label" (change)="setTextFilter(column.key, $any($event.target).value)"><option value="">{{ allValuesLabel }}</option>@for (option of optionsFor(column); track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
+            <label><span>{{ filterLabel(column) }}</span><select [value]="textFilterValue(column.key)" [attr.aria-label]="filterLabel(column)" (change)="setTextFilter(column.key, $any($event.target).value)"><option value="">{{ allValuesLabel }}</option>@for (option of optionsFor(column); track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
           } @else {
             <div class="grid-range-fields">
               <label><span>{{ fromLabel }}</span><input [type]="column.filter === 'date-range' ? 'date' : 'number'" [attr.aria-label]="fromLabel + ' ' + column.label" [value]="rangeFilterValue(column.key, 'from')" (input)="setRangeFilter(column.key, 'from', $any($event.target).value)" /></label>
@@ -134,10 +130,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
     :host { display: block; min-width: 0; }
     .data-grid-card { position: relative; min-width: 0; overflow: visible; border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line)); border-radius: var(--radius-card); background: linear-gradient(145deg, var(--surface-glass), var(--surface-raised)); box-shadow: var(--shadow-card); backdrop-filter: blur(12px) saturate(140%); }
     .data-grid-toolbar { display: flex; min-height: 56px; align-items: center; justify-content: space-between; gap: 1rem; border-block-end: 1px solid var(--line); padding: .65rem 1rem; }
-    .data-grid-total { display: inline-flex; align-items: center; gap: .5rem; border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line)); border-radius: 999px; padding: .4rem .8rem; color: var(--accent-strong); background: var(--accent-soft); font-size: .9rem; white-space: nowrap; }
-    .data-grid-total strong { color: var(--ink-strong); font-size: 1rem; }
-    .data-grid-total__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
-    .data-grid-summary, .pager-summary, .pager-size { color: var(--ink-muted); font-size: 14px; }
+    .pager-summary, .pager-size { color: var(--ink-muted); font-size: 14px; }
     .data-grid-scope { color: var(--ink-muted); font-size: 12px; }
     .data-grid-scroll { max-width: 100%; max-height: min(66vh, 640px); overflow: auto; overscroll-behavior: contain; }
     .data-grid-table { width: 100%; min-width: max-content; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 14px; }
@@ -453,14 +446,6 @@ export class DataGridComponent<T extends object> {
   }
 
   changePage(delta: number): void { this.page.set(Math.max(0, Math.min(this.pageCount() - 1, this.currentPage() + delta))); }
-
-  summaryLabel(): string {
-    const total = this.filteredRows().length;
-    if (!this.clientPaging) return this.language === 'ar' ? `${total === 0 ? 0 : 1}–${total} Ù…Ù† ${total} ${this.countLabel}` : `${total === 0 ? 0 : 1}–${total} of ${total} ${this.countLabel}`;
-    const start = total === 0 ? 0 : this.currentPage() * this.pageSize + 1;
-    const end = Math.min(total, (this.currentPage() + 1) * this.pageSize);
-    return this.language === 'ar' ? `${start}–${end} من ${total} ${this.countLabel}` : `${start}–${end} of ${total} ${this.countLabel}`;
-  }
 
   pagerSummaryLabel(): string { return `${this.currentPage() * this.pageSize + 1}–${Math.min((this.currentPage() + 1) * this.pageSize, this.filteredRows().length)} / ${this.filteredRows().length}`; }
 

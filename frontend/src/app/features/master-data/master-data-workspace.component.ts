@@ -102,7 +102,6 @@ type LifecycleAction = 'deactivate' | 'reactivate';
               <option value="Inactive">{{ language.text('inactiveStatus') }}</option>
             </select>
           </label>
-          <span class="toolbar__count">{{ filteredRecords().length }} {{ language.text('recordCount') }}</span>
         </div>
 
         @if (loading()) {
