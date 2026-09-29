@@ -28,6 +28,7 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
   - Runtime state: `.runtime/processes.json`; 4310/5310 UI lane was not touched.
 - Deviations from the prompt:
   - Subledger-to-GL control-account tie-out (AR/AP/cash/inventory vs GL accounts) is not computed: BRD 40 does not define the control-account mapping; recorded as a gap.
+  - The newer-validation-after-dry-run regression scenario is unreachable: `run.PermitsAttempt(Validation)` rejects validation after dry run (`MigrationApplicationContracts.cs:769`); the by-attempt read remains defensive parity with ordinary preview, with no reachable regression test.
 - Failures and classification:
   - The first resumed full wrapper run found one A1 SQL-test failure because the expected `ByRecordType` sequence used dictionary insertion order instead of enum order. The test now compares the expected sequence sorted by `MigrationCanonicalRecordType`; the next full wrapper passed 1,593/1,593.
   - Initial EF design-time context creation failed because `MESP_SQLSERVER_CONNECTION_STRING` was unset in this shell. The model checks were rerun with a process-local LocalDB placeholder; all seven contexts reported no pending model changes, with no database write.
