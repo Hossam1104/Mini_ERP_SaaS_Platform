@@ -1,4 +1,5 @@
-import { Component, EventEmitter, HostListener, Input, Output, computed, effect, input, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Component, EventEmitter, HostListener, Input, Output, TemplateRef, computed, effect, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 export type GridFilterType = 'text' | 'select' | 'number-range' | 'date-range';
@@ -15,6 +16,7 @@ export interface DataGridColumn<T extends object> {
   filterOptions?: readonly { value: string; label: string }[];
   badge?: boolean;
   currencySymbol?: (row: T) => { url: string | null; text: string };
+  cellTemplate?: TemplateRef<{ $implicit: T; column: DataGridColumn<T> }>;
   width?: number;
   align?: 'start' | 'end';
 }
@@ -24,12 +26,13 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
 @Component({
   selector: 'app-data-grid',
   standalone: true,
-  imports: [RouterLink],
+  imports: [CommonModule, RouterLink],
   template: `
     <section class="data-grid-card" [attr.aria-label]="caption">
       <div class="data-grid-toolbar">
         <span class="data-grid-total"><span class="data-grid-total__dot" aria-hidden="true"></span><strong>{{ filteredRows().length }}</strong> {{ countLabel }}</span>
         <span class="data-grid-summary" aria-live="polite">{{ summaryLabel() }}</span>
+        @if (scopeLabel) { <span class="data-grid-scope">{{ scopeLabel }}</span> }
       </div>
       @if (loading) {
         <div class="data-grid-state data-grid-state--loading" role="status" aria-live="polite"><span class="grid-spinner" aria-hidden="true"></span>{{ loadingLabel }}</div>
@@ -44,7 +47,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
             <colgroup>
               <col class="selection-column" />
               @for (column of columns(); track column.key) { <col [style.width.px]="columnWidth(column)" /> }
-              <col class="action-column" />
+              @if (rowActions.length || rowActionsTemplate) { <col class="action-column" /> }
             </colgroup>
             <thead>
               <tr>
@@ -60,16 +63,18 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
                     </div>
                   </th>
                 }
-                <th class="action-cell" scope="col"><span class="sr-only">{{ rowActionsLabel }}</span></th>
+                @if (rowActions.length || rowActionsTemplate) { <th class="action-cell" scope="col"><span class="sr-only">{{ rowActionsLabel }}</span></th> }
               </tr>
             </thead>
             <tbody>
               @for (row of pageRows(); track rowId(row)) {
-                <tr [attr.data-row-id]="rowId(row)" [class.is-selected]="isSelected(row)">
+                <tr [attr.data-row-id]="rowId(row)" [class.is-selected]="isSelected(row)" [class.is-focused]="focusedRowId === rowId(row)" (click)="rowClick.emit(row)">
                   <td class="selection-cell"><input type="checkbox" [checked]="isSelected(row)" [attr.aria-label]="selectRowLabel(row)" (change)="toggleRowSelection(row, $event)" /></td>
                   @for (column of columns(); track column.key) {
                     <td [class.numeric]="column.align === 'end'">
-                      @if (column.badge) {
+                      @if (column.cellTemplate) {
+                        <ng-container [ngTemplateOutlet]="column.cellTemplate" [ngTemplateOutletContext]="{ $implicit: row, column: column }" />
+                      } @else if (column.badge) {
                         <span [class]="'data-grid-badge ' + badgeClass(column.value(row))">{{ cellText(column, row) }}</span>
                       } @else if (column.currencySymbol) {
                         @let currencySymbol = column.currencySymbol(row);
@@ -81,20 +86,24 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
                       @if (secondaryTextFor(column, row); as detail) { <small class="grid-cell-detail">{{ detail }}</small> }
                     </td>
                   }
-                  <td class="action-cell">
+                  @if (rowActions.length || rowActionsTemplate) { <td class="action-cell">
+                    @if (rowActionsTemplate) {
+                      <ng-container [ngTemplateOutlet]="rowActionsTemplate" [ngTemplateOutletContext]="{ $implicit: row }" />
+                    } @else {
                     <button class="grid-row-menu-trigger" type="button" [id]="rowMenuButtonId(row)" [attr.aria-label]="rowActionButtonLabel(row)" aria-haspopup="menu" [attr.aria-expanded]="actionRowId() === rowId(row)" (click)="toggleRowActions(row)"><svg class="icon" aria-hidden="true"><use href="#icon-ellipsis" /></svg></button>
                     @if (actionRowId() === rowId(row)) {
                       <div class="grid-row-menu" role="menu" [attr.aria-label]="rowActionsLabel" (keydown)="onRowMenuKeydown($event)">
-                        @for (action of rowActions; track action.key) { <button type="button" role="menuitem" (click)="runRowAction(action.key, row)">{{ action.label }}</button> }
+                        @for (action of rowActions; track action.key) { @if (!action.visible || action.visible(row)) { <button type="button" role="menuitem" [disabled]="action.disabled?.(row) ?? false" (click)="runRowAction(action.key, row)">{{ action.label }}</button> } }
                       </div>
                     }
-                  </td>
+                    }
+                  </td> }
                 </tr>
               }
             </tbody>
           </table>
         </div>
-        <footer class="data-grid-pager">
+        @if (showPager) { <footer class="data-grid-pager">
           <span class="pager-summary">{{ pagerSummaryLabel() }}</span>
           <div class="pager-controls">
             <button type="button" class="pager-button" (click)="changePage(-1)" [disabled]="currentPage() === 0" [attr.aria-label]="previousPageLabel"><svg class="icon icon--chevron-left" aria-hidden="true"><use href="#icon-chevron-left" /></svg></button>
@@ -102,7 +111,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
             <button type="button" class="pager-button" (click)="changePage(1)" [disabled]="currentPage() + 1 >= pageCount()" [attr.aria-label]="nextPageLabel"><svg class="icon icon--chevron-right" aria-hidden="true"><use href="#icon-chevron-right" /></svg></button>
           </div>
           <span class="pager-size">{{ pageSize }} {{ perPageLabel }}</span>
-        </footer>
+        </footer> }
       }
       @if (activeFilterColumn(); as column) {
         <div class="grid-filter-popover" role="dialog" [attr.id]="filterPopoverId(column)" [attr.aria-label]="filterLabel(column)" [style.top.px]="filterPopoverPosition().top" [style.left.px]="filterPopoverPosition().left" (keydown.escape)="closeFilter(column.key, true)">
@@ -129,6 +138,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
     .data-grid-total strong { color: var(--ink-strong); font-size: 1rem; }
     .data-grid-total__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
     .data-grid-summary, .pager-summary, .pager-size { color: var(--ink-muted); font-size: 14px; }
+    .data-grid-scope { color: var(--ink-muted); font-size: 12px; }
     .data-grid-scroll { max-width: 100%; max-height: min(66vh, 640px); overflow: auto; overscroll-behavior: contain; }
     .data-grid-table { width: 100%; min-width: max-content; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 14px; }
     .data-grid-table .selection-column { width: 44px; }
@@ -152,6 +162,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
     .data-grid-table tbody tr { transition: background-color var(--motion-fast) ease; }
     .data-grid-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--accent-soft) 18%, var(--surface-raised)); }
     .data-grid-table tbody tr:hover, .data-grid-table tbody tr.is-selected { background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface-raised)); }
+    .data-grid-table tbody tr.is-focused td { background: color-mix(in srgb, var(--accent-soft) 66%, var(--surface-raised)); }
     .grid-heading { position: relative; display: flex; min-width: 0; align-items: center; gap: .2rem; padding-inline-end: .7rem; }
     .grid-sort { display: inline-flex; min-width: 0; align-items: center; gap: .3rem; border: 0; padding: .25rem 0; color: inherit; background: transparent; font: inherit; text-align: start; white-space: nowrap; }
     .grid-sort:hover { color: var(--accent); }
@@ -200,9 +211,15 @@ export class DataGridComponent<T extends object> {
   @Input() caption = 'Data grid';
   @Input() language: 'en' | 'ar' = 'en';
   @Input() rowKey: keyof T & string = 'id' as keyof T & string;
-  @Input() rowActions: readonly { key: string; label: string }[] = [{ key: 'view', label: 'View' }];
+  @Input() rowIdFor: ((row: T) => string) | null = null;
+  @Input() focusedRowId: string | null = null;
+  @Input() rowActions: readonly { key: string; label: string; visible?: (row: T) => boolean; disabled?: (row: T) => boolean }[] = [{ key: 'view', label: 'View' }];
+  @Input() rowActionsTemplate: TemplateRef<{ $implicit: T }> | null = null;
   @Input() loading = false;
   @Input() pageSize = 7;
+  @Input() showPager = true;
+  @Input() clientPaging = true;
+  @Input() scopeLabel = '';
   @Input() countLabel = 'records';
   @Input() loadingLabel = 'Loading records';
   @Input() emptyLabel = 'No records';
@@ -222,6 +239,7 @@ export class DataGridComponent<T extends object> {
   @Input() viewActionKey = 'view';
   @Output() rowAction = new EventEmitter<DataGridAction<T>>();
   @Output() selectionChange = new EventEmitter<readonly string[]>();
+  @Output() rowClick = new EventEmitter<T>();
 
   readonly sortKey = signal<string | null>(null);
   readonly sortDirection = signal<'asc' | 'desc'>('asc');
@@ -242,9 +260,9 @@ export class DataGridComponent<T extends object> {
     }
     return result;
   });
-  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.filteredRows().length / Math.max(1, this.pageSize))));
+  readonly pageCount = computed(() => this.clientPaging ? Math.max(1, Math.ceil(this.filteredRows().length / Math.max(1, this.pageSize))) : 1);
   readonly currentPage = computed(() => Math.min(Math.max(0, this.page()), this.pageCount() - 1));
-  readonly pageRows = computed(() => this.filteredRows().slice(this.currentPage() * this.pageSize, (this.currentPage() + 1) * this.pageSize));
+  readonly pageRows = computed(() => this.clientPaging ? this.filteredRows().slice(this.currentPage() * this.pageSize, (this.currentPage() + 1) * this.pageSize) : this.filteredRows());
   private resizing: { key: string; startX: number; startWidth: number } | null = null;
 
   constructor() {
@@ -289,7 +307,7 @@ export class DataGridComponent<T extends object> {
   resizeLabel(column: DataGridColumn<T>): string { return this.language === 'ar' ? `تغيير عرض ${column.label}` : `${this.resizeLabelPrefix} ${column.label}`; }
   filterPopoverId(column: DataGridColumn<T>): string { return `grid-filter-${column.key}`; }
   filterTriggerId(column: DataGridColumn<T>): string { return `filter-trigger-${column.key}`; }
-  rowId(row: T): string { return String((row as Record<string, unknown>)[this.rowKey] ?? ''); }
+  rowId(row: T): string { return this.rowIdFor?.(row) ?? String((row as Record<string, unknown>)[this.rowKey] ?? ''); }
   rowMenuButtonId(row: T): string { return `grid-row-menu-${this.rowId(row)}`; }
   rowActionButtonLabel(row: T): string { return `${this.rowActionsLabel}: ${this.columns()[0] ? this.cellText(this.columns()[0], row) : this.rowId(row)}`; }
   columnWidth(column: DataGridColumn<T>): number { return this.columnWidths()[column.key] ?? column.width ?? 176; }
@@ -438,6 +456,7 @@ export class DataGridComponent<T extends object> {
 
   summaryLabel(): string {
     const total = this.filteredRows().length;
+    if (!this.clientPaging) return this.language === 'ar' ? `${total === 0 ? 0 : 1}–${total} Ù…Ù† ${total} ${this.countLabel}` : `${total === 0 ? 0 : 1}–${total} of ${total} ${this.countLabel}`;
     const start = total === 0 ? 0 : this.currentPage() * this.pageSize + 1;
     const end = Math.min(total, (this.currentPage() + 1) * this.pageSize);
     return this.language === 'ar' ? `${start}–${end} من ${total} ${this.countLabel}` : `${start}–${end} of ${total} ${this.countLabel}`;

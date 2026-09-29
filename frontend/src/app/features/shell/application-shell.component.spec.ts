@@ -46,6 +46,7 @@ describe('ApplicationShellComponent sign-out behavior', () => {
   let router: Router;
 
   beforeEach(async () => {
+    localStorage.removeItem('mesp.ui.rail');
     await TestBed.configureTestingModule({
       imports: [ApplicationShellComponent],
       providers: [
@@ -77,9 +78,16 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('a[href="/app/workspaces"]')).not.toBeNull();
     expect(element.querySelector('.context-rail')).toBeNull();
-    expect(element.textContent).toContain('Master Data');
-    expect(element.textContent).toContain('Price Lists');
-    expect(element.textContent).toContain('Purchase Requests');
+    const masterData = element.querySelector('.rail-tile[aria-label="Master data"]') as HTMLButtonElement;
+    const procurement = element.querySelector('.rail-tile[aria-label="Procurement"]') as HTMLButtonElement;
+    expect(masterData).not.toBeNull();
+    expect(procurement).not.toBeNull();
+    masterData.click();
+    fixture.detectChanges();
+    expect(element.querySelector('.nav-flyout__link[href="/app/price-lists"]')?.textContent).toContain('Price Lists');
+    procurement.click();
+    fixture.detectChanges();
+    expect(element.querySelector('.nav-flyout__link[href="/app/procurement/purchase-requests"]')?.textContent).toContain('Purchase Requests');
   });
 
   it('uses the longest route prefix for the breadcrumb and a single current navigation item', async () => {
@@ -88,11 +96,99 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
-    const currentLinks = element.querySelectorAll('.sidebar .nav-link.is-active[aria-current="page"]');
+    (element.querySelector('.rail-tile[aria-label="Operations"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const currentLinks = element.querySelectorAll('.nav-flyout .nav-flyout__link.is-active[aria-current="page"]');
     expect(fixture.componentInstance.currentPage()).toBe('Inventory Valuation');
     expect(element.querySelector('.breadcrumbs [aria-current="page"]')?.textContent).toBe('Inventory Valuation');
     expect(currentLinks).toHaveLength(1);
     expect(currentLinks[0].textContent).toContain('Inventory Valuation');
+  });
+
+  it('opens the rail flyout from the keyboard, closes on Tab out, and restores focus on Escape', async () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const trigger = element.querySelector('.rail-tile[aria-label="Master data"]') as HTMLButtonElement;
+    expect(trigger).not.toBeNull();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(trigger.getAttribute('aria-controls')).toBe('module-flyout');
+
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    fixture.detectChanges();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    fixture.detectChanges();
+
+    const links = Array.from(element.querySelectorAll('.nav-flyout__link')) as HTMLAnchorElement[];
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(element.querySelector('.nav-flyout')?.getAttribute('aria-hidden')).toBeNull();
+    expect(document.activeElement).toBe(links[0]);
+
+    links[links.length - 1].focus();
+    links[links.length - 1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    fixture.detectChanges();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    fixture.detectChanges();
+    (element.querySelector('.nav-flyout__link') as HTMLAnchorElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('moves focus through rail and flyout items with arrows in LTR and RTL', async () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const triggers = Array.from(element.querySelectorAll('.rail-tile')) as HTMLButtonElement[];
+    triggers[0].focus();
+    triggers[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(document.activeElement).toBe(triggers[1]);
+    triggers[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(document.activeElement).toBe(triggers[2]);
+    triggers[2].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    expect(document.activeElement).toBe(triggers[1]);
+
+    triggers[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    fixture.detectChanges();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    fixture.detectChanges();
+    const links = Array.from(element.querySelectorAll('.nav-flyout__link')) as HTMLAnchorElement[];
+    links[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(document.activeElement).toBe(links[1]);
+    links[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    expect(document.activeElement).toBe(links[0]);
+
+    fixture.componentInstance.language.toggle();
+    fixture.detectChanges();
+    triggers[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    fixture.detectChanges();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    fixture.detectChanges();
+    expect(triggers[1].getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(element.querySelector('.nav-flyout__link'));
+  });
+
+  it('switches the hamburger to the expanded labelled navigation mode', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const toggle = element.querySelector('.desktop-toggle') as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    toggle.click();
+    fixture.detectChanges();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(localStorage.getItem('mesp.ui.rail')).toBe('expanded');
+    expect(element.querySelector('.sidebar')?.classList.contains('sidebar--expanded')).toBe(true);
+    expect(element.querySelector('.sidebar .nav-link .nav-label')?.textContent?.trim()).toBe('Overview');
+    toggle.click();
+    fixture.detectChanges();
+    expect(localStorage.getItem('mesp.ui.rail')).toBe('collapsed');
+
+    fixture.destroy();
+    localStorage.setItem('mesp.ui.rail', 'expanded');
+    fixture = TestBed.createComponent(ApplicationShellComponent);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.desktop-toggle')?.getAttribute('aria-expanded')).toBe('true');
   });
 
   async function failSignOut(code = 'audit_unavailable', status = 503): Promise<void> {

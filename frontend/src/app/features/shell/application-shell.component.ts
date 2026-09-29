@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnInit, ViewChild, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { ContextService } from '../../core/context/context.service';
@@ -6,7 +6,7 @@ import { LanguageService } from '../../core/i18n/language.service';
 import { ThemeName, ThemeService } from '../../core/presentation/theme.service';
 import { BrandMarkComponent } from '../../shared/ui/brand-mark.component';
 import { OperationalContextSwitcherComponent } from '../../shared/ui/operational-context-switcher.component';
-import { NAVIGATION_GROUPS, NavigationItem } from './navigation.config';
+import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation.config';
 
 @Component({
   selector: 'app-application-shell',
@@ -15,31 +15,58 @@ import { NAVIGATION_GROUPS, NavigationItem } from './navigation.config';
   template: `
     <a class="skip-link" href="#main-content">{{ language.text('skipToContent') }}</a>
     <div class="shell" [class.shell--sidebar-expanded]="sidebarExpanded()">
-      <aside id="app-sidebar" class="sidebar" [class.sidebar--expanded]="sidebarExpanded()" [class.sidebar--mobile-open]="mobileMenuOpen()" [attr.aria-label]="language.text('menu')">
+      <aside #appSidebar id="app-sidebar" class="sidebar app-rail" [class.sidebar--expanded]="sidebarExpanded()" [class.sidebar--mobile-open]="mobileMenuOpen()" [attr.aria-label]="language.text('menu')">
         <nav class="sidebar__nav" [attr.aria-label]="language.text('menu')">
-          @if (!context.entry() || (context.entry()?.entryMode !== 'PlatformAdminHost' && context.entry()?.entryMode !== 'NoAccess')) {
-            <section class="nav-group" [attr.aria-label]="label('Overview', 'نظرة عامة')">
-              <span class="nav-group__title">{{ label('Overview', 'نظرة عامة') }}</span>
-              <a class="nav-link" routerLink="/app" routerLinkActive="is-active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }" [attr.aria-label]="language.text('overview')" [title]="sidebarExpanded() ? null : language.text('overview')" (click)="closeMobileMenu()">
-                <span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#icon-home" /></svg></span><span class="nav-label">{{ language.text('overview') }}</span>
-              </a>
-            </section>
-            @for (group of navigationGroups; track group.id) {
-              <section class="nav-group" [attr.aria-label]="navigationLabel(group)">
-                <span class="nav-group__title">{{ navigationLabel(group) }}</span>
-                @for (item of group.items; track item.path) {
-                  <a class="nav-link" [routerLink]="item.path" [class.is-active]="isNavigationItemCurrent(item)" [attr.aria-current]="isNavigationItemCurrent(item) ? 'page' : null" [attr.aria-label]="navigationLabel(item)" [title]="sidebarExpanded() ? null : navigationLabel(item)" (click)="closeMobileMenu()">
-                    <span class="nav-icon" aria-hidden="true"><svg class="icon"><use [attr.href]="'#icon-' + item.icon" /></svg></span><span class="nav-label">{{ navigationLabel(item) }}</span>
-                  </a>
-                }
+          @if (canShowModuleNavigation()) {
+            @if (sidebarExpanded() || mobileMenuOpen()) {
+              <section class="nav-group" [attr.aria-label]="language.text('overview')">
+                <a class="nav-link nav-link--expanded" routerLink="/app" routerLinkActive="is-active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }" [attr.aria-label]="language.text('overview')" (click)="closeMobileMenu()">
+                  <span class="nav-icon" aria-hidden="true"><svg class="icon"><use href="#icon-home" /></svg></span><span class="nav-label">{{ language.text('overview') }}</span>
+                </a>
               </section>
+              @for (group of navigationGroups; track group.id) {
+                <section class="nav-group" [attr.aria-label]="navigationLabel(group)">
+                  <span class="nav-group__title">{{ navigationLabel(group) }}</span>
+                  @for (item of group.items; track item.path) {
+                    <a class="nav-link nav-link--expanded" [routerLink]="item.path" [class.is-active]="isNavigationItemCurrent(item)" [attr.aria-current]="isNavigationItemCurrent(item) ? 'page' : null" [attr.aria-label]="navigationLabel(item)" (click)="closeMobileMenu()">
+                      <span class="nav-icon" aria-hidden="true"><svg class="icon"><use [attr.href]="'#icon-' + item.icon" /></svg></span><span class="nav-label">{{ navigationLabel(item) }}</span>
+                    </a>
+                  }
+                </section>
+              }
+            } @else {
+              <div class="rail-tiles">
+                <button #railTrigger class="rail-tile" type="button" routerLink="/app" [class.is-active]="isOverviewCurrent()" [attr.aria-current]="isOverviewCurrent() ? 'page' : null" [attr.aria-label]="language.text('overview')" [title]="language.text('overview')" (keydown)="onRailKeydown($event)" (click)="closeModuleFlyout()">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-home" /></svg>
+                </button>
+                @for (group of navigationGroups; track group.id) {
+                  <button #railTrigger class="rail-tile" type="button" [class.is-active]="isNavigationGroupCurrent(group)" [attr.aria-label]="navigationLabel(group)" [title]="navigationLabel(group)" [attr.aria-expanded]="openNavGroup() === group.id" aria-controls="module-flyout" (mouseenter)="onModuleTileEnter(group.id, $event.currentTarget)" (mouseleave)="scheduleFlyoutClose()" (focus)="onModuleTileFocus(group.id, $event)" (click)="toggleModuleFlyout(group.id, $event.currentTarget, $event)" (keydown)="onRailKeydown($event, group.id)">
+                    <svg class="icon" aria-hidden="true"><use [attr.href]="'#icon-' + group.icon" /></svg>
+                  </button>
+                }
+              </div>
+              <nav #moduleFlyout id="module-flyout" class="nav-flyout app-flyout" [class.is-open]="!!openNavGroup()" [style.top.px]="flyoutTop()" [attr.aria-label]="currentFlyoutGroup() ? navigationLabel(currentFlyoutGroup()!) : null" [attr.aria-hidden]="openNavGroup() ? null : 'true'" [attr.inert]="openNavGroup() ? null : ''" (mouseenter)="cancelFlyoutClose()" (mouseleave)="scheduleFlyoutClose()" (keydown)="onModuleFlyoutKeydown($event)">
+                @if (currentFlyoutGroup(); as group) {
+                  <div class="nav-flyout__header">
+                    <span class="nav-flyout__tile" aria-hidden="true"><svg class="icon"><use [attr.href]="'#icon-' + group.icon" /></svg></span>
+                    <h2>{{ navigationLabel(group) }}</h2>
+                  </div>
+                  <div class="nav-flyout__items">
+                    @for (item of group.items; track item.path) {
+                      <a class="nav-flyout__link" [routerLink]="item.path" [class.is-active]="isNavigationItemCurrent(item)" [attr.aria-current]="isNavigationItemCurrent(item) ? 'page' : null" (click)="closeModuleFlyout()">
+                        <svg class="icon" aria-hidden="true"><use [attr.href]="'#icon-' + item.icon" /></svg><span>{{ navigationLabel(item) }}</span>
+                      </a>
+                    }
+                  </div>
+                }
+              </nav>
             }
           }
         </nav>
 
         <div class="sidebar__footer">
           <span class="sidebar__help">{{ language.text('helpText') }}</span>
-          <span class="release-chip">MESP · ERP · 01</span>
+          <span class="release-chip">MESP ? ERP ? 01</span>
         </div>
       </aside>
 
@@ -120,24 +147,30 @@ import { NAVIGATION_GROUPS, NavigationItem } from './navigation.config';
     .shell--sidebar-expanded { grid-template-columns: var(--sidebar-expanded) minmax(0, 1fr); }
     .sidebar { position: sticky; z-index: 38; grid-column: 1; grid-row: 1; inset-block-start: 0; inset-inline-start: 0; display: flex; width: auto; height: 100dvh; min-height: 100dvh; max-height: 100dvh; flex-direction: column; gap: .8rem; overflow-x: hidden; overflow-y: auto; padding: calc(var(--header-height) + 1rem) .55rem 1rem; border-inline-end: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line)); background: var(--surface-glass); box-shadow: var(--shadow-glass); backdrop-filter: blur(18px) saturate(145%); transition: padding var(--motion-slow) ease; }
     .sidebar--expanded { padding-inline: .85rem; }
-    .sidebar__nav { display: grid; align-content: start; gap: .5rem; }
-    .nav-group { display: grid; gap: .22rem; }
+    .sidebar__nav { position: relative; display: grid; align-content: start; justify-items: center; gap: .55rem; }
+    .nav-group { display: grid; justify-items: center; gap: .22rem; }
     .nav-group__title { display: none; padding: .6rem .75rem .2rem; color: var(--ink-muted); font-size: 13px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .sidebar--expanded .nav-group__title, .sidebar--mobile-open .nav-group__title { display: block; }
-    .nav-link { position: relative; display: flex; min-height: 2.9rem; align-items: center; justify-content: center; gap: .75rem; border: 1px solid transparent; border-radius: 14px; padding: .5rem; color: var(--ink-muted); font-size: .92rem; font-weight: 700; text-decoration: none; transition: color var(--motion-fast) ease, background var(--motion-fast) ease, border-color var(--motion-fast) ease, transform var(--motion-fast) ease; }
+    .nav-link { position: relative; display: flex; width: 48px; min-height: 48px; align-items: center; justify-content: center; gap: .75rem; border: 1px solid transparent; border-radius: 15px; padding: 2px; color: var(--ink-muted); background: transparent; font: 700 .92rem/1.2 var(--font-sans); text-decoration: none; transition: color var(--motion-fast) ease, background var(--motion-fast) ease, border-color var(--motion-fast) ease, transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease; }
     .nav-link:hover { border-color: color-mix(in srgb, var(--accent) 18%, var(--line)); color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
-    .nav-link.is-active { border-color: color-mix(in srgb, var(--accent) 20%, var(--line)); color: var(--accent-strong); background: var(--accent-soft); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 10%, transparent); }
-    .nav-link.is-active::before { position: absolute; inset-block: .45rem; inset-inline-start: 0; width: 3px; border-radius: 3px; background: var(--accent-action); content: ''; }
-    .nav-icon { display: inline-grid; width: 2rem; height: 2rem; place-items: center; flex: none; border-radius: 11px; color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 80%, transparent); }
+    .nav-link.is-active { border-color: transparent; color: var(--action-text, #fff); background: var(--accent-action); box-shadow: 0 7px 17px color-mix(in srgb, var(--accent) 26%, transparent); }
+    .nav-link.is-active::before { position: absolute; inset-block: .65rem; inset-inline-start: -7px; width: 3px; border-radius: 3px; background: var(--accent-action); content: ''; }
+    .nav-icon { display: inline-grid; width: 42px; height: 42px; place-items: center; flex: none; border: 1px solid color-mix(in srgb, var(--accent) 13%, var(--line)); border-radius: 13px; color: var(--accent); background: color-mix(in srgb, var(--surface-glass) 82%, var(--accent-soft)); box-shadow: 0 3px 9px rgb(14 27 45 / 9%), inset 0 1px 0 var(--glass-highlight); transition: color var(--motion-fast) ease, background var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease; }
     .nav-icon .icon { width: 18px; height: 18px; }
     .nav-label { display: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sidebar--expanded .nav-link, .sidebar--mobile-open .nav-link { justify-content: flex-start; padding-inline: .55rem .75rem; }
+    .nav-link:hover .nav-icon, .nav-link:focus-visible .nav-icon { box-shadow: 0 7px 16px color-mix(in srgb, var(--accent) 17%, transparent); transform: translateY(-2px) scale(1.04); }
+    .nav-link.is-active .nav-icon { border-color: transparent; color: var(--action-text, #fff); background: transparent; box-shadow: none; }
+    .sidebar--expanded .sidebar__nav, .sidebar--mobile-open .sidebar__nav { justify-items: stretch; }
+    .sidebar--expanded .nav-group, .sidebar--mobile-open .nav-group { justify-items: stretch; }
+    .sidebar--expanded .nav-link, .sidebar--mobile-open .nav-link { width: auto; justify-content: flex-start; padding-inline: .55rem .75rem; }
+    .sidebar--expanded .nav-icon, .sidebar--mobile-open .nav-icon { width: 38px; height: 38px; }
     .sidebar--expanded .nav-label, .sidebar--mobile-open .nav-label { display: block; }
     .sidebar__footer { display: grid; gap: .55rem; margin-block-start: auto; border-block-start: 1px solid var(--line); padding: .8rem .25rem .1rem; text-align: center; }
     .sidebar__help { display: none; color: var(--ink-muted); font-size: 14px; }
     .sidebar--expanded .sidebar__help, .sidebar--mobile-open .sidebar__help { display: block; }
     .release-chip { display: none; justify-content: center; border: 1px solid var(--line); border-radius: 99px; padding: .25rem .4rem; color: var(--ink-muted); font-size: 14px; font-weight: 700; }
     .sidebar--expanded .release-chip { display: inline-flex; padding: .3rem .5rem; }
+    .sidebar__rail-trigger { flex: none; }
     .shell__body { grid-column: 2; grid-row: 1; min-width: 0; min-height: 100dvh; padding-block-start: var(--header-height); }
     .topbar { position: fixed; z-index: 50; inset-block-start: 0; inset-inline: 0; display: flex; min-height: var(--header-height); align-items: center; justify-content: space-between; gap: .8rem; border-block-end: 1px solid color-mix(in srgb, var(--accent) 14%, var(--line)); padding-inline: clamp(.75rem, 1.7vw, 1.5rem); color: var(--ink); background: var(--surface-glass); box-shadow: var(--shadow-glass); backdrop-filter: blur(20px) saturate(155%); }
     .topbar__start, .topbar__actions { display: flex; min-width: 0; align-items: center; gap: .65rem; }
@@ -200,6 +233,9 @@ import { NAVIGATION_GROUPS, NavigationItem } from './navigation.config';
       .sidebar--mobile-open { position: fixed; z-index: 70; inset-block-start: var(--header-height); inset-inline-start: 0; inset-block-end: 0; display: flex; width: min(var(--sidebar-expanded), 88vw); height: auto; min-height: 0; max-height: none; padding: 1rem .85rem; }
       .sidebar--mobile-open .nav-group__title, .sidebar--mobile-open .nav-label, .sidebar--mobile-open .sidebar__help { display: block; }
       .sidebar--mobile-open .nav-link { justify-content: flex-start; padding-inline: .55rem .75rem; }
+      .sidebar--mobile-open .nav-link { width: auto; }
+      .sidebar--mobile-open .nav-icon { width: 38px; height: 38px; }
+      .nav-flyout { display: none; }
       .mobile-nav-backdrop { position: fixed; z-index: 60; inset-block-start: var(--header-height); inset-inline: 0; inset-block-end: 0; display: block; border: 0; background: rgb(9 15 26 / 38%); backdrop-filter: blur(4px); }
       .shell__body, .shell--sidebar-expanded .shell__body { margin-inline: 0; }
       .shell__content { padding: 1rem .75rem; }
@@ -226,9 +262,29 @@ import { NAVIGATION_GROUPS, NavigationItem } from './navigation.config';
       .breadcrumbs { gap: .3rem; font-size: .74rem; }
     }
     @supports not (backdrop-filter: blur(4px)) { .sidebar, .topbar, .theme-menu { background: var(--surface-raised); } .mobile-nav-backdrop { background: rgb(9 15 26 / 58%); } }
+    @media (prefers-reduced-motion: reduce) { .sidebar, .nav-link, .nav-icon { transition: none; } .nav-link:hover .nav-icon, .nav-link:focus-visible .nav-icon { transform: none; } }
+    .shell { grid-template-columns: 76px minmax(0, 1fr); }
+    .shell--sidebar-expanded { grid-template-columns: 260px minmax(0, 1fr); }
+    @media (max-width: 767px) {
+      .shell, .shell--sidebar-expanded { display: block; }
+      .sidebar { display: none; }
+      .sidebar--mobile-open { position: fixed; z-index: 70; inset-block-start: var(--header-height); inset-inline-start: 0; inset-block-end: 0; display: flex; width: min(260px, 88vw); height: auto; min-height: 0; max-height: none; padding: 16px; }
+      .sidebar--mobile-open .nav-group__title, .sidebar--mobile-open .nav-label, .sidebar--mobile-open .sidebar__help { display: block; }
+      .sidebar--mobile-open .nav-link--expanded { width: 100%; }
+      .desktop-toggle { display: none; }
+      .icon-button.mobile-toggle { display: inline-flex; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .rail-tile { transition: none; }
+      .rail-tile:hover, .rail-tile:focus-visible { transform: none; }
+      .nav-flyout { transform: none; transition: opacity 160ms ease-out, visibility 160ms; }
+      :host-context([dir=rtl]) .nav-flyout { transform: none; }
+      .nav-flyout.is-open, :host-context([dir=rtl]) .nav-flyout.is-open { transform: none; }
+    }
   `,
+  styleUrls: ['./application-shell-rail.scss'],
 })
-export class ApplicationShellComponent implements OnInit {
+export class ApplicationShellComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService);
   readonly context = inject(ContextService);
   readonly language = inject(LanguageService);
@@ -238,10 +294,20 @@ export class ApplicationShellComponent implements OnInit {
 
   readonly sidebarExpanded = signal(false);
   readonly mobileMenuOpen = signal(false);
+  readonly openNavGroup = signal<string | null>(null);
+  readonly flyoutTop = signal(84);
   readonly themeMenuOpen = signal(false);
   readonly themeMenuFocus = signal<ThemeName>('sapphire');
   private themeMenuElement?: HTMLElement;
+  private sidebarElement?: HTMLElement;
+  private moduleFlyoutElement?: HTMLElement;
+  private lastModuleTrigger?: HTMLElement;
+  private flyoutOpenTimer?: ReturnType<typeof setTimeout>;
+  private flyoutCloseTimer?: ReturnType<typeof setTimeout>;
 
+  @ViewChild('appSidebar') set appSidebar(value: ElementRef<HTMLElement> | undefined) { this.sidebarElement = value?.nativeElement; }
+  @ViewChild('moduleFlyout') set moduleFlyout(value: ElementRef<HTMLElement> | undefined) { this.moduleFlyoutElement = value?.nativeElement; }
+  @ViewChildren('railTrigger') private railTriggers?: QueryList<ElementRef<HTMLElement>>;
   @ViewChild('themeTrigger') private themeTrigger?: ElementRef<HTMLButtonElement>;
   @ViewChild('themeMenu') set themeMenu(value: ElementRef<HTMLElement> | undefined) {
     this.themeMenuElement = value?.nativeElement;
@@ -251,9 +317,17 @@ export class ApplicationShellComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    try {
+      this.sidebarExpanded.set(typeof window !== 'undefined' && window.localStorage.getItem('mesp.ui.rail') === 'expanded');
+    } catch { /* Storage can be unavailable in a restricted browser context. */ }
     if (this.context.contexts().length === 0 && !this.context.entry()) {
       void this.context.loadEntry();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.cancelFlyoutOpen();
+    this.cancelFlyoutClose();
   }
 
   @HostListener('document:click', ['$event'])
@@ -264,6 +338,13 @@ export class ApplicationShellComponent implements OnInit {
     this.themeMenuOpen.set(false);
   }
 
+  @HostListener('document:click', ['$event'])
+  closeModuleFlyoutOnOutsideClick(event: MouseEvent): void {
+    const target = event.target;
+    if (!this.openNavGroup() || !(target instanceof Node) || this.sidebarElement?.contains(target)) return;
+    this.closeModuleFlyout();
+  }
+
   @HostListener('document:keydown', ['$event'])
   closeOverlaysOnEscape(event: KeyboardEvent): void {
     if (event.key !== 'Escape') return;
@@ -272,6 +353,10 @@ export class ApplicationShellComponent implements OnInit {
       this.closeThemeMenu(true);
     }
     if (this.mobileMenuOpen()) this.closeMobileMenu();
+    if (this.openNavGroup()) {
+      event.preventDefault();
+      this.closeModuleFlyout(true);
+    }
   }
 
   toggleThemeMenu(): void {
@@ -316,8 +401,21 @@ export class ApplicationShellComponent implements OnInit {
 
   closeMobileMenu(): void { this.mobileMenuOpen.set(false); }
 
-  toggleSidebar(): void { this.sidebarExpanded.update((expanded) => !expanded); }
-  toggleMobileMenu(): void { this.mobileMenuOpen.update((open) => !open); }
+  toggleSidebar(): void {
+    const expanded = !this.sidebarExpanded();
+    this.sidebarExpanded.set(expanded);
+    try { window.localStorage.setItem('mesp.ui.rail', expanded ? 'expanded' : 'collapsed'); } catch { /* Storage can be unavailable in a restricted browser context. */ }
+    this.closeModuleFlyout();
+  }
+
+  toggleMobileMenu(): void {
+    this.mobileMenuOpen.update((open) => !open);
+    this.closeModuleFlyout();
+  }
+
+  canShowModuleNavigation(): boolean {
+    return !this.context.entry() || (this.context.entry()?.entryMode !== 'PlatformAdminHost' && this.context.entry()?.entryMode !== 'NoAccess');
+  }
 
   label(english: string, arabic: string): string {
     return this.language.language() === 'ar' ? arabic : english;
@@ -332,7 +430,10 @@ export class ApplicationShellComponent implements OnInit {
     let match: NavigationItem | null = null;
     for (const group of NAVIGATION_GROUPS) {
       for (const item of group.items as readonly NavigationItem[]) {
-        if ((url === item.path || url.startsWith(`${item.path}/`)) && (!match || item.path.length > match.path.length)) match = item;
+        const isMasterDataResource = item.path === '/app/master-data/categories'
+          && url.startsWith('/app/master-data/')
+          && !url.startsWith('/app/master-data/imports');
+        if ((isMasterDataResource || url === item.path || url.startsWith(item.path + '/')) && (!match || item.path.length > match.path.length)) match = item;
       }
     }
     return match;
@@ -340,6 +441,135 @@ export class ApplicationShellComponent implements OnInit {
 
   isNavigationItemCurrent(item: NavigationItem): boolean {
     return this.currentNavigationItem()?.path === item.path;
+  }
+
+  isNavigationGroupCurrent(group: NavigationGroup): boolean {
+    return group.items.some((item) => this.isNavigationItemCurrent(item));
+  }
+
+  currentFlyoutGroup(): NavigationGroup | null {
+    return this.navigationGroups.find((group) => group.id === this.openNavGroup()) ?? null;
+  }
+
+  isOverviewCurrent(): boolean {
+    const url = this.router.url.split(/[?#]/)[0] ?? '/app';
+    return url === '/app' || url === '/app/';
+  }
+
+  onModuleTileEnter(groupId: string, trigger: EventTarget | null): void {
+    this.cancelFlyoutClose();
+    this.cancelFlyoutOpen();
+    this.flyoutOpenTimer = setTimeout(() => this.openModuleFlyout(groupId, false, trigger), 80);
+  }
+
+  onModuleTileFocus(groupId: string, event: FocusEvent): void {
+    const trigger = event.currentTarget;
+    if (event.target instanceof HTMLElement && event.target.matches(':focus-visible')) {
+      this.cancelFlyoutOpen();
+      this.openModuleFlyout(groupId, false, trigger);
+    }
+  }
+
+  toggleModuleFlyout(groupId: string, trigger: EventTarget | null, event: MouseEvent): void {
+    this.cancelFlyoutOpen();
+    this.cancelFlyoutClose();
+    if (event.detail === 0) {
+      this.openModuleFlyout(groupId, true, trigger);
+      return;
+    }
+    if (this.openNavGroup() === groupId) {
+      this.closeModuleFlyout();
+      return;
+    }
+    this.openModuleFlyout(groupId, false, trigger);
+  }
+
+  openModuleFlyout(groupId: string, focusFirst = false, trigger?: EventTarget | null): void {
+    if (this.sidebarExpanded() || this.mobileMenuOpen()) return;
+    this.cancelFlyoutOpen();
+    this.cancelFlyoutClose();
+    if (trigger instanceof HTMLElement) this.lastModuleTrigger = trigger;
+    this.openNavGroup.set(groupId);
+    requestAnimationFrame(() => {
+      this.positionFlyout();
+      if (focusFirst) this.moduleFlyoutElement?.querySelector<HTMLElement>('a[href]')?.focus();
+    });
+  }
+
+  closeModuleFlyout(restoreFocus = false): void {
+    this.cancelFlyoutOpen();
+    this.cancelFlyoutClose();
+    this.openNavGroup.set(null);
+    if (restoreFocus) queueMicrotask(() => this.lastModuleTrigger?.focus());
+  }
+
+  cancelFlyoutOpen(): void {
+    if (this.flyoutOpenTimer !== undefined) clearTimeout(this.flyoutOpenTimer);
+    this.flyoutOpenTimer = undefined;
+  }
+
+  cancelFlyoutClose(): void {
+    if (this.flyoutCloseTimer !== undefined) clearTimeout(this.flyoutCloseTimer);
+    this.flyoutCloseTimer = undefined;
+  }
+
+  scheduleFlyoutClose(): void {
+    this.cancelFlyoutClose();
+    this.flyoutCloseTimer = setTimeout(() => this.closeModuleFlyout(), 150);
+  }
+
+  positionFlyout(): void {
+    if (typeof window === 'undefined' || !this.lastModuleTrigger || !this.moduleFlyoutElement || !this.openNavGroup()) return;
+    const railTop = this.sidebarElement?.getBoundingClientRect().top ?? 0;
+    const triggerTop = this.lastModuleTrigger.getBoundingClientRect().top - railTop;
+    const minTop = 12 - railTop;
+    const maxTop = window.innerHeight - this.moduleFlyoutElement.offsetHeight - 12 - railTop;
+    this.flyoutTop.set(Math.min(Math.max(triggerTop, minTop), Math.max(minTop, maxTop)));
+  }
+
+  @HostListener('window:resize')
+  repositionFlyout(): void { this.positionFlyout(); }
+
+  onRailKeydown(event: KeyboardEvent, groupId?: string): void {
+    const triggers = this.railTriggers?.toArray().map((item) => item.nativeElement) ?? [];
+    const index = triggers.indexOf(event.currentTarget as HTMLElement);
+    if (index < 0 || triggers.length === 0) return;
+    if (groupId && (event.key === 'Enter' || event.key === ' ' || event.key === (this.language.language() === 'ar' ? 'ArrowLeft' : 'ArrowRight'))) {
+      event.preventDefault();
+      this.openModuleFlyout(groupId, true, event.currentTarget);
+      return;
+    }
+    const rtl = this.language.language() === 'ar';
+    let next: number | null = null;
+    if (event.key === 'ArrowDown') next = (index + 1) % triggers.length;
+    if (event.key === 'ArrowUp') next = (index - 1 + triggers.length) % triggers.length;
+    if (next === null) return;
+    event.preventDefault();
+    triggers[next]?.focus();
+  }
+
+  onModuleFlyoutKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeModuleFlyout(true);
+      return;
+    }
+    const items = Array.from(this.moduleFlyoutElement?.querySelectorAll<HTMLElement>('a[href]') ?? []);
+    if (items.length === 0) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const index = items.indexOf(event.target as HTMLElement);
+    let next: number | null = null;
+    if (event.key === 'ArrowDown') next = (index + 1 + items.length) % items.length;
+    if (event.key === 'ArrowUp') next = (index - 1 + items.length) % items.length;
+    if (next !== null) {
+      event.preventDefault();
+      items[next]?.focus();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    if ((event.shiftKey && event.target === first) || (!event.shiftKey && event.target === last)) this.closeModuleFlyout();
   }
 
   currentPage(): string {
