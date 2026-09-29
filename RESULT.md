@@ -16,8 +16,12 @@ template in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md) §7. Older logs are
   - Opus ruling: a validation after a dry run is unreachable (`run.PermitsAttempt`, `MigrationApplicationContracts.cs:769`), so the linked-read change is defensive parity without a reachable regression test.
 - Deviations from the prompt:
   - Subledger-to-GL control-account tie-out remains a recorded gap (BRD 40 defines no mapping).
-- Next:
-  - Accepted Luna cycles 7 (Sol early window opens at 8). UI lanes MESP-178 (#309) and MESP-175 continue.
+- Failures and classification:
+  - None in the accepted state. The executor's invalid linked-validation test (unreachable run state) was removed by Opus ruling; not a product defect.
+- Status files updated:
+  - `ORCHESTRATION_STATE.yaml` (cycle 6 → 7, current result), `docs/ROADMAP.md` (reconciled date, cycle count, next items), this entry; #299 closed.
+- Exact next action:
+  - Sol re-review of MESP-169 + MESP-173 inside the early window (cycle 8–10); UI lanes MESP-178 (#309) and MESP-175 (#305) continue under owner approval.
 
 ## 2026-09-29 — MESP-173 correction and handback — GPT-6 Luna / max — MESP-173 (#299)
 - Status: DONE

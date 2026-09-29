@@ -7,7 +7,7 @@ state also updates the line here.
 
 _Last reconciled: 2026-09-29 (MESP-173 (#299) accepted and merged via PR #310; MESP-178 (#309) and MESP-175 (#305) UI lanes in progress)._
 
-**Accepted Executor cycles since the last Sol review: 6** (counter in `ORCHESTRATION_STATE.yaml`,
+**Accepted Executor cycles since the last Sol review: 7** (counter in `ORCHESTRATION_STATE.yaml`,
 `MODEL_ROUTING.md` §2; the owner reset it to 0 on 2026-09-27). The last Sol review was the MESP-149
 cleanup review (PR #278, closed unmerged as superseded).
 
