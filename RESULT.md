@@ -1,5 +1,16 @@
 # Results
 
+## 2026-09-30 — MESP-182 (#321) Development Sales migration coverage — GPT-6 / max — MESP-182 (#321)
+- Status: DONE. Draft PR #323 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-182-dev-migrator-sales`; started `a77a2b7d513357301d59286d7b4e2e38d557eb81`; code commit `5b76aa0fe7e93ad6a2b1366cd4620d966d0e8a92`; RESULT hand-back commit follows.
+- What changed: Root cause was the Development SQL Server migrator omitting `SalesDbContext`, leaving `sales.SalesQuotations` absent. Added the Sales migration block after Finance and a coverage test that finds contexts from migration attributes.
+- Gates: Test-first coverage check failed with `The Development SQL Server migrator must cover every module-owned EF context with migrations. Missing: SalesDbContext` (1 failed, exit 1). Sales pending-model check: no changes since the last migration (exit 0). Targeted coverage, DevelopmentBootstrap and SqlServerSafety run: 279 total, 278 passed, 1 known MESP-166 failure (exit 1). One isolated rerun of that test passed (1/1, exit 0). Full backend runner built Release with 0 warnings/errors, then surfaced the same test failure and exited 1; its PowerShell capture ended before a test summary. `git diff --check`: clean (exit 0).
+- Evidence: Draft PR #323: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/323. Sales migrations declare foreign keys only within the `sales` schema; Sales is after Finance so Inventory and Finance have both migrated. The constructor matches the existing block shape. No context exclusions; no EF migrations edited.
+- Deviations from the prompt: The full runner's PowerShell native-command error handling stopped captured output at the known test failure; no full-suite count is claimed. The shared `origin/main` ref is now seven commits ahead of this branch (`7a80884db223d48816b5fc245e56185da8e67a89`); the branch was not rebased or update-branched.
+- Failures and classification: `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` reported `UnknownOutcome:migration_audit_recovery_required:attempt= | Succeeded:migration_execution_completed:attempt=dc5a947a-856b-49d8-94f2-2c1aa3c29337` in the targeted run; stack points to `SqlServerSafetyTests.cs:3539`. Classified as the known MESP-166 flake; the one permitted isolated rerun passed. No other failures appeared in captured output.
+- Status files updated: `RESULT.md`; `TASK.md` remains untouched per the contract.
+- Exact next action: Opus 5.5 reviews Draft PR #323; the Planner performs the separate runtime verification after merge. No runtime restart or Development database migration was run.
+
 ## 2026-09-30 - MESP-171 (#294) Slice 14 authority matrix and gate - GPT-6 Luna / max - MESP-171 (#294)
 - Status: DONE. PR #320 remains OPEN/Draft; no Ready, review request, approval, merge, or issue-state change.
 - Branch / starting SHA / ending SHA: `feat/mesp-171-authority-report`; started at `c035114`; RESULT hand-back commit follows.
