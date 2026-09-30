@@ -304,6 +304,24 @@ internal sealed class IdentityAuthorizationService :
         }
     }
 
+    internal void EnsureDevelopmentPassword(UserId userId, string password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            throw new ArgumentException("A password is required.", nameof(password));
+        }
+
+        lock (store.SyncRoot)
+        {
+            var user = RequireUserUnsafe(userId);
+            if (passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password)
+                != PasswordVerificationResult.Success)
+            {
+                user.PasswordHash = passwordHasher.HashPassword(user, password);
+            }
+        }
+    }
+
     internal GlobalUserStatus GetUserStatus(UserId userId)
     {
         lock (store.SyncRoot)

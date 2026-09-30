@@ -62,6 +62,33 @@ public sealed class TenantEntryRoutingTests
     }
 
     [Fact]
+    public void Development_registry_resolves_wafra_as_canonical_and_keeps_existing_tenant_alias()
+    {
+        var tenantId = DevelopmentBootstrap.DevTenantId.Value;
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MESP_TENANT_HOST_BINDINGS:0:Host"] = "wafra.localhost",
+                ["MESP_TENANT_HOST_BINDINGS:0:TenantId"] = tenantId.ToString("D"),
+                ["MESP_TENANT_HOST_BINDINGS:0:CanonicalHost"] = "wafra.localhost",
+                ["MESP_TENANT_HOST_BINDINGS:1:Host"] = "tenant.localhost",
+                ["MESP_TENANT_HOST_BINDINGS:1:TenantId"] = tenantId.ToString("D"),
+                ["MESP_TENANT_HOST_BINDINGS:1:CanonicalHost"] = "wafra.localhost",
+                ["MESP_ENTRY_COMMON_HOSTS:0"] = "localhost",
+                ["MESP_ENTRY_COMMON_HOSTS:1"] = "mesp.localhost",
+                ["MESP_ENTRY_PLATFORM_HOSTS:0"] = "admin.localhost"
+            })
+            .Build();
+        var registry = new TenantHostRegistry(configuration);
+
+        Assert.Equal(TenantEntryMode.TenantHost, registry.Resolve("wafra.localhost:4310").Mode);
+        Assert.Equal(tenantId, registry.Resolve("wafra.localhost").Binding!.TenantId.Value);
+        Assert.Equal("wafra.localhost", registry.Resolve("tenant.localhost").CanonicalHost);
+        Assert.Equal(TenantEntryMode.CommonHost, registry.Resolve("mesp.localhost").Mode);
+        Assert.Equal(TenantEntryMode.NoAccess, registry.Resolve("unknown.localhost").Mode);
+    }
+
+    [Fact]
     public void Registry_rejects_host_collisions_at_startup()
     {
         var tenantId = Guid.NewGuid();

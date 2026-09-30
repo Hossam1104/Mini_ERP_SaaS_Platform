@@ -518,7 +518,11 @@ public interface ITenantEntryAuthority
         string? rawHost,
         bool activateCommonHost = true);
 
-    FoundationEntryResponse BuildResponse(ClaimsPrincipal principal, string? rawHost);
+    FoundationEntryResponse BuildResponse(
+        ClaimsPrincipal principal,
+        string? rawHost,
+        bool isDevelopment = false,
+        string? developmentAccountHint = null);
 }
 
 internal sealed class TenantEntryAuthority : ITenantEntryAuthority
@@ -629,20 +633,55 @@ internal sealed class TenantEntryAuthority : ITenantEntryAuthority
         return resolution;
     }
 
-    public FoundationEntryResponse BuildResponse(ClaimsPrincipal principal, string? rawHost)
+    public FoundationEntryResponse BuildResponse(
+        ClaimsPrincipal principal,
+        string? rawHost,
+        bool isDevelopment = false,
+        string? developmentAccountHint = null)
     {
         var resolution = Prepare(principal, rawHost);
         var state = identityHost.GetSession(principal);
         if (!state.Authenticated)
         {
-            return EmptyResponse(resolution, "authentication_failed");
+            if (resolution.Mode == TenantEntryMode.NoAccess)
+            {
+                return EmptyResponse(resolution, "access_denied", isDevelopment);
+            }
+
+            var publicTenantBranding = resolution.Mode == TenantEntryMode.TenantHost
+                && resolution.Binding is { TenantId: { } publicTenantId }
+                ? branding.Get(new TenantId(publicTenantId.Value))
+                : null;
+            var anonymousBranding = publicTenantBranding is { TenantConfigured: true }
+                ? new FoundationBrandingResponse(
+                    publicTenantBranding.DisplayName,
+                    publicTenantBranding.LogoLightUrl,
+                    publicTenantBranding.LogoDarkUrl,
+                    publicTenantBranding.LogoAltText,
+                    true,
+                    publicTenantBranding.DefaultTheme)
+                : new FoundationBrandingResponse("MESP", null, null, "MESP", false);
+            return new FoundationEntryResponse(
+                resolution.Mode.ToString(),
+                resolution.CanonicalHost,
+                null,
+                null,
+                [],
+                [],
+                null,
+                0,
+                anonymousBranding,
+                new FoundationCurrencyPresentationResponse("SAR", null, "SAR"),
+                null,
+                isDevelopment,
+                developmentAccountHint);
         }
 
         // Unknown, disabled, or otherwise invalid hosts are a safe no-access
         // state. In particular, they must not become a Tenant directory.
         if (resolution.Mode == TenantEntryMode.NoAccess)
         {
-            return EmptyResponse(resolution, "access_denied");
+            return EmptyResponse(resolution, "access_denied", isDevelopment);
         }
 
         var allAuthorizedTenants = identityHost.ListContexts(principal)
@@ -727,10 +766,12 @@ internal sealed class TenantEntryAuthority : ITenantEntryAuthority
             identityHost.GetOperationalSelectionVersion(principal),
             brand,
             presentation,
-            entryMode == TenantEntryMode.NoAccess.ToString() ? "access_denied" : null);
+            entryMode == TenantEntryMode.NoAccess.ToString() ? "access_denied" : null,
+            isDevelopment,
+            entryMode == TenantEntryMode.NoAccess.ToString() ? null : developmentAccountHint);
     }
 
-    private static FoundationEntryResponse EmptyResponse(TenantHostResolution resolution, string code) =>
+    private static FoundationEntryResponse EmptyResponse(TenantHostResolution resolution, string code, bool isDevelopment = false) =>
         new(
             TenantEntryMode.NoAccess.ToString(),
             resolution.CanonicalHost,
@@ -742,7 +783,8 @@ internal sealed class TenantEntryAuthority : ITenantEntryAuthority
             0,
             new FoundationBrandingResponse("MESP", null, null, "MESP", false),
             new FoundationCurrencyPresentationResponse("SAR", null, "SAR"),
-            code);
+            code,
+            isDevelopment);
 
     private static FoundationOperationalContextResponse ToOperationalResponse(FoundationHostOperationalContextCandidate candidate) =>
         new(candidate.ContextId, candidate.Kind, candidate.DisplayName, candidate.EligibilityVersion);
