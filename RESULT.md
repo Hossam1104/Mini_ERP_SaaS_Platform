@@ -1,5 +1,16 @@
 # Results
 
+## 2026-09-30 - MESP-181 (#319) ordinary permission denial returns 403 - GPT-6 Luna / max - MESP-181 (#319)
+- Status: DONE. PR #322 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-181-permission-denial-403`; started at `a77a2b7d513357301d59286d7b4e2e38d557eb81`; code commit `acb5fec`; RESULT hand-back commit follows.
+- What changed: Root cause was `ResolveContext` treating a denied operation on a valid ordinary membership as an invalid selection, removing it and returning an unauthenticated context. The OrdinaryMembership branch now returns `ForAuthenticatedSession` after `AuthorizeOrdinary` denies, preserving the selection and giving endpoint code the existing 403 response. Added real-host tests for denied-then-permitted calls, no-session 401, and inactive-membership selection removal. The scope-policy mismatch early return, SupportGrant path, and PlatformGovernanceContext path are intentionally unchanged.
+- Gates: Pre-fix permission-denial tests: 3 tests, 2 passed / 1 failed; assertion expected `(Forbidden, OK)` and received `(Unauthorized, Forbidden)`, exit 1. Combined focused gate (`dotnet test backend/MiniErp.sln --filter "FullyQualifiedName~PermissionDenialStatusTests|FullyQualifiedName~HostSecurityTests|FullyQualifiedName~RestFoundationTests" --logger "console;verbosity=normal"`): 62 passed, 0 failed, exit 0. Backend wrapper (`Test-MiniErpBackend.ps1 -NoBuild:$false`): Release build 0 warnings / 0 errors; 1,596 passed, 1 failed, 0 skipped, exit 1. The only failure was `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` (known MESP-166 #285 flake). Isolated rerun against the disposable SQL Server safety target: 1 passed, 0 failed, exit 0. `git diff --check`: clean, exit 0.
+- Evidence: Draft PR #322: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/322. The denied route is catalogued with `FoundationScopePolicy.Tenant`; the seeded owner membership lacks `tenant.foundation.target.read`. The same signed-in client receives 403 for that operation and then 200 from `/api/v1/foundation/tenant-context`, proving the selection remains available. No tenant or platform context is returned for the denied operation.
+- Deviations from the prompt: None.
+- Failures and classification: The first full wrapper run had the one known MESP-166 (#285) SQL Server claim-race flake; its assertion reported a migration execution completion followed by a version conflict. The isolated rerun passed. No other failures.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews Draft PR #322; leave it Draft, do not mark Ready or merge.
+
 ## 2026-09-30 — MESP-180 (#317) npm audit undici advisory — GPT-6 Luna / max
 - Status: DONE. PR #318 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
 - Branch / starting SHA / ending SHA: `fix/mesp-180-npm-audit-undici`; started at `27b255decd23261141efc092254e1f2722a5c62f`; code commit `0bcf2db`; RESULT hand-back commit follows.
