@@ -1,5 +1,66 @@
 # Results
 
+## 2026-10-01 — MESP-192 (#335) Angular audit remediation — GPT-6 / max — MESP-192 (#335)
+- Status: DONE; no Ready, review request, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-192-angular-audit`; started `79111ee99d4bb8bb770f97bb30607000d1f23967`; code commit `a9d0c6b6b5d3b5284a32af03b5f0eb87f3814a7a`; RESULT hand-back commit follows.
+- What changed: Root cause was upstream HIGH advisory GHSA-ff3f-86qr-9cv3 against `@angular/router` through 22.2.0-rc.0, with the installed Angular 22.1.x line affected; `@angular/common` 22.0.0–22.1.0 also had moderate GHSA-p297-fm68-3q8c. Upgraded framework packages to 22.2.1, `@angular/build` and `@angular/cli` to 22.2.0, and `@angular/compiler-cli` to 22.2.1. npm regenerated `frontend/package-lock.json`; no product source or test files changed.
+- Gates:
+  - `npm audit --omit=dev --audit-level=high`: found 0 vulnerabilities (0 moderate, 0 high, 0 critical), exit 0.
+  - `npm audit --audit-level=high`: found 0 vulnerabilities (0 moderate, 0 high, 0 critical), exit 0.
+  - `npm test -- --watch=false --no-progress`: 49 files passed, 335 tests passed, 0 failed, exit 0.
+  - `npm run build`: passed; initial total 498.56 kB, below 500 kB.
+  - `npm run test:e2e -- --project=chromium --workers=1` with `MESP_E2E_BASE_URL=http://localhost:4350`: 60 passed, exit 0.
+  - `git diff --check`: clean, exit 0.
+- Evidence: API project prerequisite build succeeded with 0 warnings / 0 errors; API health returned 200 on port 5350 and Angular returned 200 on 4350. Both worktree servers were stopped and both ports verified free.
+- Deviations from the prompt: Initial npm install attempts returned ERESOLVE against the old exact Angular peer graph; no bypass flags were used. The Angular graph was regenerated with npm commands. npm also warned that install scripts for four dependencies were blocked; the requested unit, build, and E2E gates all passed. A read-only staged-diff query was accidentally run from the main checkout; it returned no staged changes and caused no file or index mutation. All further work stayed in this worktree.
+- Failures and classification: Initial npm ERESOLVE was a dependency-configuration conflict with locked Angular 22.1.x peers and was resolved. No requested gate failed.
+- Status files updated: `RESULT.md` only; `TASK.md` was left untouched.
+- Exact next action: Opus 5.5 reviews the MESP-192 (#335) Draft PR after opening; keep it Draft/Open and await owner direction.
+
+## 2026-09-30 — MESP-182 (#321) Development Sales migration coverage — GPT-6 / max — MESP-182 (#321)
+- Status: DONE. Draft PR #323 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-182-dev-migrator-sales`; started `a77a2b7d513357301d59286d7b4e2e38d557eb81`; code commit `5b76aa0fe7e93ad6a2b1366cd4620d966d0e8a92`; RESULT hand-back commit follows.
+- What changed: Root cause was the Development SQL Server migrator omitting `SalesDbContext`, leaving `sales.SalesQuotations` absent. Added the Sales migration block after Finance and a coverage test that finds contexts from migration attributes.
+- Gates: Test-first coverage check failed with `The Development SQL Server migrator must cover every module-owned EF context with migrations. Missing: SalesDbContext` (1 failed, exit 1). Sales pending-model check: no changes since the last migration (exit 0). Targeted coverage, DevelopmentBootstrap and SqlServerSafety run: 279 total, 278 passed, 1 known MESP-166 failure (exit 1). One isolated rerun of that test passed (1/1, exit 0). Full backend runner built Release with 0 warnings/errors, then surfaced the same test failure and exited 1; its PowerShell capture ended before a test summary. `git diff --check`: clean (exit 0).
+- Evidence: Draft PR #323: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/323. Sales migrations declare foreign keys only within the `sales` schema; Sales is after Finance so Inventory and Finance have both migrated. The constructor matches the existing block shape. No context exclusions; no EF migrations edited.
+- Deviations from the prompt: The full runner's PowerShell native-command error handling stopped captured output at the known test failure; no full-suite count is claimed. The shared `origin/main` ref is now seven commits ahead of this branch (`7a80884db223d48816b5fc245e56185da8e67a89`); the branch was not rebased or update-branched.
+- Failures and classification: `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` reported `UnknownOutcome:migration_audit_recovery_required:attempt= | Succeeded:migration_execution_completed:attempt=dc5a947a-856b-49d8-94f2-2c1aa3c29337` in the targeted run; stack points to `SqlServerSafetyTests.cs:3539`. Classified as the known MESP-166 flake; the one permitted isolated rerun passed. No other failures appeared in captured output.
+- Status files updated: `RESULT.md`; `TASK.md` remains untouched per the contract.
+- Exact next action: Opus 5.5 reviews Draft PR #323; the Planner performs the separate runtime verification after merge. No runtime restart or Development database migration was run.
+
+## 2026-09-30 - MESP-171 (#294) Slice 14 authority matrix and gate - GPT-6 Luna / max - MESP-171 (#294)
+- Status: DONE. PR #320 remains OPEN/Draft; no Ready, review request, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: `feat/mesp-171-authority-report`; started at `c035114`; RESULT hand-back commit follows.
+- What changed: Added this evidence entry and updated PR #320's body to remove the obsolete MESP-181 blocker and record the green gate counts. No product code changed in this hand-back.
+- Gates:
+  - Focused `dotnet test backend/MiniErp.sln --filter "FullyQualifiedName~MigrationAuthorityMatrixTests" --logger "console;verbosity=normal"`: 21 passed, 0 failed, 21 total; duration 33.0397 seconds.
+  - `Test-MiniErpBackend.ps1 -NoBuild:$false` in detached worktree at `c035114`: Release build 0 warnings / 0 errors (23.66 seconds); 1,618 passed, 0 failed, 0 skipped, total 1,618 (6m 6s). Disposable database `MiniErpFoundation_20260930144158_88ac8847`; script reported `MESP data is intact`. Gate worktree removed without force.
+  - `git diff --check`: clean, exit 0.
+- Evidence and MESP-171 (#294) issue rows:
+  - Matrix coverage: 18 catalogue-driven missing-permission cases; foreign-Tenant matrix across public Migration operations; Company-scope denial and missing-evidence responses; reconciliation freshness and approval ownership.
+  - M40-REQ-028 - PARTIAL: `Migration_operation_denies_a_tenant_membership_without_its_permission` and `Migration_operations_hide_foreign_tenant_sources_and_runs` cover exact permission and foreign-Tenant denial across operations; `Resource_scoped_reads_distinguish_scope_denial_from_missing_evidence` proves Company-scope denial on the seven evidence reads. Company-scope coverage does not prove organization authority for every action.
+  - M40-REQ-033 - NOT COVERED BY THIS PR: no new reconciliation-count test was added. Existing `MigrationReconciliationSqlServerSafetyTests.Sql_server_s11_r01_clean_all_domain_reconciliation_is_durable_and_read_only` and `MigrationReconciliationSqlServerSafetyTests.Sql_server_s11_r08_row_outcome_counts_are_disjoint_and_sum_to_staged_rows` remain the existing supported-count evidence; applicable historical/open-document counts remain bounded by M40-DEC-001.
+  - M40-REQ-034 - PARTIAL: `Reconciliation_report_exposes_utc_freshness_and_approval_ownership` asserts approval actor and requirement ownership in the report; `MigrationReconciliationSqlServerSafetyTests.Sql_server_s11_r11_preparer_is_denied_and_independent_reviewer_can_approve` remains existing reviewer-separation evidence. This PR does not assert every preparer, owner, exception, variance, and basis field; production quorum/SoD remains open under M40-DEC-006.
+  - M40-REQ-041 - PARTIAL: existing `MigrationReconciliationSqlServerSafetyTests.Sql_server_s11_r18_ready_for_handover_never_activates_the_tenant` covers non-activation. Unresolved-decision review is not implemented because the qualifying decisions need an owner decision.
+  - M40-REQ-042 - PARTIAL: `Reconciliation_report_exposes_utc_freshness_and_approval_ownership` asserts UTC `createdAt`/`calculatedAt` not later than request time, Tenant/run scope, a reported count, and approval ownership. Full outcomes/exceptions/report completeness is not asserted by this PR.
+  - M40-AC-028 - COVERED: `Migration_operation_denies_a_tenant_membership_without_its_permission` (18 cases) and `Migration_operations_hide_foreign_tenant_sources_and_runs` cover unauthorized upload/validation and foreign-Tenant denials without source-row or foreign-identifier disclosure.
+  - M40-AC-029 - NOT COVERED BY THIS PR: `Resource_scoped_reads_distinguish_scope_denial_from_missing_evidence` tests scope denial and missing evidence only. No test here uses a validation-only principal to prove execute/approve denial plus successful evidence reads with unchanged run state/version.
+- Deviations from the prompt: The main-checkout wrapper first failed its Release build because `MiniErp.Api (31460)` held the Release assemblies (`MSB3027`/`MSB3021`, 30 warnings and 6 errors). Per Planner direction, the gate was rerun successfully in the detached worktree; the API was not stopped.
+- Failures and classification: No test failures in the successful detached gate. The initial main-checkout build failure was an assembly lock from the running Development API, not a source/build diagnostic.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews Draft PR #320; leave it Draft, do not mark Ready or merge.
+
+## 2026-09-30 - MESP-181 (#319) ordinary permission denial returns 403 - GPT-6 Luna / max - MESP-181 (#319)
+- Status: DONE. PR #322 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-181-permission-denial-403`; started at `a77a2b7d513357301d59286d7b4e2e38d557eb81`; code commit `acb5fec`; RESULT hand-back commit follows.
+- What changed: Root cause was `ResolveContext` treating a denied operation on a valid ordinary membership as an invalid selection, removing it and returning an unauthenticated context. The OrdinaryMembership branch now returns `ForAuthenticatedSession` after `AuthorizeOrdinary` denies, preserving the selection and giving endpoint code the existing 403 response. Added real-host tests for denied-then-permitted calls, no-session 401, and inactive-membership selection removal. The scope-policy mismatch early return, SupportGrant path, and PlatformGovernanceContext path are intentionally unchanged.
+- Gates: Pre-fix permission-denial tests: 3 tests, 2 passed / 1 failed; assertion expected `(Forbidden, OK)` and received `(Unauthorized, Forbidden)`, exit 1. Combined focused gate (`dotnet test backend/MiniErp.sln --filter "FullyQualifiedName~PermissionDenialStatusTests|FullyQualifiedName~HostSecurityTests|FullyQualifiedName~RestFoundationTests" --logger "console;verbosity=normal"`): 62 passed, 0 failed, exit 0. Backend wrapper (`Test-MiniErpBackend.ps1 -NoBuild:$false`): Release build 0 warnings / 0 errors; 1,596 passed, 1 failed, 0 skipped, exit 1. The only failure was `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` (known MESP-166 #285 flake). Isolated rerun against the disposable SQL Server safety target: 1 passed, 0 failed, exit 0. `git diff --check`: clean, exit 0.
+- Evidence: Draft PR #322: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/322. The denied route is catalogued with `FoundationScopePolicy.Tenant`; the seeded owner membership lacks `tenant.foundation.target.read`. The same signed-in client receives 403 for that operation and then 200 from `/api/v1/foundation/tenant-context`, proving the selection remains available. No tenant or platform context is returned for the denied operation.
+- Deviations from the prompt: None.
+- Failures and classification: The first full wrapper run had the one known MESP-166 (#285) SQL Server claim-race flake; its assertion reported a migration execution completion followed by a version conflict. The isolated rerun passed. No other failures.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews Draft PR #322; leave it Draft, do not mark Ready or merge.
+
 ## 2026-09-30 — MESP-180 (#317) npm audit undici advisory — GPT-6 Luna / max
 - Status: DONE. PR #318 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
 - Branch / starting SHA / ending SHA: `fix/mesp-180-npm-audit-undici`; started at `27b255decd23261141efc092254e1f2722a5c62f`; code commit `0bcf2db`; RESULT hand-back commit follows.
