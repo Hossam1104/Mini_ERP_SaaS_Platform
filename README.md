@@ -169,7 +169,8 @@ or user environment; never commit them:
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
 $env:MESP_SQLSERVER_CONNECTION_STRING = '<your local SQL Server connection configured outside Git>'
-$env:MESP_DEV_AUTH_BYPASS = 'true' # explicit local convenience; disabled by default
+# Password login is the default; set this only for an explicit Development bypass.
+# $env:MESP_DEV_AUTH_BYPASS = 'true'
 $env:MESP_DEV_TENANT_DISPLAY_NAME = 'Local validation workspace'
 
 dotnet build .\backend\MiniErp.sln --configuration Release
@@ -191,11 +192,17 @@ disabled and follow [`RUN.md`](RUN.md).
 
 Expected local addresses:
 
+- Tenant entry: <http://wafra.localhost:4300/>
+- Whole ERP entry: <http://mesp.localhost:4300/> (sign in, then choose a Tenant)
 - Angular / common entry: <http://localhost:4300>
-- Tenant entry fixture: <http://tenant.localhost:4300>
+- Tenant alias: <http://tenant.localhost:4300>
 - Platform boundary fixture: <http://admin.localhost:4300>
 - API health: <http://localhost:5300/health>
 - OpenAPI / Scalar: Development/QA-only surfaces described in [`RUN.md`](RUN.md)
+
+The Development bootstrap account is `admin@mesp.com` with password `123`.
+`MESP_DEV_ADMIN_LOGIN` and `MESP_DEV_ADMIN_PASSWORD` override these defaults
+when explicitly set. Keep the bypass off for password-login testing.
 
 The launcher and generated proxy preserve the browser `Host` so the API can
 resolve the entry mode. The browser consumes `auth/entry`; it does not
