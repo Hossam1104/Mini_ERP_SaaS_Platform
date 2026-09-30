@@ -1,4 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
+using MiniErp.Api;
 using MiniErp.App.BuildingBlocks.Rest;
 using MiniErp.App.BuildingBlocks.Tenancy;
 using MiniErp.App.BuildingBlocks.Work;
@@ -7,10 +11,13 @@ using MiniErp.App.Modules.Finance;
 using MiniErp.App.Modules.Migration;
 using MiniErp.Contracts.Modules.Audit;
 using MiniErp.Contracts.Modules.Finance;
+using MiniErp.Contracts.Modules.Foundation;
 using MiniErp.Contracts.Modules.Migration;
 using MiniErp.Infrastructure.Persistence.Modules.Finance;
 using MiniErp.Infrastructure.Persistence.Modules.Inventory;
 using MiniErp.Infrastructure.Persistence.Modules.Migration;
+using System.Reflection;
+using System.Text.Json;
 using Xunit;
 
 namespace MiniErp.ArchitectureTests;
@@ -267,10 +274,12 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
         var validationAttempt = Assert.Single(attempts, item => item.Operation == MigrationOperationKind.Validation);
         var previewAttempt = Assert.Single(attempts, item => item.Operation == MigrationOperationKind.DryRun);
         var rows = scenario.Staged.Take(5).ToArray();
-        var duplicateCodes = System.Text.Json.JsonSerializer.Serialize(new[] { "duplicate_source_reference" });
+        var duplicateCodes = JsonSerializer.Serialize(new[] { "duplicate_source_reference" });
+        Guid previewId;
         await using (var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant))
         {
             var preview = await db.DryRunPreviews.SingleAsync(item => item.RunId == scenario.RunId && item.AttemptId == previewAttempt.AttemptId);
+            previewId = preview.PreviewId;
             await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE [migration].[MigrationValidationRecords] SET [Disposition] = {(int)MigrationRecordDisposition.Rejected} WHERE [TenantId] = {fixture.Tenant.TenantId.Value} AND [RunId] = {scenario.RunId} AND [AttemptId] = {validationAttempt.AttemptId} AND [StagedRecordId] = {rows[0].StagedRecordId}");
             await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE [migration].[MigrationValidationRecords] SET [Disposition] = {(int)MigrationRecordDisposition.Quarantined} WHERE [TenantId] = {fixture.Tenant.TenantId.Value} AND [RunId] = {scenario.RunId} AND [AttemptId] = {validationAttempt.AttemptId} AND [StagedRecordId] = {rows[3].StagedRecordId}");
             await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE [migration].[MigrationValidationRecords] SET [FindingCodesJson] = {duplicateCodes} WHERE [TenantId] = {fixture.Tenant.TenantId.Value} AND [RunId] = {scenario.RunId} AND [AttemptId] = {validationAttempt.AttemptId} AND [StagedRecordId] = {rows[1].StagedRecordId}");
@@ -280,19 +289,161 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
             await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE [migration].[MigrationDryRunPreviews] SET [AcceptedCount] = {scenario.Staged.Count - 2}, [RejectedCount] = {1}, [QuarantinedCount] = {1} WHERE [TenantId] = {fixture.Tenant.TenantId.Value} AND [RunId] = {scenario.RunId} AND [AttemptId] = {previewAttempt.AttemptId}");
         }
 
-        var reconciliation = await ReconcileAsync(fixture, Service(fixture, new UnconfiguredMigrationReconciliationApprovalPolicy()), scenario.RunId, "s11-r08-reconcile");
+        var reconciliationService = Service(fixture, new UnconfiguredMigrationReconciliationApprovalPolicy());
+        var reconciliation = await ReconcileAsync(fixture, reconciliationService, scenario.RunId, "s11-r08-reconcile");
 
         Assert.True(reconciliation.Succeeded, reconciliation.Code);
-        Assert.Equal(scenario.Staged.Count, reconciliation.Value!.SubmittedCount);
-        Assert.Equal(scenario.Staged.Count, reconciliation.Value.AcceptedCount + reconciliation.Value.RejectedCount
-            + reconciliation.Value.DuplicateCount + reconciliation.Value.SkippedCount + reconciliation.Value.QuarantinedCount
-            + reconciliation.Value.UnresolvedCount);
-        Assert.Equal(1, reconciliation.Value.RejectedCount);
-        Assert.Equal(1, reconciliation.Value.DuplicateCount);
-        Assert.Equal(1, reconciliation.Value.SkippedCount);
-        Assert.Equal(1, reconciliation.Value.QuarantinedCount);
-        Assert.Equal(1, reconciliation.Value.UnresolvedCount);
-        Assert.Equal(MigrationReconciliationStatus.Blocked, reconciliation.Value.Status);
+        var outcomeRows = new Dictionary<string, HashSet<Guid>>(StringComparer.Ordinal)
+        {
+            ["accepted"] = [], ["rejected"] = [], ["duplicate"] = [],
+            ["skipped"] = [], ["quarantined"] = [], ["unresolved"] = []
+        };
+        Guid[] stagedIds;
+        await using (var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant))
+        {
+            stagedIds = await db.StagedRecords.Where(item => item.RunId == scenario.RunId)
+                .Select(item => item.StagedRecordId).ToArrayAsync();
+            var validations = await db.ValidationRecords.Where(item => item.RunId == scenario.RunId
+                    && item.AttemptId == validationAttempt.AttemptId)
+                .ToDictionaryAsync(item => item.StagedRecordId);
+            var previewRows = await db.DryRunPreviewRows.Where(item => item.RunId == scenario.RunId
+                    && item.PreviewId == previewId)
+                .ToDictionaryAsync(item => item.StagedRecordId);
+            var effects = await db.ExecutionEffects.Where(item => item.RunId == scenario.RunId
+                    && item.AttemptId == scenario.Execution.AttemptId)
+                .ToDictionaryAsync(item => item.StagedRecordId);
+
+            foreach (var stagedId in stagedIds)
+            {
+                if (!validations.TryGetValue(stagedId, out var validation)
+                    || !previewRows.TryGetValue(stagedId, out var previewRow))
+                {
+                    outcomeRows["unresolved"].Add(stagedId);
+                    continue;
+                }
+                if (validation.Disposition == MigrationRecordDisposition.Quarantined)
+                {
+                    outcomeRows["quarantined"].Add(stagedId);
+                    continue;
+                }
+                if ((JsonSerializer.Deserialize<string[]>(validation.FindingCodesJson) ?? [])
+                    .Any(code => code.Contains("duplicate", StringComparison.OrdinalIgnoreCase)))
+                {
+                    outcomeRows["duplicate"].Add(stagedId);
+                    continue;
+                }
+                if (validation.Disposition == MigrationRecordDisposition.Rejected)
+                {
+                    outcomeRows["rejected"].Add(stagedId);
+                    continue;
+                }
+                if (previewRow.PlannedAction == MigrationPlannedAction.Skip)
+                {
+                    outcomeRows["skipped"].Add(stagedId);
+                    continue;
+                }
+                if (!effects.TryGetValue(stagedId, out var effect))
+                {
+                    outcomeRows[previewRow.PlannedAction == MigrationPlannedAction.MatchReference ? "skipped" : "unresolved"].Add(stagedId);
+                    continue;
+                }
+                switch (effect.Disposition)
+                {
+                    case MigrationExecutionEffectDisposition.Committed:
+                        outcomeRows["accepted"].Add(stagedId);
+                        break;
+                    case MigrationExecutionEffectDisposition.NonEffect:
+                        outcomeRows[previewRow.PlannedAction == MigrationPlannedAction.Skip ? "skipped" : "accepted"].Add(stagedId);
+                        break;
+                    case MigrationExecutionEffectDisposition.Failed:
+                        outcomeRows["rejected"].Add(stagedId);
+                        break;
+                    default:
+                        outcomeRows["unresolved"].Add(stagedId);
+                        break;
+                }
+            }
+        }
+
+        var outcomeSets = outcomeRows.Values.ToArray();
+        for (var first = 0; first < outcomeSets.Length; first++)
+            for (var second = first + 1; second < outcomeSets.Length; second++)
+                Assert.Empty(outcomeSets[first].Intersect(outcomeSets[second]));
+        var classifiedIds = outcomeSets.SelectMany(item => item).ToArray();
+        Assert.Equal(stagedIds.Length, classifiedIds.Length);
+        Assert.Equal(stagedIds.Length, classifiedIds.Distinct().Count());
+        Assert.Equal(stagedIds.Length, outcomeRows.Values.Sum(item => item.Count));
+
+        var resolver = new RestFoundationTests.TestResolver { Context = fixture.Request };
+        var (statusCode, reportBody) = await ExecuteHandlerAsync(
+            "ExecuteReconciliationReadAsync",
+            [scenario.RunId, null, resolver, ValidationService(fixture), reconciliationService],
+            1);
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        var response = JsonSerializer.Deserialize<MigrationReconciliationResponse>(reportBody, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.NotNull(response);
+        Assert.Equal(stagedIds.Length, response.SubmittedCount);
+        Assert.Equal(outcomeRows["accepted"].Count, response.AcceptedCount);
+        Assert.Equal(outcomeRows["rejected"].Count, response.RejectedCount);
+        Assert.Equal(outcomeRows["duplicate"].Count, response.DuplicateCount);
+        Assert.Equal(outcomeRows["skipped"].Count, response.SkippedCount);
+        Assert.Equal(outcomeRows["quarantined"].Count, response.QuarantinedCount);
+        Assert.Equal(outcomeRows["unresolved"].Count, response.UnresolvedCount);
+        Assert.Equal(MigrationReconciliationStatus.Blocked, reconciliation.Value!.Status);
+    }
+
+    [Fact]
+    public async Task Sql_server_mesp171_validation_findings_read_is_tenant_scoped()
+    {
+        await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
+        var scenario = await ExecuteMixedAsync(fixture, "S11-MESP171-FINDINGS");
+        var validationAttempt = Assert.Single(await fixture.Migration.ListAttemptsAsync(fixture.Tenant, scenario.RunId),
+            item => item.Operation == MigrationOperationKind.Validation);
+        var expectedFinding = new MigrationValidationFinding(
+            Guid.NewGuid(), fixture.Tenant.TenantId, scenario.RunId, validationAttempt.AttemptId,
+            scenario.Staged[0].StagedRecordId, MigrationFindingCategory.Reference, MigrationFindingSeverity.Warning,
+            false, "mesp171_tenant_scope_probe", "Tenant-scoped validation evidence.", null, DateTimeOffset.UtcNow);
+        await using (var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant))
+        {
+            db.ValidationFindings.Add(new MigrationValidationFindingEntity(expectedFinding));
+            await db.SaveChangesAsync();
+        }
+
+        const string validationPermission = "tenant.migration.intake";
+        var operation = FoundationOperationCatalog.GetRequired("migration.validation.findings.read");
+        Assert.Equal(validationPermission, operation.ExactPermissionCode);
+        var actorId = Guid.NewGuid();
+        var callerTenant = TenantContext.ForOrdinaryMembership(
+            fixture.Tenant.TenantId,
+            fixture.Tenant.Membership!.Value,
+            fixture.Tenant.Scope,
+            new CorrelationId("s11-mesp171-validation-findings"),
+            actorId);
+        var caller = FoundationRequestContext.ForTenant(actorId, Guid.NewGuid(), callerTenant, validationPermission);
+        Assert.NotEqual("tenant.migration.execute", caller.Permission);
+        (MigrationRunStatus Status, string Version) runBefore;
+        await using (var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant))
+        {
+            var run = await db.Runs.AsNoTracking().SingleAsync(item => item.RunId == scenario.RunId);
+            runBefore = (run.Status, Convert.ToBase64String(run.Version));
+        }
+        var resolver = new RestFoundationTests.TestResolver { Context = caller };
+        var (statusCode, body) = await ExecuteHandlerAsync(
+            "ExecuteFindingsReadAsync",
+            [scenario.RunId, 0, 100, null, resolver, ValidationService(fixture)],
+            3);
+
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        using var document = JsonDocument.Parse(body);
+        var findings = document.RootElement.EnumerateArray().ToArray();
+        var finding = Assert.Single(findings);
+        Assert.Equal(expectedFinding.FindingId, finding.GetProperty("findingId").GetGuid());
+        Assert.All(findings, item => Assert.Equal(scenario.RunId, item.GetProperty("runId").GetGuid()));
+        await using (var db = new MigrationDbContext(fixture.MigrationOptions, fixture.Tenant))
+        {
+            var run = await db.Runs.AsNoTracking().SingleAsync(item => item.RunId == scenario.RunId);
+            Assert.Equal(runBefore, (run.Status, Convert.ToBase64String(run.Version)));
+        }
     }
 
     [Fact]
@@ -923,6 +1074,37 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
         var execution = fixture.NewMixedExecution();
         return new MigrationReconciliationService(foundation, fixture.Migration, fixture.Migration, fixture.Migration,
             validation, execution, policy, audit);
+    }
+
+    private static MigrationValidationService ValidationService(
+        MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture fixture)
+    {
+        var scope = new TestScopeResolver();
+        var foundation = new MigrationFoundationService(fixture.Migration, new NoopAuditSink());
+        return new MigrationValidationService(foundation, fixture.Migration, new InMemoryPrivateObjectStorage(), scope,
+            new UnavailableMigrationReferenceAuthority(), scope);
+    }
+
+    private static async Task<(int StatusCode, string Body)> ExecuteHandlerAsync(
+        string handlerName,
+        object?[] arguments,
+        int httpContextIndex)
+    {
+        var handler = typeof(MigrationEndpoints).GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
+            .Single(method => method.Name == handlerName);
+        var services = new ServiceCollection();
+        services.AddOptions<JsonOptions>();
+        services.AddLogging();
+        using var provider = services.BuildServiceProvider();
+        var httpContext = new DefaultHttpContext { RequestServices = provider };
+        await using var body = new MemoryStream();
+        httpContext.Response.Body = body;
+        arguments[httpContextIndex] = httpContext;
+        var task = Assert.IsAssignableFrom<Task<IResult>>(handler.Invoke(null, arguments));
+        await (await task).ExecuteAsync(httpContext);
+        body.Position = 0;
+        using var reader = new StreamReader(body, leaveOpen: true);
+        return (httpContext.Response.StatusCode, await reader.ReadToEndAsync());
     }
 
     private sealed class TestScopeResolver : ICurrentOrganizationScopeResolver, IOrganizationScopeOwnershipResolver
