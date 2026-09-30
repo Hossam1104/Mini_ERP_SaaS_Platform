@@ -37,7 +37,14 @@ Planner reconciles and accepts/rejects.
 
 ## 3. Routing and quota
 
-- Role routing and Hard Bug criteria are normative in [AGENTS.md §7](../AGENTS.md#7-roles-and-loop).
+- Profile routing, bug severity routing, and the quota threshold are normative in [AGENTS.md §7](../AGENTS.md#7-roles-and-loop).
+- **Quota reading.** The usage-remaining plugin caches its last good values in
+  `$PASEO_HOME/usage-remaining.cache.json` (default `~/.paseo`). The Codex weekly row `codex_week.row.remainingPct`
+  decides the Executor threshold (used = 100 − remaining). Read only the `*_session` and `*_week`
+  rows; never read or print `_claude` token or cooldown data. Check the row's `at` timestamp. If the file
+  is missing or stale, keep the current profile and say so in one line. Do not guess.
+- Keep only the latest reading (value, source, time) in the Planner's working state. Do not keep a
+  usage history.
 - Product defects become tracker **Bugs**. They are never "fixed" in test code.
 - Batch related work into one prompt when its files and gates overlap, because each fresh session
   pays the read cost again. Where it is safe, validate several independent offline changes in one
@@ -79,6 +86,9 @@ Planner reconciles and accepts/rejects.
 | Serena (MCP) | Symbol-level navigation and edits: `get_symbols_overview`, `find_symbol`, `find_referencing_symbols`, `replace_symbol_body`, `insert_after_symbol`. Call `initial_instructions` once first. | Reading whole files, or grepping for callers by hand |
 | Ponytail (hook/skill, **full**) | Minimal-diff discipline: reuse, no speculative abstractions, the shortest working change, short prose | Over-built code and long prose |
 | Context7 (MCP) | Current docs for any library, framework, or CLI you touch (`resolve-library-id` → `query-docs`) | Web search or guessing the API |
+| usage-remaining (Paseo) | Quota telemetry for the Planner's routing decision (§3) | Guessing quota or polling it repeatedly |
+| paseo-be-concise (Paseo) | Short agent-to-Planner reports: RESULT (PASS, PARTIAL or BLOCKED), CHANGES, VALIDATION, FAILURES, STATE, NEXT DECISION | Narrated, repeated prose |
+| Context Compress (CLI, AGENTS.md §6) | Large raw command output only | Pasting huge logs |
 
 - Check availability at session start. If a plugin is missing or failing, say so in one line and
   continue with targeted reads. Install nothing.
