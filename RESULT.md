@@ -1,5 +1,16 @@
 # Results
 
+## 2026-09-30 — MESP-180 (#317) npm audit undici advisory — GPT-6 Luna / max
+- Status: DONE
+- Branch / starting SHA / ending SHA: `fix/mesp-180-npm-audit-undici`; started at `27b255decd23261141efc092254e1f2722a5c62f`; implementation and hand-back commit follows.
+- What changed: Root cause was top-level dev dependency `jsdom@28.1.0`, which resolved vulnerable transitive `undici@7.29.0`. `npm audit fix` without `--force` updated only `frontend/package-lock.json`, resolving `undici` to `7.30.0`; `frontend/package.json` is unchanged and no override was needed.
+- Gates: Initial audit `9 vulnerabilities (8 moderate, 1 high)`; `npm ls undici` showed `jsdom@28.1.0` → `undici@7.29.0`. After fix, `npm ls undici` shows `undici@7.30.0`. `npm audit --omit=dev --audit-level=high` and `npm audit --audit-level=high` both exited 0 with `4 moderate severity vulnerabilities` and 0 high/critical. `npm test -- --watch=false --no-progress`: `Test Files 49 passed (49)`, `Tests 335 passed (335)`, exit 0. `npm run build`: `Initial total 497.47 kB` (122.85 kB estimated transfer), success. `npm run test:e2e -- --project=chromium`: `60 passed (1.3m)`, exit 0. `git diff --check`: clean.
+- Evidence: Draft PR will be opened from this branch after push. Runtime restart recorded as `restart: Planner (worktree)`; launcher not run.
+- Deviations from the prompt: None.
+- Failures and classification: `npm audit fix` exited 1 because four moderate Angular advisories remain; both requested audit gates exit 0 because no high or critical advisory remains. No unrelated gate failures.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews the Draft PR for MESP-180 (#317); runtime restart remains Planner-owned for this worktree.
+
 ## 2026-09-29 - MESP-175 (#305) Opus correction: Meadow, Tenant logo and preview diagnosis - GPT-6 Luna / max - MESP-175 (#305)
 - Status: DONE. PR #311 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
 - Branch / starting SHA / ending SHA: feat/mesp-175-tenant-theme-sar started at 93090f1c7fe5af535dc2966b49b87b670fb78cb1; UI commits 8056780adb414c938e57a6eda3df70e2cdc3a45f and 919c2643f8b704145592b2da0f8cc2e90cea849d; this RESULT hand-back commit follows.
