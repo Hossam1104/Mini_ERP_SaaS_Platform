@@ -43,10 +43,18 @@ npm start
 
 The official repository launcher runs the shell at `http://localhost:4300/`
 and calls the API through its generated same-origin proxy. In Development,
-`localhost` is the common entry host, `tenant.localhost` is the generic Tenant
-host, and `admin.localhost` is the platform-admin boundary. The proxy
-preserves the browser Host so the API remains the entry authority; Angular
+`http://wafra.localhost:4300/` enters the configured Development Tenant and
+`http://mesp.localhost:4300/` is the whole-ERP entry where Tenant choice happens
+after sign-in. `tenant.localhost` remains a Tenant alias, `localhost` remains a
+common entry, and `admin.localhost` remains the platform-admin boundary. The
+proxy preserves the browser Host so the API remains the entry authority; Angular
 does not parse or authorize subdomains.
+
+The Development launcher creates or updates the dummy sign-in account
+`admin@mesp.com` with password `123`. Non-empty `MESP_DEV_ADMIN_LOGIN` and
+`MESP_DEV_ADMIN_PASSWORD` environment values override those defaults. The
+password is not written to a file, and automatic Development auth bypass stays
+off unless `MESP_DEV_AUTH_BYPASS=true` is explicitly set.
 
 ## Validation
 

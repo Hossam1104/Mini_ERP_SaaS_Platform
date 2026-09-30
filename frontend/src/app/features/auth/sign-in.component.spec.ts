@@ -1,9 +1,9 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpHeaders, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { authInterceptor } from '../../core/api/auth.interceptor';
-import { FoundationSessionResponse } from '../../core/api/foundation.models';
+import { FoundationEntryResponse, FoundationSessionResponse } from '../../core/api/foundation.models';
 import { SignInComponent } from './sign-in.component';
 
 const moduleRegistration = {
@@ -15,17 +15,41 @@ const moduleRegistration = {
   businessParties: { module: 'business-parties', name: 'Business Parties', boundary: 'business-parties', registered: true },
 };
 
+const commonEntry: FoundationEntryResponse = {
+  entryMode: 'CommonHost',
+  canonicalHost: 'mesp.localhost',
+  candidateTenantId: null,
+  candidateTenantDisplayName: null,
+  authorizedTenants: [],
+  operationalContexts: [],
+  selectedOperationalContextId: null,
+  operationalSelectionVersion: 0,
+  branding: { displayName: 'MESP', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'MESP', tenantConfigured: false, defaultTheme: null },
+  currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' },
+  code: null,
+  isDevelopment: true,
+  developmentAccountHint: 'admin@mesp.com / 123',
+};
+
 const authenticatedSession: FoundationSessionResponse = {
   authenticated: true,
   actorId: 'actor-1',
   sessionId: 'session-1',
   lifecycleState: 'Active',
   absoluteExpiresAt: null,
-  selectedPath: 'OrdinaryMembership',
-  selectedTenantId: 'tenant-a',
+  selectedPath: null,
+  selectedTenantId: null,
   selectedContextId: null,
   selectionVersion: 1,
 };
+
+const ordinaryTenantContext = (contextId: string, tenantId: string, displayName: string) => ({
+  contextId,
+  kind: 'OrdinaryMembership',
+  tenantId,
+  displayName,
+  eligibilityVersion: 1,
+});
 
 describe('SignInComponent', () => {
   let fixture: ComponentFixture<SignInComponent>;
@@ -34,6 +58,8 @@ describe('SignInComponent', () => {
   let router: Router;
 
   beforeEach(() => {
+    localStorage.removeItem('mesp.ui.theme');
+    localStorage.removeItem('mesp.ui.dark');
     TestBed.configureTestingModule({
       imports: [SignInComponent],
       providers: [
@@ -49,215 +75,283 @@ describe('SignInComponent', () => {
     vi.spyOn(router, 'navigate').mockResolvedValue(true);
   });
 
-  afterEach(() => {
-    http.verify();
-  });
+  afterEach(() => http.verify());
 
   function tick(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 0));
   }
 
-  async function flushPreflight(response: object = moduleRegistration, status = 200): Promise<void> {
-    const request = http.expectOne('/api/v1/module-registration');
-    if (status === 200) {
-      request.flush(response);
-    } else {
-      request.flush(response, { status, statusText: 'Error' });
-    }
+  async function initialize(entry: FoundationEntryResponse = commonEntry): Promise<void> {
+    fixture.detectChanges();
+    http.expectOne('/api/v1/auth/entry').flush(entry);
+    http.expectOne('/api/v1/module-registration').flush(moduleRegistration);
+    await tick();
+    fixture.detectChanges();
+  }
+
+  async function flushSignInEntry(
+    entry: FoundationEntryResponse,
+    session: FoundationSessionResponse = authenticatedSession,
+  ): Promise<void> {
+    http.expectOne('/api/v1/auth/entry').flush(entry);
+    await tick();
+    http.expectOne('/api/v1/auth/session').flush(session);
     await tick();
   }
 
-  it('prefills the Development username and never prefills the password', async () => {
-    fixture.detectChanges();
-    await flushPreflight();
-    expect(component.form.controls.login.value).toBe('admin@minierp.local');
-    expect(component.form.controls.password.value).toBe('');
+  it('uses a real password-manager form and never fills either credential in code', async () => {
+    await initialize();
+    const form = fixture.nativeElement.querySelector('.sign-in-form') as HTMLFormElement;
+    const username = fixture.nativeElement.querySelector('#username') as HTMLInputElement;
+    const password = fixture.nativeElement.querySelector('#password') as HTMLInputElement;
+    const submit = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+    expect(form.tagName).toBe('FORM');
+    expect(username.type).toBe('email');
+    expect(username.name).toBe('username');
+    expect(username.getAttribute('autocomplete')).toBe('username');
+    expect(username.value).toBe('');
+    expect(password.name).toBe('password');
+    expect(password.getAttribute('autocomplete')).toBe('current-password');
+    expect(password.value).toBe('');
+    expect(submit.type).toBe('submit');
+    expect(fixture.nativeElement.querySelector('.dev-account')?.textContent).toContain('admin@mesp.com / 123');
+    http.expectNone('/api/v1/auth/contexts');
   });
 
-  it('runs the Development API identity preflight on init and reports connected', async () => {
+  it('shows the Wafra host branding and auto-selects its one server-authorized context', async () => {
+    const tenantEntry: FoundationEntryResponse = {
+      ...commonEntry,
+      entryMode: 'TenantHost',
+      canonicalHost: 'wafra.localhost',
+      branding: {
+        displayName: 'Wafra ERP',
+        logoLightUrl: '/assets/wafra-logo.jpeg',
+        logoDarkUrl: null,
+        logoAltText: 'Wafra',
+        tenantConfigured: true,
+        defaultTheme: 'meadow',
+      },
+    };
+    await initialize(tenantEntry);
+    expect(component.brandName()).toBe('Wafra ERP');
+    expect(component.brandLogoUrl()).toBe('/assets/wafra-logo.jpeg');
+    expect(document.documentElement.dataset['theme']).toBe('meadow');
+    component.form.controls.login.setValue('admin@mesp.com');
+    component.form.controls.password.setValue('123');
+
+    const submit = component.submit();
+    http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
+    await tick();
+    const signedInEntry = { ...tenantEntry, candidateTenantId: 'tenant-a' };
+    await flushSignInEntry(signedInEntry, { ...authenticatedSession, selectedContextId: 'context-a', selectedTenantId: 'tenant-a' });
+    await submit;
     fixture.detectChanges();
-    await flushPreflight();
-    expect(component.devApiStatus()).toBe('connected');
-    expect(component.blockedByDevPreflight()).toBe(false);
+
+    expect(component.step()).toBe('credentials');
+    expect(component.auth.session()?.selectedContextId).toBe('context-a');
+    expect(router.navigate).toHaveBeenCalledWith(['/app']);
+    expect(fixture.nativeElement.querySelector('#tenant-context')).toBeNull();
   });
 
-  it('blocks sign-in submission when the Development API preflight identifies a different service', async () => {
+  it('loads Tenant choices only after authentication and offers a labelled, keyboard-focusable native select', async () => {
+    await initialize();
+    http.expectNone('/api/v1/auth/contexts');
+    component.form.controls.login.setValue('admin@mesp.com');
+    component.form.controls.password.setValue('123');
+
+    const submit = component.submit();
+    http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
+    await tick();
+    const signedInEntry: FoundationEntryResponse = {
+      ...commonEntry,
+      authorizedTenants: [
+        { tenantId: 'tenant-a', displayName: 'Alpha ERP', canonicalHost: 'alpha.localhost' },
+        { tenantId: 'tenant-b', displayName: 'Beta ERP', canonicalHost: 'beta.localhost' },
+      ],
+    };
+    http.expectOne('/api/v1/auth/entry').flush(signedInEntry);
+    await tick();
+    http.expectOne('/api/v1/auth/session').flush(authenticatedSession);
+    await tick();
+    http.expectOne('/api/v1/auth/contexts').flush({
+      contexts: [
+        ordinaryTenantContext('context-a', 'tenant-a', 'Alpha ERP'),
+        ordinaryTenantContext('context-b', 'tenant-b', 'Beta ERP'),
+      ],
+    });
+    await submit;
     fixture.detectChanges();
-    await flushPreflight({ ...moduleRegistration, module: 'unrelated-service' });
-    expect(component.devApiStatus()).toBe('unavailable');
 
-    component.form.controls.password.setValue('anything');
-    await component.submit();
-
-    http.expectNone('/api/v1/auth/sign-in');
+    expect(component.step()).toBe('chooseTenant');
+    expect(router.navigate).not.toHaveBeenCalled();
+    const select = fixture.nativeElement.querySelector('#tenant-context') as HTMLSelectElement;
+    const label = fixture.nativeElement.querySelector('label[for="tenant-context"]') as HTMLLabelElement;
+    expect(select.tagName).toBe('SELECT');
+    expect(select.required).toBe(true);
+    expect(select.getAttribute('aria-describedby')).toBe('choose-tenant-copy');
+    expect(label.textContent).toContain('Available Tenants');
+    expect(select.options[1].textContent).toBe('Alpha ERP');
+    expect(select.options[2].textContent).toBe('Beta ERP');
+    select.focus();
+    expect(document.activeElement).toBe(select);
+    expect(fixture.nativeElement.querySelector('.tenant-form button[type="submit"]')).toBeTruthy();
   });
 
-  it('permits sign-in once the Development API preflight succeeds', async () => {
+  it('switches the selected Tenant through the existing antiforgery-protected context operation', async () => {
+    await initialize();
+    component.form.controls.login.setValue('admin@mesp.com');
+    component.form.controls.password.setValue('123');
+    const submit = component.submit();
+    http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
+    await tick();
+    http.expectOne('/api/v1/auth/entry').flush({ ...commonEntry, authorizedTenants: [
+      { tenantId: 'tenant-a', displayName: 'Alpha ERP', canonicalHost: 'alpha.localhost' },
+      { tenantId: 'tenant-b', displayName: 'Beta ERP', canonicalHost: 'beta.localhost' },
+    ] });
+    await tick();
+    http.expectOne('/api/v1/auth/session').flush(authenticatedSession);
+    await tick();
+    http.expectOne('/api/v1/auth/contexts').flush({ contexts: [
+      ordinaryTenantContext('context-a', 'tenant-a', 'Alpha ERP'),
+      ordinaryTenantContext('context-b', 'tenant-b', 'Beta ERP'),
+    ] });
+    await submit;
     fixture.detectChanges();
-    await flushPreflight();
-    component.form.controls.password.setValue('correct-password');
 
-    const submitPromise = component.submit();
-    const signInRequest = http.expectOne('/api/v1/auth/sign-in');
-    signInRequest.flush({ ...authenticatedSession, selectedContextId: 'context-a' });
-    await submitPromise;
+    const select = fixture.nativeElement.querySelector('#tenant-context') as HTMLSelectElement;
+    select.value = 'context-b';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    fixture.detectChanges();
+    const chooserForm = fixture.nativeElement.querySelector('.tenant-form') as HTMLFormElement;
+    const choose = component.chooseTenant();
+    http.expectOne('/api/v1/auth/antiforgery').flush({ status: 'ok' }, {
+      headers: new HttpHeaders({ 'X-CSRF-TOKEN': 'csrf-token' }),
+    });
+    await tick();
+    const switchRequest = http.expectOne('/api/v1/auth/context-switch');
+    expect(switchRequest.request.body.contextId).toBe('context-b');
+    expect(switchRequest.request.headers.get('X-CSRF-TOKEN')).toBe('csrf-token');
+    switchRequest.flush({ ...authenticatedSession, selectedContextId: 'context-b', selectedTenantId: 'tenant-b' });
+    await choose;
 
+    expect(chooserForm.tagName).toBe('FORM');
     expect(router.navigate).toHaveBeenCalledWith(['/app']);
   });
 
-  it('toggles password visibility with the show/hide control', async () => {
-    fixture.detectChanges();
-    await flushPreflight();
-    fixture.detectChanges();
+  it('skips the chooser and reaches Overview when the server auto-selects one context', async () => {
+    await initialize();
+    component.form.controls.login.setValue('admin@mesp.com');
+    component.form.controls.password.setValue('123');
+    const submit = component.submit();
+    http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
+    await tick();
+    http.expectOne('/api/v1/auth/entry').flush({ ...commonEntry, candidateTenantId: 'tenant-a' });
+    await tick();
+    http.expectOne('/api/v1/auth/session').flush({ ...authenticatedSession, selectedContextId: 'context-a' });
+    await tick();
+    http.expectOne('/api/v1/auth/contexts').flush({ contexts: [ordinaryTenantContext('context-a', 'tenant-a', 'Alpha ERP')] });
+    await submit;
 
-    expect(component.passwordVisible()).toBe(false);
-    const button = fixture.nativeElement.querySelector('.password-toggle') as HTMLButtonElement;
-    button.click();
-    expect(component.passwordVisible()).toBe(true);
+    expect(component.step()).toBe('credentials');
+    expect(router.navigate).toHaveBeenCalledWith(['/app']);
   });
 
-  it('shows the safe authentication error and a Development password hint after a failed sign-in', async () => {
+  it('shows a clear empty-context message and keeps sign-out available', async () => {
+    await initialize();
+    component.form.controls.login.setValue('admin@mesp.com');
+    component.form.controls.password.setValue('123');
+    const submit = component.submit();
+    http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
+    await tick();
+    http.expectOne('/api/v1/auth/entry').flush({ ...commonEntry, entryMode: 'NoAccess', canonicalHost: null, code: 'access_denied' });
+    await tick();
+    http.expectOne('/api/v1/auth/session').flush(authenticatedSession);
+    await tick();
+    http.expectOne('/api/v1/auth/contexts').flush({ contexts: [] });
+    await submit;
     fixture.detectChanges();
-    await flushPreflight();
-    component.form.controls.password.setValue('wrong-password');
 
-    const submitPromise = component.submit();
+    expect(component.step()).toBe('empty');
+    expect(fixture.nativeElement.textContent).toContain('This account has no active Tenant membership available here.');
+    expect(fixture.nativeElement.querySelector('button')?.textContent).toContain('Sign out');
+  });
+
+  it('shows safe sign-in errors and its credential hint only when the server identifies Development', async () => {
+    await initialize();
+    component.form.controls.login.setValue('admin@mesp.com');
+    component.form.controls.password.setValue('wrong-password');
+    const submit = component.submit();
     http.expectOne('/api/v1/auth/sign-in').flush(
       { code: 'authentication_failed' },
       { status: 401, statusText: 'Unauthorized' },
     );
-    await submitPromise;
+    await submit;
     fixture.detectChanges();
 
     expect(component.errorMessage()).toBe('We could not sign you in. Check your details and try again.');
     expect(component.showDevPasswordHint()).toBe(true);
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.dev-account')?.textContent).toContain('admin@mesp.com / 123');
   });
 
-  it('clears the stale error once the login or password changes', async () => {
-    fixture.detectChanges();
-    await flushPreflight();
-    component.form.controls.password.setValue('wrong-password');
+  it('does not render the dummy account hint when the server environment is not Development', async () => {
+    await initialize({ ...commonEntry, isDevelopment: false, developmentAccountHint: null });
 
-    const submitPromise = component.submit();
+    expect(component.developmentAccountHint()).toBeNull();
+    expect(fixture.nativeElement.querySelector('.dev-account')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('admin@mesp.com');
+    expect(fixture.nativeElement.textContent).not.toContain('123');
+  });
+
+  it('announces an expired session politely without showing the Development password hint', async () => {
+    await initialize();
+    component.auth.markSessionExpired();
+    fixture.detectChanges();
+
+    const message = fixture.nativeElement.querySelector('.auth-error') as HTMLElement;
+    expect(message.getAttribute('role')).toBe('status');
+    expect(message.getAttribute('aria-live')).toBe('polite');
+    expect(fixture.nativeElement.querySelector('.dev-error-hint')).toBeNull();
+  });
+
+  it('clears an authentication error when the user changes a credential', async () => {
+    await initialize();
+    component.form.controls.login.setValue('admin@mesp.com');
+    component.form.controls.password.setValue('wrong-password');
+    const submit = component.submit();
     http.expectOne('/api/v1/auth/sign-in').flush(
       { code: 'authentication_failed' },
       { status: 401, statusText: 'Unauthorized' },
     );
-    await submitPromise;
+    await submit;
     expect(component.errorMessage()).not.toBe('');
 
     component.form.controls.password.setValue('trying-again');
     expect(component.errorMessage()).toBe('');
   });
 
-  it('navigates to the bounded Tenant chooser when common-host entry has multiple authorized Tenants', async () => {
+  it('toggles password visibility and preserves the current-password autocomplete value', async () => {
+    await initialize();
+    expect(component.passwordVisible()).toBe(false);
+    const button = fixture.nativeElement.querySelector('.password-toggle') as HTMLButtonElement;
+    button.click();
     fixture.detectChanges();
-    await flushPreflight();
-    component.form.controls.password.setValue('correct-password');
 
-    const submitPromise = component.submit();
-    http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
-    await tick();
-    http.expectOne('/api/v1/auth/entry').flush({
-      entryMode: 'CommonHost',
-      canonicalHost: 'localhost',
-      candidateTenantId: null,
-      candidateTenantDisplayName: null,
-      authorizedTenants: [
-        { tenantId: 'tenant-a', displayName: 'A', canonicalHost: 'a.localhost' },
-        { tenantId: 'tenant-b', displayName: 'B', canonicalHost: 'b.localhost' },
-      ],
-      operationalContexts: [],
-      selectedOperationalContextId: null,
-      operationalSelectionVersion: 0,
-      branding: { displayName: 'MESP', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'MESP', tenantConfigured: false },
-      currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' },
-      code: null,
-    });
-    await submitPromise;
-
-    expect(router.navigate).toHaveBeenCalledWith(['/tenant/select']);
+    expect(component.passwordVisible()).toBe(true);
+    expect((fixture.nativeElement.querySelector('#password') as HTMLInputElement).type).toBe('text');
+    expect((fixture.nativeElement.querySelector('#password') as HTMLInputElement).autocomplete).toBe('current-password');
   });
 
-  it('keeps the safe Overview shell when common-host entry has zero authorized Tenants', async () => {
-    fixture.detectChanges();
-    await flushPreflight();
-    component.form.controls.password.setValue('correct-password');
-
-    const submitPromise = component.submit();
-    http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
-    await tick();
-    http.expectOne('/api/v1/auth/entry').flush({
-      entryMode: 'NoAccess',
-      canonicalHost: null,
-      candidateTenantId: null,
-      candidateTenantDisplayName: null,
-      authorizedTenants: [],
-      operationalContexts: [],
-      selectedOperationalContextId: null,
-      operationalSelectionVersion: 0,
-      branding: { displayName: 'MESP', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'MESP', tenantConfigured: false },
-      currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' },
-      code: 'access_denied',
-    });
-    await submitPromise;
-
-    expect(router.navigate).toHaveBeenCalledWith(['/app']);
-  });
-
-  it('renders the Arabic translation and RTL direction after toggling language', async () => {
-    fixture.detectChanges();
-    await flushPreflight();
-    fixture.detectChanges();
-
+  it('switches language and direction while keeping the logo unmirrored in Arabic', async () => {
+    await initialize();
     component.language.toggle();
     fixture.detectChanges();
 
     expect(document.documentElement.dir).toBe('rtl');
     expect(component.language.text('signIn')).toBe('تسجيل الدخول');
-  });
-
-  it('renders the approved transparent 4:3 brand logo on the sign-in surface with light and dark mode support', async () => {
-    fixture.detectChanges();
-    await flushPreflight();
-    fixture.detectChanges();
-
-    const picture = fixture.nativeElement.querySelector('.brand-logo-picture') as HTMLPictureElement;
-    expect(picture).toBeTruthy();
-
-    const darkSource = picture.querySelector('source') as HTMLSourceElement;
-    expect(darkSource).toBeTruthy();
-    expect(darkSource.getAttribute('srcset')).toBe('assets/Logo_4_3_BG_Removed_Dark.png');
-    expect(darkSource.getAttribute('media')).toBe('(prefers-color-scheme: dark)');
-
-    const lightImg = picture.querySelector('img.brand-logo') as HTMLImageElement;
-    expect(lightImg).toBeTruthy();
-    expect(lightImg.getAttribute('src')).toBe('assets/Logo_4_3_BG_Removed.png');
-    expect(lightImg.getAttribute('width')).toBe('1254');
-    expect(lightImg.getAttribute('height')).toBe('1254');
-
-    // Verify obsolete/deleted assets are not referenced
-    const allHtml = fixture.nativeElement.innerHTML;
-    expect(allHtml).not.toContain('logo-horizontal-trimmed.png');
-    expect(allHtml).not.toContain('logo-horizontal-480.png');
-    expect(allHtml).not.toContain('Logo_4_3.png');
-    expect(allHtml).not.toContain('Logo_16_9.png');
-    expect(allHtml).not.toContain('Ico.png');
-  });
-
-  it('preserves the unmirrored brand logo orientation in RTL mode', async () => {
-    fixture.detectChanges();
-    await flushPreflight();
-    fixture.detectChanges();
-
-    component.language.toggle(); // Switch to Arabic (RTL)
-    fixture.detectChanges();
-
-    expect(document.documentElement.dir).toBe('rtl');
     const logoImg = fixture.nativeElement.querySelector('img.brand-logo') as HTMLImageElement;
-    expect(logoImg).toBeTruthy();
     expect(logoImg.getAttribute('src')).toBe('assets/Logo_4_3_BG_Removed.png');
-    const computedStyle = window.getComputedStyle(logoImg);
-    expect(computedStyle.transform).not.toContain('matrix(-1'); // Not scaleX(-1) or mirrored
+    expect(window.getComputedStyle(logoImg).transform).not.toContain('matrix(-1');
   });
 });
