@@ -657,7 +657,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
     .boundary-note { margin: .5rem 0; border-inline-start: 3px solid var(--accent); padding-inline-start: .7rem; color: var(--ink-muted); font-size: .72rem; line-height: 1.5; }
 
     .button { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid transparent; border-radius: .6rem; padding: .6rem 1rem; font: 800 .78rem/1 var(--font-sans); cursor: pointer; }
-    .button--primary { color: #173b35; background: var(--accent); }
+    .button--primary { color: var(--action-text); background: var(--accent-action); }
     .button--quiet { border-color: var(--line); color: var(--ink-muted); background: transparent; }
     .button--quiet:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); background: var(--canvas); }
     .button--danger { color: #fff; background: var(--danger); }

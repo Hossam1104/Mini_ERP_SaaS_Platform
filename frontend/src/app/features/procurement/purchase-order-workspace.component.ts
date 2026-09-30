@@ -187,7 +187,7 @@ interface ConfirmationLineDraft {
     .button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 42px; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .9rem; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)); box-shadow: var(--shadow-soft), inset 0 1px var(--control-gloss); font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer; transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease, filter var(--motion-fast) ease; }
     .button:hover:not(:disabled) { transform: translateY(-1px); }
     .button:disabled { cursor: wait; opacity: .55; }
-    .button--primary { border-color: var(--accent-strong); color: var(--action-text); background: linear-gradient(180deg, color-mix(in srgb, var(--accent-action) 88%, white), var(--accent-action)); }
+    .button--primary { border-color: var(--accent-action); color: var(--action-text); background: var(--accent-action); }
     .button--secondary { border-color: var(--line-strong); }
     .button--quiet { border-color: transparent; color: var(--ink-muted); background: transparent; }
     .button--danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }

@@ -73,9 +73,9 @@
 }
 
 .app-rail .rail-tile.is-active {
-  color: #fff;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 70%, white), var(--primary));
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--primary) 35%, transparent);
+  color: var(--action-text);
+  background: var(--accent-action);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent-action) 35%, transparent);
 }
 
 .app-rail .rail-tile.is-active::before {

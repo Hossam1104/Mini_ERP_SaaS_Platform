@@ -221,7 +221,7 @@ interface QuotationDraft {
     .button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.4rem; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .82rem; color: var(--ink); background: var(--surface-raised); font-size: .74rem; font-weight: 800; text-decoration: none; cursor: pointer; }
     .button:hover:not(:disabled) { transform: translateY(-1px); }
     .button:disabled { cursor: wait; opacity: .55; }
-    .button--primary { border-color: var(--accent-strong); color: var(--ink-strong); background: var(--accent); }
+    .button--primary { border-color: var(--accent-action); color: var(--action-text); background: var(--accent-action); }
     .button--secondary { border-color: var(--line-strong); }
     .button--quiet { min-height: 1.9rem; border-color: transparent; padding: .3rem .45rem; color: var(--accent-strong); background: transparent; }
     .button--danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }

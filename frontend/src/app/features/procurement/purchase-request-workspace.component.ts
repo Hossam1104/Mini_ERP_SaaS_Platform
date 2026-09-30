@@ -334,8 +334,8 @@ interface RequestDraft {
     .toolbar, .form-section__heading, .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
     .button { min-height: 2.35rem; border: 1px solid transparent; border-radius: .55rem; padding: .58rem .82rem; font-size: .76rem; font-weight: 800; cursor: pointer; }
     .button:disabled { cursor: not-allowed; opacity: .45; }
-    .button--primary { color: #173b35; background: var(--accent); }
-    .button--primary:hover:not(:disabled) { background: #c4ead1; }
+    .button--primary { color: var(--action-text); background: var(--accent-action); }
+    .button--primary:hover:not(:disabled) { background: var(--accent-action); }
     .button--quiet { border-color: var(--line); color: var(--ink-muted); background: transparent; }
     .button--quiet:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); background: var(--canvas); }
     .button--danger { color: #fff; background: var(--danger); }
