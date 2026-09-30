@@ -68,28 +68,46 @@ Stop and escalate real blockers involving Tenant isolation, authentication/autho
 - Ponytail (full) applies minimal-solution coding discipline through hooks. Its install, cache, and hooks are machine-local and MUST NOT be committed. Ponytail is never authority.
 - Context Compress is opt-in and CLI-only: use context-compress wrap "<cmd>" (context-compress.cmd from PowerShell) only for large raw output such as long git log/diff, verbose package-manager or compiler logs, or big searches; never for the gate scripts or builds (already concise), short commands, or nested wraps. Wrapped output is lossy; never cite it as complete evidence. Raw output means running the command unwrapped. If a failure summary omits failing test names, assertions, stack traces, or compiler errors, rerun raw before reporting. Do not register its MCP server or hooks, or set CONTEXT_COMPRESS_FILTER_BASH or PERSIST_DB.
 - Paseo handles dispatch mechanics only; it is not an agent, router, or authority.
+- The Paseo usage-remaining plugin is quota telemetry only. Planner reads it on demand, before dispatching a new substantial task or after a quota warning, never per command. Its values are remaining percentages; used = 100 − remaining.
+- The Paseo paseo-be-concise plugin shortens agent prose and handoffs only. Context Compress alone owns large command output; never chain the two. Neither may drop failing test names, assertions, exception types, compiler errors, exit codes, conflicts, or blockers.
+- No plugin routes models, classifies bug severity, or accepts work.
 - Do not add tools that duplicate these roles. If a required tool is missing, report it in one line and continue with targeted reads.
 
 ## 7. Roles and loop
 
-| Role | Model / effort |
-|---|---|
-| Planner and acceptance authority | Claude Opus 5.5 / medium |
-| Executor | GPT-6 Luna / max |
-| Hard Bug specialist | Claude Sonnet 5 / high |
-| Independent Review | GPT-6 Sol / high |
+| Paseo profile | Model / effort | Use |
+|---|---|---|
+| Planner | Claude Opus 5.5 / medium | Planning, routing, review, acceptance |
+| Executor | GPT-6 Luna / xhigh | Normal implementation while used Codex quota ≤ 70% |
+| Executor-Fallback | GPT-6 Luna / high | Normal implementation while used Codex quota > 70% (automatic) |
+| Bug Fixer | GPT-6 Luna / max | LOW, MEDIUM, and HIGH defects; not downgraded by quota |
+| Hard Bug | Claude Sonnet 5 / high | CRITICAL defects only |
+| Hard Bug Fallback | GPT-6 Sol / medium | CRITICAL defect when Sonnet is genuinely unavailable; record why |
+| Independent Review | GPT-6 Sol / high | Checkpoint and critical-point review |
+| Planner-Fallback | GPT-6 Sol / high | Opus cannot continue; owner approval first, never automatic |
+| Lowest Executor | Claude Haiku 4.5 | Trivial mechanical work; owner approval first, never automatic |
+
+These roles override profile descriptions shown in Paseo. Do not add, rename, or delete profiles without owner approval.
 
 Paseo is the orchestration harness only, not an agent, model router, or authority. Executor completion is not acceptance; Opus 5.5 makes the normal acceptance decision. Opus retains the standing authority in §1; explicit STOPs and rulesets still bind.
 
-Planner SHOULD reserve quota for planning and acceptance, not routine implementation or broad rediscovery. GPT-6 Luna MUST be the default for implementation and repository-heavy work. Business severity alone MUST NOT trigger Hard Bug. Use Claude Sonnet 5 only for evidence-backed technical difficulty: concurrency/nondeterminism, lifecycle/state corruption, difficult cross-layer or architecture defects, data-integrity recovery, or a failed competent Executor attempt where another ordinary attempt is unlikely to be economical. If the diagnosis is unclear, GPT-6 Luna diagnoses first. Send straightforward misses, localized logic/test gaps, and build/configuration mistakes to GPT-6 Luna for one focused correction.
+Routing order for every new task:
+1. Classify the task type.
+2. If it is a defect, classify its severity (LOW, MEDIUM, HIGH, CRITICAL) by real technical and business risk, not by wording.
+3. Choose the profile from the table.
+4. Only for normal implementation, apply the quota threshold (exactly 70% used stays xhigh).
 
-GPT-6 Sol is reviewer-only and advisory. Count only Executor cycles Opus ACCEPTS; rejected attempts and corrections do not count. Review at 12 accepted cycles normally, at 8–10 early when material risk warrants it, and no later than 15; at 15, pause normal implementation until review and reconciliation. Critical-point triggers are in docs/MODEL_ROUTING.md §2. Sol MUST independently assess the plan, architecture, implementation drift, test quality, workaround patterns, hidden debt, unresolved assumptions, requirement/implementation consistency, Planner decisions, and routing, and MUST NOT modify production code without separate owner authorization. Sol returns: RESULT (PASS | CONCERNS | RECONCILIATION_REQUIRED), REVIEW WINDOW, PROJECT PLAN, ARCHITECTURE, IMPLEMENTATION DRIFT, TEST / QUALITY, ROUTING / PROCESS, FINDINGS (each with severity CRITICAL | MATERIAL | MINOR, evidence, affected area, impact, required action), CONTINUE (YES | NO), and NEXT REVIEW. Opus records the review and resets the counter when nothing material is required; otherwise it routes corrections as below.
+Correctness and task suitability outrank quota savings. Fallbacks are not a cascade: none substitutes for another profile's purpose. When Codex is genuinely exhausted, report it and stop; do not move normal implementation to Sonnet, Sol, or Haiku. Sol never independently reviews work it executed or planned. Before Planner-Fallback or Lowest Executor, tell the owner the reason, evidence, scope, and consequences, then wait.
+
+Planner SHOULD reserve quota for planning and acceptance, not routine implementation or broad rediscovery. GPT-6 Luna MUST be the default for implementation and repository-heavy work. Send straightforward misses on non-defect work, localized logic/test gaps, and build/configuration mistakes back to the same Luna profile for one focused correction.
+
+Outside the Hard Bug Fallback and owner-approved Planner-Fallback profiles, GPT-6 Sol is reviewer-only and advisory. Count only Executor cycles Opus ACCEPTS; rejected attempts and corrections do not count. Review at 12 accepted cycles normally, at 8–10 early when material risk warrants it, and no later than 15; at 15, pause normal implementation until review and reconciliation. Critical-point triggers are in docs/MODEL_ROUTING.md §2. Sol MUST independently assess the plan, architecture, implementation drift, test quality, workaround patterns, hidden debt, unresolved assumptions, requirement/implementation consistency, Planner decisions, and routing, and MUST NOT modify production code without separate owner authorization. Sol returns: RESULT (PASS | CONCERNS | RECONCILIATION_REQUIRED), REVIEW WINDOW, PROJECT PLAN, ARCHITECTURE, IMPLEMENTATION DRIFT, TEST / QUALITY, ROUTING / PROCESS, FINDINGS (each with severity CRITICAL | MATERIAL | MINOR, evidence, affected area, impact, required action), CONTINUE (YES | NO), and NEXT REVIEW. Opus records the review and resets the counter when nothing material is required; otherwise it routes corrections as below.
 
 Planner MUST keep exactly one self-contained executable contract in TASK.md: objective, verified relevant state, scope, constraints, execution and validation, stop conditions, and expected result. Pass its full authoritative content to a child when TASK.md may not exist in that workspace. Paseo dispatches the chosen child/workspace; it does not choose tasks or grant authority.
 
 Executor MUST complete authorized work and add exactly one RESULT.md entry using the template in docs/MODEL_ROUTING.md §7 (the only RESULT schema), including root cause for bug work. Completion evidence goes to Opus for a separate decision.
 
-Opus review starts with TASK.md, completion report, RESULT.md, diff/changed files, required gates, and applicable acceptance rules, then returns ACCEPT, REJECT, or BLOCKED. Route ordinary gaps to one focused GPT-6 Luna correction; route only genuinely difficult technical problems to Hard Bug. Sol findings are advisory and Opus reconciles them.
+Opus review starts with TASK.md, completion report, RESULT.md, diff/changed files, required gates, and applicable acceptance rules, then returns ACCEPT, REJECT, or BLOCKED. Route ordinary gaps to one focused GPT-6 Luna correction; route defects by severity as above. Sol findings are advisory and Opus reconciles them.
 
 Planner SHOULD continue authorized technical steps without routine owner relay. Interrupt the owner only for materially ambiguous business behavior, conflicting authority, missing acceptance criteria that cannot be inferred safely, destructive/irreversible/external action needing approval, unavailable credentials/access, or an explicit owner-approval gate. Then stop the affected work, preserve repository state, and ask one precise question with only the necessary facts. Never infer authority from silence. Fast/priority inference modes stay off unless the owner authorizes them.
 

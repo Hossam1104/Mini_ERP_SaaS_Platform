@@ -1,5 +1,27 @@
 # Results
 
+## 2026-09-30 - MESP-181 (#319) ordinary permission denial returns 403 - GPT-6 Luna / max - MESP-181 (#319)
+- Status: DONE. PR #322 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-181-permission-denial-403`; started at `a77a2b7d513357301d59286d7b4e2e38d557eb81`; code commit `acb5fec`; RESULT hand-back commit follows.
+- What changed: Root cause was `ResolveContext` treating a denied operation on a valid ordinary membership as an invalid selection, removing it and returning an unauthenticated context. The OrdinaryMembership branch now returns `ForAuthenticatedSession` after `AuthorizeOrdinary` denies, preserving the selection and giving endpoint code the existing 403 response. Added real-host tests for denied-then-permitted calls, no-session 401, and inactive-membership selection removal. The scope-policy mismatch early return, SupportGrant path, and PlatformGovernanceContext path are intentionally unchanged.
+- Gates: Pre-fix permission-denial tests: 3 tests, 2 passed / 1 failed; assertion expected `(Forbidden, OK)` and received `(Unauthorized, Forbidden)`, exit 1. Combined focused gate (`dotnet test backend/MiniErp.sln --filter "FullyQualifiedName~PermissionDenialStatusTests|FullyQualifiedName~HostSecurityTests|FullyQualifiedName~RestFoundationTests" --logger "console;verbosity=normal"`): 62 passed, 0 failed, exit 0. Backend wrapper (`Test-MiniErpBackend.ps1 -NoBuild:$false`): Release build 0 warnings / 0 errors; 1,596 passed, 1 failed, 0 skipped, exit 1. The only failure was `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` (known MESP-166 #285 flake). Isolated rerun against the disposable SQL Server safety target: 1 passed, 0 failed, exit 0. `git diff --check`: clean, exit 0.
+- Evidence: Draft PR #322: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/322. The denied route is catalogued with `FoundationScopePolicy.Tenant`; the seeded owner membership lacks `tenant.foundation.target.read`. The same signed-in client receives 403 for that operation and then 200 from `/api/v1/foundation/tenant-context`, proving the selection remains available. No tenant or platform context is returned for the denied operation.
+- Deviations from the prompt: None.
+- Failures and classification: The first full wrapper run had the one known MESP-166 (#285) SQL Server claim-race flake; its assertion reported a migration execution completion followed by a version conflict. The isolated rerun passed. No other failures.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews Draft PR #322; leave it Draft, do not mark Ready or merge.
+
+## 2026-09-30 — MESP-180 (#317) npm audit undici advisory — GPT-6 Luna / max
+- Status: DONE. PR #318 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-180-npm-audit-undici`; started at `27b255decd23261141efc092254e1f2722a5c62f`; code commit `0bcf2db`; RESULT hand-back commit follows.
+- What changed: Root cause was top-level dev dependency `jsdom@28.1.0`, which resolved vulnerable transitive `undici@7.29.0`. `npm audit fix` without `--force` updated only `frontend/package-lock.json`, resolving `undici` to `7.30.0`; `frontend/package.json` is unchanged and no override was needed.
+- Gates: Initial audit `9 vulnerabilities (8 moderate, 1 high)`; `npm ls undici` showed `jsdom@28.1.0` → `undici@7.29.0`. After fix, `npm ls undici` shows `undici@7.30.0`. `npm audit --omit=dev --audit-level=high` and `npm audit --audit-level=high` both exited 0 with `4 moderate severity vulnerabilities` and 0 high/critical. `npm test -- --watch=false --no-progress`: `Test Files 49 passed (49)`, `Tests 335 passed (335)`, exit 0. `npm run build`: `Initial total 497.47 kB` (122.85 kB estimated transfer), success. `npm run test:e2e -- --project=chromium`: `60 passed (1.3m)`, exit 0. `git diff --check`: clean.
+- Evidence: Draft PR https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/318. Runtime restart recorded as `restart: Planner (worktree)`; launcher not run.
+- Deviations from the prompt: None.
+- Failures and classification: `npm audit fix` exited 1 because the Angular dependency chain still has `4 moderate severity vulnerabilities`; both requested audit gates exit 0 because no high or critical advisory remains. No unrelated gate failures.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews the Draft PR for MESP-180 (#317); runtime restart remains Planner-owned for this worktree.
+
 ## 2026-09-29 - MESP-175 (#305) Opus correction: Meadow, Tenant logo and preview diagnosis - GPT-6 Luna / max - MESP-175 (#305)
 - Status: DONE. PR #311 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
 - Branch / starting SHA / ending SHA: feat/mesp-175-tenant-theme-sar started at 93090f1c7fe5af535dc2966b49b87b670fb78cb1; UI commits 8056780adb414c938e57a6eda3df70e2cdc3a45f and 919c2643f8b704145592b2da0f8cc2e90cea849d; this RESULT hand-back commit follows.
