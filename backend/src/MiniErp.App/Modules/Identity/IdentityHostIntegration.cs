@@ -353,6 +353,10 @@ internal sealed class FoundationIdentityHost : IFoundationIdentityHost
                         decision.TenantContext,
                         permission.Value);
                 }
+
+                // The membership is still valid; only this operation is denied.
+                // Keep the selection so the caller receives 403, not 401.
+                return FoundationRequestContext.ForAuthenticatedSession(actorId, sessionId.Value);
             }
 
             if (selected.Kind == FoundationHostContextKind.SupportGrant
