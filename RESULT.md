@@ -1,8 +1,8 @@
 # Results
 
 ## 2026-10-01 - MESP-171 (#294) part 2 report completeness and scope matrix - GPT-6 Luna / max - MESP-171 (#294)
-- Status: DONE for executor hand-back; Draft PR creation follows. No Ready, review request, approval, merge, or issue-state change.
-- Branch / starting SHA / ending SHA: `feat/mesp-171-report-completeness`; started at `79111ee99d4bb8bb770f97bb30607000d1f23967`; implementation and audit commit follows.
+- Status: DONE for executor hand-back; Draft PR #334 remains OPEN/Draft. No Ready, review request, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: `feat/mesp-171-report-completeness`; started at `79111ee99d4bb8bb770f97bb30607000d1f23967`; implementation/audit commit `f8af17553cc1d765c7223b39cc4c3ddf420037fa`; RESULT hand-back commit follows.
 - What changed: Expanded the catalogue-derived authority matrix, validation-only role split, Company-scope denial and evidence checks; added LocalDB findings-read and independent reconciliation-count tests; asserted every completed reconciliation response field; updated only M40-REQ-028, -033, -034, -041, -042, -AC-028 and -AC-029 in the traceability audit. No production code changed.
 - Gates:
   - `dotnet test backend/MiniErp.sln --filter "FullyQualifiedName~MigrationAuthorityMatrixTests" --logger "console;verbosity=normal"`: 22 passed, 0 failed, 22 total; exit 0.
@@ -20,7 +20,8 @@
   - M40-AC-029 - COVERED: `MigrationAuthorityMatrixTests.Validation_only_membership_can_read_evidence_but_cannot_use_execution_authority` plus `MigrationReconciliationSqlServerSafetyTests.Sql_server_mesp171_validation_findings_read_is_tenant_scoped` assert execute-authority denial, own-Tenant evidence reads, foreign-Tenant hiding, and unchanged state/version.
 - Deviations / failures: The detailed normal-verbosity full-test log ended without a summary after the machine OOM interruption (1,368 passing cases were emitted before truncation); the first wrapper attempt surfaced only the known `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` MESP-166 (#285) flake. The requested full wrapper rerun then completed with the green counts above. The Development SQLite file remained at LastWriteTimeUtc `2026-09-11T18:38:02.9110030Z` before and after test activity.
 - Status files updated: `RESULT.md` and `docs/audit/mesp-141-m40-traceability.md`.
-- Exact next action: Opus 5.5 reviews the Draft PR for MESP-171 (#294); leave it Draft, do not mark Ready or merge.
+- Evidence: Draft PR #334: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/334.
+- Exact next action: Opus 5.5 reviews Draft PR #334 for MESP-171 (#294); leave it Draft, do not mark Ready or merge.
 
 ## 2026-09-30 — MESP-182 (#321) Development Sales migration coverage — GPT-6 / max — MESP-182 (#321)
 - Status: DONE. Draft PR #323 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
