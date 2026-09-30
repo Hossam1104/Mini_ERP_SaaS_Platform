@@ -41,6 +41,10 @@ npm install
 npm start
 ```
 
+The official Development launcher uses the API same-origin proxy. Its host
+entries, default sign-in account, and opt-in bypass behavior are documented in
+the [repository Local quick start](../README.md#local-quick-start).
+
 ## Validation
 
 ```powershell
