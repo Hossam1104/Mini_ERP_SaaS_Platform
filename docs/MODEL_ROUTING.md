@@ -42,7 +42,8 @@ Planner reconciles and accepts/rejects.
   `$PASEO_HOME/usage-remaining.cache.json` (default `~/.paseo`). The Codex weekly row `codex_week.row.remainingPct`
   decides the Executor threshold (used = 100 − remaining). Read only the `*_session` and `*_week`
   rows; never read or print `_claude` token or cooldown data. Check the row's `at` timestamp. If the file
-  is missing or stale, keep the current profile and say so in one line. Do not guess.
+  is missing or stale, keep the current profile and say so in one line; with no current profile, use
+  Executor, because correctness outranks quota savings. Do not guess.
 - Keep only the latest reading (value, source, time) in the Planner's working state. Do not keep a
   usage history.
 - Product defects become tracker **Bugs**. They are never "fixed" in test code.
