@@ -1,5 +1,18 @@
 # Results
 
+## 2026-09-30 — MESP-184 Luxury gold and Brown theme — Codex (GPT-6) / effort not exposed — MESP-184 (#325)
+- Status: DONE. PR #328 remains OPEN/Draft; no Ready, review request, merge, or issue-state changes.
+- Branch / starting SHA / ending SHA: `feat/mesp-184-luxury-gold-brown-theme`; started at `1a12d100efbf5d6c244aff4e6c81fde3e9439b1b`; product commit `6c1a725c4eaebe6746b6367b85a7947e48c787b2`; RESULT hand-back commit follows.
+- What changed: Root cause was Luxury's swatch, light primary-action token, and dialog wave start using `#111827`; Brown had no option or theme rules. Added the gold Luxury swatch/light tokens, Brown option and light/dark tokens, plus option-count, swatch, and Brown persistence coverage. Source files: `frontend/src/app/core/presentation/theme.service.ts`, `frontend/src/styles.scss`, `frontend/src/app/core/presentation/theme.service.spec.ts`, `frontend/e2e/ui-modernization.spec.ts`. No theme-label translation dictionary exists; labels remain literal English as before.
+  - Review artifacts: `.playwright-mcp/mesp-184/capture-review.mjs`, `.playwright-mcp/mesp-184/contrast-dom.mjs`, `.playwright-mcp/mesp-184/contrast-rendered.md`, `.playwright-mcp/mesp-184/contrast-rendered.json`, `.playwright-mcp/mesp-184/pr-body.md`.
+  - Screenshots: `.playwright-mcp/mesp-184/01-themes-dropdown-luxury-brown.png`, `02-overview-luxury-light.png`, `03-overview-luxury-dark.png`, `04-overview-brown-light.png`, `05-overview-brown-dark.png`, `06-master-data-brown-light.png`, `07-luxury-light-primary-action-open-dialog.png` (all 1440px wide).
+- Gates: `npm test -- --watch=false --no-progress` — exit 0, 50 files / 341 tests passed; `npm run build` — exit 0, initial total 499.09 kB (<500 kB); `$env:MESP_E2E_BASE_URL='http://localhost:4320'; npm run test:e2e -- --project=chromium` — exit 0, 60 passed against the existing IPv6 preview; `git diff --check` — exit 0, clean.
+- Evidence: `.playwright-mcp/mesp-184/contrast-rendered.md` — 10 themes × light/dark, 11 routes, 12,160 DOM samples, 0 failures at 4.5:1, minimum 4.57:1; Brown per-mode minima 5.36:1 light and 6.94:1 dark. Primary action text: Luxury 6.31:1 light / 8.80:1 dark; Brown 8.38:1 light / 8.38:1 dark. Draft PR #328: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/328 (base `feat/mesp-178-shell-rail-grids`).
+- Deviations from the prompt: The initial `127.0.0.1:4320` E2E command caused Playwright's configured webServer to launch its own IPv4 `ng serve` and passed 60 tests. Re-ran with `localhost:4320`; a read-only probe resolved to `::1` and returned HTTP 200, and Playwright reused the watched preview. The existing `::1` listeners on 4320, 4300, and 5300 remained present.
+- Failures and classification: None. Luxury dark tokens remained unchanged; Brown starting values met the requested contrast floor without tuning.
+- Status files updated: `RESULT.md` only.
+- Exact next action: Opus 5.5 reviews MESP-184 (#325) on Draft PR #328; leave Draft pending review.
+
 ## 2026-09-30 — MESP-180 (#317) npm audit undici advisory — GPT-6 Luna / max
 - Status: DONE. PR #318 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
 - Branch / starting SHA / ending SHA: `fix/mesp-180-npm-audit-undici`; started at `27b255decd23261141efc092254e1f2722a5c62f`; code commit `0bcf2db`; RESULT hand-back commit follows.
