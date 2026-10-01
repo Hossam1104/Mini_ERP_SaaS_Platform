@@ -75,9 +75,78 @@ test.describe('Tenant-aware shell', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
 
     await page.goto('/app/workspaces');
-    await expect(page.locator('#context-switcher-title')).toBeVisible();
-    await page.locator('#workspace-select').selectOption('context-a');
-    await expect(page.locator('#context-switcher-title')).toHaveText('Alpha workspace');
+    await expect(page.locator('.context-summary')).toContainText('Alpha Tenant');
+    await expect(page.locator('#workspace-select')).toHaveCount(0);
+    await expect(page.getByText('No Tenant context selected')).toHaveCount(0);
+  });
+
+  test('Tenant host shows a fixed Tenant and only Company/Branch choices', async ({ page }) => {
+    await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: {
+      ...tenantEntry,
+      canonicalHost: 'wafra.localhost',
+      operationalContexts: [
+        { contextId: 'company-a', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 },
+        { contextId: 'branch-a', kind: 'Branch', displayName: 'Alpha Branch', eligibilityVersion: 1 },
+      ],
+      selectedOperationalContextId: 'company-a',
+    } }));
+
+    await page.goto('http://wafra.localhost:4370/app/workspaces');
+
+    const summary = page.locator('.context-summary');
+    await expect(summary).toContainText('Alpha Tenant');
+    await expect(summary).toContainText('Alpha Company · Company');
+    await expect(page.locator('#workspace-select')).toHaveCount(0);
+    await expect(page.locator('app-context-switcher')).toHaveCount(0);
+    await expect(page.locator('#operational-context-select option')).toHaveText([
+      'Alpha Company - Company',
+      'Alpha Branch - Branch',
+    ]);
+    await expect(page.getByText('No Tenant context selected')).toHaveCount(0);
+  });
+
+  test('common host shows a Tenant chooser only when there are multiple memberships', async ({ page }) => {
+    await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: {
+      ...tenantEntry,
+      entryMode: 'CommonHost',
+      canonicalHost: 'mesp.localhost',
+      candidateTenantId: null,
+      candidateTenantDisplayName: null,
+      authorizedTenants: [
+        ...tenantEntry.authorizedTenants,
+        { tenantId: 'tenant-b', displayName: 'Beta Tenant', canonicalHost: 'beta.localhost' },
+      ],
+      operationalContexts: [],
+      selectedOperationalContextId: null,
+      branding: { ...tenantEntry.branding, displayName: 'MESP', tenantConfigured: false },
+    } }));
+    await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [
+      { contextId: 'context-a', kind: 'OrdinaryMembership', tenantId: 'tenant-a', displayName: 'Alpha Tenant', eligibilityVersion: 1 },
+      { contextId: 'context-b', kind: 'OrdinaryMembership', tenantId: 'tenant-b', displayName: 'Beta Tenant', eligibilityVersion: 1 },
+    ] } }));
+
+    await page.goto('http://mesp.localhost:4370/app/workspaces');
+
+    await expect(page.locator('#workspace-select')).toBeVisible();
+    await expect(page.locator('#workspace-select option:not([disabled])')).toHaveText([
+      'Alpha Tenant · Tenant membership',
+      'Beta Tenant · Tenant membership',
+    ]);
+    await expect(page.locator('#operational-context-select')).toHaveCount(0);
+  });
+
+  test('common host with one membership shows its fixed Tenant without a chooser', async ({ page }) => {
+    await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: {
+      ...tenantEntry,
+      entryMode: 'CommonHost',
+      canonicalHost: 'mesp.localhost',
+    } }));
+
+    await page.goto('http://mesp.localhost:4370/app/workspaces');
+
+    await expect(page.locator('.context-summary')).toContainText('Alpha Tenant');
+    await expect(page.locator('#workspace-select')).toHaveCount(0);
+    await expect(page.getByText('No Tenant context selected')).toHaveCount(0);
   });
 
   test('keeps the authenticated shell and selected Tenant after an unconfirmed sign-out', async ({ page }) => {
