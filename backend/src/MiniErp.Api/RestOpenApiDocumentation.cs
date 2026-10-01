@@ -282,7 +282,7 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
             {
                 "idempotencykey" => "Stable key for this mutation. The server binds it to the authorized identity and request; reusing it for a different request conflicts.",
                 "ifmatch" => "Current ETag/version of the resource. The server rejects a stale value and requires this header only where the operation declares optimistic concurrency.",
-                "requestverificationtoken" or "xcsrf" => "Antiforgery evidence paired with the first-party session cookie for an unsafe request.",
+                "requestverificationtoken" or "xcsrf" => "Antiforgery evidence paired with the authenticated first-party session for an unsafe request.",
                 "companyid" => "Company context inside the already authorized Tenant; this value cannot widen Tenant or membership scope.",
                 "branchid" => "Branch context inside the already authorized Tenant; this value cannot widen Tenant or membership scope.",
                 "warehouseid" => "Warehouse context inside the already authorized Tenant and Company/Branch scope.",
@@ -312,7 +312,7 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         }
         if (descriptor.RequiresAntiforgery)
         {
-            AddHeader(operation, "X-CSRF-TOKEN", "Antiforgery token paired with the first-party session cookie for this unsafe request.");
+            AddHeader(operation, "X-CSRF-TOKEN", "Antiforgery token required with the authenticated first-party session for this unsafe request.");
         }
     }
 
@@ -677,7 +677,7 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         }
         if (descriptor.RequiresAntiforgery)
         {
-            requirements.Add("A valid antiforgery token paired with the first-party session cookie is required.");
+            requirements.Add("A valid antiforgery token for the authenticated first-party session is required.");
         }
         if (descriptor.RequiresMfa || descriptor.RequiresFreshAuthentication)
         {
@@ -792,14 +792,14 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
 
         var identityBoundary = descriptor.OperationId switch
         {
-            "auth.sign-in" => "Validates the supplied login and password against Identity and, on success, establishes a server-side session located by the first-party secure HTTP-only cookie. It returns no Tenant authorization path; the server resolves eligible contexts separately.",
+            "auth.sign-in" => "Validates the supplied login and password against Identity and, on success, establishes a server-side authenticated session. It returns no Tenant authorization path; the server resolves eligible contexts separately.",
             "auth.sign-out" => "Revokes the current server-side session. When a Tenant or Platform path is selected, safe evidence is written before revocation; a session-only sign-out follows the conditional evidence policy and is not a Tenant business effect.",
             "auth.session.read" => "Returns the current first-party session summary after server-side session validation; it does not accept client-supplied Tenant or permission claims.",
             "auth.contexts.read" => "Returns only Tenant or Platform context candidates already authorized for the authenticated user. Candidate identifiers do not grant authority.",
             "auth.operational-contexts.read" => "Returns Company/Branch contexts inside the selected authorized Tenant and the current selection version; client context values cannot widen membership scope.",
             "auth.context-switch" => "Switches to a server-authorized Tenant, support, or Platform candidate only when the supplied selection and eligibility versions still match server state. A stale version conflicts; a client cannot create a new path or permission.",
             "auth.operational-context-switch" => "Switches Company/Branch context inside the already authorized Tenant only when the candidate remains eligible and the selection/eligibility versions match server state. A stale version conflicts and cannot widen the selected Tenant scope.",
-            "auth.antiforgery.read" => "Issues or returns the antiforgery evidence paired with the first-party session cookie for unsafe browser requests; it does not select a Tenant or authorize a business operation.",
+            "auth.antiforgery.read" => "Issues or returns antiforgery evidence associated with the authenticated session for unsafe browser requests; it does not select a Tenant or authorize a business operation.",
             _ => null
         };
         if (identityBoundary is not null)
