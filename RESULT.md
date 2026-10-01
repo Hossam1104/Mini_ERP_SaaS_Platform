@@ -1,5 +1,23 @@
 # Results
 
+## 2026-10-01 — MESP-185 (#326) UI consistency stage 1 — GPT-6 Luna / xhigh — MESP-185 (#326)
+- Status: DONE. Draft PR #341 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
+- Branch / starting SHA / ending SHA: `feat/mesp-185-ui-consistency-primitives`; started at `1a12d100efbf5d6c244aff4e6c81fde3e9439b1b`; implementation commits `77c8568`, `1473341`, `5c8bdf0`; RESULT hand-back commit follows.
+- What changed: Root cause was feature-local control and tab CSS competing with inconsistent shared defaults, plus grid cells and page descriptions without shared constraints. Added canonical token-based buttons, fields, native themed-select enhancement, `app-tabs`, grid sizing/wrapping/alignment/loading/empty states, page header clamp and page container. Migrated in-scope features and added the feature-style guard and A1/A3/A4 assertions. Baseline inventory: 460 local style rules across 24 files (`.playwright-mcp/mesp-185/inventory.md`). No MESP-184 token lines, MESP-186-owned files, assets, backend, or `TASK.md` changed.
+- Gates:
+  - `npm ci`: exit 0.
+  - `npm test -- --watch=false --no-progress`: exit 0; 51 files, 342/342 tests; guard 0 violations.
+  - `npm run build`: exit 0; initial bundle 499.16 kB (479.18 kB JS + 19.98 kB CSS), under 500 kB.
+  - `MESP_E2E_BASE_URL=http://localhost:4325 npm run test:e2e -- --project=chromium --workers=1`: exit 0; 61/61.
+  - Rendered contrast capture: exit 0; 90 route/theme/mode captures, 5,004 samples, 0 failures below 4.5:1; minimum 5.07:1.
+  - Computed-style capture: exit 0; 40/40 routes, 0 errors.
+  - `git diff --check`: exit 0; clean after RESULT insertion.
+- Evidence: Draft PR #341: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/341. Evidence is in `.playwright-mcp/mesp-185/summary.md`, `report.json`, `inventory.md`, and `before/` / `after/` captures. Signature counts (style-only): buttons 45 -> 15, fields 36 -> 3, tabs 7 -> 2; raw element/class: buttons 57 -> 27, fields 49 -> 11, tabs 10 -> 4.
+- Deviations from the prompt: Three MESP-186-owned login controls retain their local styles and are the only feature guard allowlist (`auth/**` and `context/tenant-select.component.ts`). No open-popup before image existed in Planner evidence. Before Inventory/Sales viewport captures do not show the below-fold A6 controls; after control crops are present. A5 multi-sentence callers for module sweep: Master Data resource pages, Price Lists, Purchase Requests list/create, and Supplier Returns list/create. Pages without `app-data-grid` are listed in `.playwright-mcp/mesp-185/summary.md` and the PR body.
+- Failures and classification: An initial extra-capture script had an invalid `join` import and was corrected. A contrast attempt raced navigation; the rerun passed. The first contrast metric misread the select chevron gradient and was corrected; final result is 0 failures. Chromium initially reported 59/61 while the shared search input border selector was being corrected; final required run passed 61/61. Full-page screenshot capture exceeded Chromium's capture limit; viewport screenshots and A6 control crops succeeded. No out-of-memory failure occurred in this continuation.
+- Status files updated: `RESULT.md`; `TASK.md` untouched. The 4325 server was stopped and the port verified free. No tracker writes.
+- Exact next action: Opus 5.5 reviews Draft PR #341; leave it Draft/Open and do not request review, mark Ready, merge, or close the issue.
+
 ## 2026-09-30 — MESP-180 (#317) npm audit undici advisory — GPT-6 Luna / max
 - Status: DONE. PR #318 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
 - Branch / starting SHA / ending SHA: `fix/mesp-180-npm-audit-undici`; started at `27b255decd23261141efc092254e1f2722a5c62f`; code commit `0bcf2db`; RESULT hand-back commit follows.
