@@ -205,7 +205,6 @@ body app-root :is(.data-grid-table, .return-table) :is(th, td, small) { font-siz
 
 @keyframes page-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes card-enter { from { opacity: 0; transform: translateY(12px) scale(0.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes control-focus-ring { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent), inset 0 1px var(--control-gloss); } to { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent), 0 5px 14px color-mix(in srgb, var(--accent) 12%, transparent), inset 0 1px var(--control-gloss); } }
 @media (max-width: 620px) { .ui-page-header { align-items: flex-start; flex-direction: column; } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
