@@ -43,6 +43,7 @@ public sealed class SalesTests
     private static readonly Guid Approver = Guid.Parse("12121212-1212-1212-1212-121212121212");
     private static readonly Guid ApproverTwo = Guid.Parse("13131313-1313-1313-1313-131313131313");
     private static readonly Guid ApproverThree = Guid.Parse("14141414-1414-1414-1414-141414141414");
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
 
     [Fact]
     public async Task Quotation_revision_history_is_immutable_and_stale_edits_fail()
@@ -101,8 +102,8 @@ public sealed class SalesTests
         await using var fixture = await Fixture.CreateAsync();
         var expiredModel = fixture.Model() with
         {
-            QuotationDate = new DateOnly(2025, 1, 1),
-            ValidUntil = new DateOnly(2025, 1, 31)
+            QuotationDate = Today.AddDays(-2),
+            ValidUntil = Today.AddDays(-1)
         };
         var created = await fixture.Persistence.CreateQuotationAsync(fixture.Context(Creator), expiredModel, "create-3", "fingerprint-1", fixture.Policy());
         Assert.True(created.Succeeded, created.Code);
@@ -391,8 +392,8 @@ public sealed class SalesTests
             CompanyA,
             BranchA,
             CustomerA,
-            new DateOnly(2026, 8, 28),
-            new DateOnly(2026, 9, 30),
+            Today,
+            Today.AddDays(30),
             CurrencyA,
             PriceListA,
             null,
@@ -443,8 +444,8 @@ public sealed class SalesTests
             CompanyA,
             BranchA,
             CustomerA,
-            new DateOnly(2026, 8, 28),
-            new DateOnly(2026, 9, 30),
+            Today,
+            Today.AddDays(30),
             CurrencyA,
             PriceListA,
             null,
@@ -476,7 +477,7 @@ public sealed class SalesTests
     {
         var quotationId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
-        var existing = new SalesQuotationResponse(quotationId, "SQ-TEST", TenantA, CompanyA, BranchA, CustomerA, "CUST-001", "Customer A", Creator, new DateOnly(2026, 8, 28), new DateOnly(2026, 9, 30), CurrencyA, "SAR", null, null, null, 0m, 0m, 0m, 0m, SalesQuotationStatus.Draft, 1, [], [1], now, now);
+        var existing = new SalesQuotationResponse(quotationId, "SQ-TEST", TenantA, CompanyA, BranchA, CustomerA, "CUST-001", "Customer A", Creator, Today, Today.AddDays(30), CurrencyA, "SAR", null, null, null, 0m, 0m, 0m, 0m, SalesQuotationStatus.Draft, 1, [], [1], now, now);
         var persistence = new CapturingSalesPersistence(existing);
         var service = new SalesService(
             persistence,
@@ -493,7 +494,7 @@ public sealed class SalesTests
             new UnavailableSalesTaxReferenceProvider(),
             new UnavailableSalesExchangeRateReferenceProvider());
 
-        var request = new SalesQuotationEditRequest(CompanyB, BranchA, new DateOnly(2026, 9, 30), CurrencyA, PriceListA, null, null, null, [new SalesQuotationLineRequest(ProductA, UomA, 1m)]);
+        var request = new SalesQuotationEditRequest(CompanyB, BranchA, Today.AddDays(30), CurrencyA, PriceListA, null, null, null, [new SalesQuotationLineRequest(ProductA, UomA, 1m)]);
         var result = await service.EditQuotationAsync(Context(Creator, TenantA, CompanyA, "tenant.sales.quotation.edit"), quotationId, request, [1], "service-scope-edit");
 
         Assert.False(result.Succeeded);
@@ -1562,8 +1563,8 @@ public sealed class SalesTests
         CompanyA,
         BranchA,
         CustomerA,
-        new DateOnly(2026, 8, 28),
-        new DateOnly(2026, 9, 30),
+        Today,
+        Today.AddDays(30),
         CurrencyA,
         PriceListA,
         null,
@@ -1681,7 +1682,7 @@ public sealed class SalesTests
         public SalesApprovalPolicyDefinition Policy() => new("sales.test.policy", 7, [new SalesApprovalStageDefinition("commercial", 1, 1, [Approver], false)], true, false, DateTimeOffset.MinValue, null);
 
         public SalesQuotationWriteModel Model(Guid? id = null) => new(
-            id ?? Guid.NewGuid(), CompanyA, BranchA, CustomerA, "CUST-001", "Customer A", new DateOnly(2026, 8, 28), new DateOnly(2026, 9, 30), CurrencyA, "SAR", "contact-1", "Commercial note", null,
+            id ?? Guid.NewGuid(), CompanyA, BranchA, CustomerA, "CUST-001", "Customer A", Today, Today.AddDays(30), CurrencyA, "SAR", "contact-1", "Commercial note", null,
             [new SalesLineWriteModel(Guid.NewGuid(), ProductA, "SKU-001", "Product A", UomA, "EA", 3m, 50m, 50m, 0m, 0m, 0m, 150m, PriceListA, 4, new DateOnly(2026, 8, 1), "PriceList", "price-source-4", false, null, null, null, "line note")],
             150m, 0m, 0m, 150m,
             PaymentTerm: new SalesPaymentTermSnapshot(PaymentTermA, "NET4", "Net 4", null, PaymentTermVersionA, 2, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), null, PaymentTermBaseDateRule.DocumentDate, PaymentTermScheduleMode.SingleDueDate, 4, 0, "masterdata.payment-term", "NET4;v2", []));
