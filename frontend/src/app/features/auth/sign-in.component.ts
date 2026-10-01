@@ -409,12 +409,12 @@ export class SignInComponent implements OnInit {
       return;
     }
 
-    if (this.loginEntryMode() === 'CommonHost') {
+    if (entry.entryMode === 'CommonHost') {
       await this.chooseCommonHostContext();
       return;
     }
 
-    if (this.loginEntryMode() === 'TenantHost' && entry.entryMode === 'TenantHost') {
+    if (entry.entryMode === 'TenantHost') {
       const selected = this.authService.session()?.selectedContextId;
       if (selected) {
         await this.router.navigate(['/app']);
@@ -427,8 +427,7 @@ export class SignInComponent implements OnInit {
         await this.router.navigate(['/app']);
         return;
       }
-    } else if (this.loginEntryMode() === 'PlatformAdminHost'
-      && entry.entryMode === 'PlatformAdminHost'
+    } else if (entry.entryMode === 'PlatformAdminHost'
       && this.authService.session()?.selectedContextId) {
       await this.router.navigate(['/app']);
       return;

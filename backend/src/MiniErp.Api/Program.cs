@@ -542,7 +542,7 @@ app.MapPost("/api/v1/auth/development-bypass", async (
         return Results.Json(ToSessionResponse(existingSession), statusCode: StatusCodes.Status200OK);
     }
 
-    var login = configuration["MESP_DEV_ADMIN_LOGIN"] ?? "admin@minierp.local";
+    var login = configuration["MESP_DEV_ADMIN_LOGIN"] ?? DevelopmentBootstrap.DefaultAdminLogin;
     var result = identityHost.DevelopmentBypass(login);
     if (!result.Succeeded || result.Principal is null || result.State is null)
     {

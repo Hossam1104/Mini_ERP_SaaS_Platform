@@ -119,6 +119,31 @@ describe('SignInComponent', () => {
     http.expectNone('/api/v1/auth/contexts');
   });
 
+  it('routes from the post-sign-in entry while the initial entry request is still pending', async () => {
+    fixture.detectChanges();
+    const initialEntry = http.expectOne('/api/v1/auth/entry');
+    http.expectOne('/api/v1/module-registration').flush(moduleRegistration);
+    expect(component.loginEntryMode()).toBe('NoAccess');
+
+    component.form.controls.login.setValue('admin@mesp.com');
+    component.form.controls.password.setValue('123');
+    const submit = component.submit();
+    http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
+    await tick();
+    http.expectOne('/api/v1/auth/entry').flush(commonEntry);
+    await tick();
+    http.expectOne('/api/v1/auth/session').flush({ ...authenticatedSession, selectedContextId: 'context-a' });
+    await tick();
+    http.expectOne('/api/v1/auth/contexts').flush({
+      contexts: [ordinaryTenantContext('context-a', 'tenant-a', 'Alpha ERP')],
+    });
+    await submit;
+
+    expect(router.navigate).toHaveBeenCalledWith(['/app']);
+    initialEntry.flush({ ...commonEntry, entryMode: 'NoAccess', canonicalHost: null, code: 'access_denied' });
+    await tick();
+  });
+
   it('shows the Wafra host branding and auto-selects its one server-authorized context', async () => {
     const tenantEntry: FoundationEntryResponse = {
       ...commonEntry,
@@ -264,7 +289,7 @@ describe('SignInComponent', () => {
     const submit = component.submit();
     http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
     await tick();
-    http.expectOne('/api/v1/auth/entry').flush({ ...commonEntry, entryMode: 'NoAccess', canonicalHost: null, code: 'access_denied' });
+    http.expectOne('/api/v1/auth/entry').flush(commonEntry);
     await tick();
     http.expectOne('/api/v1/auth/session').flush(authenticatedSession);
     await tick();

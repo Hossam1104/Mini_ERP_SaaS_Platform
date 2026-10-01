@@ -323,13 +323,12 @@ public sealed class DevelopmentBootstrapTests
     }
 
     [Fact]
-    public async Task DevelopmentBypass_EnabledInDevelopment_UsesConfiguredServerActorAndHumanTenantName()
+    public async Task DevelopmentBypass_EnabledInDevelopment_UsesDefaultBootstrapLoginAndHumanTenantName()
     {
         var settings = new Dictionary<string, string?>
         {
             ["MESP_DEV_BOOTSTRAP_ENABLED"] = "true",
             ["MESP_DEV_AUTH_BYPASS"] = "true",
-            ["MESP_DEV_ADMIN_LOGIN"] = "admin@minierp.local",
             ["MESP_DEV_ADMIN_PASSWORD"] = null,
             ["MESP_DEV_TENANT_DISPLAY_NAME"] = "Wafra"
         };
