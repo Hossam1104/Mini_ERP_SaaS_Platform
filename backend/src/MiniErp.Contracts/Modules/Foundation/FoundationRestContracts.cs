@@ -232,9 +232,9 @@ public sealed record FoundationCurrencyPresentationResponse(
     string SymbolTextFallback);
 
 /// <summary>
-/// Server-owned entry resolution returned after authentication. The response
-/// contains only authorized candidates and safe presentation data; it never
-/// grants authority to a client-supplied Tenant identifier.
+/// Server-owned entry resolution. Anonymous responses contain only the host
+/// mode and public branding; authenticated responses may include authorized
+/// candidates. It never grants authority to a client-supplied Tenant identifier.
 /// </summary>
 public sealed record FoundationEntryResponse(
     string EntryMode,
@@ -247,7 +247,9 @@ public sealed record FoundationEntryResponse(
     long OperationalSelectionVersion,
     FoundationBrandingResponse Branding,
     FoundationCurrencyPresentationResponse CurrencyPresentation,
-    string? Code = null);
+    string? Code = null,
+    bool IsDevelopment = false,
+    string? DevelopmentAccountHint = null);
 
 /// <summary>Authorized operational-context list response.</summary>
 public sealed record FoundationOperationalContextsResponse(
@@ -801,7 +803,7 @@ public static class FoundationOperationCatalog
             BoundaryDescription = "Returns only the authenticated session owner's display name and login. No user identifier or identity value is accepted from the request; displayName is null when the identity record has no display name."
         },
         new("auth.contexts.read", "/api/v1/auth/contexts", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session"),
-        new("auth.entry.read", "/api/v1/auth/entry", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session"),
+        new("auth.entry.read", "/api/v1/auth/entry", "GET", FoundationSecurityProfile.Anonymous, FoundationOperationVisibility.Public),
         new("auth.operational-contexts.read", "/api/v1/auth/operational-contexts", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session"),
         new("auth.context-switch", "/api/v1/auth/context-switch", "POST", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "foundation.context.switch", FoundationScopePolicy.None, RequiresAntiforgery: true, RequiresMandatoryAudit: true, IsUnsafe: true),
         new("auth.operational-context-switch", "/api/v1/auth/operational-context-switch", "POST", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "foundation.context.switch", FoundationScopePolicy.None, RequiresAntiforgery: true, RequiresMandatoryAudit: true, IsUnsafe: true)

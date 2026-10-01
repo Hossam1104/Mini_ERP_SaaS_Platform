@@ -67,6 +67,17 @@ export class AuthService {
     return this.sessionRequest;
   }
 
+  async refreshSession(): Promise<boolean> {
+    try {
+      const response = await firstValueFrom(this.api.get<FoundationSessionResponse>('/auth/session'));
+      this.acceptServerSession(response);
+      return response.authenticated;
+    } catch (error: unknown) {
+      this.markSessionUnavailable(error);
+      return false;
+    }
+  }
+
   async signIn(login: string, password: string): Promise<boolean> {
     this.signOutGeneration += 1;
     this.status.set('loading');
@@ -264,7 +275,7 @@ export class AuthService {
 
   private markSessionUnavailable(error: unknown): void {
     const safeError = toSafeUiError(error);
-    this.lastError.set(safeError);
+    this.lastError.set(safeError.code === 'authentication_failed' ? null : safeError);
     this.session.set(null);
     this.developmentBypassActive.set(false);
     this.antiforgeryToken = null;

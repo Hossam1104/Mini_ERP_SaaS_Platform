@@ -78,6 +78,8 @@ export interface FoundationEntryResponse {
   branding: FoundationBranding;
   currencyPresentation: FoundationCurrencyPresentation;
   code: string | null;
+  isDevelopment: boolean;
+  developmentAccountHint: string | null;
 }
 
 export interface FoundationOperationalContextsResponse {

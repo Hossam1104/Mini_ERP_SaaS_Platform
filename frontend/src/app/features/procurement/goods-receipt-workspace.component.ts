@@ -20,6 +20,8 @@ import {
 import { GoodsReceiptService } from './goods-receipt.service';
 import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { TabsComponent } from '../../shared/ui/tabs.component';
+import type { AppTab } from '../../shared/ui/tabs.component';
 
 type WorkspaceMode = 'list' | 'create' | 'detail';
 type DetailTab = 'summary' | 'lines' | 'history' | 'audit';
@@ -44,7 +46,7 @@ interface CreateReceiptLineDraft {
 @Component({
   selector: 'app-goods-receipt-workspace',
   standalone: true,
-  imports: [FormsModule, RouterLink, DataGridComponent, PageHeaderComponent],
+  imports: [FormsModule, RouterLink, DataGridComponent, PageHeaderComponent, TabsComponent],
   template: `
     @if (mode() === 'list') {
       <section class="ui-page goods-receipt-page" data-testid="goods-receipt-list">
@@ -196,16 +198,10 @@ interface CreateReceiptLineDraft {
           <div class="inline-error" role="alert">{{ errorText(currentError) }}</div>
         }
 
-        <nav class="detail-tabs" role="tablist" [attr.aria-label]="grText('goodsReceiptSections')">
-          @for (tab of tabs; track tab) {
-            <button [id]="tabId(tab)" type="button" role="tab" [attr.aria-selected]="activeTab() === tab" [class.is-active]="activeTab() === tab" (click)="setTab(tab)">
-              {{ tabLabel(tab) }}
-            </button>
-          }
-        </nav>
+        <app-tabs [tabs]="detailTabItems()" [selected]="activeTab()" [ariaLabel]="grText('goodsReceiptSections')" (selectedChange)="selectTab($event)" />
 
         @if (activeTab() === 'summary') {
-          <section class="detail-layout" role="tabpanel" [attr.aria-labelledby]="tabId('summary')">
+          <section id="gr-tabpanel-summary" class="detail-layout" role="tabpanel" [attr.aria-labelledby]="tabId('summary')" tabindex="0">
             <section class="ui-surface detail-card">
               <p class="section-kicker">{{ grText('receiptDetails') }}</p>
               <h2>{{ grText('goodsReceiptSummaryTitle') }}</h2>
@@ -224,7 +220,7 @@ interface CreateReceiptLineDraft {
             </section>
           </section>
         } @else if (activeTab() === 'lines') {
-          <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('lines')">
+          <section id="gr-tabpanel-lines" class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('lines')" tabindex="0">
             <p class="section-kicker">{{ grText('goodsReceiptLines') }}</p>
             <h2>{{ grText('goodsReceiptLinesTitle') }}</h2>
             <app-data-grid [rows]="currentReceipt.lines" [columns]="detailLineColumns" [rowActionsTemplate]="detailLineActions" [language]="language.language()" [clientPaging]="true" [showPager]="true" [caption]="grText('goodsReceiptLinesTitle')" [countLabel]="grText('goodsReceiptLines')" [rowActionsLabel]="grText('inventoryMovement')">
@@ -236,7 +232,7 @@ interface CreateReceiptLineDraft {
             </app-data-grid>
           </section>
         } @else if (activeTab() === 'history') {
-          <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('history')">
+          <section id="gr-tabpanel-history" class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('history')" tabindex="0">
             <p class="section-kicker">{{ grText('lifecycleHistory') }}</p>
             <h2>{{ grText('lifecycleHistory') }}</h2>
             @if (history().length === 0) {
@@ -254,7 +250,7 @@ interface CreateReceiptLineDraft {
             }
           </section>
         } @else {
-          <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('audit')">
+          <section id="gr-tabpanel-audit" class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('audit')" tabindex="0">
             <p class="section-kicker">{{ grText('auditEvidence') }}</p>
             <h2>{{ grText('auditEvidence') }}</h2>
             @if (audit().length === 0) {
@@ -296,14 +292,7 @@ interface CreateReceiptLineDraft {
       </div>
     }
   `,
-  styles: `
-    :host { display: block; }
-    .button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.4rem; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .82rem; color: var(--ink); background: var(--surface-raised); font-size: .74rem; font-weight: 800; text-decoration: none; cursor: pointer; }
-    .button:hover:not(:disabled) { transform: translateY(-1px); }
-    .button:disabled { cursor: wait; opacity: .55; }
-    .button--primary { border-color: var(--accent-action); color: var(--action-text); background: var(--accent-action); }
-    .button--secondary { border-color: var(--line-strong); }
-    .button--danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }
+  styles: `:host { display: block; }
     .boundary-note { display: flex; align-items: flex-start; gap: .6rem; border-inline-start: 3px solid var(--support); padding: .72rem .9rem; color: var(--ink-muted); background: var(--support-soft); font-size: .76rem; line-height: 1.5; }
     .boundary-note > span:first-child { color: var(--support); font-size: 1rem; }
     .state-card { display: grid; justify-items: start; align-content: center; gap: .55rem; min-height: 12rem; }
@@ -315,10 +304,8 @@ interface CreateReceiptLineDraft {
     @keyframes gr-spin { to { transform: rotate(360deg); } }
     .ledger-panel { padding: 0; overflow: hidden; }
     .filter-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: .7rem; padding: .85rem 1rem; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface-raised)); }
-    .filter-search { display: flex; align-items: center; gap: .4rem; min-width: min(100%, 18rem); flex: 1 1 16rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding-inline: .6rem; background: var(--surface-raised); color: var(--ink-muted); }
-    .filter-search input { width: 100%; min-height: 2.25rem; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: .76rem; }
     .filter-field { display: grid; gap: .25rem; min-width: 12rem; color: var(--ink-muted); font-size: .64rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
-    .filter-field select { min-height: 2.4rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: .4rem .5rem; color: var(--ink); background: var(--surface-raised); font-size: .75rem; text-transform: none; letter-spacing: normal; }
+    .filter-field select { text-transform: none; letter-spacing: normal; }
     .filter-note { flex: 1 1 100%; margin: 0; color: var(--ink-muted); font-size: .66rem; }
     .status-badge { display: inline-flex; align-items: center; gap: .35rem; border: 1px solid var(--line); border-radius: 99px; padding: .28rem .5rem; color: var(--ink-muted); background: var(--surface); font-size: .63rem; font-weight: 900; white-space: nowrap; }
     .status-badge > span { width: .4rem; height: .4rem; border-radius: 50%; background: currentColor; }
@@ -333,7 +320,7 @@ interface CreateReceiptLineDraft {
     .create-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .8rem; }
     .field { display: grid; gap: .35rem; color: var(--ink); font-size: .78rem; }
     .field__label { color: var(--ink-muted); font-size: .68rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
-    .field input, .field select, .field textarea, .table-input { width: 100%; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: .55rem .6rem; color: var(--ink); background: var(--surface-raised); font: inherit; }
+    .field input, .field select, .field textarea, .table-input { width: 100%; box-sizing: border-box; }
     .field textarea { resize: vertical; }
     .form-actions, .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
     .form-actions { justify-content: flex-end; }
@@ -344,9 +331,6 @@ interface CreateReceiptLineDraft {
     .fact-grid div { display: grid; gap: .2rem; }
     .fact-grid dt { color: var(--ink-muted); font-size: .66rem; font-weight: 800; }
     .fact-grid dd { margin: 0; color: var(--ink); font-size: .78rem; font-weight: 800; overflow-wrap: anywhere; }
-    .detail-tabs { display: flex; gap: .3rem; overflow-x: auto; margin-block: 0 1rem; border-bottom: 1px solid var(--line); }
-    .detail-tabs button { border: 0; border-bottom: 2px solid transparent; padding: .65rem .8rem; color: var(--ink-muted); background: transparent; font: 800 .72rem var(--font-sans); cursor: pointer; white-space: nowrap; }
-    .detail-tabs button.is-active { border-color: var(--accent-strong); color: var(--ink-strong); }
     .table-input { min-width: 6rem; padding: .42rem .45rem; font-size: .72rem; }
     .grid-line-editors { display: grid; grid-template-columns: repeat(5, minmax(8rem, 1fr)); gap: .45rem; min-width: 43rem; }
     .grid-line-editors label { display: grid; gap: .2rem; color: var(--ink-muted); font-size: .62rem; font-weight: 800; }
@@ -404,6 +388,7 @@ export class GoodsReceiptWorkspaceComponent implements OnInit {
 
   readonly statuses: GoodsReceiptStatus[] = ['Recorded', 'Cancelled'];
   readonly tabs: DetailTab[] = ['summary', 'lines', 'history', 'audit'];
+  detailTabItems(): AppTab[] { return this.tabs.map(tab => ({ id: tab, label: this.tabLabel(tab), tabId: this.tabId(tab), panelId: `gr-tabpanel-${tab}` })); }
 
   readonly filteredRecords = computed(() => {
     const query = this.search().trim().toLowerCase();
@@ -686,6 +671,7 @@ export class GoodsReceiptWorkspaceComponent implements OnInit {
 
   tabId(tab: DetailTab): string { return `gr-tab-${tab}`; }
   setTab(tab: DetailTab): void { this.activeTab.set(tab); }
+  selectTab(tab: string): void { this.setTab(tab as DetailTab); }
   setStatusFilter(value: string): void { this.statusFilter.set(value); }
 
   async loadList(): Promise<void> {

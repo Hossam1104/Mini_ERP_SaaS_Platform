@@ -114,6 +114,12 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
                 Assert.Equal(FoundationScopePolicy.Tenant, descriptor.ScopePolicy);
                 Assert.Contains("403", operation.GetProperty("responses").EnumerateObject().Select(response => response.Name));
             }
+            if (descriptor.OperationId == "migration.execution.read")
+            {
+                Assert.Equal("tenant.migration.execute", descriptor.ExactPermissionCode);
+                Assert.Equal(FoundationScopePolicy.Tenant, descriptor.ScopePolicy);
+                Assert.Contains("403", operation.GetProperty("responses").EnumerateObject().Select(response => response.Name));
+            }
         }
 
         Assert.True(paths.TryGetProperty("/api/v1/master-data/taxes/{taxId}", out _));

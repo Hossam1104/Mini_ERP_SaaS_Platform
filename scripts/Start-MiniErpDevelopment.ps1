@@ -21,7 +21,7 @@ param(
     [string]$ApiUrl = '',
     [ValidateRange(1024, 65535)]
     [int]$FrontendPort = 4300,
-    [string]$AdminLogin = 'admin@minierp.local',
+    [string]$AdminLogin = 'admin@mesp.com',
     [switch]$Restart,
     [switch]$ValidateOnly,
     [ValidateRange(10, 600)]
@@ -29,6 +29,13 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ($null -ne $env:MESP_DEV_ADMIN_LOGIN) {
+    $AdminLogin = $env:MESP_DEV_ADMIN_LOGIN
+}
+if ([string]::IsNullOrWhiteSpace($AdminLogin)) {
+    throw 'MESP_DEV_ADMIN_LOGIN must be a non-empty email address.'
+}
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $backendProject = Join-Path $repositoryRoot 'backend\src\MiniErp.Api\MiniErp.Api.csproj'
@@ -345,22 +352,12 @@ function Write-GeneratedProxy {
     return $proxyPath
 }
 
-function Convert-SecureStringToPlainText {
-    param(
-        [Parameter(Mandatory = $true)][System.Security.SecureString]$SecureString
-    )
-
-    $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureString)
-    try {
-        return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
-    }
-    finally {
-        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)
-    }
-}
-
 function Get-DevelopmentPassword {
-    if (-not [string]::IsNullOrWhiteSpace($env:MESP_DEV_ADMIN_PASSWORD)) {
+    if ($null -ne $env:MESP_DEV_ADMIN_PASSWORD) {
+        if ([string]::IsNullOrWhiteSpace($env:MESP_DEV_ADMIN_PASSWORD)) {
+            throw 'MESP_DEV_ADMIN_PASSWORD was set but is empty.'
+        }
+
         return [pscustomobject]@{
             Value  = $env:MESP_DEV_ADMIN_PASSWORD
             Source = 'MESP_DEV_ADMIN_PASSWORD'
@@ -371,15 +368,9 @@ function Get-DevelopmentPassword {
         return $null
     }
 
-    $securePassword = Read-Host -Prompt 'MESP_DEV_ADMIN_PASSWORD (input is hidden; not stored by the launcher)' -AsSecureString
-    $plainText = Convert-SecureStringToPlainText -SecureString $securePassword
-    if ([string]::IsNullOrWhiteSpace($plainText)) {
-        throw 'A non-empty Development password is required.'
-    }
-
     return [pscustomobject]@{
-        Value  = $plainText
-        Source = 'interactive prompt'
+        Value  = '123'
+        Source = 'Development default'
     }
 }
 
@@ -646,12 +637,13 @@ Write-Output ''
 Write-Output 'MiniERP Development runtime is ready.'
 Write-Output "Backend:  $($target.ApiUrl)"
 Write-Output "Frontend: http://localhost:$FrontendPort"
-Write-Output "Entry hosts: http://localhost:$FrontendPort (common), http://tenant.localhost:$FrontendPort (Tenant), http://admin.localhost:$FrontendPort (platform)"
+Write-Output "Entry hosts: http://wafra.localhost:$FrontendPort (Tenant), http://mesp.localhost:$FrontendPort (whole ERP), http://tenant.localhost:$FrontendPort (Tenant alias), http://localhost:$FrontendPort (common), http://admin.localhost:$FrontendPort (platform)"
 Write-Output "Login:   $($AdminLogin.Trim())"
 if ($devAuthBypassEnabled) {
     Write-Output 'Auth:    automatic loopback Development bypass is enabled; no password prompt was used.'
 } else {
-    Write-Output 'Password: the exact value supplied through MESP_DEV_ADMIN_PASSWORD or the hidden prompt; it was not printed or persisted.'
+    $passwordSource = if ($null -ne $env:MESP_DEV_ADMIN_PASSWORD) { 'MESP_DEV_ADMIN_PASSWORD' } else { 'Development default' }
+    Write-Output "Password: supplied by $passwordSource; not printed or persisted."
 }
 Write-Output "Tenant:  $tenantDisplayName (server-configured display name)"
 Write-Output "Process state: $statePath"

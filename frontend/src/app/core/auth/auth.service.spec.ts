@@ -93,6 +93,7 @@ describe('AuthService', () => {
     await expect(result).resolves.toBe(false);
     expect(service.status()).toBe('anonymous');
     expect(service.session()).toBeNull();
+    expect(service.lastError()).toBeNull();
   });
 
   it('accepts the server actor session when the explicit Development bypass is enabled', async () => {

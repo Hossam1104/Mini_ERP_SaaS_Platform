@@ -645,7 +645,7 @@ describe('MasterDataImportWorkspaceComponent', () => {
       component.openExecuteConfirm();
       expect(component.executeConfirmOpen()).toBe(false);
 
-      const executeButton = fixture.nativeElement.querySelector('.button--primary') as HTMLButtonElement;
+      const executeButton = fixture.nativeElement.querySelector('.wizard-actions .button--primary') as HTMLButtonElement;
       expect(executeButton.disabled).toBe(true);
     });
 
@@ -743,7 +743,7 @@ describe('MasterDataImportWorkspaceComponent', () => {
       importService.getEvidence.mockReturnValueOnce(
         of({ batch: makeBatch(), rows: [acceptedRow, rejectedRow, quarantinedRow], audit: [auditEntry], reconciliation }),
       );
-      const retryButton = Array.from(fixture.nativeElement.querySelectorAll('.text-button') as NodeListOf<HTMLButtonElement>).find(
+      const retryButton = Array.from(fixture.nativeElement.querySelectorAll('.button--small') as NodeListOf<HTMLButtonElement>).find(
         (btn) => btn.textContent?.includes(language.text('retry')),
       );
       retryButton?.click();
@@ -806,7 +806,7 @@ describe('MasterDataImportWorkspaceComponent', () => {
     it('restores focus to the opener element when the execute confirmation dialog closes', async () => {
       const component = await reachCommitExecuteStep();
 
-      const opener = fixture.nativeElement.querySelector('.button--primary') as HTMLButtonElement;
+      const opener = fixture.nativeElement.querySelector('.wizard-actions .button--primary') as HTMLButtonElement;
       opener.focus();
       component.openExecuteConfirm();
       fixture.detectChanges();

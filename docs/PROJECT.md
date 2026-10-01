@@ -63,8 +63,8 @@ Company/Branch scope:
 `Host → candidate Tenant → authentication → exact-Tenant membership → Tenant Overview → optional context switch`.
 
 **Common host.** A common host shows:
-- an automatic redirect when the user has one membership;
-- a chooser limited to active memberships when there are several;
+- automatic selection of the only membership, landing on its Overview on the common host;
+- a chooser limited to active memberships when there are several, then the chosen Tenant's Overview on the common host (no redirect to the Tenant host; owner decision 2026-10-01, DECISIONS §2.3);
 - a safe no-access page when there are none.
 
 **Platform administration.** It is a separate control plane.

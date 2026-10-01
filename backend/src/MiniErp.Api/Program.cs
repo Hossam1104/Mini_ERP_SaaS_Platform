@@ -49,13 +49,23 @@ if (builder.Environment.IsDevelopment()
     // Development-only generic fixture binding. The host is configuration,
     // not a customer or brand branch, and production requires explicit
     // tenant-host configuration.
-    builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+    var tenantHost = builder.Configuration["MESP_DEV_TENANT_HOST"] ?? "wafra.localhost";
+    var bindings = new Dictionary<string, string?>
     {
-        ["MESP_TENANT_HOST_BINDINGS:0:Host"] = builder.Configuration["MESP_DEV_TENANT_HOST"] ?? "tenant.localhost",
+        ["MESP_TENANT_HOST_BINDINGS:0:Host"] = tenantHost,
         ["MESP_TENANT_HOST_BINDINGS:0:TenantId"] = DevelopmentBootstrap.DevTenantId.Value.ToString("D"),
         ["MESP_TENANT_HOST_BINDINGS:0:Active"] = "true",
-        ["MESP_TENANT_HOST_BINDINGS:0:CanonicalHost"] = builder.Configuration["MESP_DEV_TENANT_HOST"] ?? "tenant.localhost"
-    });
+        ["MESP_TENANT_HOST_BINDINGS:0:CanonicalHost"] = tenantHost
+    };
+    if (!string.Equals(tenantHost, "tenant.localhost", StringComparison.OrdinalIgnoreCase))
+    {
+        bindings["MESP_TENANT_HOST_BINDINGS:1:Host"] = "tenant.localhost";
+        bindings["MESP_TENANT_HOST_BINDINGS:1:TenantId"] = DevelopmentBootstrap.DevTenantId.Value.ToString("D");
+        bindings["MESP_TENANT_HOST_BINDINGS:1:Active"] = "true";
+        bindings["MESP_TENANT_HOST_BINDINGS:1:CanonicalHost"] = tenantHost;
+    }
+
+    builder.Configuration.AddInMemoryCollection(bindings);
 }
 
 var trustedProxyIps = new List<IPAddress>();
@@ -532,7 +542,7 @@ app.MapPost("/api/v1/auth/development-bypass", async (
         return Results.Json(ToSessionResponse(existingSession), statusCode: StatusCodes.Status200OK);
     }
 
-    var login = configuration["MESP_DEV_ADMIN_LOGIN"] ?? "admin@minierp.local";
+    var login = configuration["MESP_DEV_ADMIN_LOGIN"] ?? DevelopmentBootstrap.DefaultAdminLogin;
     var result = identityHost.DevelopmentBypass(login);
     if (!result.Succeeded || result.Principal is null || result.State is null)
     {
@@ -630,19 +640,14 @@ app.MapGet("/api/v1/auth/contexts", (
 
 app.MapGet("/api/v1/auth/entry", (
     HttpContext httpContext,
-    IFoundationIdentityHost identityHost,
     ITenantEntryAuthority entryAuthority) =>
 {
-    if (!identityHost.GetSession(httpContext.User).Authenticated)
-    {
-        return Results.Problem(
-            statusCode: StatusCodes.Status401Unauthorized,
-            title: "Authentication required",
-            detail: "Authentication is required.",
-            type: "https://api.minierp.local/problems/authentication_failed");
-    }
-
-    return Results.Json(entryAuthority.BuildResponse(httpContext.User, httpContext.Request.Host.Value));
+    var developmentHint = DevelopmentBootstrap.GetPublicDefaultAccountHint(app.Environment, app.Configuration);
+    return Results.Json(entryAuthority.BuildResponse(
+        httpContext.User,
+        httpContext.Request.Host.Value,
+        app.Environment.IsDevelopment(),
+        developmentHint));
 })
     .WithName("auth.entry.read")
     .Produces<FoundationEntryResponse>(StatusCodes.Status200OK)

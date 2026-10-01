@@ -82,8 +82,8 @@ export function accountInitials(value: string): string {
       <div class="shell__body">
         <header class="topbar">
           <div class="topbar__start">
-            <button class="icon-button header-control sidebar-toggle desktop-toggle" type="button" (click)="toggleSidebar()" [attr.aria-label]="sidebarExpanded() ? label('Collapse navigation', 'طي القائمة') : label('Expand navigation', 'توسيع القائمة')" [attr.aria-expanded]="sidebarExpanded()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
-            <button class="icon-button header-control sidebar-toggle mobile-toggle" type="button" (click)="toggleMobileMenu()" [attr.aria-label]="mobileMenuOpen() ? label('Close navigation', 'إغلاق القائمة') : label('Open navigation', 'فتح القائمة')" [attr.aria-expanded]="mobileMenuOpen()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
+            <button class="button button--secondary icon-button header-control sidebar-toggle desktop-toggle" type="button" (click)="toggleSidebar()" [attr.aria-label]="sidebarExpanded() ? label('Collapse navigation', 'طي القائمة') : label('Expand navigation', 'توسيع القائمة')" [attr.aria-expanded]="sidebarExpanded()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
+            <button class="button button--secondary icon-button header-control sidebar-toggle mobile-toggle" type="button" (click)="toggleMobileMenu()" [attr.aria-label]="mobileMenuOpen() ? label('Close navigation', 'إغلاق القائمة') : label('Open navigation', 'فتح القائمة')" [attr.aria-expanded]="mobileMenuOpen()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
             <a class="topbar__brand" [class.topbar__brand--light-backplate]="theme.darkMode() && !!context.entry()?.branding?.logoLightUrl && !context.entry()?.branding?.logoDarkUrl" routerLink="/app" [attr.aria-label]="brandName()">
               @if (tenantLogoUrl()) {
                 <img class="topbar__tenant-logo" [src]="tenantLogoUrl()" [alt]="context.entry()?.branding?.logoAltText || brandName()" />
@@ -102,7 +102,7 @@ export function accountInitials(value: string): string {
 
           <div class="topbar__actions">
             <div class="header-menu-control context-control">
-              <button #contextTrigger id="context-trigger" class="header-control context-chip" type="button" (click)="toggleHeaderMenu('context')" [attr.aria-label]="contextChipLabel()" [title]="contextChipLabel()" aria-haspopup="menu" [attr.aria-controls]="contextMenuOpen() ? 'context-menu' : null" [attr.aria-expanded]="contextMenuOpen()">
+              <button #contextTrigger id="context-trigger" class="button button--secondary header-control context-chip" type="button" (click)="toggleHeaderMenu('context')" [attr.aria-label]="contextChipLabel()" [title]="contextChipLabel()" aria-haspopup="menu" [attr.aria-controls]="contextMenuOpen() ? 'context-menu' : null" [attr.aria-expanded]="contextMenuOpen()">
                 <svg class="icon context-chip__building" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V3h14v18M8 7h2m4 0h2M8 11h2m4 0h2M10 21v-5h4v5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" /></svg>
                 <span class="context-chip__copy">
                   @if (tenantDisplayName(); as tenantName) { <strong>{{ tenantName }}</strong> }
@@ -113,20 +113,20 @@ export function accountInitials(value: string): string {
               @if (contextMenuOpen()) {
                 <div #contextMenu id="context-menu" class="header-menu context-menu" role="menu" [attr.aria-label]="label('Access contexts', 'سياقات الوصول')" (keydown)="onHeaderMenuKeydown($event, 'context')">
                   <div class="context-menu__switcher" role="group" [attr.aria-label]="language.text('operationalContext')"><app-operational-context-switcher /></div>
-                  <a class="header-menu__item" role="menuitem" tabindex="-1" routerLink="/app/workspaces" (click)="closeHeaderMenu()">{{ language.text('manageContexts') }}</a>
+                  <a class="button button--quiet header-menu__item" role="menuitem" tabindex="-1" routerLink="/app/workspaces" (click)="closeHeaderMenu()">{{ language.text('manageContexts') }}</a>
                 </div>
               }
             </div>
 
             <div class="header-tool-group" role="group" [attr.aria-label]="label('Toolbar', 'شريط الأدوات')">
               <div class="header-menu-control theme-control">
-                <button #themeTrigger id="theme-trigger" class="header-control toolbar-button theme-trigger" type="button" (click)="toggleThemeMenu()" [attr.aria-label]="label('Themes', 'المظاهر')" [title]="label('Themes', 'المظاهر')" aria-haspopup="menu" [attr.aria-controls]="themeMenuOpen() ? 'theme-menu' : null" [attr.aria-expanded]="themeMenuOpen()">
+                <button #themeTrigger id="theme-trigger" class="button button--secondary icon-button header-control toolbar-button theme-trigger" type="button" (click)="toggleThemeMenu()" [attr.aria-label]="label('Themes', 'المظاهر')" [title]="label('Themes', 'المظاهر')" aria-haspopup="menu" [attr.aria-controls]="themeMenuOpen() ? 'theme-menu' : null" [attr.aria-expanded]="themeMenuOpen()">
                   <svg class="icon" aria-hidden="true"><use href="#icon-palette" /></svg>
                 </button>
                 @if (themeMenuOpen()) {
                   <div #themeMenu id="theme-menu" class="header-menu theme-menu" role="menu" [attr.aria-label]="label('Choose a theme', 'اختر مظهراً')" (keydown)="onThemeMenuKeydown($event)">
                   @for (option of theme.options; track option.id) {
-                    <button class="theme-option" type="button" role="menuitemradio" [attr.aria-checked]="theme.selectedTheme() === option.id" [attr.tabindex]="themeMenuFocus() === option.id ? 0 : -1" (click)="selectTheme(option.id)">
+                    <button class="button button--quiet theme-option" type="button" role="menuitemradio" [attr.aria-checked]="theme.selectedTheme() === option.id" [attr.tabindex]="themeMenuFocus() === option.id ? 0 : -1" (click)="selectTheme(option.id)">
                       <span class="theme-swatch" [style.backgroundColor]="option.color" aria-hidden="true"></span><span class="theme-option__label">{{ option.label }}</span>
                       @if (theme.selectedTheme() === option.id) { <svg class="icon theme-check" aria-hidden="true"><use href="#icon-check" /></svg> }
                     </button>
@@ -134,17 +134,17 @@ export function accountInitials(value: string): string {
                   </div>
                 }
               </div>
-              <button class="header-control toolbar-button scheme-toggle" type="button" (click)="theme.toggleDarkMode()" [attr.aria-label]="theme.darkMode() ? label('Switch to light mode', 'التبديل إلى الوضع الفاتح') : label('Switch to dark mode', 'التبديل إلى الوضع الداكن')" [attr.aria-pressed]="theme.darkMode()" [title]="theme.darkMode() ? label('Light mode', 'الوضع الفاتح') : label('Dark mode', 'الوضع الداكن')">
+              <button class="button button--secondary icon-button header-control toolbar-button scheme-toggle" type="button" (click)="theme.toggleDarkMode()" [attr.aria-label]="theme.darkMode() ? label('Switch to light mode', 'التبديل إلى الوضع الفاتح') : label('Switch to dark mode', 'التبديل إلى الوضع الداكن')" [attr.aria-pressed]="theme.darkMode()" [title]="theme.darkMode() ? label('Light mode', 'الوضع الفاتح') : label('Dark mode', 'الوضع الداكن')">
                 <svg class="icon" aria-hidden="true"><use [attr.href]="theme.darkMode() ? '#icon-sun' : '#icon-moon'" /></svg>
               </button>
-              <button class="header-control toolbar-button notification-button" type="button" [attr.aria-label]="label('Notifications', 'الإشعارات')" [title]="label('Notifications', 'الإشعارات')"><svg class="icon" aria-hidden="true"><use href="#icon-bell" /></svg></button>
-              <button class="header-control toolbar-button language-button" type="button" (click)="language.toggle()" [attr.aria-label]="language.language() === 'en' ? label('Language: switch to Arabic', 'التغيير إلى العربية') : label('Language: switch to English', 'التغيير إلى الإنجليزية')" [title]="language.language() === 'en' ? label('Switch to Arabic', 'التغيير إلى العربية') : label('Switch to English', 'التغيير إلى الإنجليزية')">
+              <button class="button button--secondary icon-button header-control toolbar-button notification-button" type="button" [attr.aria-label]="label('Notifications', 'الإشعارات')" [title]="label('Notifications', 'الإشعارات')"><svg class="icon" aria-hidden="true"><use href="#icon-bell" /></svg></button>
+              <button class="button button--secondary icon-button header-control toolbar-button language-button" type="button" (click)="language.toggle()" [attr.aria-label]="language.language() === 'en' ? label('Language: switch to Arabic', 'التغيير إلى العربية') : label('Language: switch to English', 'التغيير إلى الإنجليزية')" [title]="language.language() === 'en' ? label('Switch to Arabic', 'التغيير إلى العربية') : label('Switch to English', 'التغيير إلى الإنجليزية')">
                 <svg class="icon language-button__globe" aria-hidden="true"><use href="#icon-globe" /></svg><span>{{ language.language() === 'en' ? 'EN' : 'ع' }}</span>
               </button>
             </div>
 
             <div class="header-menu-control account-control">
-              <button #accountTrigger id="account-trigger" class="header-control toolbar-button account-trigger" type="button" (click)="toggleHeaderMenu('account')" [attr.aria-label]="label('Account', 'الحساب')" [title]="label('Account', 'الحساب')" aria-haspopup="menu" [attr.aria-controls]="accountMenuOpen() ? 'account-menu' : null" [attr.aria-expanded]="accountMenuOpen()">
+              <button #accountTrigger id="account-trigger" class="button button--secondary header-control toolbar-button account-trigger" type="button" (click)="toggleHeaderMenu('account')" [attr.aria-label]="label('Account', 'الحساب')" [title]="label('Account', 'الحساب')" aria-haspopup="menu" [attr.aria-controls]="accountMenuOpen() ? 'account-menu' : null" [attr.aria-expanded]="accountMenuOpen()">
                 <span class="account-trigger__avatar" aria-hidden="true">{{ accountInitials() }}</span>
                 <span class="account-trigger__name">{{ accountDisplayName() }}</span>
               </button>
@@ -157,7 +157,7 @@ export function accountInitials(value: string): string {
                     @if (tenantDisplayName(); as tenantName) { <span>{{ tenantName }}</span> }
                     @if (context.currentOperationalContext()?.displayName; as operationalName) { <small>{{ operationalName }}</small> }
                   </div>
-                  <button class="header-menu__item sign-out" type="button" role="menuitem" tabindex="0" (click)="signOut()" [disabled]="auth.signingOut()" [attr.aria-describedby]="auth.signOutFailed() ? 'sign-out-feedback' : null">{{ auth.signingOut() ? language.text('signingOut') : language.text('signOut') }}</button>
+                  <button class="button button--quiet header-menu__item sign-out" type="button" role="menuitem" tabindex="0" (click)="signOut()" [disabled]="auth.signingOut()" [attr.aria-describedby]="auth.signOutFailed() ? 'sign-out-feedback' : null">{{ auth.signingOut() ? language.text('signingOut') : language.text('signOut') }}</button>
                 </div>
               }
             </div>
@@ -222,12 +222,8 @@ export function accountInitials(value: string): string {
     .topbar__actions { flex: none; justify-content: flex-end; gap: .4rem; white-space: nowrap; }
     .header-menu-control { position: relative; flex: none; }
     .header-tool-group { display: flex; flex: none; align-items: center; gap: .35rem; border-inline: 1px solid var(--line); padding-inline: .45rem; }
-    .header-control { box-sizing: border-box; display: inline-flex; width: 40px; height: 40px; min-height: 40px; flex: none; align-items: center; justify-content: center; gap: .25rem; border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding: 0; color: var(--accent); background: var(--surface-raised); box-shadow: var(--shadow-soft); font: 700 .82rem/1 var(--font-sans); transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background var(--motion-fast) ease; }
-    .header-control:hover:not(:disabled), .header-control:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent); }
-    .header-control .icon { width: 18px; height: 18px; }
-    .icon-button.header-control { width: 40px; padding: 0; }
-    .icon-button.mobile-toggle { display: none; }
-    .context-chip { width: min(15rem, 24vw); min-width: 0; max-width: 15rem; justify-content: flex-start; gap: .42rem; padding-inline: .55rem; text-align: start; }
+    .icon-button.mobile-toggle { display: none !important; }
+    .context-chip { width: min(15rem, 24vw); min-width: 0; max-width: 15rem; text-align: start; }
     .context-chip__building { width: 18px; height: 18px; flex: none; }
     .context-chip__copy { display: grid; min-width: 0; flex: 1; gap: .08rem; line-height: 1.05; }
     .context-chip__copy strong, .context-chip__copy small, .account-trigger__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -235,8 +231,6 @@ export function accountInitials(value: string): string {
     .context-chip__copy small { color: var(--ink-muted); font-size: .68rem; font-weight: 650; }
     .chevron { width: 14px !important; height: 14px !important; flex: none; color: var(--ink-muted); }
     .theme-control { position: relative; }
-    .language-button { gap: .16rem; color: var(--ink); font-size: .68rem; }
-    .language-button__globe { width: 15px !important; height: 15px !important; color: var(--accent); }
     .header-menu { position: absolute; z-index: 80; inset-block-start: calc(100% + .55rem); inset-inline-end: 0; display: grid; gap: .25rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 18px; padding: .55rem; background: var(--surface-glass); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); backdrop-filter: blur(22px) saturate(160%); animation: menu-enter 150ms ease both; }
     .context-menu { width: min(18rem, calc(100vw - 24px)); }
     .theme-menu { width: 264px; }
@@ -244,10 +238,6 @@ export function accountInitials(value: string): string {
     .account-trigger { width: auto; max-width: min(12rem, 30vw); padding-inline: .4rem; }
     .account-trigger__avatar { display: grid; width: 1.75rem; aspect-ratio: 1; flex: none; place-items: center; border-radius: 50%; background: var(--accent-soft); }
     .account-trigger__name { min-width: 0; }
-    .header-menu__item, .theme-option { display: flex; width: 100%; min-height: 40px; align-items: center; gap: .65rem; border: 1px solid transparent; border-radius: var(--radius-control); padding: .4rem .55rem; color: var(--ink); background: transparent; text-align: start; font: 600 14px/1.2 var(--font-sans); text-decoration: none; }
-    .header-menu__item { cursor: pointer; }
-    .header-menu__item:hover:not(:disabled), .header-menu__item:focus-visible, .theme-option:hover, .theme-option:focus-visible { border-color: color-mix(in srgb, var(--accent) 20%, var(--line)); background: var(--accent-soft); }
-    .theme-option { gap: .75rem; padding: .4rem .6rem; }
     .theme-swatch { width: 15px; height: 15px; flex: none; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; box-shadow: 0 2px 6px rgb(0 0 0 / 16%); }
     .theme-option__label { flex: 1; }
     .theme-check { width: 18px; height: 18px; color: var(--accent); }
@@ -255,9 +245,6 @@ export function accountInitials(value: string): string {
     .account-menu__identity strong { color: var(--ink-muted); font-size: .72rem; }
     .account-menu__identity span { color: var(--ink); font-size: .9rem; font-weight: 750; }
     .account-menu__identity small { color: var(--ink-muted); font-size: .78rem; }
-    .sign-out { justify-content: flex-start; color: var(--ink-muted); }
-    .sign-out:disabled { cursor: wait; opacity: .65; }
-    .mobile-nav-backdrop { display: none; }
     .sign-out-feedback { margin: 1rem 1.5rem 0; border: 1px solid color-mix(in srgb, var(--danger) 38%, var(--line)); border-radius: var(--radius-control); padding: .8rem 1rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); font-size: .9rem; line-height: 1.5; }
     .shell__content { min-width: 0; padding: clamp(1rem, 2.8vw, 2.25rem); }
     .content-grid__main { width: min(100%, 94rem); min-width: 0; margin-inline: auto; }
@@ -273,8 +260,8 @@ export function accountInitials(value: string): string {
       .topbar__brand { width: 4.8rem; }
       .topbar__mesp-logo { width: 4.3rem; }
       .breadcrumbs { margin-inline-start: auto; font-size: .8rem; }
-      .desktop-toggle { display: none; }
-      .icon-button.mobile-toggle { display: inline-flex; }
+      .desktop-toggle { display: none !important; }
+      .icon-button.mobile-toggle { display: inline-flex !important; }
       .sidebar { display: none; }
       .sidebar--mobile-open { position: fixed; z-index: 70; inset-block-start: var(--header-height); inset-inline-start: 0; inset-block-end: 0; display: flex; width: min(var(--sidebar-expanded), 88vw); height: auto; min-height: 0; max-height: none; padding: 1rem .85rem; }
       .sidebar--mobile-open .nav-group__title, .sidebar--mobile-open .nav-label, .sidebar--mobile-open .sidebar__help { display: block; }
@@ -282,7 +269,6 @@ export function accountInitials(value: string): string {
       .sidebar--mobile-open .nav-link { width: auto; }
       .sidebar--mobile-open .nav-icon { width: 38px; height: 38px; }
       .nav-flyout { display: none; }
-      .mobile-nav-backdrop { position: fixed; z-index: 60; inset-block-start: var(--header-height); inset-inline: 0; inset-block-end: 0; display: block; border: 0; background: rgb(9 15 26 / 38%); backdrop-filter: blur(4px); }
       .shell__body, .shell--sidebar-expanded .shell__body { margin-inline: 0; }
       .shell__content { padding: 1rem .75rem; }
     }
@@ -298,7 +284,7 @@ export function accountInitials(value: string): string {
       .theme-menu { width: min(264px, calc(100vw - 24px)); }
       .breadcrumbs { gap: .3rem; font-size: .74rem; }
     }
-    @supports not (backdrop-filter: blur(4px)) { .sidebar, .topbar, .header-menu { background: var(--surface-raised); } .mobile-nav-backdrop { background: rgb(9 15 26 / 58%); } }
+    @supports not (backdrop-filter: blur(4px)) { .sidebar, .topbar, .header-menu { background: var(--surface-raised); } }
     @media (prefers-reduced-motion: reduce) { .sidebar, .nav-link, .nav-icon { transition: none; } .nav-link:hover .nav-icon, .nav-link:focus-visible .nav-icon { transform: none; } }
     .shell { grid-template-columns: 76px minmax(0, 1fr); }
     .shell--sidebar-expanded { grid-template-columns: 260px minmax(0, 1fr); }
@@ -308,8 +294,8 @@ export function accountInitials(value: string): string {
       .sidebar--mobile-open { position: fixed; z-index: 70; inset-block-start: var(--header-height); inset-inline-start: 0; inset-block-end: 0; display: flex; width: min(260px, 88vw); height: auto; min-height: 0; max-height: none; padding: 16px; }
       .sidebar--mobile-open .nav-group__title, .sidebar--mobile-open .nav-label, .sidebar--mobile-open .sidebar__help { display: block; }
       .sidebar--mobile-open .nav-link--expanded { width: 100%; }
-      .desktop-toggle { display: none; }
-      .icon-button.mobile-toggle { display: inline-flex; }
+      .desktop-toggle { display: none !important; }
+      .icon-button.mobile-toggle { display: inline-flex !important; }
     }
     @media (prefers-reduced-motion: reduce) {
       .rail-tile { transition: none; }
@@ -319,7 +305,7 @@ export function accountInitials(value: string): string {
       .nav-flyout.is-open, :host-context([dir=rtl]) .nav-flyout.is-open { transform: none; }
     }
   `,
-  styleUrls: ['./application-shell-rail.scss'],
+  styleUrls: ['./application-shell-rail.scss', '../../shared/ui/primitives.scss'],
 })
 export class ApplicationShellComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService);

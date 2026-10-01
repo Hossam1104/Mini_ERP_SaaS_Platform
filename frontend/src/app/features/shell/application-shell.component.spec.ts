@@ -47,6 +47,8 @@ const tenantEntry: FoundationEntryResponse = {
   branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true },
   currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' },
   code: null,
+  isDevelopment: false,
+  developmentAccountHint: null,
 };
 
 async function flushAsyncWork(): Promise<void> {
