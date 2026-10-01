@@ -1,5 +1,15 @@
 # Results
 
+## 2026-10-01 — MESP-187 (#329) Tenant branding logo PNGs — GPT-6 / effort not surfaced
+- Status: DONE. Draft PR publication is the remaining delivery action; stop after creating it, with no Ready, review request, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: feat/mesp-187-wafra-logo-png; started at 1a12d100efbf5d6c244aff4e6c81fde3e9439b1b; feature commit f888593; RESULT hand-back commit follows.
+- What changed: Added frontend/assets/wafra-logo.png (818x383, 173232 bytes) and frontend/assets/wafra-logo-dark.png (818x383, 146955 bytes); changed only LogoLightUrl and LogoDarkUrl in backend/src/MiniErp.Api/appsettings.Development.json. No product code or existing asset changed.
+- Gates: npm test -- --watch=false --no-progress: 339/339 passed, 50 files, exit 0. npm run build: passed, initial bundle 498.78 kB, exit 0. Chromium E2E against http://localhost:4330 proxied to the worktree API on 5330: 60/60 passed in 1.8m, exit 0, one worker. Backend gate: Release build 0 warnings/errors; both runs 1593/1594 passed, 0 skipped, exit 1 only for the named LocalDB flake; first 8m, retry 8m2. git diff --check: clean, exit 0.
+- Evidence: JPEG SHA-256 before and after: 54AA01BA0630B9FED64E6FC78A6F9E6B5AEACB72E8A96E4A9682604888C32463. Screenshots (git-ignored): .playwright-mcp/mesp-187/mesp-187-header-light.png; mesp-187-header-dark.png; mesp-187-workspace-home-light.png; mesp-187-workspace-home-dark.png; mesp-187-header-logo-light-4x.png; mesp-187-header-logo-dark-4x.png. Logo light/dark alpha is identical; visual checks showed no halo or backplate. Search found no product-code JPEG reference.
+- Deviations from the prompt: After the first six-worker E2E attempt was interrupted by machine memory exhaustion, the complete Chromium suite was rerun with --workers=1 against the explicitly configured worktree server; all 60 passed, so no base-branch comparison was needed. Temporary runtime/generation files remain git-ignored and are not staged.
+- Failures and classification: The backend gate failed twice only at SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight. Both runs reported Assert.Single() Failure: no matching items; observed migration_execution_batch_claim_conflict and migration_audit_recovery_required. This is the exact pre-identified flake and the permitted one retry was used; all other 1593 tests passed on both runs.
+- Status files updated: RESULT.md only; TASK.md was left untouched as required.
+- Exact next action: Push feat/mesp-187-wafra-logo-png and open a Draft PR titled feat(branding): MESP-187 (#329) background-removed Wafra logo, based on feat/mesp-178-shell-rail-grids; then stop.
 ## 2026-10-01 — MESP-178 (#309) PR #313 review correction — GPT-6 / Bug Fixer — MESP-178 (#309)
 - Status: DONE. PR #313 is OPEN and unmerged; `isDraft=false` was already present when inspected and was not changed.
 - Branch / starting SHA / ending SHA: `feat/mesp-178-shell-rail-grids`; started `34f6848f361a1e62342d08522505c0f1b00e1e6a`; code commit `8fd334687c56a42712f4c71e7438f41e9d52c204`; RESULT hand-back commit follows.
