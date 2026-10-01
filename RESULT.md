@@ -1,5 +1,22 @@
 ﻿# Results
 
+## 2026-10-01 — MESP-198 (#353) Overview module card illustrations — GPT-6 / effort not surfaced — MESP-198 (#353)
+- Status: DONE. Draft PR creation is the final authorized delivery action; leave it Draft/Open/Unmerged.
+- Branch / starting SHA / ending SHA: `feat/mesp-198-overview-illustrations`; started at `0a5316494585dfbb864a825a7fe2cf01c7834b9e`; feature commit `cfc678fbdd6cb0a7c7946ad209368312aca4cda3`; merged `origin/main` at `77e3410c403a907c37c0461e300d25bea5dd0e27` in `c98a0ffef05f4b9d53f5b281f5f29f7647f210f8`; RESULT hand-back commit follows.
+- What changed: Replaced all 15 Overview stock photos with composed Microsoft Fluent Emoji 3D business illustrations (MIT), with per-image source and license links in `frontend/public/images/modules/CREDITS.md`. Added module codes and factual EN/AR descriptions, themed banner treatment, and outlined links pills while preserving filters and links. Kept the 15-image load assertion and added badge/description assertions. Merged PR #349 shared UI primitives and used them; no allowlist changes or `frontend/assets` edits.
+- Gates:
+  - `node scripts/feature-control-styles.spec.mjs`: exit 0; 0 violations.
+  - `npm test -- --watch=false --no-progress`: exit 0; 51 files, 352 passed, 0 failed; 27.20 s; pretest style guard 0 violations.
+  - `npm run build`: exit 0; initial total 317.99 kB, under the 500 kB budget.
+  - Release API prerequisite build: exit 0; 0 warnings, 0 errors.
+  - `MESP_E2E_BASE_URL=http://localhost:4360 npm run test:e2e -- --project=chromium`: exit 0; 66 passed, 0 failed; 47.9 s. Runtime used ports 4360/5360 and was stopped; both ports are clear.
+  - `git diff --check`: clean, exit 0.
+- Evidence: `.artifacts/mesp-198/overview-desktop-light.png`, `overview-desktop-dark.png`, `overview-desktop-arabic-rtl.png`, and `overview-mobile-390-light.png`.
+- Deviations from the prompt: None.
+- Failures and classification: None; all requested gates passed.
+- Status files updated: `RESULT.md` only; `TASK.md` was not changed.
+- Exact next action: Push this branch and open a Draft PR based on `main`; verify the base and leave the PR Draft/Open/Unmerged for Opus 5.5 review.
+
 ## 2026-10-01 — MESP-185 (#326) tab navigation accessibility correction — GPT-6 / effort not surfaced — MESP-185 (#326)
 - Status: DONE. No PR state, review-thread, approval, or merge action was taken.
 - Branch / starting SHA / ending SHA: `feat/mesp-185-ui-consistency-primitives`; started `5eed1c4b449a751b4d83ee41d32717175b825bf9`; code commit `d46de6a`; RESULT hand-back commit follows.
