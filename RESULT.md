@@ -1,5 +1,22 @@
 # Results
 
+## 2026-10-01 - MESP-195 (#342) Sales quotation test date-bomb correction - GPT-6 / max - MESP-195 (#342)
+- Status: DONE. Draft PR creation is the final authorized delivery action; no Ready or merge.
+- Branch / starting SHA / ending SHA: `fix/mesp-195-test-date-bomb`; started at `c543a9e6ca4894050f0d67135e39dfce3e208dcb`; implementation commit `8b1d2f285bff4b473345e8b08a1dde64cff4c9f0`; RESULT hand-back commit follows.
+- What changed: Root cause was Sales test quotation validity fixed at 2026-09-30 while `SalesApplicationContracts.cs:888-889` and `SalesPersistence.cs:277` compare with `DateTime.UtcNow`. `SalesTests.cs` now derives valid quotation dates from UTC today: six fixed valid-until values became today plus 30 days; the intentionally expired test uses today minus two / one days. The associated five fixed quotation dates use today. No product code, expiry rule, or assertion changed.
+- Gates:
+  - Origin/main reproduction, `dotnet test .\backend\tests\MiniErp.ArchitectureTests\MiniErp.ArchitectureTests.csproj --configuration Release --filter "FullyQualifiedName~SalesTests" --logger "console;verbosity=minimal"`: 16 failed, 22 passed, 0 skipped, 38 total. Fourteen failures reported `quotation_expired`; two were downstream `NullReferenceException` failures after quote setup failed.
+  - Post-fix Sales filter: 38 passed, 0 failed, 0 skipped, 38 total.
+  - `Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build 0 warnings / 0 errors; 1,618 passed, 1 failed, 0 skipped, 1,619 total, 8m49s. The sole failure was the known MESP-166 (#285) `MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` race (`migration_execution_batch_claim_conflict` / `migration_run_version_conflict`, `SqlServerSafetyTests.cs:3537`). Disposable database `MiniErpFoundation_20261001064026_e981be6d`; `MESP data is intact`.
+  - `git diff --check`: clean. Angular unit gate not run; no frontend test changed.
+- Evidence: The service and persistence expiry checks use the system UTC clock. The test-only `Today` helper uses the same clock. No TimeProvider seam was added.
+- Date audit: Fixed the Sales quotation date comparisons above. Supplier quotation backend fixtures already derive offer date and validity from UTC today. Left explicit as-of/effective-date value fixtures in the Sales credit-limit, Finance aging/reconciliation, fiscal-period, tax, exchange-rate, price-list, and Inventory tests because they compare supplied dates or persisted values, not the current clock. Left frontend Sales and supplier-quotation validity values, Finance due/rate/effective dates, and Master Data date values in service/component/e2e tests because those tests only send, mock, or render values; frontend tests do not compute expiry, aging, or effectiveness against the browser clock. These were reviewed and did not form date bombs.
+- Deviations from the prompt: The full backend gate has the one explicitly identified MESP-166 failure; it was reported and not fixed or rerun. No frontend files changed, so the conditional Angular unit gate did not apply.
+- Failures and classification: The baseline Sales failures were caused by expired fixed test data. The final full-suite failure is the known MESP-166 race, not a Sales date failure.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews MESP-195 (#342) on the Draft PR; leave it Draft/Open/Unmerged.
+
+
 ## 2026-10-01 — MESP-192 (#335) Angular audit remediation — GPT-6 / max — MESP-192 (#335)
 - Status: DONE; no Ready, review request, approval, merge, or issue-state change.
 - Branch / starting SHA / ending SHA: `fix/mesp-192-angular-audit`; started `79111ee99d4bb8bb770f97bb30607000d1f23967`; code commit `a9d0c6b6b5d3b5284a32af03b5f0eb87f3814a7a`; RESULT hand-back commit follows.
