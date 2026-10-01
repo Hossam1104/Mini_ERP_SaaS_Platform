@@ -1119,6 +1119,7 @@ if ((app.Environment.IsDevelopment()
         options => options
             .AddDocument("v1")
             .DisableAgent()
+            .DisableMcp()
             .WithTitle("Mini ERP SaaS Platform API"));
 }
 

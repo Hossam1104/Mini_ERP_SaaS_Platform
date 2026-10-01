@@ -381,6 +381,11 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Scalar", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+
+        // AGENTS.md §2: Scalar agent actions, including MCP generation, stay disabled.
+        var config = await client.GetStringAsync("/scalar/scalar.config.js");
+        Assert.Contains("\"agent\":{\"disabled\":true}", config, StringComparison.Ordinal);
+        Assert.Contains("\"mcp\":{\"disabled\":true}", config, StringComparison.Ordinal);
     }
 
     [Fact]
