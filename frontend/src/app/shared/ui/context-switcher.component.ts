@@ -36,7 +36,7 @@ import { Router } from '@angular/router';
           state="empty"
           tone="neutral"
         />
-      } @else {
+      } @else if (tenantContexts().length > 1) {
         <label class="field-label ui-field__label" for="workspace-select">{{ language.text('chooseTenant') }}</label>
         <select
           id="workspace-select"
@@ -113,6 +113,14 @@ export class ContextSwitcherComponent implements OnInit {
     if (current) {
       return this.localizedDisplayName(current);
     }
+
+    const entry = this.context.entry();
+    if (entry?.candidateTenantId) {
+      return entry.candidateTenantDisplayName
+        ?? entry.authorizedTenants.find((tenant) => tenant.tenantId === entry.candidateTenantId)?.displayName
+        ?? entry.branding.displayName;
+    }
+
     return this.auth.session()?.selectedPath === 'PlatformGovernanceContext'
       ? this.language.text('platformGovernance')
       : this.language.text('noTenantContext');
