@@ -1,5 +1,23 @@
 # Results
 
+## 2026-10-01 — MESP-194 (#340) signed-in identity in Account menu — GPT-6 / effort not surfaced — MESP-194 (#340)
+- Status: DONE. Draft PR creation is the final authorized delivery action; leave it Draft/Open/Unmerged.
+- Branch / starting SHA / ending SHA: `feat/mesp-194-session-user-identity`; started at `11a4e6a11eabffda993f0a07b7cf588ab19d4d74`; implementation commit `7f20f641a18cf184db380544a35d44071f362fa5`; RESULT hand-back commit follows.
+- What changed: Extended `GET /api/v1/auth/session` with `displayName` and `login` from the validated session owner's identity record; the current identity record has no display-name field, so `displayName` is null and the UI falls back to login. No request identity input or schema change was added, and `/auth/entry` is unchanged. Updated Foundation catalogue/OpenAPI documentation and contract tests; the frontend session model is consumed by the existing `AuthService` response signal, and the header now shows initials/name plus name/login in the Account menu with English/Arabic labels. Added owner-isolation, anonymous-entry, initials/fallback, and MESP-190 E2E coverage. Changed 16 implementation/test files.
+- Gates:
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build 0 warnings / 0 errors; 1,622 passed, 1 failed, 0 skipped, 1,623 total; exit 1, 9m16s. Sole failure was `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight`.
+  - EF pending-model check: not applicable; no EF context or schema was changed.
+  - `npm test -- --watch=false --no-progress`: 50 files passed, 348 tests passed; exit 0.
+  - `npm run build`: exit 0; initial bundle 500.19 kB against the 500.00 kB limit (192 bytes over). Building the fetched `origin/main` frontend produced the same 500.19 kB baseline.
+  - `dotnet build backend/src/MiniErp.Api/MiniErp.Api.csproj --configuration Release --no-restore`: succeeded, 0 warnings / 0 errors; exit 0.
+  - `$env:MESP_E2E_BASE_URL='http://localhost:4370'; npm run test:e2e -- --project=chromium --workers=1`: 65 passed, 0 failed; exit 0, 1.3m. Used this worktree's API on 5370 behind its Angular runtime on 4370; both were stopped after the run and both ports are clear.
+  - `git diff --check`: clean; exit 0 after this RESULT entry.
+- Evidence: Light header screenshot `.playwright-mcp/mesp-194/header-light.png`; dark header screenshot `.playwright-mcp/mesp-194/header-dark.png`. The screenshots are saved locally under the requested directory. No API or runtime secrets were recorded.
+- Deviations from the prompt: Serena initialization did not return, so used targeted `rg` reads as the repository fallback. `AuthService` already stores the complete typed `FoundationSessionResponse`; extending that model makes both new fields available without extra mapping code. No context was touched.
+- Failures and classification: The backend failure matches the known MESP-166 LocalDB execution-claim/audit-recovery race; this run reported `UnknownOutcome:migration_audit_recovery_required` alongside `Succeeded:migration_execution_completed`. No retry or unrelated fix was attempted. The Angular build command exited 0, but the required under-500-kB budget criterion remains unmet by an inherited 192-byte overage; the fetched base branch has the same 500.19-kB bundle.
+- Status files updated: `RESULT.md` only; `TASK.md` was not edited.
+- Exact next action: Push `feat/mesp-194-session-user-identity` and open a Draft PR to `main` titled `[MESP-194] Account menu shows the signed-in user`; then stop without Ready, review request, or merge.
+
 ## 2026-10-01 — MESP-190 (#332) Header bar redesign — GPT-6 / effort not surfaced — MESP-190 (#332)
 - Status: DONE. Draft PR creation is the final authorized delivery action; no Ready, review request, or merge.
 - Branch / starting SHA / ending SHA: `feat/mesp-190-header-bar`; started at `1a12d100efbf5d6c244aff4e6c81fde3e9439b1b`; implementation commit `54697c6`; merged `origin/main` at `aef54f2`; RESULT hand-back commit follows.
