@@ -249,7 +249,7 @@ test('Tax workspace previews, posts, and reverses with source and reason evidenc
   await page.goto('/app/finance/tax-fx');
   const workspace = page.locator('[data-testid="finance-tax-fx-workspace"]');
   await expect(workspace).toBeVisible();
-  await workspace.getByRole('button', { name: 'Tax accounting' }).click();
+  await workspace.getByRole('tab', { name: 'Tax accounting' }).click();
   await workspace.locator('select[name="source"]').selectOption('open-item-a');
   await workspace.locator('select[name="tax"]').selectOption('tax-a');
   await workspace.locator('input[name="base"]').fill('1000');
@@ -269,7 +269,7 @@ test('Tax/FX workspace exposes realized, unrealized, and reporting reconciliatio
   await setupTaxFxRoutes(page);
   await page.goto('/app/finance/tax-fx');
   const workspace = page.locator('[data-testid="finance-tax-fx-workspace"]');
-  await workspace.getByRole('button', { name: 'Revaluation' }).click();
+  await workspace.getByRole('tab', { name: 'Revaluation' }).click();
   await expect(workspace.locator('[data-testid="realized-fx-reconciliation"]')).toContainText('12.50');
   await expect(workspace.locator('[data-testid="realized-fx-reconciliation"]')).toContainText('journal-fx-a');
   await expect(workspace.locator('[data-testid="unrealized-fx-reconciliation"]')).toContainText('8.25');
@@ -281,7 +281,7 @@ test('Revaluation workspace runs the controlled draft, calculate, post, and reve
   const { requests } = await setupTaxFxRoutes(page);
   await page.goto('/app/finance/tax-fx');
   const workspace = page.locator('[data-testid="finance-tax-fx-workspace"]');
-  await workspace.getByRole('button', { name: 'Revaluation' }).click();
+  await workspace.getByRole('tab', { name: 'Revaluation' }).click();
   await expect(workspace.locator('select[name="scope"]')).toBeDisabled();
   await expect(workspace.locator('select[name="scope"]')).toHaveValue('AP_AR_AND_UNALLOCATED_SETTLEMENTS');
   await workspace.locator('input[name="asOfDate"]').fill('2026-08-25');
@@ -338,11 +338,11 @@ test('MESP-135 reports query trial balance, ledger, statements, and authorized C
   await expect(workspace).toContainText('Cash');
   await workspace.getByRole('link', { name: 'CSV export' }).click();
   await expect.poll(() => exportRequest).toContain('asOfDate=');
-  await workspace.getByRole('button', { name: 'General ledger' }).click();
+  await workspace.getByRole('tab', { name: 'General ledger' }).click();
   await expect(workspace).toContainText('J-1');
-  await workspace.getByRole('button', { name: 'Profit & loss' }).click();
+  await workspace.getByRole('tab', { name: 'Profit & loss' }).click();
   await expect(workspace).toContainText('Profit & loss');
-  await workspace.getByRole('button', { name: 'Balance sheet' }).click();
+  await workspace.getByRole('tab', { name: 'Balance sheet' }).click();
   await expect(workspace).toContainText('Balance sheet');
 });
 
@@ -353,9 +353,9 @@ test('MESP-135 AP and AR aging keep the requested accounting as-of date', async 
   await page.goto('/app/finance/reports');
   const workspace = page.locator('.reports-page');
   await workspace.locator('input[type="date"]').first().fill('2026-01-31');
-  await workspace.getByRole('button', { name: 'AP aging' }).click();
+  await workspace.getByRole('tab', { name: 'AP aging' }).click();
   await expect(workspace).toContainText('PI-1001');
-  await workspace.getByRole('button', { name: 'AR aging' }).click();
+  await workspace.getByRole('tab', { name: 'AR aging' }).click();
   await expect(workspace).toContainText('PI-1001');
   await expect.poll(() => requested).toEqual(['2026-01-31', '2026-01-31']);
 });
@@ -378,6 +378,6 @@ test('Tax/FX workspace renders meaningful Arabic labels and RTL direction', asyn
   await page.locator('.language-button').click();
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(workspace.getByRole('heading', { level: 1 })).toContainText('الضرائب');
-  await workspace.getByRole('button', { name: 'إعادة التقييم' }).click();
+  await workspace.getByRole('tab', { name: 'إعادة التقييم' }).click();
   await expect(workspace).toContainText('تسوية فروق العملة المحققة');
 });
