@@ -108,6 +108,18 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
             Assert.DoesNotContain("Creates resource", description, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("Updates item", description, StringComparison.OrdinalIgnoreCase);
             Assert.True(operation.GetProperty("responses").EnumerateObject().Any(), $"Responses missing for {descriptor.OperationId}");
+            if (descriptor.OperationId == "migration.preview.read")
+            {
+                Assert.Equal("tenant.migration.intake", descriptor.ExactPermissionCode);
+                Assert.Equal(FoundationScopePolicy.Tenant, descriptor.ScopePolicy);
+                Assert.Contains("403", operation.GetProperty("responses").EnumerateObject().Select(response => response.Name));
+            }
+            if (descriptor.OperationId == "migration.execution.read")
+            {
+                Assert.Equal("tenant.migration.execute", descriptor.ExactPermissionCode);
+                Assert.Equal(FoundationScopePolicy.Tenant, descriptor.ScopePolicy);
+                Assert.Contains("403", operation.GetProperty("responses").EnumerateObject().Select(response => response.Name));
+            }
         }
 
         Assert.True(paths.TryGetProperty("/api/v1/master-data/taxes/{taxId}", out _));

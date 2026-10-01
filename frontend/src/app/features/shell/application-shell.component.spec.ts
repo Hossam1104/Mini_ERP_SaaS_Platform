@@ -5,7 +5,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { authInterceptor } from '../../core/api/auth.interceptor';
-import { FoundationContextCandidate, FoundationSessionResponse } from '../../core/api/foundation.models';
+import { FoundationContextCandidate, FoundationEntryResponse, FoundationSessionResponse } from '../../core/api/foundation.models';
 import { ContextService } from '../../core/context/context.service';
 import { LanguageService } from '../../core/i18n/language.service';
 import { ApplicationShellComponent } from './application-shell.component';
@@ -31,6 +31,20 @@ const contextCandidate: FoundationContextCandidate = {
   tenantId: 'tenant-a',
   displayName: 'Alpha workspace',
   eligibilityVersion: 3,
+};
+
+const tenantEntry: FoundationEntryResponse = {
+  entryMode: 'TenantHost',
+  canonicalHost: 'tenant.localhost',
+  candidateTenantId: 'tenant-a',
+  candidateTenantDisplayName: 'Alpha Tenant',
+  authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
+  operationalContexts: [],
+  selectedOperationalContextId: null,
+  operationalSelectionVersion: 0,
+  branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true },
+  currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' },
+  code: null,
 };
 
 async function flushAsyncWork(): Promise<void> {
@@ -68,6 +82,7 @@ describe('ApplicationShellComponent sign-out behavior', () => {
 
     auth.acceptServerSession(authenticatedSession);
     context.contexts.set([contextCandidate]);
+    context.entry.set(tenantEntry);
     fixture = TestBed.createComponent(ApplicationShellComponent);
     fixture.detectChanges();
   });
@@ -76,6 +91,8 @@ describe('ApplicationShellComponent sign-out behavior', () => {
 
   it('renders one canonical workspace route and keeps the context selector out of the shell rail', () => {
     const element = fixture.nativeElement as HTMLElement;
+    (element.querySelector('#context-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
     expect(element.querySelector('a[href="/app/workspaces"]')).not.toBeNull();
     expect(element.querySelector('.context-rail')).toBeNull();
     const masterData = element.querySelector('.rail-tile[aria-label="Master data"]') as HTMLButtonElement;
@@ -192,9 +209,8 @@ describe('ApplicationShellComponent sign-out behavior', () => {
   });
 
   async function failSignOut(code = 'audit_unavailable', status = 503): Promise<void> {
-    const signOut = fixture.componentInstance.signOut();
-    fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).querySelector('.sign-out')?.hasAttribute('disabled')).toBe(true);
+    const button = clickAccountSignOut();
+    expect(button.disabled).toBe(true);
 
     http.expectOne('/api/v1/auth/antiforgery').flush(
       { status: 'issued' },
@@ -202,9 +218,85 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     );
     await flushAsyncWork();
     http.expectOne('/api/v1/auth/sign-out').flush({ code }, { status, statusText: 'Unavailable' });
-    await signOut;
+    await flushAsyncWork();
     fixture.detectChanges();
   }
+
+  function clickAccountSignOut(): HTMLButtonElement {
+    const element = fixture.nativeElement as HTMLElement;
+    if (!element.querySelector('#account-menu')) {
+      (element.querySelector('#account-trigger') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    }
+    const button = element.querySelector('#account-menu .sign-out') as HTMLButtonElement;
+    button.click();
+    fixture.detectChanges();
+    return button;
+  }
+
+  it('opens one header menu at a time and closes it on an outside click', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const contextTrigger = element.querySelector('#context-trigger') as HTMLButtonElement;
+    const themeTrigger = element.querySelector('#theme-trigger') as HTMLButtonElement;
+    contextTrigger.click();
+    fixture.detectChanges();
+    expect(contextTrigger.getAttribute('aria-haspopup')).toBe('menu');
+    expect(contextTrigger.getAttribute('aria-expanded')).toBe('true');
+    expect(element.querySelector('#context-menu')).not.toBeNull();
+
+    themeTrigger.click();
+    fixture.detectChanges();
+    expect(element.querySelector('#context-menu')).toBeNull();
+    expect(themeTrigger.getAttribute('aria-expanded')).toBe('true');
+    expect(element.querySelector('#theme-menu')).not.toBeNull();
+
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    fixture.detectChanges();
+    expect(themeTrigger.getAttribute('aria-expanded')).toBe('false');
+    expect(element.querySelector('#theme-menu')).toBeNull();
+  });
+
+  it('opens the Account menu with existing context and calls the sign-out handler', async () => {
+    const handler = vi.spyOn(fixture.componentInstance, 'signOut').mockResolvedValue();
+    context.operationalContexts.set([{ contextId: 'branch-a', kind: 'Branch', displayName: 'Alpha Branch', eligibilityVersion: 1 }]);
+    context.selectedOperationalContextId.set('branch-a');
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const trigger = element.querySelector('#account-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    const menu = element.querySelector('#account-menu') as HTMLElement;
+    expect(trigger.getAttribute('aria-label')).toBe('Account');
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(menu.textContent).toContain('Signed in');
+    expect(menu.textContent).toContain('Alpha Tenant');
+    expect(menu.textContent).toContain('Alpha Branch');
+    expect(document.activeElement).toBe(menu.querySelector('[role="menuitem"]'));
+
+    (menu.querySelector('.sign-out') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('closes the Account menu on Escape and restores focus to its trigger', async () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const trigger = element.querySelector('#account-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+    await Promise.resolve();
+    const item = element.querySelector('#account-menu [role="menuitem"]') as HTMLButtonElement;
+    item.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    expect(element.querySelector('#account-menu')).toBeNull();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+  });
 
   it('announces a safe failure, keeps the authenticated shell and leaves retry available', async () => {
     await failSignOut();
@@ -215,17 +307,15 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     expect(alert?.getAttribute('aria-live')).toBe('assertive');
     expect(signOutButton?.disabled).toBe(false);
     expect(signOutButton?.getAttribute('aria-describedby')).toBe('sign-out-feedback');
-    expect(fixture.nativeElement.textContent).toContain('Alpha workspace');
+    expect(fixture.nativeElement.textContent).toContain('Alpha Tenant');
     expect(auth.status()).toBe('authenticated');
     expect(auth.session()).toEqual(authenticatedSession);
     expect(router.navigate).not.toHaveBeenCalledWith(['/login']);
   });
 
   it('disables the action only while the sign-out request is active', async () => {
-    const signOut = fixture.componentInstance.signOut();
-    fixture.detectChanges();
-    const button = (fixture.nativeElement as HTMLElement).querySelector('.sign-out') as HTMLButtonElement | null;
-    expect(button?.disabled).toBe(true);
+    const button = clickAccountSignOut();
+    expect(button.disabled).toBe(true);
     expect(button?.textContent).toContain('Signing out');
 
     http.expectOne('/api/v1/auth/antiforgery').flush(
@@ -234,22 +324,21 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     );
     await flushAsyncWork();
     http.expectOne('/api/v1/auth/sign-out').flush({ code: 'request_failed' }, { status: 503, statusText: 'Unavailable' });
-    await signOut;
+    await flushAsyncWork();
     fixture.detectChanges();
 
-    expect(button?.disabled).toBe(false);
+    expect(button.disabled).toBe(false);
     expect(button?.textContent).toContain('Sign out');
   });
 
   it('returns to the login boundary when a retry is confirmed successful', async () => {
     await failSignOut('request_failed');
 
-    const retry = fixture.componentInstance.signOut();
-    fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).querySelector('.sign-out')?.hasAttribute('disabled')).toBe(true);
+    const retryButton = clickAccountSignOut();
+    expect(retryButton.disabled).toBe(true);
     await flushAsyncWork();
     http.expectOne('/api/v1/auth/sign-out').flush(null, { status: 204, statusText: 'No Content' });
-    await retry;
+    await flushAsyncWork();
     fixture.detectChanges();
 
     expect(auth.session()).toBeNull();

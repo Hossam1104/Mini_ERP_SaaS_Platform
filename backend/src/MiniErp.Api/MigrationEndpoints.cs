@@ -276,11 +276,13 @@ public static class MigrationEndpoints
 
         endpoints.MapGet(
             "/api/v1/migrations/{runId:guid}/execution",
-            async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationExecutionService service) =>
-            await ExecuteExecutionReadAsync(runId, httpContext, resolver, service))
+            async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationValidationService validation, MigrationExecutionService service) =>
+            await ExecuteExecutionReadAsync(runId, httpContext, resolver, validation, service))
             .WithName("migration.execution.read")
             .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("migration.execution.read")))
-            .Produces<MigrationExecutionResponse>(StatusCodes.Status200OK);
+            .Produces<MigrationExecutionResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         endpoints.MapPost("/api/v1/migrations/{runId:guid}/reconciliation",
             async (Guid runId, HttpContext httpContext, ITrustedRequestContextResolver resolver, MigrationValidationService validation, MigrationReconciliationService service) =>
@@ -526,6 +528,8 @@ public static class MigrationEndpoints
         const string operationId = "migration.preview.read";
         var context = await ResolveReadContextAsync(httpContext, resolver, operationId);
         if (context.Error is not null) return context.Error;
+        if (!await service.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", operationId);
         var value = await service.ReadPreviewAsync(context.Value!.TenantContext!, runId, httpContext.RequestAborted);
         return value is null
             ? Problem(httpContext, 404, "migration_preview_not_found", "Not found", "A stored dry-run plan is required for preview.", operationId)
@@ -597,12 +601,16 @@ public static class MigrationEndpoints
         Guid runId,
         HttpContext httpContext,
         ITrustedRequestContextResolver resolver,
+        MigrationValidationService validation,
         MigrationExecutionService service)
     {
         const string operationId = "migration.execution.read";
         var context = await ResolveReadContextAsync(httpContext, resolver, operationId);
         if (context.Error is not null)
             return context.Error;
+        if (!await validation.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted)
+            && await validation.IsResourceInTenantAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", operationId);
         var value = await service.ReadAsync(context.Value!, runId, httpContext.RequestAborted);
         return value is null
             ? Problem(httpContext, 404, "migration_execution_not_found", "Not found", "The migration execution result was not found.", operationId)

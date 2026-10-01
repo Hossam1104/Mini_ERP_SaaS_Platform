@@ -52,4 +52,17 @@ describe('WorkspaceHomeComponent', () => {
     expect(fixture.nativeElement.querySelector('.overview-hero__tenant-logo')).toBeNull();
     expect(fixture.nativeElement.querySelector('.hero-mark')?.textContent.trim()).toBe('M');
   });
+
+  it('shows a decorative local image on every module card', () => {
+    const fixture: ComponentFixture<WorkspaceHomeComponent> = TestBed.createComponent(WorkspaceHomeComponent);
+    fixture.detectChanges();
+    const cards = fixture.nativeElement.querySelectorAll('.module-card') as NodeListOf<HTMLElement>;
+    expect(cards.length).toBe(fixture.componentInstance.moduleDestinations.length);
+
+    for (const card of Array.from(cards)) {
+      const image = card.querySelector('img');
+      expect(image?.getAttribute('src')).toMatch(/^\/images\/modules\/[a-z0-9-]+\.webp$/);
+      expect(image?.getAttribute('alt')).toBe('');
+    }
+  });
 });

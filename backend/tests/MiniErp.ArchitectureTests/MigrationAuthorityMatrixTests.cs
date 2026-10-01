@@ -273,6 +273,29 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         using var intakeDocument = JsonDocument.Parse(intakeBody);
         var runId = intakeDocument.RootElement.GetProperty("runId").GetGuid();
 
+        var executionRead = GetMigrationOperation("migration.execution.read");
+        var executionReaderPrincipal = CreateTenantPrincipal(identity, identityHost, tenantId, [executionRead.ExactPermissionCode!]);
+        isolatedFactory.ScopeResolver.CurrentScope = TenantWorkScopeRequest.ForCompany(sourceCompanyId);
+        isolatedFactory.Resolver.Context = identityHost.ResolveContext(executionReaderPrincipal, "mesp171-company-scope-execution-reader", executionRead);
+        using (var inScopeMissingExecution = await SendAsync(client, executionRead, runId))
+        {
+            var inScopeMissingExecutionBody = await inScopeMissingExecution.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.NotFound, inScopeMissingExecution.StatusCode);
+            using var inScopeMissingExecutionDocument = JsonDocument.Parse(inScopeMissingExecutionBody);
+            Assert.Equal("migration_execution_not_found", inScopeMissingExecutionDocument.RootElement.GetProperty("code").GetString());
+        }
+
+        var previewRead = GetMigrationOperation("migration.preview.read");
+        isolatedFactory.ScopeResolver.CurrentScope = TenantWorkScopeRequest.ForCompany(sourceCompanyId);
+        isolatedFactory.Resolver.Context = identityHost.ResolveContext(ownerPrincipal, "mesp171-company-scope-owner", previewRead);
+        using (var previewWithoutDryRun = await SendAsync(client, previewRead, runId))
+        {
+            var previewWithoutDryRunBody = await previewWithoutDryRun.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.NotFound, previewWithoutDryRun.StatusCode);
+            using var previewWithoutDryRunDocument = JsonDocument.Parse(previewWithoutDryRunBody);
+            Assert.Equal("migration_preview_not_found", previewWithoutDryRunDocument.RootElement.GetProperty("code").GetString());
+        }
+
         var validationStart = GetMigrationOperation("migration.validation.start");
         isolatedFactory.Resolver.Context = identityHost.ResolveContext(ownerPrincipal, "mesp171-company-scope-owner", validationStart);
         using var validationResponse = await SendAsync(client, validationStart, runId);
@@ -290,16 +313,6 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
             && (operation.IsUnsafe || Regex.IsMatch(operation.Route, @"\{[^}]+:guid\}", RegexOptions.CultureInvariant))).ToArray();
         Assert.NotEmpty(resourceScopedOperations);
         Assert.Contains(resourceScopedOperations, operation => operation.OperationId == "migration.intake.create");
-        var hiddenCompanyScopeDenialCodes = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["migration.execution.read"] = "migration_execution_not_found",
-            ["migration.preview.read"] = "migration_preview_not_found"
-        };
-        Assert.Equal(
-            new[] { "migration.execution.read", "migration.preview.read" },
-            hiddenCompanyScopeDenialCodes.Keys.OrderBy(operationId => operationId, StringComparer.Ordinal));
-
-        var previewRead = GetMigrationOperation("migration.preview.read");
         isolatedFactory.ScopeResolver.CurrentScope = TenantWorkScopeRequest.ForCompany(sourceCompanyId);
         isolatedFactory.Resolver.Context = identityHost.ResolveContext(ownerPrincipal, "mesp171-company-scope-owner", previewRead);
         using (var allowedPreview = await SendAsync(client, previewRead, runId))
@@ -323,26 +336,8 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
                 operation.OperationId == "migration.intake.create" ? sourceObjectId : null);
             var deniedBody = await denied.Content.ReadAsStringAsync();
             using var deniedDocument = JsonDocument.Parse(deniedBody);
-            if (hiddenCompanyScopeDenialCodes.TryGetValue(operation.OperationId, out var hiddenCode))
-            {
-                Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
-                Assert.Equal(hiddenCode, deniedDocument.RootElement.GetProperty("code").GetString());
-                // ReadDryRunAsync and MigrationExecutionService.ReadAsync hide scoped denials; MESP-183 (#324) must update both assertions.
-                var responseType = operation.OperationId switch
-                {
-                    "migration.preview.read" => typeof(MigrationNonAuthoritativePreviewResponse),
-                    "migration.execution.read" => typeof(MigrationExecutionResponse),
-                    _ => throw new Xunit.Sdk.XunitException($"No hidden response contract is defined for {operation.OperationId}.")
-                };
-                foreach (var property in responseType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-                    Assert.False(deniedDocument.RootElement.TryGetProperty(JsonNamingPolicy.CamelCase.ConvertName(property.Name), out _),
-                        $"{operation.OperationId} response field '{property.Name}' was disclosed.");
-            }
-            else
-            {
-                Assert.True(denied.StatusCode == HttpStatusCode.Forbidden, operation.OperationId);
-                Assert.Equal("migration_source_scope_denied", deniedDocument.RootElement.GetProperty("code").GetString());
-            }
+            Assert.True(denied.StatusCode == HttpStatusCode.Forbidden, operation.OperationId);
+            Assert.Equal("migration_source_scope_denied", deniedDocument.RootElement.GetProperty("code").GetString());
             Assert.DoesNotContain(SourceRowSentinel, deniedBody, StringComparison.Ordinal);
             Assert.DoesNotContain(sourceCompanyId.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(sourceObjectId.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
@@ -487,6 +482,7 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         "migration.validation.findings.read" or
         "migration.staged-records.read" or
         "migration.dry-run.read" or
+        "migration.preview.read" or
         "migration.reconciliation-preview.read" or
         "migration.reconciliation.calculate" or
         "migration.reconciliation.read" or
@@ -498,7 +494,6 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         "migration.validation.corrected-retry" or
         "migration.run.cancel" or
         "migration.execution.start" => (HttpStatusCode.NotFound, "migration_run_not_found"),
-        "migration.preview.read" => (HttpStatusCode.NotFound, "migration_preview_not_found"),
         "migration.execution.read" => (HttpStatusCode.NotFound, "migration_execution_not_found"),
         _ => throw new Xunit.Sdk.XunitException($"No foreign-tenant expectation is defined for {operationId}.")
     };
