@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { LanguageService } from '../../core/i18n/language.service';
@@ -39,6 +40,7 @@ describe('FinanceReportsWorkspaceComponent', () => {
     TestBed.configureTestingModule({
       imports: [FinanceReportsWorkspaceComponent],
       providers: [
+        provideRouter([]),
         {
           provide: FinanceService,
           useValue: {

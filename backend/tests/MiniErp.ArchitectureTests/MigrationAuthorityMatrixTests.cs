@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -18,6 +20,7 @@ using MiniErp.App.BuildingBlocks.Work;
 using MiniErp.App.Modules.Identity;
 using MiniErp.App.Modules.Migration;
 using MiniErp.Contracts.Modules.Foundation;
+using MiniErp.Contracts.Modules.Migration;
 using MiniErp.Infrastructure.Persistence.Modules.Migration;
 using Xunit;
 
@@ -135,7 +138,117 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
     }
 
     [Fact]
-    public async Task Resource_scoped_reads_distinguish_scope_denial_from_missing_evidence()
+    public async Task Validation_only_membership_can_read_evidence_but_cannot_use_execution_authority()
+    {
+        using var isolatedFactory = new MigrationIsolationApiFactory();
+        var identity = isolatedFactory.Services.GetRequiredService<IdentityAuthorizationService>();
+        var identityHost = isolatedFactory.Services.GetRequiredService<IFoundationIdentityHost>();
+        var tenantId = new TenantId(Guid.NewGuid());
+        const string validationPermission = "tenant.migration.intake";
+        const string executionPermission = "tenant.migration.execute";
+        var principal = CreateTenantPrincipal(identity, identityHost, tenantId, [validationPermission]);
+        Assert.Contains(validationPermission, MigrationPermissionCodes());
+        Assert.Contains(executionPermission, MigrationPermissionCodes());
+        var tenantWideOperation = GetMigrationOperation("migration.intake.create");
+        var tenant = Assert.IsType<TenantContext>(identityHost.ResolveContext(
+            principal, "mesp171-validation-only", tenantWideOperation).TenantContext);
+        var sourceObjectId = Guid.NewGuid();
+        var package = ValidationPackage(sourceObjectId);
+        isolatedFactory.Storage.RegisterValidationPackage(tenant, sourceObjectId, package);
+        using var client = isolatedFactory.CreateClient();
+
+        isolatedFactory.Resolver.Context = identityHost.ResolveContext(principal, "mesp171-validation-only", tenantWideOperation);
+        using var intakeResponse = await SendAsync(client, tenantWideOperation, Guid.NewGuid(), sourceObjectId);
+        var intakeBody = await intakeResponse.Content.ReadAsStringAsync();
+        Assert.True(intakeResponse.StatusCode == HttpStatusCode.OK, intakeBody);
+        using var intakeDocument = JsonDocument.Parse(intakeBody);
+        var runId = intakeDocument.RootElement.GetProperty("runId").GetGuid();
+
+        var validationStart = GetMigrationOperation("migration.validation.start");
+        isolatedFactory.Resolver.Context = identityHost.ResolveContext(principal, "mesp171-validation-only", validationStart);
+        using var validationResponse = await SendAsync(client, validationStart, runId);
+        var validationBody = await validationResponse.Content.ReadAsStringAsync();
+        Assert.True(validationResponse.StatusCode == HttpStatusCode.OK, validationBody);
+
+        var baseline = await isolatedFactory.ReadRunStateAsync(tenant, runId);
+        var deniedOperations = FoundationOperationCatalog.PublicOperations.Where(operation =>
+            operation.OperationId.StartsWith("migration.", StringComparison.Ordinal)
+            && string.Equals(operation.ExactPermissionCode, executionPermission, StringComparison.Ordinal)).ToArray();
+        Assert.NotEmpty(deniedOperations);
+        Assert.Contains(deniedOperations, operation => operation.OperationId == "migration.execution.start");
+        Assert.Contains(deniedOperations, operation => operation.OperationId == "migration.reconciliation.approve");
+        Assert.Contains(deniedOperations, operation => operation.OperationId == "migration.handover.ready");
+
+        // BRD M40-AC-029 separates validation permission from execution/approval authority; intake and validation mutations share the validation permission.
+        foreach (var operation in deniedOperations)
+        {
+            isolatedFactory.Resolver.Context = identityHost.ResolveContext(principal, "mesp171-validation-only", operation);
+            using var denied = await SendAsync(client, operation, runId);
+            var deniedBody = await denied.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+            using var deniedDocument = JsonDocument.Parse(deniedBody);
+            Assert.Equal("tenant_context_required", deniedDocument.RootElement.GetProperty("code").GetString());
+            Assert.DoesNotContain(runId.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(sourceObjectId.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(tenantId.Value.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // SQLite cannot translate the DateTimeOffset ORDER BY in ListFindingsAsync; Sql_server_mesp171_validation_findings_read_is_tenant_scoped covers this read on LocalDB.
+        foreach (var operationId in new[] { "migration.validation.read", "migration.staged-records.read" })
+        {
+            var operation = GetMigrationOperation(operationId);
+            isolatedFactory.Resolver.Context = identityHost.ResolveContext(principal, "mesp171-validation-only", operation);
+            using var evidence = await SendAsync(client, operation, runId);
+            var evidenceBody = await evidence.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, evidence.StatusCode);
+            Assert.DoesNotContain(SourceRowSentinel, evidenceBody, StringComparison.Ordinal);
+        }
+
+        var foreignTenantId = new TenantId(Guid.NewGuid());
+        var foreignPrincipal = CreateTenantPrincipal(identity, identityHost, foreignTenantId, [validationPermission]);
+        var foreignTenant = Assert.IsType<TenantContext>(identityHost.ResolveContext(
+            foreignPrincipal, "mesp171-validation-only-foreign", tenantWideOperation).TenantContext);
+        var foreignSourceId = Guid.NewGuid();
+        isolatedFactory.Storage.RegisterValidationPackage(foreignTenant, foreignSourceId, ValidationPackage(foreignSourceId));
+        isolatedFactory.Resolver.Context = identityHost.ResolveContext(
+            foreignPrincipal, "mesp171-validation-only-foreign", tenantWideOperation);
+        using var foreignIntake = await SendAsync(client, tenantWideOperation, Guid.NewGuid(), foreignSourceId);
+        var foreignIntakeBody = await foreignIntake.Content.ReadAsStringAsync();
+        Assert.True(foreignIntake.StatusCode == HttpStatusCode.OK, foreignIntakeBody);
+        using var foreignIntakeDocument = JsonDocument.Parse(foreignIntakeBody);
+        var foreignRunId = foreignIntakeDocument.RootElement.GetProperty("runId").GetGuid();
+
+        var foreignSnapshots = new Dictionary<Guid, MigrationRunSnapshot>
+        {
+            [runId] = baseline,
+            [foreignRunId] = await isolatedFactory.ReadRunStateAsync(foreignTenant, foreignRunId)
+        };
+        foreach (var operationId in new[]
+                 {
+                     "migration.validation.read",
+                     "migration.validation.findings.read",
+                     "migration.staged-records.read"
+                 })
+        {
+            var operation = GetMigrationOperation(operationId);
+            isolatedFactory.Resolver.Context = identityHost.ResolveContext(principal, "mesp171-validation-only", operation);
+            using var hidden = await SendAsync(client, operation, foreignRunId);
+            var hiddenBody = await hidden.Content.ReadAsStringAsync();
+            var expected = ExpectedForeignTenantOutcome(operationId);
+            Assert.Equal(expected.Status, hidden.StatusCode);
+            using var hiddenDocument = JsonDocument.Parse(hiddenBody);
+            Assert.Equal(expected.Code, hiddenDocument.RootElement.GetProperty("code").GetString());
+            Assert.DoesNotContain(foreignRunId.ToString("D"), hiddenBody, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(foreignSourceId.ToString("D"), hiddenBody, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(foreignTenantId.Value.ToString("D"), hiddenBody, StringComparison.OrdinalIgnoreCase);
+        }
+
+        Assert.Equal(baseline, await isolatedFactory.ReadRunStateAsync(tenant, runId));
+        Assert.Equal(foreignSnapshots[foreignRunId], await isolatedFactory.ReadRunStateAsync(foreignTenant, foreignRunId));
+    }
+
+    [Fact]
+    public async Task Resource_scoped_operations_deny_company_scope_without_changing_run_state()
     {
         using var isolatedFactory = new MigrationIsolationApiFactory();
         var identity = isolatedFactory.Services.GetRequiredService<IdentityAuthorizationService>();
@@ -144,68 +257,126 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         var tenantId = new TenantId(Guid.NewGuid());
         var sourceCompanyId = Guid.NewGuid();
         var callerCompanyId = Guid.NewGuid();
-        var ownerContext = CreateResolvedContext(identity, identityHost, tenantId,
-            [intakeOperation.ExactPermissionCode!], intakeOperation);
+        var ownerPrincipal = CreateTenantPrincipal(identity, identityHost, tenantId, [intakeOperation.ExactPermissionCode!]);
+        var ownerContext = identityHost.ResolveContext(ownerPrincipal, "mesp171-company-scope-owner", intakeOperation);
         var ownerTenant = Assert.IsType<TenantContext>(ownerContext.TenantContext);
-        var ownerSource = await isolatedFactory.Storage.StoreAsync(
-            ownerTenant,
-            TenantWorkScope.IssueFromVerifiedAuthority(ownerTenant, TenantWorkScopeRequest.ForCompany(sourceCompanyId)),
-            "scoped-source.txt",
-            "text/plain",
-            new MemoryStream(Encoding.UTF8.GetBytes(SourceRowSentinel)),
-            safetyRequirement: PrivateFileSafetyRequirement.TrustedGenerated);
+        var sourceObjectId = Guid.NewGuid();
+        isolatedFactory.Storage.RegisterValidationPackage(ownerTenant, sourceObjectId,
+            ValidationPackage(sourceObjectId), sourceCompanyId);
 
         isolatedFactory.ScopeResolver.CurrentScope = TenantWorkScopeRequest.ForCompany(sourceCompanyId);
         isolatedFactory.Resolver.Context = ownerContext;
         using var client = isolatedFactory.CreateClient();
-        using var intakeResponse = await SendAsync(client, intakeOperation, Guid.NewGuid(), ownerSource.ObjectId);
+        using var intakeResponse = await SendAsync(client, intakeOperation, Guid.NewGuid(), sourceObjectId);
         var intakeBody = await intakeResponse.Content.ReadAsStringAsync();
         Assert.True(intakeResponse.StatusCode == HttpStatusCode.OK, intakeBody);
         using var intakeDocument = JsonDocument.Parse(intakeBody);
         var runId = intakeDocument.RootElement.GetProperty("runId").GetGuid();
 
-        foreach (var operation in new[]
-                 {
-                     "migration.validation.read",
-                     "migration.validation.findings.read",
-                     "migration.staged-records.read",
-                     "migration.dry-run.read",
-                     "migration.reconciliation-preview.read",
-                     "migration.reconciliation.read",
-                     "migration.handover.read"
-                 }.Select(GetMigrationOperation))
+        var previewRead = GetMigrationOperation("migration.preview.read");
+        isolatedFactory.ScopeResolver.CurrentScope = TenantWorkScopeRequest.ForCompany(sourceCompanyId);
+        isolatedFactory.Resolver.Context = identityHost.ResolveContext(ownerPrincipal, "mesp171-company-scope-owner", previewRead);
+        using (var previewWithoutDryRun = await SendAsync(client, previewRead, runId))
+        {
+            var previewWithoutDryRunBody = await previewWithoutDryRun.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.NotFound, previewWithoutDryRun.StatusCode);
+            using var previewWithoutDryRunDocument = JsonDocument.Parse(previewWithoutDryRunBody);
+            Assert.Equal("migration_preview_not_found", previewWithoutDryRunDocument.RootElement.GetProperty("code").GetString());
+        }
+
+        var validationStart = GetMigrationOperation("migration.validation.start");
+        isolatedFactory.Resolver.Context = identityHost.ResolveContext(ownerPrincipal, "mesp171-company-scope-owner", validationStart);
+        using var validationResponse = await SendAsync(client, validationStart, runId);
+        var validationBody = await validationResponse.Content.ReadAsStringAsync();
+        Assert.True(validationResponse.StatusCode == HttpStatusCode.OK, validationBody);
+        var dryRunStart = GetMigrationOperation("migration.dry-run.start");
+        isolatedFactory.Resolver.Context = identityHost.ResolveContext(ownerPrincipal, "mesp171-company-scope-owner", dryRunStart);
+        using var dryRunResponse = await SendAsync(client, dryRunStart, runId);
+        var dryRunBody = await dryRunResponse.Content.ReadAsStringAsync();
+        Assert.True(dryRunResponse.StatusCode == HttpStatusCode.OK, dryRunBody);
+
+        var baseline = await isolatedFactory.ReadRunStateAsync(ownerTenant, runId);
+        var resourceScopedOperations = FoundationOperationCatalog.PublicOperations.Where(operation =>
+            operation.OperationId.StartsWith("migration.", StringComparison.Ordinal)
+            && (operation.IsUnsafe || Regex.IsMatch(operation.Route, @"\{[^}]+:guid\}", RegexOptions.CultureInvariant))).ToArray();
+        Assert.NotEmpty(resourceScopedOperations);
+        Assert.Contains(resourceScopedOperations, operation => operation.OperationId == "migration.intake.create");
+        isolatedFactory.ScopeResolver.CurrentScope = TenantWorkScopeRequest.ForCompany(sourceCompanyId);
+        isolatedFactory.Resolver.Context = identityHost.ResolveContext(ownerPrincipal, "mesp171-company-scope-owner", previewRead);
+        using (var allowedPreview = await SendAsync(client, previewRead, runId))
+        {
+            var allowedPreviewBody = await allowedPreview.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, allowedPreview.StatusCode);
+            using var allowedPreviewDocument = JsonDocument.Parse(allowedPreviewBody);
+            Assert.Equal(runId, allowedPreviewDocument.RootElement.GetProperty("runId").GetGuid());
+            Assert.Equal(tenantId.Value, allowedPreviewDocument.RootElement.GetProperty("tenantId").GetGuid());
+        }
+        Assert.Equal(baseline, await isolatedFactory.ReadRunStateAsync(ownerTenant, runId));
+
+        foreach (var operation in resourceScopedOperations)
         {
             var outOfScopeContext = CreateResolvedContext(identity, identityHost, tenantId,
                 [operation.ExactPermissionCode!], operation);
             isolatedFactory.ScopeResolver.CurrentScope = TenantWorkScopeRequest.ForCompany(callerCompanyId);
             isolatedFactory.Resolver.Context = outOfScopeContext;
 
-            using var denied = await SendAsync(client, operation, runId);
+            using var denied = await SendAsync(client, operation, runId,
+                operation.OperationId == "migration.intake.create" ? sourceObjectId : null);
             var deniedBody = await denied.Content.ReadAsStringAsync();
-            Assert.True(denied.StatusCode == HttpStatusCode.Forbidden, operation.OperationId);
             using var deniedDocument = JsonDocument.Parse(deniedBody);
-            Assert.Equal("migration_source_scope_denied", deniedDocument.RootElement.GetProperty("code").GetString());
+            if (operation.OperationId == "migration.execution.read")
+            {
+                Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+                Assert.Equal("migration_execution_not_found", deniedDocument.RootElement.GetProperty("code").GetString());
+                foreach (var property in typeof(MigrationExecutionResponse).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+                    Assert.False(deniedDocument.RootElement.TryGetProperty(JsonNamingPolicy.CamelCase.ConvertName(property.Name), out _),
+                        $"{operation.OperationId} response field '{property.Name}' was disclosed.");
+            }
+            else
+            {
+                Assert.True(denied.StatusCode == HttpStatusCode.Forbidden, operation.OperationId);
+                Assert.Equal("migration_source_scope_denied", deniedDocument.RootElement.GetProperty("code").GetString());
+            }
             Assert.DoesNotContain(SourceRowSentinel, deniedBody, StringComparison.Ordinal);
             Assert.DoesNotContain(sourceCompanyId.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain(ownerSource.ObjectId.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(sourceObjectId.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(runId.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(tenantId.Value.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(callerCompanyId.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(baseline, await isolatedFactory.ReadRunStateAsync(ownerTenant, runId));
         }
 
-        var validationRead = GetMigrationOperation("migration.validation.read");
-        isolatedFactory.Resolver.Context = CreateResolvedContext(identity, identityHost, tenantId,
-            [validationRead.ExactPermissionCode!], validationRead);
+        var missingEvidenceSourceObjectId = Guid.NewGuid();
+        isolatedFactory.Storage.RegisterValidationPackage(ownerTenant, missingEvidenceSourceObjectId,
+            ValidationPackage(missingEvidenceSourceObjectId), sourceCompanyId);
         isolatedFactory.ScopeResolver.CurrentScope = TenantWorkScopeRequest.ForCompany(sourceCompanyId);
-        using var missingEvidence = await SendAsync(client, validationRead, runId);
+        isolatedFactory.Resolver.Context = ownerContext;
+        using var missingEvidenceIntake = await SendAsync(client, intakeOperation, Guid.NewGuid(), missingEvidenceSourceObjectId);
+        var missingEvidenceIntakeBody = await missingEvidenceIntake.Content.ReadAsStringAsync();
+        Assert.True(missingEvidenceIntake.StatusCode == HttpStatusCode.OK, missingEvidenceIntakeBody);
+        using var missingEvidenceIntakeDocument = JsonDocument.Parse(missingEvidenceIntakeBody);
+        var missingEvidenceRunId = missingEvidenceIntakeDocument.RootElement.GetProperty("runId").GetGuid();
+        var originalRunAfterSecondIntake = await isolatedFactory.ReadRunStateAsync(ownerTenant, runId);
+        Assert.Equal(baseline.Status, originalRunAfterSecondIntake.Status);
+        Assert.Equal(baseline.Version, originalRunAfterSecondIntake.Version);
+        var missingEvidenceBaseline = await isolatedFactory.ReadRunStateAsync(ownerTenant, missingEvidenceRunId);
+
+        var validationRead = GetMigrationOperation("migration.validation.read");
+        isolatedFactory.Resolver.Context = identityHost.ResolveContext(ownerPrincipal, "mesp171-company-scope-owner", validationRead);
+        using var missingEvidence = await SendAsync(client, validationRead, missingEvidenceRunId);
         var missingEvidenceBody = await missingEvidence.Content.ReadAsStringAsync();
         Assert.True(missingEvidence.StatusCode == HttpStatusCode.NotFound, missingEvidenceBody);
         using var missingEvidenceDocument = JsonDocument.Parse(missingEvidenceBody);
         Assert.Equal("migration_validation_not_found", missingEvidenceDocument.RootElement.GetProperty("code").GetString());
-        Assert.DoesNotContain(ownerSource.ObjectId.ToString("D"), missingEvidenceBody, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(runId.ToString("D"), missingEvidenceBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(missingEvidenceSourceObjectId.ToString("D"), missingEvidenceBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(missingEvidenceRunId.ToString("D"), missingEvidenceBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(tenantId.Value.ToString("D"), missingEvidenceBody, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(missingEvidenceBaseline, await isolatedFactory.ReadRunStateAsync(ownerTenant, missingEvidenceRunId));
+        Assert.Equal(originalRunAfterSecondIntake, await isolatedFactory.ReadRunStateAsync(ownerTenant, runId));
     }
 
     [Fact]
-    public void Reconciliation_report_exposes_utc_freshness_and_approval_ownership()
+    public void Reconciliation_response_mapper_preserves_contract_fields_with_realistic_readiness_flags()
     {
         var requestTime = DateTimeOffset.UtcNow;
         var createdAt = requestTime.AddMinutes(-1);
@@ -215,16 +386,29 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         var reconciliationId = Guid.NewGuid();
         var attemptId = Guid.NewGuid();
         var actorId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var requirement = new MigrationReconciliationApprovalRequirement("migration", "opening", 1, [actorId]);
+        var detail = new MigrationReconciliationDetail(
+            Guid.NewGuid(), MigrationReconciliationDomain.Inventory, $"company:{companyId:N}", companyId,
+            new DateOnly(2026, 9, 1), "USD", "USD", "USD", 1,
+            10m, 2m, 9m, 1m, 2m, 10m, 9m, 1m, 1m, 10m, 9m, 9m, 9m,
+            Guid.NewGuid(), Guid.NewGuid(), 1, 1.25m, 10m, 9m, 1m,
+            Guid.NewGuid(), Guid.NewGuid(), 1, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            "migration-inventory-opening.v1", "opening", Guid.NewGuid(), 1, 2, "AwayFromZero", true,
+            "inventory_variance", "seeded report detail", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         var approval = new MigrationReconciliationApprovalRecord(
             Guid.NewGuid(), tenantId, runId, reconciliationId, 1, attemptId,
             "evidence-fingerprint", "approval-key", "migration", "opening", "test-policy", 1,
             actorId, MigrationApprovalDecision.Approved, "reviewed", calculatedAt, [1], EvidenceConfirmed: true);
+        var readiness = new MigrationHandoverReadinessSnapshot(
+            Guid.NewGuid(), tenantId, runId, reconciliationId, 1, attemptId, "evidence-fingerprint", "readiness-key",
+            calculatedAt, true, false, false, false, false, "ready_for_handover", [1]);
         var reconciliation = new MigrationReconciliationRecord(
             reconciliationId, tenantId, runId, attemptId, 1, "evidence-fingerprint", "reconciliation-key",
-            MigrationReconciliationStatus.Reconciled, createdAt, calculatedAt, 1, 1, 0, 0, 0, 0, 0, 1, 1,
-            10m, 0m, 10m, 0m, 0m, [1], IsCurrent: true, "test-policy", 1, "test-policy-v1",
-            createdAt, null, ApprovalEnforcesSeparationOfDuties: true, [requirement], [], [approval], null);
+            MigrationReconciliationStatus.Reconciled, createdAt, calculatedAt, 6, 1, 1, 1, 1, 1, 1, 1, 1,
+            10m, 2m, 9m, 1m, 2m, [1, 2], IsCurrent: true, "test-policy", 1, "test-policy-v1",
+            createdAt, calculatedAt.AddDays(1), ApprovalEnforcesSeparationOfDuties: true,
+            [requirement], [detail], [approval], readiness);
         var mapper = typeof(MigrationEndpoints).GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
             .Single(method => method.Name == "ToResponse"
                 && method.GetParameters() is [{ ParameterType: var parameterType }]
@@ -241,10 +425,40 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         Assert.True(reportedCalculatedAt <= requestTime);
         Assert.Equal(tenantId.Value, report.GetProperty("tenantId").GetGuid());
         Assert.Equal(runId, report.GetProperty("runId").GetGuid());
-        Assert.Equal(1, report.GetProperty("submittedCount").GetInt32());
+        Assert.Equal(6, report.GetProperty("submittedCount").GetInt32());
         var reportedApproval = Assert.Single(report.GetProperty("approvals").EnumerateArray());
         Assert.Equal(actorId, reportedApproval.GetProperty("actorId").GetGuid());
         Assert.Equal("opening", reportedApproval.GetProperty("requirementKey").GetString());
+        var reportedReadiness = report.GetProperty("readiness");
+        Assert.True(reportedReadiness.GetProperty("businessReady").GetBoolean());
+        Assert.False(reportedReadiness.GetProperty("productionReady").GetBoolean());
+        Assert.False(reportedReadiness.GetProperty("mesp48Complete").GetBoolean());
+        Assert.False(reportedReadiness.GetProperty("mesp50Complete").GetBoolean());
+        Assert.False(reportedReadiness.GetProperty("tenantActivationPerformed").GetBoolean());
+        Assert.Equal("ready_for_handover", reportedReadiness.GetProperty("resultCode").GetString());
+
+        // No exclusions: this mapper input populates every response field and uses a producible readiness snapshot.
+        var excludedProperties = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var property in typeof(MigrationReconciliationResponse).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (excludedProperties.ContainsKey(property.Name))
+                continue;
+            var value = property.GetValue(projected);
+            Assert.False(IsNullOrDefault(value, property.PropertyType),
+                $"Reconciliation report property '{property.Name}' is null, empty, or default.");
+        }
+    }
+
+    private static bool IsNullOrDefault(object? value, Type propertyType)
+    {
+        if (value is null)
+            return true;
+        if (value is string text)
+            return string.IsNullOrWhiteSpace(text);
+        if (value is System.Collections.IEnumerable sequence)
+            return !sequence.Cast<object?>().Any();
+        var effectiveType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
+        return effectiveType.IsValueType && value.Equals(Activator.CreateInstance(effectiveType));
     }
 
     private static FoundationOperationDescriptor GetMigrationOperation(string operationId) =>
@@ -267,6 +481,7 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         "migration.validation.findings.read" or
         "migration.staged-records.read" or
         "migration.dry-run.read" or
+        "migration.preview.read" or
         "migration.reconciliation-preview.read" or
         "migration.reconciliation.calculate" or
         "migration.reconciliation.read" or
@@ -278,7 +493,6 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         "migration.validation.corrected-retry" or
         "migration.run.cancel" or
         "migration.execution.start" => (HttpStatusCode.NotFound, "migration_run_not_found"),
-        "migration.preview.read" => (HttpStatusCode.NotFound, "migration_preview_not_found"),
         "migration.execution.read" => (HttpStatusCode.NotFound, "migration_execution_not_found"),
         _ => throw new Xunit.Sdk.XunitException($"No foreign-tenant expectation is defined for {operationId}.")
     };
@@ -289,6 +503,16 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         TenantId tenantId,
         IReadOnlyCollection<string> permissionCodes,
         FoundationOperationDescriptor operation)
+        => identityHost.ResolveContext(
+            CreateTenantPrincipal(identity, identityHost, tenantId, permissionCodes),
+            "mesp171-authority-matrix",
+            operation);
+
+    private static ClaimsPrincipal CreateTenantPrincipal(
+        IdentityAuthorizationService identity,
+        IFoundationIdentityHost identityHost,
+        TenantId tenantId,
+        IReadOnlyCollection<string> permissionCodes)
     {
         var password = Guid.NewGuid().ToString("N") + "A1!";
         var email = $"matrix-{Guid.NewGuid():N}@example.test";
@@ -315,8 +539,44 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         Assert.Equal(tenantId.Value, candidate.TenantId);
         Assert.True(identityHost.SelectAuthorizedContext(signIn.Principal!, candidate.ContextId));
 
-        return identityHost.ResolveContext(signIn.Principal!, "mesp171-authority-matrix", operation);
+        return signIn.Principal!;
     }
+
+    private static byte[] ValidationPackage(Guid sourceObjectId)
+    {
+        var definition = new MigrationDefinitionReference("tenant-onboarding.foundation", "1");
+        var profile = new MigrationSourceProfileReference("neutral-source-profile", "1");
+        var content = ValidationPackage(sourceObjectId, definition, profile, 0);
+        for (var pass = 0; pass < 5; pass++)
+        {
+            var next = ValidationPackage(sourceObjectId, definition, profile, content.Length);
+            if (next.Length == content.Length)
+                return next;
+            content = next;
+        }
+        return content;
+    }
+
+    private static byte[] ValidationPackage(
+        Guid sourceObjectId,
+        MigrationDefinitionReference definition,
+        MigrationSourceProfileReference profile,
+        int length) => JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            PackageVersion = MigrationCanonicalPackageParser.Version,
+            DefinitionId = definition.DefinitionId,
+            DefinitionVersion = definition.Version,
+            SourceProfileId = profile.ProfileId,
+            SourceProfileVersion = profile.ProfileVersion,
+            LogicalDataset = "authority-matrix",
+            SourceSnapshot = new { ObjectId = sourceObjectId, Sha256 = new string('A', 64), Length = length, ConcurrencyVersion = 1 },
+            DomainContracts = MigrationDomainContractTestData.For(MigrationCanonicalRecordType.Product),
+            Records = new[]
+            {
+                new { SourceSequence = 1, SourceRecordId = "matrix-product-1", RecordType = "Product", Payload = new { Sku = "MESP171-MATRIX-1", NameEnglish = "Matrix product 1" } },
+                new { SourceSequence = 2, SourceRecordId = "matrix-product-2", RecordType = "Product", Payload = new { Sku = "MESP171-MATRIX-2", NameEnglish = "Matrix product 2" } }
+            }
+        }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
     private static PermissionCode ResolvePermission(string code)
     {
@@ -392,7 +652,16 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
 
         internal readonly RestFoundationTests.TestResolver Resolver = new();
         internal readonly MigrationCurrentScopeResolver ScopeResolver = new();
-        internal InMemoryPrivateObjectStorage Storage { get; } = new();
+        internal MigrationTestObjectStorage Storage { get; } = new();
+        private DbContextOptions Options { get; set; } = null!;
+
+        internal async Task<MigrationRunSnapshot> ReadRunStateAsync(TenantContext tenant, Guid runId)
+        {
+            await using var db = new MigrationDbContext(Options, tenant);
+            var run = await db.Runs.AsNoTracking().SingleAsync(item => item.TenantId == tenant.TenantId && item.RunId == runId);
+            var runCount = await db.Runs.CountAsync(item => item.TenantId == tenant.TenantId);
+            return new MigrationRunSnapshot(run.Status, Convert.ToBase64String(run.Version), runCount);
+        }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -422,13 +691,13 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
 
                 connection = new SqliteConnection("Data Source=:memory:");
                 connection.Open();
-                var options = new DbContextOptionsBuilder().UseSqlite(connection).Options;
+                Options = new DbContextOptionsBuilder().UseSqlite(connection).Options;
                 var schemaTenant = TenantContext.ForOrdinaryMembership(
                     new TenantId(Guid.NewGuid()),
                     new MembershipReference(Guid.NewGuid()),
                     correlationId: new CorrelationId("authority-matrix-schema"),
                     actorId: Guid.NewGuid());
-                using (var db = new MigrationDbContext(options, schemaTenant))
+                using (var db = new MigrationDbContext(Options, schemaTenant))
                     db.Database.EnsureCreated();
 
                 services.RemoveAll<MigrationPersistence>();
@@ -446,6 +715,54 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
             if (disposing)
                 connection?.Dispose();
         }
+    }
+
+    private sealed record MigrationRunSnapshot(MigrationRunStatus Status, string Version, int TenantRunCount);
+
+    private sealed class MigrationTestObjectStorage : IPrivateObjectStorage
+    {
+        private readonly InMemoryPrivateObjectStorage inner = new();
+        private readonly Dictionary<(Guid TenantId, Guid ObjectId), (PrivateFileMetadata Metadata, byte[] Content)> packages = [];
+
+        internal void RegisterValidationPackage(TenantContext tenant, Guid objectId, byte[] content, Guid? companyId = null)
+        {
+            var scopeRequest = companyId is { } company
+                ? TenantWorkScopeRequest.ForCompany(company)
+                : TenantWorkScopeRequest.TenantWide();
+            var scope = TenantWorkScope.IssueFromVerifiedAuthority(tenant, scopeRequest);
+            var snapshot = new MigrationSourceArtifactSnapshot(objectId, tenant.TenantId, companyId, null, null,
+                new string('A', 64), content.Length, 1);
+            var metadata = new PrivateFileMetadata(objectId, tenant.TenantId, scope, "migration.json", "application/json",
+                content.Length, snapshot.Sha256, DateTimeOffset.UnixEpoch, null, PrivateFileSafetyRequirement.TrustedGenerated);
+            packages[(tenant.TenantId.Value, objectId)] = (metadata, content);
+        }
+
+        public ValueTask<PrivateFileMetadata> StoreAsync(
+            TenantContext tenantContext,
+            TenantWorkScope scope,
+            string originalFileName,
+            string contentType,
+            Stream content,
+            DateTimeOffset? expiresAt = null,
+            PrivateFileSafetyRequirement safetyRequirement = PrivateFileSafetyRequirement.ExternalScanRequired,
+            CancellationToken cancellationToken = default) =>
+            inner.StoreAsync(tenantContext, scope, originalFileName, contentType, content, expiresAt, safetyRequirement, cancellationToken);
+
+        public ValueTask<PrivateFileAccessResult> ReadAsync(
+            TenantContext tenantContext,
+            Guid objectId,
+            CancellationToken cancellationToken = default) =>
+            packages.TryGetValue((tenantContext.TenantId.Value, objectId), out var package)
+                ? ValueTask.FromResult(PrivateFileAccessResult.AllowedResult(package.Metadata, package.Content))
+                : inner.ReadAsync(tenantContext, objectId, cancellationToken);
+
+        public ValueTask<PrivateFileOverwriteResult> OverwriteAsync(
+            TenantContext tenantContext,
+            Guid objectId,
+            long expectedConcurrencyVersion,
+            Stream content,
+            CancellationToken cancellationToken = default) =>
+            inner.OverwriteAsync(tenantContext, objectId, expectedConcurrencyVersion, content, cancellationToken);
     }
 
     private sealed class MigrationCurrentScopeResolver : ICurrentOrganizationScopeResolver, IOrganizationScopeOwnershipResolver

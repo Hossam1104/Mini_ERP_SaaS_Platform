@@ -192,7 +192,7 @@ test.describe('Supplier Return workspace', () => {
 
     await page.goto('/app/procurement/supplier-returns/new');
     await page.getByTestId('supplier-return-source').selectOption(goodsReceiptId);
-    await expect(page.getByText('Returnable Widget')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Returnable Widget SKU-SR-001' })).toBeVisible();
     await expect(page.getByText('4', { exact: true }).first()).toBeVisible();
     await page.locator('input.quantity-input').fill('4');
     await page.getByPlaceholder('Private object ID or approved evidence reference').fill('private-object-001');

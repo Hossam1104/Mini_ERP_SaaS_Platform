@@ -167,11 +167,12 @@ test('Inventory opening posts to the ledger and reservation release restores ava
   await openingForm.getByRole('button').click();
   await expect.poll(() => openingRequestBody).toMatchObject({ sourceReference: 'OPENING-1', rows: [{ sourceLineReference: 'OPENING-1' }] });
   expect(JSON.stringify(openingRequestBody)).not.toContain('line-1');
-  await expect(page.getByRole('button', { name: 'Validate' })).toBeVisible();
-  await page.getByRole('button', { name: 'Validate' }).click();
-  await expect(page.getByRole('button', { name: 'Post movement' })).toBeVisible();
-  await page.getByRole('button', { name: 'Post movement' }).click();
-  await expect(page.locator('.ui-grid tbody tr').first()).toContainText('SKU-A');
+  const openingGrid = page.locator('.workflow-card').first().locator('app-data-grid');
+  await openingGrid.locator('.grid-row-menu-trigger').click();
+  await openingGrid.getByRole('menuitem', { name: 'Validate', exact: true }).click();
+  await openingGrid.locator('.grid-row-menu-trigger').click();
+  await openingGrid.getByRole('menuitem', { name: 'Post movement', exact: true }).click();
+  await expect(page.locator('.ledger-card app-data-grid tbody tr').first()).toContainText('SKU-A');
   await expect(page.locator('.metric-grid strong').nth(2)).toHaveText('5');
 
   const reservationForm = page.locator('form').nth(1);

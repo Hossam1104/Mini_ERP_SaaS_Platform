@@ -1,4 +1,4 @@
-import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -20,6 +20,8 @@ import {
   PriceListWriteRequest,
 } from './price-list.model';
 import { PriceListService } from './price-list.service';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 
 type DetailMode = 'view' | 'edit' | 'create';
 type DetailTab = 'overview' | 'prices' | 'history' | 'audit' | 'resolve';
@@ -62,20 +64,24 @@ interface ResolveDraft {
 @Component({
   selector: 'app-price-list-workspace',
   standalone: true,
-  imports: [DatePipe, FormsModule, NgTemplateOutlet],
+  imports: [FormsModule, NgTemplateOutlet, DataGridComponent, PageHeaderComponent],
   template: `
     <section class="price-list-workspace" aria-labelledby="price-list-title">
-      <header class="price-list-hero">
-        <div class="hero-copy">
-          <p class="eyebrow">{{ language.text('masterData') }} / {{ language.text('priceLists') }}</p>
+      <app-page-header>
+        <div page-header-copy>
+          <p class="eyebrow">{{ language.text('masterData') }} / {{ language.text('tenantCatalog') }}</p>
           <h1 id="price-list-title">{{ language.text('priceLists') }}</h1>
-          <p class="hero-lede">{{ language.text('priceListsLead') }}</p>
+          <p>{{ language.text('priceListsLead') }} {{ language.text('serverAuthority') }}: {{ language.text('priceListBoundary') }}. {{ language.text('priority') }}: {{ language.text('priorityHint') }}</p>
         </div>
-        <div class="hero-facts">
-          <div class="hero-fact"><span class="hero-fact__mark">01</span><span><b>{{ language.text('serverAuthority') }}</b><small>{{ language.text('priceListBoundary') }}</small></span></div>
-          <div class="hero-fact hero-fact--quiet"><span class="hero-fact__mark">02</span><span><b>{{ language.text('priority') }}</b><small>{{ language.text('priorityHint') }}</small></span></div>
+        <div page-header-actions>
+          @if (detailMode()) {
+            <button class="button button--quiet" type="button" (click)="backToList()">← {{ language.text('priceLists') }}</button>
+          } @else {
+            <button class="button button--quiet" type="button" (click)="loadList()" [disabled]="loading()" [attr.aria-label]="language.text('refresh')">↻ {{ language.text('refresh') }}</button>
+            <button class="button button--primary" type="button" (click)="startCreate()" [disabled]="!canMutate()" [title]="canMutate() ? '' : language.text('accessUnavailable')">＋ {{ language.text('newRecord') }}</button>
+          }
         </div>
-      </header>
+      </app-page-header>
 
       <div class="workspace-panel">
         @if (detailMode()) { <ng-container *ngTemplateOutlet="detailView" /> } @else { <ng-container *ngTemplateOutlet="listView" /> }
@@ -83,18 +89,7 @@ interface ResolveDraft {
     </section>
 
     <ng-template #listView>
-      <section class="list-view" aria-labelledby="price-list-title-list">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow eyebrow--soft">{{ language.text('tenantCatalog') }}</p>
-            <h2 id="price-list-title-list">{{ language.text('priceLists') }}</h2>
-            <p>{{ language.text('priceListsLead') }}</p>
-          </div>
-          <div class="section-heading__actions">
-            <button class="button button--quiet" type="button" (click)="loadList()" [disabled]="loading()" [attr.aria-label]="language.text('refresh')">↻ <span>{{ language.text('refresh') }}</span></button>
-            <button class="button button--primary" type="button" (click)="startCreate()" [disabled]="!canMutate()" [title]="canMutate() ? '' : language.text('accessUnavailable')">＋ {{ language.text('newRecord') }}</button>
-          </div>
-        </div>
+      <section class="list-view" [attr.aria-label]="language.text('priceLists')">
 
         <form class="toolbar" role="search" (ngSubmit)="onSearchSubmit()">
           <label class="search-field">
@@ -114,38 +109,11 @@ interface ResolveDraft {
         } @else if (records().length === 0) {
           <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><div><b>{{ language.text('noRecords') }}</b><p>{{ language.text('noRecordsLead') }}</p></div></div>
         } @else {
-          <div class="record-table-wrap">
-            <table class="record-table">
-              <caption class="sr-only">{{ language.text('priceLists') }}</caption>
-              <thead><tr><th scope="col">{{ language.text('code') }}</th><th scope="col">{{ language.text('currency') }}</th><th scope="col">{{ language.text('priority') }}</th><th scope="col">{{ language.text('scope') }}</th><th scope="col">{{ language.text('lifecycle') }}</th><th scope="col"><span class="sr-only">{{ language.text('viewRecord') }}</span></th></tr></thead>
-              <tbody>
-                @for (record of pagedRecords(); track record.id) {
-                  <tr>
-                    <td><button class="record-code" type="button" (click)="openRecord(record.id)">{{ record.code }}</button><small>{{ record.englishName }}</small></td>
-                    <td><span class="record-name">{{ record.currencyCode }}</span></td>
-                    <td><span class="record-name">{{ record.priority }}</span></td>
-                    <td><span class="record-name">{{ customerDisplay(record.customerId) }}</span><small>{{ organizationScopeDisplay(record) }}</small></td>
-                    <td><span class="status-pill" [class.status-pill--inactive]="!isActive(record)"><i aria-hidden="true"></i>{{ statusLabel(record.lifecycleState) }}</span></td>
-                    <td class="table-action"><button class="icon-button" type="button" (click)="openRecord(record.id)" [attr.aria-label]="language.text('viewRecord')">↗</button></td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-          <div class="record-cards">
-            @for (record of pagedRecords(); track record.id) {
-              <button class="record-card" type="button" (click)="openRecord(record.id)">
-                <div class="record-card__top"><span class="record-code">{{ record.code }}</span><span class="status-pill" [class.status-pill--inactive]="!isActive(record)"><i aria-hidden="true"></i>{{ statusLabel(record.lifecycleState) }}</span></div>
-                <span class="record-name">{{ record.englishName }}</span>
-                <div class="record-card__facts">
-                  <div><span>{{ language.text('currency') }}</span><b>{{ record.currencyCode }}</b></div>
-                  <div><span>{{ language.text('priority') }}</span><b>{{ record.priority }}</b></div>
-                  <div><span>{{ language.text('customer') }}</span><b>{{ customerDisplay(record.customerId) }}</b></div>
-                  <div><span>{{ language.text('organizationScope') }}</span><b>{{ organizationScopeDisplay(record) }}</b></div>
-                </div>
-              </button>
-            }
-          </div>
+          <app-data-grid [rows]="pagedRecords()" [columns]="recordColumns" [rowActionsTemplate]="recordActions" [language]="language.language()" [clientPaging]="false" [showPager]="false" [scopeLabel]="gridScopeLabel()" [caption]="language.text('priceLists')" [countLabel]="language.text('recordCount')" [filterInputLabel]="language.text('searchRecords')">
+            <ng-template #recordActions let-record>
+              <button class="icon-button" type="button" (click)="openRecord(record.id)" [attr.aria-label]="language.text('viewRecord')">↗</button>
+            </ng-template>
+          </app-data-grid>
           <div class="pagination" aria-label="Pagination">
             <span>{{ pageLabel() }}</span>
             <div><button class="pager-button" type="button" (click)="previousPage()" [disabled]="page() === 1">← {{ language.text('previous') }}</button><button class="pager-button" type="button" (click)="nextPage()" [disabled]="page() === totalPages()">{{ language.text('next') }} →</button></div>
@@ -224,24 +192,7 @@ interface ResolveDraft {
       @if (entries.length === 0) {
         <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><div><b>{{ empty }}</b><p>{{ emptyLead }}</p></div></div>
       } @else {
-        <div class="record-table-wrap">
-          <table class="record-table price-table">
-            <thead><tr><th scope="col">{{ language.text('versionNumber') }}</th><th scope="col">{{ language.text('product') }}</th><th scope="col">{{ language.text('unitOfMeasure') }}</th><th scope="col">{{ language.text('effectiveFrom') }} / {{ language.text('effectiveTo') }}</th><th scope="col">{{ language.text('priceValue') }}</th><th scope="col">{{ language.text('provenance') }}</th><th scope="col">{{ language.text('sourceReference') }}</th></tr></thead>
-            <tbody>
-              @for (entry of entries; track entry.id) {
-                <tr>
-                  <td><span class="record-name">v{{ entry.versionNumber }}</span></td>
-                  <td><span class="record-name">{{ entry.productSku }}</span></td>
-                  <td><span class="record-name">{{ entry.unitOfMeasureCode }}</span></td>
-                  <td><span class="record-name">{{ entry.effectiveFrom }}</span><small>{{ entry.effectiveTo || language.text('openEnded') }}</small></td>
-                  <td><span class="record-name">{{ formatPrice(entry.price, entry.priceScale) }} {{ entry.currencyCode }}</span></td>
-                  <td><span class="record-name">{{ entry.provenance }}</span></td>
-                  <td><small>{{ valueOrEmpty(entry.sourceReference) }}</small></td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+        <app-data-grid [rows]="entries" [columns]="priceColumns" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="language.text('pricesSection')" [countLabel]="language.text('recordCount')" [emptyLabel]="empty" />
       }
     </ng-template>
 
@@ -295,16 +246,7 @@ interface ResolveDraft {
       } @else if (auditEntries().length === 0) {
         <p class="muted-line">{{ language.text('auditEmpty') }}</p>
       } @else {
-        <div class="audit-table-wrap">
-          <table class="audit-table">
-            <thead><tr><th>{{ language.text('auditWhen') }}</th><th>{{ language.text('auditAction') }}</th><th>{{ language.text('auditDecision') }}</th><th>{{ language.text('auditReason') }}</th></tr></thead>
-            <tbody>
-              @for (entry of auditEntries(); track entry.evidenceId) {
-                <tr><td>{{ entry.occurredAt | date:'medium' }}</td><td>{{ entry.operation }}</td><td>{{ entry.decision }}</td><td><span>{{ entry.reason }}</span>@if (entry.afterSummary) { <small>{{ entry.afterSummary }}</small> }</td></tr>
-              }
-            </tbody>
-          </table>
-        </div>
+        <app-data-grid [rows]="auditEntries()" [columns]="auditColumns" [rowIdFor]="auditRowId" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="language.text('audit')" [countLabel]="language.text('recordCount')" [emptyLabel]="language.text('auditEmpty')" />
       }
     </ng-template>
 
@@ -387,22 +329,9 @@ interface ResolveDraft {
   styles: `
     :host { display: block; }
     .price-list-workspace { display: grid; gap: 1.35rem; }
-    .price-list-hero { display: flex; justify-content: space-between; gap: 2rem; border-radius: 1.25rem; padding: clamp(1.35rem, 3vw, 2.3rem); color: #f6fbf8; background: linear-gradient(124deg, #163a37 0%, #234f48 56%, #926c35 145%); box-shadow: var(--shadow-card); overflow: hidden; position: relative; }
-    .price-list-hero::after { content: ''; position: absolute; width: 18rem; height: 18rem; inset-inline-end: -6rem; inset-block-start: -9rem; border: 1px solid rgb(255 255 255 / 18%); border-radius: 50%; box-shadow: 0 0 0 2rem rgb(255 255 255 / 3%), 0 0 0 4rem rgb(255 255 255 / 3%); }
-    .hero-copy, .hero-facts { position: relative; z-index: 1; }
-    .hero-copy { max-width: 42rem; }
-    .eyebrow { margin: 0 0 .55rem; color: #bee5d0; font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .eyebrow { margin: 0 0 .55rem; color: var(--primary); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
     .eyebrow--soft { color: var(--accent-strong); }
     h1, h2, h3, p { margin-block-start: 0; }
-    h1 { margin-block-end: .85rem; font: 800 clamp(2rem, 5vw, 3.4rem)/.98 var(--font-display); letter-spacing: -.05em; }
-    .hero-lede { max-width: 38rem; margin: 0; color: #d7e7e1; font-size: .95rem; line-height: 1.6; }
-    .hero-facts { display: grid; align-content: end; gap: .7rem; min-width: 15rem; }
-    .hero-fact { display: flex; align-items: center; gap: .7rem; border-block-start: 1px solid rgb(255 255 255 / 25%); padding-block-start: .65rem; }
-    .hero-fact--quiet { opacity: .72; }
-    .hero-fact__mark { color: #e9b965; font: 700 .72rem/1 ui-monospace, monospace; }
-    .hero-fact b, .hero-fact small { display: block; }
-    .hero-fact b { font-size: .75rem; }
-    .hero-fact small { margin-block-start: .2rem; color: #b9d0c8; font-size: .68rem; }
     .workspace-panel { min-width: 0; border: 1px solid var(--line); border-radius: 1.15rem; background: var(--surface-raised); box-shadow: var(--shadow-soft); }
     .list-view, .detail-view { padding: clamp(1rem, 2.5vw, 1.65rem); }
     .section-heading, .detail-heading, .detail-topline, .toolbar, .pagination, .form-section__heading, .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -412,8 +341,8 @@ interface ResolveDraft {
     .section-heading__actions, .detail-heading__actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
     .button { min-height: 2.35rem; border: 1px solid transparent; border-radius: .55rem; padding: .58rem .82rem; font-size: .76rem; font-weight: 800; cursor: pointer; }
     .button:disabled { cursor: not-allowed; opacity: .45; }
-    .button--primary { color: #173b35; background: var(--accent); }
-    .button--primary:hover:not(:disabled) { background: #c4ead1; }
+    .button--primary { color: var(--action-text); background: var(--accent-action); }
+    .button--primary:hover:not(:disabled) { background: var(--accent-action); }
     .button--quiet { border-color: var(--line); color: var(--ink-muted); background: transparent; }
     .button--quiet:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); background: var(--canvas); }
     .button--danger { color: #fff; background: var(--danger); }
@@ -423,14 +352,6 @@ interface ResolveDraft {
     .search-field__icon { color: var(--accent-strong); font-size: 1.3rem; }
     .search-field input { min-width: 0; width: 100%; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: .8rem; }
     .toolbar__count { align-self: center; margin-inline-start: auto; color: var(--ink-muted); font: 700 .68rem/1 ui-monospace, monospace; white-space: nowrap; }
-    .record-table-wrap, .audit-table-wrap { overflow-x: auto; }
-    .record-table, .audit-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
-    .record-table th, .record-table td, .audit-table th, .audit-table td { border-block-end: 1px solid var(--line); padding: .85rem .7rem; text-align: start; vertical-align: middle; }
-    .record-table th, .audit-table th { color: var(--ink-muted); font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; }
-    .record-table tbody tr:hover { background: #f7faf7; }
-    .record-code { display: block; border: 0; padding: 0; color: var(--accent-strong); background: none; font: 800 .82rem/1.2 ui-monospace, monospace; cursor: pointer; }
-    .record-code:hover { text-decoration: underline; }
-    .record-table small, .audit-table small { display: block; max-width: 22rem; margin-block-start: .25rem; overflow: hidden; color: var(--ink-muted); font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }
     .record-name { display: block; color: var(--ink); font-weight: 700; }
     .status-pill { display: inline-flex; align-items: center; gap: .35rem; border-radius: 99px; padding: .3rem .5rem; color: var(--success); background: var(--accent-soft); font-size: .66rem; font-weight: 800; white-space: nowrap; }
     .status-pill i { width: .38rem; height: .38rem; border-radius: 50%; background: currentColor; }
@@ -438,7 +359,6 @@ interface ResolveDraft {
     .table-action { text-align: end !important; }
     .icon-button { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border: 1px solid var(--line); border-radius: .5rem; color: var(--accent-strong); background: transparent; cursor: pointer; }
     .icon-button:hover { border-color: var(--accent-strong); background: var(--accent-soft); }
-    .record-cards { display: none; }
     .pagination { margin-block-start: .8rem; color: var(--ink-muted); font: 700 .68rem/1 ui-monospace, monospace; }
     .pagination > div { display: flex; gap: .4rem; }
     .pager-button { border: 0; color: var(--accent-strong); background: transparent; font-size: .7rem; font-weight: 800; cursor: pointer; }
@@ -504,25 +424,17 @@ interface ResolveDraft {
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
-    @media (max-width: 980px) { .price-list-hero { flex-direction: column; } .hero-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; } .tax-result { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 980px) { .tax-result { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 720px) {
-      .record-table-wrap { display: none; }
-      .record-cards { display: grid; gap: .65rem; }
-      .record-card { display: grid; gap: .5rem; border: 1px solid var(--line); border-radius: .8rem; padding: .85rem; text-align: start; background: var(--canvas); cursor: pointer; }
-      .record-card__top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-      .record-card__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem .8rem; margin-block-start: .3rem; }
-      .record-card__facts span { display: block; color: var(--ink-muted); font-size: .64rem; font-weight: 700; }
-      .record-card__facts b { display: block; margin-block-start: .15rem; color: var(--ink); font-size: .76rem; }
       .section-heading, .detail-heading, .toolbar { align-items: stretch; flex-direction: column; }
       .section-heading__actions, .detail-heading__actions { justify-content: flex-start; }
       .toolbar__count { margin-inline-start: 0; }
       .form-grid { grid-template-columns: 1fr; }
       .field-read-grid { grid-template-columns: 1fr; }
       .field-read-grid__wide { grid-column: auto; }
-      .hero-facts { grid-template-columns: 1fr; }
       .tax-result { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-    @media (max-width: 460px) { .price-list-hero { border-radius: .9rem; } .price-list-hero h1 { font-size: 1.9rem; } .list-view, .detail-view { padding: .8rem; } .button span { display: none; } .form-actions { flex-wrap: wrap; } .form-actions .button { flex: 1; } .tax-result { grid-template-columns: 1fr; } }
+    @media (max-width: 460px) { .list-view, .detail-view { padding: .8rem; } .button span { display: none; } .form-actions { flex-wrap: wrap; } .form-actions .button { flex: 1; } .tax-result { grid-template-columns: 1fr; } }
   `,
 })
 export class PriceListWorkspaceComponent {
@@ -593,6 +505,33 @@ export class PriceListWorkspaceComponent {
   readonly sortedHistory = computed(() =>
     [...this.historyEntries()].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom) || b.versionNumber - a.versionNumber),
   );
+  readonly recordColumns: DataGridColumn<PriceListRecord>[] = [
+    { key: 'code', label: this.language.text('code'), value: row => row.code, secondaryText: row => row.englishName, filter: 'text' },
+    { key: 'currencyCode', label: this.language.text('currency'), value: row => row.currencyCode, filter: 'select' },
+    { key: 'priority', label: this.language.text('priority'), value: row => row.priority, filter: 'number-range', align: 'end' },
+    { key: 'customerId', label: this.language.text('scope'), value: row => this.customerDisplay(row.customerId), secondaryText: row => this.organizationScopeDisplay(row), filter: 'text' },
+    { key: 'lifecycleState', label: this.language.text('lifecycle'), value: row => this.statusLabel(row.lifecycleState), badge: true, filter: 'select' },
+  ];
+  readonly priceColumns: DataGridColumn<PriceListPriceVersionRecord>[] = [
+    { key: 'versionNumber', label: this.language.text('versionNumber'), value: row => row.versionNumber, display: row => `v${row.versionNumber}`, filter: 'number-range' },
+    { key: 'productSku', label: this.language.text('product'), value: row => row.productSku, filter: 'text' },
+    { key: 'unitOfMeasureCode', label: this.language.text('unitOfMeasure'), value: row => row.unitOfMeasureCode, filter: 'select' },
+    { key: 'effectiveFrom', label: `${this.language.text('effectiveFrom')} / ${this.language.text('effectiveTo')}`, value: row => row.effectiveFrom, secondaryText: row => row.effectiveTo || this.language.text('openEnded'), filter: 'date-range' },
+    { key: 'price', label: this.language.text('priceValue'), value: row => row.price, display: row => `${this.formatPrice(row.price, row.priceScale)} ${row.currencyCode}`, filter: 'number-range', align: 'end' },
+    { key: 'provenance', label: this.language.text('provenance'), value: row => row.provenance, filter: 'select' },
+    { key: 'sourceReference', label: this.language.text('sourceReference'), value: row => this.valueOrEmpty(row.sourceReference), filter: 'text' },
+  ];
+  readonly auditColumns: DataGridColumn<MasterDataAuditEntry>[] = [
+    { key: 'occurredAt', label: this.language.text('auditWhen'), value: row => row.occurredAt, display: row => new Intl.DateTimeFormat(this.language.language(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(row.occurredAt)), filter: 'date-range' },
+    { key: 'operation', label: this.language.text('auditAction'), value: row => row.operation, filter: 'text' },
+    { key: 'decision', label: this.language.text('auditDecision'), value: row => row.decision, badge: true, filter: 'select' },
+    { key: 'reason', label: this.language.text('auditReason'), value: row => row.reason, secondaryText: row => row.afterSummary ?? '', filter: 'text' },
+  ];
+  readonly auditRowId = (row: MasterDataAuditEntry): string => row.evidenceId;
+
+  gridScopeLabel(): string {
+    return this.language.language() === 'ar' ? 'تطبق التصفية والترتيب على هذه الصفحة فقط' : 'Filters and sorting apply to this page only';
+  }
 
   draft: PriceListDraft = this.emptyDraft();
   priceDraft: PriceVersionDraft = this.emptyPriceDraft();

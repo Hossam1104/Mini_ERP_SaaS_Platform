@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ContextService } from '../context/context.service';
-import { ThemeService } from './theme.service';
+import { THEME_OPTIONS, ThemeService } from './theme.service';
 
 describe('ThemeService', () => {
   const entry = signal<{ branding: { defaultTheme?: string | null } } | null>(null);
@@ -21,6 +21,14 @@ describe('ThemeService', () => {
     expect(service.darkMode()).toBe(false);
     expect(document.documentElement.dataset['theme']).toBe('sapphire');
     expect(document.documentElement.dataset['colorScheme']).toBe('light');
+  });
+
+  it('exposes ten themes with a gold Luxury swatch and Brown after Amber', () => {
+    expect(THEME_OPTIONS).toHaveLength(10);
+    expect(THEME_OPTIONS.find((option) => option.id === 'luxury')?.color).toBe('#c9a227');
+    expect(THEME_OPTIONS.findIndex((option) => option.id === 'brown')).toBe(
+      THEME_OPTIONS.findIndex((option) => option.id === 'amber') + 1,
+    );
   });
 
   it('uses the Tenant default when no user choice exists', () => {
@@ -49,6 +57,21 @@ describe('ThemeService', () => {
     expect(restored.darkMode()).toBe(true);
     expect(document.documentElement.dataset['theme']).toBe('teal');
     expect(document.documentElement.dataset['colorScheme']).toBe('dark');
+  });
+
+  it('selects and persists Brown across instances', () => {
+    const service = TestBed.inject(ThemeService);
+    service.select('brown');
+    expect(localStorage.getItem('mesp.ui.theme')).toBe('brown');
+    expect(document.documentElement.dataset['theme']).toBe('brown');
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [ThemeService, { provide: ContextService, useValue: { entry } }],
+    });
+    const restored = TestBed.inject(ThemeService);
+    expect(restored.selectedTheme()).toBe('brown');
+    expect(document.documentElement.dataset['theme']).toBe('brown');
   });
 
   it('falls back to Sapphire when stored theme data is invalid', () => {
