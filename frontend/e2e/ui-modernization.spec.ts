@@ -149,6 +149,26 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   });
 
+  test('keeps the Overview link visible and clickable below the header in expanded navigation', async ({ page }) => {
+    await page.goto('/app/procurement/purchase-orders');
+    const sidebar = page.locator('#app-sidebar');
+    await page.getByRole('button', { name: 'Expand navigation' }).click();
+
+    const overviewLink = sidebar.getByRole('link', { name: 'Overview' });
+    await expect(overviewLink).toBeVisible();
+    const [headerBox, overviewBox] = await Promise.all([
+      page.locator('.topbar').boundingBox(),
+      overviewLink.boundingBox(),
+    ]);
+    expect(headerBox).not.toBeNull();
+    expect(overviewBox).not.toBeNull();
+    expect(overviewBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height);
+
+    await overviewLink.click();
+    await expect(page).toHaveURL(/\/app$/);
+    await expect(page.locator('#tenant-overview-title')).toBeVisible();
+  });
+
   test('uses the Tenant branding theme when there is no saved user choice', async ({ page }) => {
     await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: entryResponse('forest') }));
     await page.goto('/app');

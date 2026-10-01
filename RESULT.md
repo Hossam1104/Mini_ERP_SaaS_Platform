@@ -1,5 +1,78 @@
 # Results
 
+## 2026-10-01 — MESP-178 (#309) PR #313 review correction — GPT-6 / Bug Fixer — MESP-178 (#309)
+- Status: DONE. PR #313 is OPEN and unmerged; `isDraft=false` was already present when inspected and was not changed.
+- Branch / starting SHA / ending SHA: `feat/mesp-178-shell-rail-grids`; started `34f6848f361a1e62342d08522505c0f1b00e1e6a`; code commit `8fd334687c56a42712f4c71e7438f41e9d52c204`; RESULT hand-back commit follows.
+- What changed: Root cause for hidden-pager data loss was unconditional client slicing. `data-grid.component.ts:209,258` now renders all filtered rows when `showPager=false` and defaults to no inert View action. Added unit coverage at `data-grid.component.spec.ts:75,90`; added nine-line Goods Receipt and Invoice Handoff visibility, editability, and submitted-payload coverage at `goods-receipt-purchase-invoice-handoff.spec.ts:312`. Preserved the expanded rail header offset by changing only inline padding at `application-shell-rail.scss:22-24`, with visible/clickable Overview coverage at `ui-modernization.spec.ts:142`. Added `rowKey="key"` for Reporting at `reporting-workspace.component.ts:126`; the cross-grid audit added stable row keys/ID functions to Finance report, settlement, GL, tax/FX, and Import mapping grids that lack `id`.
+- Gates:
+  - `npm test -- --watch=false --no-progress`: 50 files passed, 341 tests passed, 0 failed.
+  - `npm run build`: passed with no warnings; initial bundle total 499.89 kB.
+  - `MESP_E2E_BASE_URL=http://localhost:4345 npm run test:e2e -- --project=chromium --workers=1`: 62 passed. Worktree Angular ran on 4345 and proxied to the worktree API on 5345.
+  - `git diff --check`: clean after the RESULT update and before the hand-back commit, exit 0.
+  - Runtime prerequisite `dotnet build backend/MiniErp.sln --configuration Release`: succeeded, 0 warnings/errors. `GET http://localhost:4345/api/v1/module-registration` returned HTTP 200. Worktree API/frontend processes were stopped after E2E.
+- Evidence: Threads PRRT_kwDOTplnks6nwIgg, PRRT_kwDOTplnks6nwIgi, PRRT_kwDOTplnks6nwIgn, and PRRT_kwDOTplnks6nwIgp each received a fix reply and were resolved through `resolveReviewThread`. No merge was performed.
+- Deviations from the prompt: Serena initialization hung; used targeted read-only `rg` navigation. Five additional in-scope row-identity diffs appeared after the initial status capture (Finance reports, settlement, tax/FX, general ledger, and Import mapping); reviewed, included, and reran the final unit/build/E2E gates on the complete source state. The API Release executable was absent, so the unchanged backend solution was built to run the requested preview.
+- Failures and classification: The first Chromium run had 61 passed and one failure in the new handoff test because the fixture edited quantities before entering the required invoice reference, leaving the form validation error set. Reordered the test setup to enter the reference first and asserted the submit button enables; the final Chromium run passed 62/62. Classified as an automation/test-data setup defect; no test assertion was weakened.
+- Status files updated: `RESULT.md` only; `TASK.md`, roadmap, and tracker state were not changed.
+- Exact next action: Opus 5.5 reviews MESP-178 (#309) on PR #313; owner approval before merge.
+## 2026-10-01 - MESP-195 (#342) Sales quotation test date-bomb correction - GPT-6 / max - MESP-195 (#342)
+- Status: DONE. Draft PR creation is the final authorized delivery action; no Ready or merge.
+- Branch / starting SHA / ending SHA: `fix/mesp-195-test-date-bomb`; started at `c543a9e6ca4894050f0d67135e39dfce3e208dcb`; implementation commit `8b1d2f285bff4b473345e8b08a1dde64cff4c9f0`; RESULT hand-back commit follows.
+- What changed: Root cause was Sales test quotation validity fixed at 2026-09-30 while `SalesApplicationContracts.cs:888-889` and `SalesPersistence.cs:277` compare with `DateTime.UtcNow`. `SalesTests.cs` now derives valid quotation dates from UTC today: six fixed valid-until values became today plus 30 days; the intentionally expired test uses today minus two / one days. The associated five fixed quotation dates use today. No product code, expiry rule, or assertion changed.
+- Gates:
+  - Origin/main reproduction, `dotnet test .\backend\tests\MiniErp.ArchitectureTests\MiniErp.ArchitectureTests.csproj --configuration Release --filter "FullyQualifiedName~SalesTests" --logger "console;verbosity=minimal"`: 16 failed, 22 passed, 0 skipped, 38 total. Fourteen failures reported `quotation_expired`; two were downstream `NullReferenceException` failures after quote setup failed.
+  - Post-fix Sales filter: 38 passed, 0 failed, 0 skipped, 38 total.
+  - `Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build 0 warnings / 0 errors; 1,618 passed, 1 failed, 0 skipped, 1,619 total, 8m49s. The sole failure was the known MESP-166 (#285) `MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` race (`migration_execution_batch_claim_conflict` / `migration_run_version_conflict`, `SqlServerSafetyTests.cs:3537`). Disposable database `MiniErpFoundation_20261001064026_e981be6d`; `MESP data is intact`.
+  - `git diff --check`: clean. Angular unit gate not run; no frontend test changed.
+- Evidence: The service and persistence expiry checks use the system UTC clock. The test-only `Today` helper uses the same clock. No TimeProvider seam was added.
+- Date audit: Fixed the Sales quotation date comparisons above. Supplier quotation backend fixtures already derive offer date and validity from UTC today. Left explicit as-of/effective-date value fixtures in the Sales credit-limit, Finance aging/reconciliation, fiscal-period, tax, exchange-rate, price-list, and Inventory tests because they compare supplied dates or persisted values, not the current clock. Left frontend Sales and supplier-quotation validity values, Finance due/rate/effective dates, and Master Data date values in service/component/e2e tests because those tests only send, mock, or render values; frontend tests do not compute expiry, aging, or effectiveness against the browser clock. These were reviewed and did not form date bombs.
+- Deviations from the prompt: The full backend gate has the one explicitly identified MESP-166 failure; it was reported and not fixed or rerun. No frontend files changed, so the conditional Angular unit gate did not apply.
+- Failures and classification: The baseline Sales failures were caused by expired fixed test data. The final full-suite failure is the known MESP-166 race, not a Sales date failure.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews MESP-195 (#342) on the Draft PR; leave it Draft/Open/Unmerged.
+
+
+## 2026-10-01 — MESP-192 (#335) Angular audit remediation — GPT-6 / max — MESP-192 (#335)
+- Status: DONE; no Ready, review request, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-192-angular-audit`; started `79111ee99d4bb8bb770f97bb30607000d1f23967`; code commit `a9d0c6b6b5d3b5284a32af03b5f0eb87f3814a7a`; RESULT hand-back commit follows.
+- What changed: Root cause was upstream HIGH advisory GHSA-ff3f-86qr-9cv3 against `@angular/router` through 22.2.0-rc.0, with the installed Angular 22.1.x line affected; `@angular/common` 22.0.0–22.1.0 also had moderate GHSA-p297-fm68-3q8c. Upgraded framework packages to 22.2.1, `@angular/build` and `@angular/cli` to 22.2.0, and `@angular/compiler-cli` to 22.2.1. npm regenerated `frontend/package-lock.json`; no product source or test files changed.
+- Gates:
+  - `npm audit --omit=dev --audit-level=high`: found 0 vulnerabilities (0 moderate, 0 high, 0 critical), exit 0.
+  - `npm audit --audit-level=high`: found 0 vulnerabilities (0 moderate, 0 high, 0 critical), exit 0.
+  - `npm test -- --watch=false --no-progress`: 49 files passed, 335 tests passed, 0 failed, exit 0.
+  - `npm run build`: passed; initial total 498.56 kB, below 500 kB.
+  - `npm run test:e2e -- --project=chromium --workers=1` with `MESP_E2E_BASE_URL=http://localhost:4350`: 60 passed, exit 0.
+  - `git diff --check`: clean, exit 0.
+- Evidence: API project prerequisite build succeeded with 0 warnings / 0 errors; API health returned 200 on port 5350 and Angular returned 200 on 4350. Both worktree servers were stopped and both ports verified free.
+- Deviations from the prompt: Initial npm install attempts returned ERESOLVE against the old exact Angular peer graph; no bypass flags were used. The Angular graph was regenerated with npm commands. npm also warned that install scripts for four dependencies were blocked; the requested unit, build, and E2E gates all passed. A read-only staged-diff query was accidentally run from the main checkout; it returned no staged changes and caused no file or index mutation. All further work stayed in this worktree.
+- Failures and classification: Initial npm ERESOLVE was a dependency-configuration conflict with locked Angular 22.1.x peers and was resolved. No requested gate failed.
+- Status files updated: `RESULT.md` only; `TASK.md` was left untouched.
+- Exact next action: Opus 5.5 reviews the MESP-192 (#335) Draft PR after opening; keep it Draft/Open and await owner direction.
+## 2026-10-01 - MESP-171 (#294) part 2 report completeness and scope matrix - GPT-6 Luna / max - MESP-171 (#294)
+- Status: PARTIAL; scoped tests pass, but the full backend gate stopped on an unrelated existing Sales test. PR #334 remains OPEN; GitHub reported it non-Draft after the Planner branch update. No merge was performed.
+- Branch / starting SHA / ending SHA: `feat/mesp-171-report-completeness`; correction started at Planner merge `32be6d7421ff3cb0f88ca0f29bd343a0294dceae`; test/audit commit `6296d16c0934a6a6088ecaceee0d86f59bfd7d69`; RESULT hand-back commit follows.
+- What changed: Replaced impossible readiness flags with the production-valid business-ready-only combination and added a LocalDB execution/reconciliation/approval/readiness/API-read-path report test. Recounted the traceability table and updated the M40-REQ-042 evidence. No production code changed.
+- Gates:
+  - `dotnet test backend/MiniErp.sln --filter "FullyQualifiedName~MigrationAuthorityMatrixTests" --logger "console;verbosity=normal"`: 22 passed, 0 failed, 22 total; exit 0.
+  - `MigrationReconciliationSqlServerSafetyTests.Sql_server_mesp171_completed_reconciliation_report_uses_real_readiness_and_api_read_path`: 1 passed, 0 failed; exit 0.
+  - `Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build 0 warnings / 0 errors (35.47 seconds); test runner exited 1 after `SalesTests.Credit_override_is_invalidated_when_persisted_fx_evidence_changes` failed. The wrapper did not emit a full-suite count.
+  - Isolated Release rerun of that Sales test: 1 failed, 0 passed; error `quotation_expired`; stack at `SalesTests.cs:1585`, called from `SalesTests.cs:1323` and `SalesTests.cs:1343`.
+  - `git diff --check`: clean, exit 0.
+- Evidence and MESP-171 (#294) issue rows:
+  - Matrix covers 18 missing-permission cases, the catalogue-derived foreign-Tenant matrix, Company-scope denial and missing-evidence behavior, reconciliation freshness and approval ownership, validation-only evidence reads, and persisted state/version invariance.
+  - M40-REQ-028 - PARTIAL: `MigrationAuthorityMatrixTests.Resource_scoped_operations_deny_company_scope_without_changing_run_state` covers every resource-scoped catalogue operation. `migration.preview.read` and `migration.execution.read` return hidden 404 responses rather than the sibling 403; MESP-183 (#324) tracks both inconsistencies. The in-scope-success/out-of-scope-hidden proof for execution.read is deferred because existing fixtures cannot cheaply seed a Company-scoped executed run.
+  - M40-REQ-033 - PARTIAL: `MigrationReconciliationSqlServerSafetyTests.Sql_server_s11_r08_row_outcome_counts_are_disjoint_and_sum_to_staged_rows` independently derives disjoint/exhaustive outcome counts and matches every API count; historical/open-document counts remain bounded by M40-DEC-001.
+  - M40-REQ-034 - PARTIAL / OPEN: production approval quorum and SoD remain under M40-DEC-006; no policy was inferred.
+  - M40-REQ-041 - PARTIAL / OPEN: unresolved-decision review remains deferred until the owner defines which decisions qualify.
+  - Summary counts from the table: 51 Met, 12 Partial, 0 Not met, 5 Deferred-by-authority, 12 Depends-on, 80 total.
+  - M40-REQ-042 - COVERED: `MigrationReconciliationSqlServerSafetyTests.Sql_server_mesp171_completed_reconciliation_report_uses_real_readiness_and_api_read_path` exercises a production-valid completed read path and asserts run status/owner, source/target scope, outcomes/exception-bearing counts, UTC freshness, approval actor and nested detail scope. `MigrationAuthorityMatrixTests.Reconciliation_response_mapper_preserves_contract_fields_with_realistic_readiness_flags` checks mapper fields with realizable readiness values.
+  - M40-AC-028 - COVERED: `MigrationAuthorityMatrixTests.Migration_operation_denies_a_tenant_membership_without_its_permission` (18 cases) and `MigrationAuthorityMatrixTests.Migration_operations_hide_foreign_tenant_sources_and_runs` assert denial without disclosure.
+  - M40-AC-029 - COVERED: `MigrationAuthorityMatrixTests.Validation_only_membership_can_read_evidence_but_cannot_use_execution_authority` plus `MigrationReconciliationSqlServerSafetyTests.Sql_server_mesp171_validation_findings_read_is_tenant_scoped` assert execute-authority denial, own-Tenant evidence reads, foreign-Tenant hiding, and unchanged state/version.
+- Deviations / failures: The full wrapper stopped at its first xUnit stderr line on the unrelated Sales test above; the isolated rerun reproduced `quotation_expired`. No Sales files were changed. Two initial targeted runs of `MigrationReconciliationSqlServerSafetyTests.Sql_server_mesp171_completed_reconciliation_report_uses_real_readiness_and_api_read_path` exposed executor-authored assumptions: `Assert.Equal() Failure: Values differ` (`Expected: 5`, `Actual: 16`), then `Assert.Equal() Failure: Strings differ` (`Expected: "company:568bd6ac7673468b9ff250f7def9439e"`, `Actual: "Ap:34ea28bbf57609a0f975346ad4e3d19a"`). These were fixture assumptions, corrected to check five distinct domains and a nonempty domain-specific scope key while retaining every detail's CompanyId assertion; the final targeted run passed. Classification: `AUTOMATION_DEFECT (Executor-introduced assertions)` for those intermediate test runs; `INCONCLUSIVE` for the unrelated existing Sales failure.
+- Status files updated: `RESULT.md` and `docs/audit/mesp-141-m40-traceability.md`.
+- Evidence: Draft PR #334: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/334.
+- Exact next action: Opus 5.5 reviews PR #334 for MESP-171 (#294); do not merge.
+
 ## 2026-09-30 — MESP-184 Luxury gold and Brown theme — Codex (GPT-6) / effort not exposed — MESP-184 (#325)
 - Status: DONE. PR #328 remains OPEN/Draft; no Ready, review request, merge, or issue-state changes.
 - Branch / starting SHA / ending SHA: `feat/mesp-184-luxury-gold-brown-theme`; started at `1a12d100efbf5d6c244aff4e6c81fde3e9439b1b`; product commit `6c1a725c4eaebe6746b6367b85a7947e48c787b2`; RESULT hand-back commit follows.
@@ -12,6 +85,49 @@
 - Failures and classification: None. Luxury dark tokens remained unchanged; Brown starting values met the requested contrast floor without tuning.
 - Status files updated: `RESULT.md` only.
 - Exact next action: Opus 5.5 reviews MESP-184 (#325) on Draft PR #328; leave Draft pending review.
+## 2026-09-30 — MESP-182 (#321) Development Sales migration coverage — GPT-6 / max — MESP-182 (#321)
+- Status: DONE. Draft PR #323 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-182-dev-migrator-sales`; started `a77a2b7d513357301d59286d7b4e2e38d557eb81`; code commit `5b76aa0fe7e93ad6a2b1366cd4620d966d0e8a92`; RESULT hand-back commit follows.
+- What changed: Root cause was the Development SQL Server migrator omitting `SalesDbContext`, leaving `sales.SalesQuotations` absent. Added the Sales migration block after Finance and a coverage test that finds contexts from migration attributes.
+- Gates: Test-first coverage check failed with `The Development SQL Server migrator must cover every module-owned EF context with migrations. Missing: SalesDbContext` (1 failed, exit 1). Sales pending-model check: no changes since the last migration (exit 0). Targeted coverage, DevelopmentBootstrap and SqlServerSafety run: 279 total, 278 passed, 1 known MESP-166 failure (exit 1). One isolated rerun of that test passed (1/1, exit 0). Full backend runner built Release with 0 warnings/errors, then surfaced the same test failure and exited 1; its PowerShell capture ended before a test summary. `git diff --check`: clean (exit 0).
+- Evidence: Draft PR #323: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/323. Sales migrations declare foreign keys only within the `sales` schema; Sales is after Finance so Inventory and Finance have both migrated. The constructor matches the existing block shape. No context exclusions; no EF migrations edited.
+- Deviations from the prompt: The full runner's PowerShell native-command error handling stopped captured output at the known test failure; no full-suite count is claimed. The shared `origin/main` ref is now seven commits ahead of this branch (`7a80884db223d48816b5fc245e56185da8e67a89`); the branch was not rebased or update-branched.
+- Failures and classification: `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` reported `UnknownOutcome:migration_audit_recovery_required:attempt= | Succeeded:migration_execution_completed:attempt=dc5a947a-856b-49d8-94f2-2c1aa3c29337` in the targeted run; stack points to `SqlServerSafetyTests.cs:3539`. Classified as the known MESP-166 flake; the one permitted isolated rerun passed. No other failures appeared in captured output.
+- Status files updated: `RESULT.md`; `TASK.md` remains untouched per the contract.
+- Exact next action: Opus 5.5 reviews Draft PR #323; the Planner performs the separate runtime verification after merge. No runtime restart or Development database migration was run.
+
+## 2026-09-30 - MESP-171 (#294) Slice 14 authority matrix and gate - GPT-6 Luna / max - MESP-171 (#294)
+- Status: DONE. PR #320 remains OPEN/Draft; no Ready, review request, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: `feat/mesp-171-authority-report`; started at `c035114`; RESULT hand-back commit follows.
+- What changed: Added this evidence entry and updated PR #320's body to remove the obsolete MESP-181 blocker and record the green gate counts. No product code changed in this hand-back.
+- Gates:
+  - Focused `dotnet test backend/MiniErp.sln --filter "FullyQualifiedName~MigrationAuthorityMatrixTests" --logger "console;verbosity=normal"`: 21 passed, 0 failed, 21 total; duration 33.0397 seconds.
+  - `Test-MiniErpBackend.ps1 -NoBuild:$false` in detached worktree at `c035114`: Release build 0 warnings / 0 errors (23.66 seconds); 1,618 passed, 0 failed, 0 skipped, total 1,618 (6m 6s). Disposable database `MiniErpFoundation_20260930144158_88ac8847`; script reported `MESP data is intact`. Gate worktree removed without force.
+  - `git diff --check`: clean, exit 0.
+- Evidence and MESP-171 (#294) issue rows:
+  - Matrix coverage: 18 catalogue-driven missing-permission cases; foreign-Tenant matrix across public Migration operations; Company-scope denial and missing-evidence responses; reconciliation freshness and approval ownership.
+  - M40-REQ-028 - PARTIAL: `Migration_operation_denies_a_tenant_membership_without_its_permission` and `Migration_operations_hide_foreign_tenant_sources_and_runs` cover exact permission and foreign-Tenant denial across operations; `Resource_scoped_reads_distinguish_scope_denial_from_missing_evidence` proves Company-scope denial on the seven evidence reads. Company-scope coverage does not prove organization authority for every action.
+  - M40-REQ-033 - NOT COVERED BY THIS PR: no new reconciliation-count test was added. Existing `MigrationReconciliationSqlServerSafetyTests.Sql_server_s11_r01_clean_all_domain_reconciliation_is_durable_and_read_only` and `MigrationReconciliationSqlServerSafetyTests.Sql_server_s11_r08_row_outcome_counts_are_disjoint_and_sum_to_staged_rows` remain the existing supported-count evidence; applicable historical/open-document counts remain bounded by M40-DEC-001.
+  - M40-REQ-034 - PARTIAL: `Reconciliation_report_exposes_utc_freshness_and_approval_ownership` asserts approval actor and requirement ownership in the report; `MigrationReconciliationSqlServerSafetyTests.Sql_server_s11_r11_preparer_is_denied_and_independent_reviewer_can_approve` remains existing reviewer-separation evidence. This PR does not assert every preparer, owner, exception, variance, and basis field; production quorum/SoD remains open under M40-DEC-006.
+  - M40-REQ-041 - PARTIAL: existing `MigrationReconciliationSqlServerSafetyTests.Sql_server_s11_r18_ready_for_handover_never_activates_the_tenant` covers non-activation. Unresolved-decision review is not implemented because the qualifying decisions need an owner decision.
+  - M40-REQ-042 - PARTIAL: `Reconciliation_report_exposes_utc_freshness_and_approval_ownership` asserts UTC `createdAt`/`calculatedAt` not later than request time, Tenant/run scope, a reported count, and approval ownership. Full outcomes/exceptions/report completeness is not asserted by this PR.
+  - M40-AC-028 - COVERED: `Migration_operation_denies_a_tenant_membership_without_its_permission` (18 cases) and `Migration_operations_hide_foreign_tenant_sources_and_runs` cover unauthorized upload/validation and foreign-Tenant denials without source-row or foreign-identifier disclosure.
+  - M40-AC-029 - NOT COVERED BY THIS PR: `Resource_scoped_reads_distinguish_scope_denial_from_missing_evidence` tests scope denial and missing evidence only. No test here uses a validation-only principal to prove execute/approve denial plus successful evidence reads with unchanged run state/version.
+- Deviations from the prompt: The main-checkout wrapper first failed its Release build because `MiniErp.Api (31460)` held the Release assemblies (`MSB3027`/`MSB3021`, 30 warnings and 6 errors). Per Planner direction, the gate was rerun successfully in the detached worktree; the API was not stopped.
+- Failures and classification: No test failures in the successful detached gate. The initial main-checkout build failure was an assembly lock from the running Development API, not a source/build diagnostic.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews Draft PR #320; leave it Draft, do not mark Ready or merge.
+
+## 2026-09-30 - MESP-181 (#319) ordinary permission denial returns 403 - GPT-6 Luna / max - MESP-181 (#319)
+- Status: DONE. PR #322 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-181-permission-denial-403`; started at `a77a2b7d513357301d59286d7b4e2e38d557eb81`; code commit `acb5fec`; RESULT hand-back commit follows.
+- What changed: Root cause was `ResolveContext` treating a denied operation on a valid ordinary membership as an invalid selection, removing it and returning an unauthenticated context. The OrdinaryMembership branch now returns `ForAuthenticatedSession` after `AuthorizeOrdinary` denies, preserving the selection and giving endpoint code the existing 403 response. Added real-host tests for denied-then-permitted calls, no-session 401, and inactive-membership selection removal. The scope-policy mismatch early return, SupportGrant path, and PlatformGovernanceContext path are intentionally unchanged.
+- Gates: Pre-fix permission-denial tests: 3 tests, 2 passed / 1 failed; assertion expected `(Forbidden, OK)` and received `(Unauthorized, Forbidden)`, exit 1. Combined focused gate (`dotnet test backend/MiniErp.sln --filter "FullyQualifiedName~PermissionDenialStatusTests|FullyQualifiedName~HostSecurityTests|FullyQualifiedName~RestFoundationTests" --logger "console;verbosity=normal"`): 62 passed, 0 failed, exit 0. Backend wrapper (`Test-MiniErpBackend.ps1 -NoBuild:$false`): Release build 0 warnings / 0 errors; 1,596 passed, 1 failed, 0 skipped, exit 1. The only failure was `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` (known MESP-166 #285 flake). Isolated rerun against the disposable SQL Server safety target: 1 passed, 0 failed, exit 0. `git diff --check`: clean, exit 0.
+- Evidence: Draft PR #322: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/322. The denied route is catalogued with `FoundationScopePolicy.Tenant`; the seeded owner membership lacks `tenant.foundation.target.read`. The same signed-in client receives 403 for that operation and then 200 from `/api/v1/foundation/tenant-context`, proving the selection remains available. No tenant or platform context is returned for the denied operation.
+- Deviations from the prompt: None.
+- Failures and classification: The first full wrapper run had the one known MESP-166 (#285) SQL Server claim-race flake; its assertion reported a migration execution completion followed by a version conflict. The isolated rerun passed. No other failures.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews Draft PR #322; leave it Draft, do not mark Ready or merge.
 
 ## 2026-09-30 — MESP-180 (#317) npm audit undici advisory — GPT-6 Luna / max
 - Status: DONE. PR #318 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
