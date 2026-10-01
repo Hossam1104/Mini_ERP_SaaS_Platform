@@ -526,6 +526,8 @@ public static class MigrationEndpoints
         const string operationId = "migration.preview.read";
         var context = await ResolveReadContextAsync(httpContext, resolver, operationId);
         if (context.Error is not null) return context.Error;
+        if (!await service.IsResourceAuthorizedAsync(context.Value!, runId, httpContext.RequestAborted))
+            return Problem(httpContext, 403, "migration_source_scope_denied", "Forbidden", "The migration source is outside the current organization scope.", operationId);
         var value = await service.ReadPreviewAsync(context.Value!.TenantContext!, runId, httpContext.RequestAborted);
         return value is null
             ? Problem(httpContext, 404, "migration_preview_not_found", "Not found", "A stored dry-run plan is required for preview.", operationId)
