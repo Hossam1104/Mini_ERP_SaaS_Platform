@@ -17,13 +17,14 @@
 - Status files updated: `RESULT.md` only; `TASK.md` was left untouched.
 - Exact next action: Opus 5.5 reviews the MESP-192 (#335) Draft PR after opening; keep it Draft/Open and await owner direction.
 ## 2026-10-01 - MESP-171 (#294) part 2 report completeness and scope matrix - GPT-6 Luna / max - MESP-171 (#294)
-- Status: DONE for executor hand-back; Draft PR #334 remains OPEN/Draft. No Ready, review request, approval, merge, or issue-state change.
-- Branch / starting SHA / ending SHA: `feat/mesp-171-report-completeness`; started at `79111ee99d4bb8bb770f97bb30607000d1f23967`; implementation/audit commit `f8af17553cc1d765c7223b39cc4c3ddf420037fa`; RESULT hand-back commit follows.
-- What changed: Expanded the catalogue-derived authority matrix, validation-only role split, Company-scope denial and evidence checks; added LocalDB findings-read and independent reconciliation-count tests; asserted every completed reconciliation response field; updated only M40-REQ-028, -033, -034, -041, -042, -AC-028 and -AC-029 in the traceability audit. No production code changed.
+- Status: PARTIAL; scoped tests pass, but the full backend gate stopped on an unrelated existing Sales test. PR #334 remains OPEN; GitHub reported it non-Draft after the Planner branch update. No merge was performed.
+- Branch / starting SHA / ending SHA: `feat/mesp-171-report-completeness`; correction started at Planner merge `32be6d7421ff3cb0f88ca0f29bd343a0294dceae`; test/audit commit `6296d16c0934a6a6088ecaceee0d86f59bfd7d69`; RESULT hand-back commit follows.
+- What changed: Replaced impossible readiness flags with the production-valid business-ready-only combination and added a LocalDB execution/reconciliation/approval/readiness/API-read-path report test. Recounted the traceability table and updated the M40-REQ-042 evidence. No production code changed.
 - Gates:
   - `dotnet test backend/MiniErp.sln --filter "FullyQualifiedName~MigrationAuthorityMatrixTests" --logger "console;verbosity=normal"`: 22 passed, 0 failed, 22 total; exit 0.
-  - New LocalDB safety tests: 2 passed, 0 failed, 2 total; exit 0.
-  - `Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build 0 warnings / 0 errors (10.08 seconds); 1,621 passed, 0 failed, 0 skipped, 1,621 total (12m39s); wrapper exit 0, wall time 13m03.7688916.
+  - `MigrationReconciliationSqlServerSafetyTests.Sql_server_mesp171_completed_reconciliation_report_uses_real_readiness_and_api_read_path`: 1 passed, 0 failed; exit 0.
+  - `Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build 0 warnings / 0 errors (35.47 seconds); test runner exited 1 after `SalesTests.Credit_override_is_invalidated_when_persisted_fx_evidence_changes` failed. The wrapper did not emit a full-suite count.
+  - Isolated Release rerun of that Sales test: 1 failed, 0 passed; error `quotation_expired`; stack at `SalesTests.cs:1585`, called from `SalesTests.cs:1323` and `SalesTests.cs:1343`.
   - `git diff --check`: clean, exit 0.
 - Evidence and MESP-171 (#294) issue rows:
   - Matrix covers 18 missing-permission cases, the catalogue-derived foreign-Tenant matrix, Company-scope denial and missing-evidence behavior, reconciliation freshness and approval ownership, validation-only evidence reads, and persisted state/version invariance.
@@ -31,13 +32,14 @@
   - M40-REQ-033 - PARTIAL: `MigrationReconciliationSqlServerSafetyTests.Sql_server_s11_r08_row_outcome_counts_are_disjoint_and_sum_to_staged_rows` independently derives disjoint/exhaustive outcome counts and matches every API count; historical/open-document counts remain bounded by M40-DEC-001.
   - M40-REQ-034 - PARTIAL / OPEN: production approval quorum and SoD remain under M40-DEC-006; no policy was inferred.
   - M40-REQ-041 - PARTIAL / OPEN: unresolved-decision review remains deferred until the owner defines which decisions qualify.
-  - M40-REQ-042 - COVERED: `MigrationAuthorityMatrixTests.Completed_reconciliation_report_populates_every_contract_field_with_utc_freshness_and_approval_ownership` reflects over every report property and checks populated outcomes, exceptions, freshness and approvals.
+  - Summary counts from the table: 51 Met, 12 Partial, 0 Not met, 5 Deferred-by-authority, 12 Depends-on, 80 total.
+  - M40-REQ-042 - COVERED: `MigrationReconciliationSqlServerSafetyTests.Sql_server_mesp171_completed_reconciliation_report_uses_real_readiness_and_api_read_path` exercises a production-valid completed read path and asserts run status/owner, source/target scope, outcomes/exception-bearing counts, UTC freshness, approval actor and nested detail scope. `MigrationAuthorityMatrixTests.Reconciliation_response_mapper_preserves_contract_fields_with_realistic_readiness_flags` checks mapper fields with realizable readiness values.
   - M40-AC-028 - COVERED: `MigrationAuthorityMatrixTests.Migration_operation_denies_a_tenant_membership_without_its_permission` (18 cases) and `MigrationAuthorityMatrixTests.Migration_operations_hide_foreign_tenant_sources_and_runs` assert denial without disclosure.
   - M40-AC-029 - COVERED: `MigrationAuthorityMatrixTests.Validation_only_membership_can_read_evidence_but_cannot_use_execution_authority` plus `MigrationReconciliationSqlServerSafetyTests.Sql_server_mesp171_validation_findings_read_is_tenant_scoped` assert execute-authority denial, own-Tenant evidence reads, foreign-Tenant hiding, and unchanged state/version.
-- Deviations / failures: The detailed normal-verbosity full-test log ended without a summary after the machine OOM interruption (1,368 passing cases were emitted before truncation); the first wrapper attempt surfaced only the known `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` MESP-166 (#285) flake. The requested full wrapper rerun then completed with the green counts above. The Development SQLite file remained at LastWriteTimeUtc `2026-09-11T18:38:02.9110030Z` before and after test activity.
+- Deviations / failures: The full wrapper stopped at its first xUnit stderr line on the unrelated Sales test above; the isolated rerun reproduced `quotation_expired`. No Sales files were changed. Two initial targeted runs of `MigrationReconciliationSqlServerSafetyTests.Sql_server_mesp171_completed_reconciliation_report_uses_real_readiness_and_api_read_path` exposed executor-authored assumptions: `Assert.Equal() Failure: Values differ` (`Expected: 5`, `Actual: 16`), then `Assert.Equal() Failure: Strings differ` (`Expected: "company:568bd6ac7673468b9ff250f7def9439e"`, `Actual: "Ap:34ea28bbf57609a0f975346ad4e3d19a"`). These were fixture assumptions, corrected to check five distinct domains and a nonempty domain-specific scope key while retaining every detail's CompanyId assertion; the final targeted run passed. Classification: `AUTOMATION_DEFECT (Executor-introduced assertions)` for those intermediate test runs; `INCONCLUSIVE` for the unrelated existing Sales failure.
 - Status files updated: `RESULT.md` and `docs/audit/mesp-141-m40-traceability.md`.
 - Evidence: Draft PR #334: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/334.
-- Exact next action: Opus 5.5 reviews Draft PR #334 for MESP-171 (#294); leave it Draft, do not mark Ready or merge.
+- Exact next action: Opus 5.5 reviews PR #334 for MESP-171 (#294); do not merge.
 
 ## 2026-09-30 — MESP-182 (#321) Development Sales migration coverage — GPT-6 / max — MESP-182 (#321)
 - Status: DONE. Draft PR #323 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
