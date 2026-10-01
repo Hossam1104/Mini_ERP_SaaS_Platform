@@ -162,7 +162,9 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         AddPriceListReferenceParameters(operation, descriptor);
         DescribeParameters(operation, descriptor);
         operation.Responses ??= new OpenApiResponses();
-        SetResponse(operation, "200", SuccessResponseFor(descriptor), isProblem: false);
+        // Describe the success status the endpoint declares (e.g. 202, 204); untyped endpoints default to 200.
+        var successStatus = operation.Responses.Keys.FirstOrDefault(key => key.StartsWith('2')) ?? "200";
+        SetResponse(operation, successStatus, SuccessResponseFor(descriptor), isProblem: false);
         SetResponse(operation, "400", "The request body, route/query input, effective-date input, required concurrency value, or business validation is invalid. Common codes include `validation_failed`, `idempotency_key_invalid`, `version_required`, and `if_match_required`; operation-specific validation codes are returned unchanged.");
         SetResponse(operation, "401", "Authentication is required for a protected operation or the presented first-party session is not valid. Common codes include `authentication_required` and `authentication_failed`.");
         SetResponse(operation, "403", "The server-derived permission, Tenant membership, organization scope, support grant, Platform context, or antiforgery check denies the request. Common codes include `permission_denied`, `access_denied`, `scope_denied`, `company_scope_denied`, `branch_scope_denied`, `warehouse_scope_denied`, and `antiforgery_failed`.");
@@ -173,6 +175,10 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
             || descriptor.OperationId.StartsWith("reporting.", StringComparison.Ordinal))
         {
             SetResponse(operation, "422", "The request is structurally readable but the owning Finance or Reporting rule rejects its business values or current state. The endpoint returns the exact validation or domain result code, such as `schedule_status_invalid` for an unsupported Reporting schedule status.");
+        }
+        if (operation.Responses.ContainsKey("502"))
+        {
+            SetResponse(operation, "502", "The downstream delivery path failed after the request was authorized; the body is the operation's own result, not a Problem Details document.", isProblem: false);
         }
 
         return Task.CompletedTask;
@@ -339,14 +345,12 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         operation.Responses ??= new OpenApiResponses();
         if (isProblem)
         {
-            operation.Responses[statusCode] = new OpenApiResponse
-            {
-                Description = description,
-                Content = new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal)
-                {
-                    ["application/problem+json"] = new OpenApiMediaType { Schema = ProblemDetailsSchema() }
-                }
-            };
+            // Keep any body the endpoint itself declares for this status; pre-dispatch guards add Problem Details.
+            var content = operation.Responses.TryGetValue(statusCode, out var declared) && declared.Content is { Count: > 0 } declaredContent
+                ? new Dictionary<string, OpenApiMediaType>(declaredContent, StringComparer.Ordinal)
+                : new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+            content["application/problem+json"] = new OpenApiMediaType { Schema = ProblemDetailsSchema() };
+            operation.Responses[statusCode] = new OpenApiResponse { Description = description, Content = content };
             return;
         }
 

@@ -256,6 +256,30 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
     }
 
     [Fact]
+    public async Task OpenApi_publishes_each_endpoint_actual_response_statuses()
+    {
+        using var client = factory.CreateClient();
+        using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
+        var paths = document.RootElement.GetProperty("paths");
+
+        var signOut = paths.GetProperty("/api/v1/auth/sign-out").GetProperty("post").GetProperty("responses");
+        Assert.True(signOut.TryGetProperty("204", out _));
+        Assert.False(signOut.TryGetProperty("200", out _));
+
+        var dispatch = paths.EnumerateObject()
+            .SelectMany(path => path.Value.EnumerateObject())
+            .Single(item => item.Value.TryGetProperty("operationId", out var id) && id.GetString() == "notification.intent.dispatch")
+            .Value.GetProperty("responses");
+        Assert.True(dispatch.TryGetProperty("202", out var accepted));
+        Assert.True(accepted.GetProperty("content").TryGetProperty("application/json", out _));
+        Assert.False(dispatch.TryGetProperty("200", out _));
+        Assert.True(dispatch.GetProperty("502").GetProperty("content").TryGetProperty("application/json", out _));
+        var unavailable = dispatch.GetProperty("503").GetProperty("content");
+        Assert.True(unavailable.TryGetProperty("application/json", out _));
+        Assert.True(unavailable.TryGetProperty("application/problem+json", out _));
+    }
+
+    [Fact]
     public async Task Mesp169_cancellation_is_catalogued_and_published_with_a_typed_openapi_contract()
     {
         var descriptor = FoundationOperationCatalog.GetRequired("migration.run.cancel");
