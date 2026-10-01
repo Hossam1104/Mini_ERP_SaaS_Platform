@@ -186,6 +186,8 @@ The lifecycle vocabulary follows the approved MESP-27 baseline. MESP-29 applies 
 
 ### 11.1 Context selection
 
+> **Superseded by Q-W (owner, 2026-10-01; DECISIONS §1.2): one login belongs to exactly one Tenant; only the configured emergency super-administrator chooses among all Tenants.** Sign-in resolves the Tenant from the account's single Membership; the multiple-membership selection below applies only to the emergency super-administrator's all-Tenant dropdown.
+
 **Classification: Confirmed — Founder-approved Release 1 requirement.** Each protected request, workspace, or authenticated session must establish exactly one eligible active Tenant context from the User's active Memberships. A User with more than one eligible membership must explicitly select or enter the Tenant context for that request, workspace, or session; separate authorized sessions or workspaces may establish different Tenant contexts when supported.
 
 **Classification: Confirmed.** The selected context is valid only when the User has an active Membership approved under MESP-28, the Tenant is in a permitted lifecycle status, and the requested action also passes Role, Permission, Entitlement, organizational scope, document state, and other applicable controls.
@@ -293,7 +295,7 @@ Each process is business-level. No screen, API, schema, token, or implementation
 | Incomplete onboarding | Keep outside Active, identify missing owner/evidence, and allow safe correction. | Confirmed | Platform Administration |
 | Unauthorized Tenant selection | Deny without exposing the target Tenant. | Confirmed — Founder-approved Release 1 requirement | MESP-29/MESP-28 |
 | Changed or stale Tenant identifier | Re-evaluate trusted membership/context for the specific request, workspace, or session; identifier cannot expand authority. | Confirmed — Founder-approved Release 1 requirement | MESP-29 |
-| User has multiple memberships | Require one selected Tenant context per request, workspace, or session; do not infer a combined Tenant context or impose a global one-Tenant-at-a-time restriction. | Confirmed — Founder-approved Release 1 requirement | MESP-28/MESP-29 |
+| User has multiple memberships | Require one selected Tenant context per request, workspace, or session; do not infer a combined Tenant context or impose a global one-Tenant-at-a-time restriction. | Confirmed — Founder-approved Release 1 requirement; **Superseded by Q-W (owner, 2026-10-01; DECISIONS §1.2): one login belongs to exactly one Tenant; only the configured emergency super-administrator chooses among all Tenants.** | MESP-28/MESP-29 |
 | User has no active membership | Deny Tenant operation while retaining the global User identity and required evidence. | Confirmed | MESP-28 |
 | Tenant is Suspended | Deny ordinary interactive and asynchronous business operations; preserve data and evidence while required Platform safety/governance operations continue where applicable. | Confirmed — Founder-approved Release 1 requirement | MESP-27/MESP-29 |
 | Existing session after suspension | Revoke or invalidate affected authority before further operation; record the result. | Confirmed | MESP-27/MESP-28 |
