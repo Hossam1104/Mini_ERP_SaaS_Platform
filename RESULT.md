@@ -1,5 +1,19 @@
 # Results
 
+## 2026-10-01 — MESP-183 (#324) preview scope denial — GPT-6 / effort not surfaced — MESP-183 (#324)
+- Status: DONE. Draft PR creation is the final authorized delivery action; no Ready, review request, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-183-preview-scope-denial`; created at `bf2d1206e0a3635600488e8b7bc49eba374206b0`, fast-forwarded to `11a4e6a11eabffda993f0a07b7cf588ab19d4d74` after main advanced, code commit `46853615abe1fc8dfb88694941480ddd9a1680c2`; RESULT hand-back commit follows.
+- What changed: Root cause was `ExecutePreviewReadAsync` mapping the application helper's null result to `migration_preview_not_found` without first checking resource scope. It now calls the existing `IsResourceAuthorizedAsync` helper and returns `403 migration_source_scope_denied`. The MESP-171 authority matrix verifies an out-of-scope preview denial and preserves `404 migration_preview_not_found` for an in-scope run without a dry-run. Removed preview's Company-scope and foreign-Tenant 404 special cases; kept the execution-read special case and all response disclosure assertions. The Foundation descriptor already carried the matching permission/scope and the endpoint already declared 403; the Foundation/OpenAPI contract test now asserts that catalogue metadata and generated 403 response.
+- Gates:
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` attempt 1: exit 1; Release build 0 warnings / 0 errors; 1,621 passed, 1 failed, 0 skipped, 1,622 total; suite duration 9m01s. The failure was the old preview-only foreign-Tenant 404 expectation; the matrix now expects the shared 403 response while retaining its no-disclosure assertions.
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` final attempt: exit 1; Release build 0 warnings / 0 errors; 1,621 passed, 1 failed, 0 skipped, 1,622 total; suite duration 11m32s. Disposable database `MiniErpFoundation_20261001080655_15b491f4`; the wrapper reported `MESP data is intact`.
+  - `git diff --check`: exit 0; clean.
+- Evidence: `MigrationAuthorityMatrixTests.Resource_scoped_operations_deny_company_scope_without_changing_run_state` covers preview scope denial and missing dry-run. `RestFoundationTests.Generated_openapi_documents_every_public_operation_and_tax_contract` asserts the preview descriptor's `tenant.migration.intake` permission, Tenant scope, and generated 403 response. The final gate's only failure was `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` at `SqlServerSafetyTests.cs:3539`, reporting `Succeeded:migration_execution_completed` alongside `UnknownOutcome:migration_audit_recovery_required`.
+- Deviations from the prompt: `origin/main` advanced during validation, so the worktree branch was fast-forwarded to `11a4e6a` before delivery to preserve newer `RESULT.md` entries. No frontend or API server was started and no restricted port was touched.
+- Failures and classification: The first run's matrix failure was an outdated preview-specific expectation and was corrected. The final backend gate remains non-green due to the known MESP-166 execution-claim race; no unrelated code or test was changed to mask it.
+- Status files updated: `RESULT.md`; `TASK.md` was not changed.
+- Exact next action: Opus 5.5 reviews MESP-183 (#324) on the Draft PR; leave it Draft/Open/Unmerged.
+
 ## 2026-10-01 — MESP-190 (#332) Header bar redesign — GPT-6 / effort not surfaced — MESP-190 (#332)
 - Status: DONE. Draft PR creation is the final authorized delivery action; no Ready, review request, or merge.
 - Branch / starting SHA / ending SHA: `feat/mesp-190-header-bar`; started at `1a12d100efbf5d6c244aff4e6c81fde3e9439b1b`; implementation commit `54697c6`; merged `origin/main` at `aef54f2`; RESULT hand-back commit follows.
