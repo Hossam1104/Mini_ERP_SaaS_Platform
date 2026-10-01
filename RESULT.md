@@ -1,4 +1,21 @@
-# Results
+﻿# Results
+
+## 2026-10-01 — MESP-192 (#335) Angular audit remediation — GPT-6 / max — MESP-192 (#335)
+- Status: DONE; no Ready, review request, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-192-angular-audit`; started `79111ee99d4bb8bb770f97bb30607000d1f23967`; code commit `a9d0c6b6b5d3b5284a32af03b5f0eb87f3814a7a`; RESULT hand-back commit follows.
+- What changed: Root cause was upstream HIGH advisory GHSA-ff3f-86qr-9cv3 against `@angular/router` through 22.2.0-rc.0, with the installed Angular 22.1.x line affected; `@angular/common` 22.0.0–22.1.0 also had moderate GHSA-p297-fm68-3q8c. Upgraded framework packages to 22.2.1, `@angular/build` and `@angular/cli` to 22.2.0, and `@angular/compiler-cli` to 22.2.1. npm regenerated `frontend/package-lock.json`; no product source or test files changed.
+- Gates:
+  - `npm audit --omit=dev --audit-level=high`: found 0 vulnerabilities (0 moderate, 0 high, 0 critical), exit 0.
+  - `npm audit --audit-level=high`: found 0 vulnerabilities (0 moderate, 0 high, 0 critical), exit 0.
+  - `npm test -- --watch=false --no-progress`: 49 files passed, 335 tests passed, 0 failed, exit 0.
+  - `npm run build`: passed; initial total 498.56 kB, below 500 kB.
+  - `npm run test:e2e -- --project=chromium --workers=1` with `MESP_E2E_BASE_URL=http://localhost:4350`: 60 passed, exit 0.
+  - `git diff --check`: clean, exit 0.
+- Evidence: API project prerequisite build succeeded with 0 warnings / 0 errors; API health returned 200 on port 5350 and Angular returned 200 on 4350. Both worktree servers were stopped and both ports verified free.
+- Deviations from the prompt: Initial npm install attempts returned ERESOLVE against the old exact Angular peer graph; no bypass flags were used. The Angular graph was regenerated with npm commands. npm also warned that install scripts for four dependencies were blocked; the requested unit, build, and E2E gates all passed. A read-only staged-diff query was accidentally run from the main checkout; it returned no staged changes and caused no file or index mutation. All further work stayed in this worktree.
+- Failures and classification: Initial npm ERESOLVE was a dependency-configuration conflict with locked Angular 22.1.x peers and was resolved. No requested gate failed.
+- Status files updated: `RESULT.md` only; `TASK.md` was left untouched.
+- Exact next action: Opus 5.5 reviews the MESP-192 (#335) Draft PR after opening; keep it Draft/Open and await owner direction.
 
 ## 2026-10-01 — MESP-185 (#326) UI consistency stage 1 — GPT-6 Luna / xhigh — MESP-185 (#326)
 - Status: DONE. Draft PR #341 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
@@ -17,23 +34,6 @@
 - Failures and classification: An initial extra-capture script had an invalid `join` import and was corrected. A contrast attempt raced navigation; the rerun passed. The first contrast metric misread the select chevron gradient and was corrected; final result is 0 failures. Chromium initially reported 59/61 while the shared search input border selector was being corrected; final required run passed 61/61. Full-page screenshot capture exceeded Chromium's capture limit; viewport screenshots and A6 control crops succeeded. `npm ci` exited 0 with npm's reported 5 vulnerabilities (4 moderate, 1 high); audit was not a requested gate. Development preview emitted NG0913 oversized-image warnings for the owner-managed logo asset; it was not modified. No out-of-memory failure occurred in this continuation.
 - Status files updated: `RESULT.md`; `TASK.md` untouched. The 4325 server was stopped and the port verified free. No tracker writes.
 - Exact next action: Opus 5.5 reviews Draft PR #341; leave it Draft/Open and do not request review, mark Ready, merge, or close the issue.
-
-## 2026-10-01 — MESP-192 (#335) Angular audit remediation — GPT-6 / max — MESP-192 (#335)
-- Status: DONE; no Ready, review request, approval, merge, or issue-state change.
-- Branch / starting SHA / ending SHA: `fix/mesp-192-angular-audit`; started `79111ee99d4bb8bb770f97bb30607000d1f23967`; code commit `a9d0c6b6b5d3b5284a32af03b5f0eb87f3814a7a`; RESULT hand-back commit follows.
-- What changed: Root cause was upstream HIGH advisory GHSA-ff3f-86qr-9cv3 against `@angular/router` through 22.2.0-rc.0, with the installed Angular 22.1.x line affected; `@angular/common` 22.0.0–22.1.0 also had moderate GHSA-p297-fm68-3q8c. Upgraded framework packages to 22.2.1, `@angular/build` and `@angular/cli` to 22.2.0, and `@angular/compiler-cli` to 22.2.1. npm regenerated `frontend/package-lock.json`; no product source or test files changed.
-- Gates:
-  - `npm audit --omit=dev --audit-level=high`: found 0 vulnerabilities (0 moderate, 0 high, 0 critical), exit 0.
-  - `npm audit --audit-level=high`: found 0 vulnerabilities (0 moderate, 0 high, 0 critical), exit 0.
-  - `npm test -- --watch=false --no-progress`: 49 files passed, 335 tests passed, 0 failed, exit 0.
-  - `npm run build`: passed; initial total 498.56 kB, below 500 kB.
-  - `npm run test:e2e -- --project=chromium --workers=1` with `MESP_E2E_BASE_URL=http://localhost:4350`: 60 passed, exit 0.
-  - `git diff --check`: clean, exit 0.
-- Evidence: API project prerequisite build succeeded with 0 warnings / 0 errors; API health returned 200 on port 5350 and Angular returned 200 on 4350. Both worktree servers were stopped and both ports verified free.
-- Deviations from the prompt: Initial npm install attempts returned ERESOLVE against the old exact Angular peer graph; no bypass flags were used. The Angular graph was regenerated with npm commands. npm also warned that install scripts for four dependencies were blocked; the requested unit, build, and E2E gates all passed. A read-only staged-diff query was accidentally run from the main checkout; it returned no staged changes and caused no file or index mutation. All further work stayed in this worktree.
-- Failures and classification: Initial npm ERESOLVE was a dependency-configuration conflict with locked Angular 22.1.x peers and was resolved. No requested gate failed.
-- Status files updated: `RESULT.md` only; `TASK.md` was left untouched.
-- Exact next action: Opus 5.5 reviews the MESP-192 (#335) Draft PR after opening; keep it Draft/Open and await owner direction.
 
 ## 2026-09-30 — MESP-182 (#321) Development Sales migration coverage — GPT-6 / max — MESP-182 (#321)
 - Status: DONE. Draft PR #323 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
