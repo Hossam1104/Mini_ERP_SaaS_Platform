@@ -98,6 +98,11 @@
 :host ::ng-deep :where(button:not([role='tab']):not(.mobile-nav-backdrop), a.button, input[type='button'], input[type='submit'], input[type='reset']):active:not(:disabled) { transform: translateY(1px); }
 :host ::ng-deep :where(button:not([role='tab']):not(.mobile-nav-backdrop), a.button, input[type='button'], input[type='submit'], input[type='reset']):focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 :host ::ng-deep :where(button:not([role='tab']):not(.mobile-nav-backdrop), a.button, input[type='button'], input[type='submit'], input[type='reset']):disabled { color: var(--ink-muted) !important; background: var(--surface-tint) !important; cursor: not-allowed; opacity: .55; }
+/* Application-shell rail tiles: the owner-approved MESP-178 tinted tile. */
+:host ::ng-deep .rail-tile { --button-height: 44px; height: 44px !important; min-height: 44px !important; border-color: transparent !important; border-radius: 12px !important; color: var(--accent) !important; background: color-mix(in srgb, var(--accent) 8%, var(--surface)) !important; box-shadow: 0 4px 12px rgb(15 23 42 / .08); transition: transform .18s ease-out, box-shadow .18s, background .18s; }
+:host ::ng-deep .rail-tile .icon { width: 20px; height: 20px; }
+:host ::ng-deep .rail-tile:hover, :host ::ng-deep .rail-tile:focus-visible { transform: translateY(-2px) scale(1.04); box-shadow: 0 10px 22px color-mix(in srgb, var(--accent) 22%, transparent); }
+:host ::ng-deep .rail-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 :host ::ng-deep .rail-tile.is-active { border-color: var(--accent-action) !important; color: var(--action-text) !important; background: var(--accent-action) !important; }
 :host ::ng-deep .mobile-nav-backdrop { display: none; }
 @media (max-width: 760px) {

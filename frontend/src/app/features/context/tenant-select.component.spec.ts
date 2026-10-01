@@ -19,6 +19,8 @@ const session: FoundationSessionResponse = {
   selectedTenantId: null,
   selectedContextId: null,
   selectionVersion: 0,
+  displayName: 'Amina Hassan',
+  login: 'amina@example.com',
 };
 
 const wafraContext: FoundationContextCandidate = {

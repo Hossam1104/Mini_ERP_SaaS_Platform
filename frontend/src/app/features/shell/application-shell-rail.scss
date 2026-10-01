@@ -33,7 +33,10 @@
 }
 
 .app-rail .rail-tiles {
+  display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .app-rail .rail-tile {

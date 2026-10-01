@@ -64,7 +64,7 @@ async function installMocks(page: Page): Promise<void> {
     }
   });
   await page.route('**/api/v1/auth/development-bypass', (route) => route.fulfill({ json: { authenticated: false } }));
-  await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: { authenticated: true, actorId: 'actor-ui', sessionId: 'session-ui', lifecycleState: 'Active', absoluteExpiresAt: null, selectedPath: 'OrdinaryMembership', selectedTenantId: tenantId, selectedContextId: 'context-ui', selectionVersion: 1 } }));
+  await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: { authenticated: true, actorId: 'actor-ui', sessionId: 'session-ui', lifecycleState: 'Active', absoluteExpiresAt: null, selectedPath: 'OrdinaryMembership', selectedTenantId: tenantId, selectedContextId: 'context-ui', selectionVersion: 1, displayName: 'Amina Hassan', login: 'admin@mesp.com' } }));
   await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [{ contextId: 'context-ui', kind: 'OrdinaryMembership', tenantId, displayName: 'Alpha Company', eligibilityVersion: 1 }] } }));
   await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: entryResponse() }));
   await page.route('**/api/v1/auth/antiforgery', (route) => route.fulfill({ headers: { 'X-CSRF-TOKEN': 'test-token' }, json: { status: 'issued' } }));
@@ -178,16 +178,30 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(contextMenu).toHaveCount(0);
     const accountMenu = page.getByRole('menu', { name: 'Account menu' });
     await expect(accountMenu).toBeVisible();
+    await expect(accountMenu).toHaveCSS('opacity', '1');
     await expect(accountMenu).toContainText('Signed in');
+    await expect(accountTrigger.locator('.account-trigger__avatar')).toHaveText('AH');
+    await expect(accountTrigger).toContainText('Amina Hassan');
+    await expect(accountMenu).toContainText('Amina Hassan');
+    await expect(accountMenu).toContainText('Login: admin@mesp.com');
     await expect(accountMenu).toContainText('Alpha Tenant');
     await expect(accountMenu).toContainText('Alpha Branch');
     await expect(accountMenu.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
     await expect(accountTrigger).toHaveAttribute('aria-expanded', 'true');
+    await page.screenshot({ path: '../.playwright-mcp/mesp-194/header-light.png' });
 
     await page.keyboard.press('Escape');
     await expect(accountMenu).toHaveCount(0);
     await expect(accountTrigger).toHaveAttribute('aria-expanded', 'false');
     await expect(accountTrigger).toBeFocused();
+
+    await page.getByRole('button', { name: 'Switch to dark mode' }).click();
+    await accountTrigger.click();
+    await expect(accountMenu).toBeVisible();
+    await expect(accountMenu).toHaveCSS('opacity', '1');
+    await page.screenshot({ path: '../.playwright-mcp/mesp-194/header-dark.png' });
+    await page.keyboard.press('Escape');
+    await expect(accountMenu).toHaveCount(0);
 
     for (const control of ['#theme-trigger', '.scheme-toggle', '.notification-button', '.language-button']) {
       await expect(page.locator(control)).toHaveAttribute('title', /.+/);

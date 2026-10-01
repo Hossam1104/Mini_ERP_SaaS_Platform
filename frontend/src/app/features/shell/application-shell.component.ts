@@ -8,6 +8,13 @@ import { BrandMarkComponent } from '../../shared/ui/brand-mark.component';
 import { OperationalContextSwitcherComponent } from '../../shared/ui/operational-context-switcher.component';
 import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation.config';
 
+export function accountInitials(value: string): string {
+  const words = value.trim().split(/\s+/);
+  const first = Array.from(words[0] ?? '');
+  const last = Array.from(words[words.length - 1] ?? '');
+  return `${first[0] ?? ''}${(words.length > 1 ? last[0] : first[1]) ?? ''}`.toUpperCase();
+}
+
 @Component({
   selector: 'app-application-shell',
   standalone: true,
@@ -36,11 +43,11 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
               }
             } @else {
               <div class="rail-tiles">
-                <button #railTrigger class="rail-tile" type="button" routerLink="/app" [class.is-active]="isOverviewCurrent()" [attr.aria-current]="isOverviewCurrent() ? 'page' : null" [attr.aria-label]="language.text('overview')" [title]="language.text('overview')" (keydown)="onRailKeydown($event)" (click)="closeModuleFlyout()">
+                <button #railTrigger class="button icon-button rail-tile" type="button" routerLink="/app" [class.is-active]="isOverviewCurrent()" [attr.aria-current]="isOverviewCurrent() ? 'page' : null" [attr.aria-label]="language.text('overview')" [title]="language.text('overview')" (keydown)="onRailKeydown($event)" (click)="closeModuleFlyout()">
                   <svg class="icon" aria-hidden="true"><use href="#icon-home" /></svg>
                 </button>
                 @for (group of navigationGroups; track group.id) {
-                  <button #railTrigger class="rail-tile" type="button" [class.is-active]="isNavigationGroupCurrent(group)" [attr.aria-label]="navigationLabel(group)" [title]="navigationLabel(group)" [attr.aria-expanded]="openNavGroup() === group.id" aria-controls="module-flyout" (mouseenter)="onModuleTileEnter(group.id, $event.currentTarget)" (mouseleave)="scheduleFlyoutClose()" (focus)="onModuleTileFocus(group.id, $event)" (click)="toggleModuleFlyout(group.id, $event.currentTarget, $event)" (keydown)="onRailKeydown($event, group.id)">
+                  <button #railTrigger class="button icon-button rail-tile" type="button" [class.is-active]="isNavigationGroupCurrent(group)" [attr.aria-label]="navigationLabel(group)" [title]="navigationLabel(group)" [attr.aria-expanded]="openNavGroup() === group.id" aria-controls="module-flyout" (mouseenter)="onModuleTileEnter(group.id, $event.currentTarget)" (mouseleave)="scheduleFlyoutClose()" (focus)="onModuleTileFocus(group.id, $event)" (click)="toggleModuleFlyout(group.id, $event.currentTarget, $event)" (keydown)="onRailKeydown($event, group.id)">
                     <svg class="icon" aria-hidden="true"><use [attr.href]="'#icon-' + group.icon" /></svg>
                   </button>
                 }
@@ -137,13 +144,16 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
             </div>
 
             <div class="header-menu-control account-control">
-              <button #accountTrigger id="account-trigger" class="button button--secondary icon-button header-control toolbar-button account-trigger" type="button" (click)="toggleHeaderMenu('account')" [attr.aria-label]="label('Account', 'الحساب')" [title]="label('Account', 'الحساب')" aria-haspopup="menu" [attr.aria-controls]="accountMenuOpen() ? 'account-menu' : null" [attr.aria-expanded]="accountMenuOpen()">
-                <svg class="icon" aria-hidden="true"><use href="#icon-user" /></svg>
+              <button #accountTrigger id="account-trigger" class="button button--secondary header-control toolbar-button account-trigger" type="button" (click)="toggleHeaderMenu('account')" [attr.aria-label]="label('Account', 'الحساب')" [title]="label('Account', 'الحساب')" aria-haspopup="menu" [attr.aria-controls]="accountMenuOpen() ? 'account-menu' : null" [attr.aria-expanded]="accountMenuOpen()">
+                <span class="account-trigger__avatar" aria-hidden="true">{{ accountInitials() }}</span>
+                <span class="account-trigger__name">{{ accountDisplayName() }}</span>
               </button>
               @if (accountMenuOpen()) {
                 <div #accountMenu id="account-menu" class="header-menu account-menu" role="menu" [attr.aria-label]="label('Account menu', 'قائمة الحساب')" (keydown)="onHeaderMenuKeydown($event, 'account')">
                   <div class="account-menu__identity" role="group" [attr.aria-label]="label('Signed in', 'تم تسجيل الدخول')">
                     <strong>{{ label('Signed in', 'تم تسجيل الدخول') }}</strong>
+                    <span class="account-menu__user-name">{{ accountDisplayName() }}</span>
+                    @if (auth.session()?.login; as login) { <small class="account-menu__user-login">{{ label('Login', 'اسم الدخول') }}: {{ login }}</small> }
                     @if (tenantDisplayName(); as tenantName) { <span>{{ tenantName }}</span> }
                     @if (context.currentOperationalContext()?.displayName; as operationalName) { <small>{{ operationalName }}</small> }
                   </div>
@@ -216,7 +226,7 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
     .context-chip { width: min(15rem, 24vw); min-width: 0; max-width: 15rem; text-align: start; }
     .context-chip__building { width: 18px; height: 18px; flex: none; }
     .context-chip__copy { display: grid; min-width: 0; flex: 1; gap: .08rem; line-height: 1.05; }
-    .context-chip__copy strong, .context-chip__copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .context-chip__copy strong, .context-chip__copy small, .account-trigger__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .context-chip__copy strong { color: var(--ink); font-size: .78rem; font-weight: 800; }
     .context-chip__copy small { color: var(--ink-muted); font-size: .68rem; font-weight: 650; }
     .chevron { width: 14px !important; height: 14px !important; flex: none; color: var(--ink-muted); }
@@ -225,6 +235,9 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
     .context-menu { width: min(18rem, calc(100vw - 24px)); }
     .theme-menu { width: 264px; }
     .account-menu { width: min(16rem, calc(100vw - 24px)); }
+    .account-trigger { width: auto; max-width: min(12rem, 30vw); padding-inline: .4rem; }
+    .account-trigger__avatar { display: grid; width: 1.75rem; aspect-ratio: 1; flex: none; place-items: center; border-radius: 50%; background: var(--accent-soft); }
+    .account-trigger__name { min-width: 0; }
     .theme-swatch { width: 15px; height: 15px; flex: none; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; box-shadow: 0 2px 6px rgb(0 0 0 / 16%); }
     .theme-option__label { flex: 1; }
     .theme-check { width: 18px; height: 18px; color: var(--accent); }
@@ -246,6 +259,7 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
       .topbar__actions { min-height: 40px; justify-content: flex-end; gap: .35rem; }
       .topbar__brand { width: 4.8rem; }
       .topbar__mesp-logo { width: 4.3rem; }
+      .account-trigger__name { display: none; }
       .breadcrumbs { margin-inline-start: auto; font-size: .8rem; }
       .desktop-toggle { display: none !important; }
       .icon-button.mobile-toggle { display: inline-flex !important; }
@@ -310,6 +324,11 @@ export class ApplicationShellComponent implements OnInit, OnDestroy {
   readonly contextMenuOpen = computed(() => this.openHeaderMenu() === 'context');
   readonly themeMenuOpen = computed(() => this.openHeaderMenu() === 'theme');
   readonly accountMenuOpen = computed(() => this.openHeaderMenu() === 'account');
+  accountDisplayName(): string {
+    const session = this.auth.session();
+    return session?.displayName?.trim() || session?.login?.trim() || this.label('Account', 'الحساب');
+  }
+  accountInitials(): string { return accountInitials(this.accountDisplayName()); }
   readonly themeMenuFocus = signal<ThemeName>('sapphire');
   private contextMenuElement?: HTMLElement;
   private themeMenuElement?: HTMLElement;

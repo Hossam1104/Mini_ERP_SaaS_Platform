@@ -379,6 +379,7 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         "platform.health" => "Check platform availability",
         "platform.openapi" => "Read the generated API contract",
         "platform.module-registration" => "Read registered module boundaries",
+        "auth.session.read" => "Read the authenticated user's session and identity",
         "auth.entry.read" => "Resolve the current host's entry mode and public branding",
         "auth.antiforgery.read" => "Read antiforgery evidence for first-party writes",
         "auth.sign-in" => "Authenticate and establish a first-party session",
@@ -774,6 +775,11 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
             + $"Headers and effective date: {ContractFactsFor(descriptor)} "
             + $"Errors: {ErrorContractFor(descriptor)} ";
 
+        if (descriptor.BoundaryDescription is { } boundaryDescription)
+        {
+            return $"{contextRules}{boundaryDescription}";
+        }
+
         if (descriptor.OperationId == "auth.entry.read")
         {
             return contextRules + "Resolves the request Host against configured common, Tenant, and Platform entry hosts. Anonymous callers receive only resolved entry mode and public branding; Tenant identifiers and operational-context details are not exposed. Hostname is a candidate hint and never grants Tenant authority.";
@@ -952,6 +958,7 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         var operationId = descriptor.OperationId;
         return operationId switch
         {
+        "auth.session.read" => "The authenticated caller's server-validated session, nullable display name, and own login identifier.",
         "auth.entry.read" => "The host entry mode, public branding, and (only for an authenticated caller) authorized context candidates.",
         "auth.development-bypass" => "An authenticated session for the server-configured Development actor with server-derived context candidates.",
         "master-data.tax.calculate" => "A deterministic Tax amount and immutable reference snapshot for the explicit inputs.",

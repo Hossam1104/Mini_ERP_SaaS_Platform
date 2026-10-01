@@ -619,6 +619,8 @@ app.MapGet("/api/v1/auth/session", (
         : Results.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required", detail: "Authentication is required.", type: "https://api.minierp.local/problems/authentication_failed");
 })
     .WithName("auth.session.read")
+    .Produces<FoundationSessionResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
     .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("auth.session.read")));
 
 app.MapGet("/api/v1/auth/contexts", (
@@ -1342,6 +1344,8 @@ static FoundationSessionResponse ToSessionResponse(FoundationHostSessionState st
         state.SelectedContext?.TenantId,
         state.SelectedContext?.ContextId,
         state.SelectionVersion,
+        state.DisplayName,
+        state.Login,
         replayed);
 
 static FoundationContextCandidateResponse ToContextResponse(FoundationHostContextCandidate candidate) =>
