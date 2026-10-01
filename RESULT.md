@@ -15,6 +15,21 @@
 - Failures and classification: Initial temporary-proxy parse error was a configuration/setup failure, corrected before E2E. Final required gates all passed.
 - Status files updated: `RESULT.md` only; `TASK.md` was not edited.
 - Exact next action: Push `feat/mesp-190-header-bar` and open a Draft PR to `main` titled `[MESP-190] Header bar redesign`, referencing #332; leave it Draft/Open/Unmerged.
+## 2026-10-01 — MESP-191 (#333) Overview module card photography — GPT-6 / default — MESP-191 (#333)
+- Status: DONE; implementation and required gates passed for the 15 live Overview cards confirmed by the owner.
+- Branch / starting SHA / ending SHA: `feat/mesp-191-module-card-photos`; started `fdb94c466cef84696cd5d653e802b79880202a7b`; implementation commit `3c4ef0b840023b205c4936ae1a31995ab503282a`; RESULT handoff commit follows.
+- What changed: Replaced the Overview card banner art with locally served, decorative 640×360 WebP photographs for all 15 live navigation destinations. Added Unsplash source, author, licence, and download-date credits. Added unit coverage for each local image URL and empty alt text, plus a Chromium check that every image loads.
+- Gates:
+  - `npm test -- --watch=false --no-progress`: 50 files passed, 342 tests passed, 0 failed; exit 0.
+  - `npm run build`: passed; initial total 499.89 kB against the 500 kB budget, unchanged from the 499.89 kB baseline.
+  - `$env:MESP_E2E_BASE_URL='http://127.0.0.1:4340'; npm run test:e2e -- --project=chromium --workers=1`: 63 passed, exit 0.
+  - Visual capture: 1 Playwright capture passed. All 15 files are 640×360 and below 60 KB; largest is 51,170 bytes.
+  - `git diff --check`: exit 0 after this entry is added.
+- Evidence: `.playwright-mcp/mesp-191/overview-meadow-light-1440.png`, `overview-meadow-dark-1440.png`, `overview-luxury-light-1440.png`, and `overview-meadow-light-800.png`; credits at `frontend/public/images/modules/CREDITS.md`. Chromium used the isolated 4340 preview with test auth mocks; its server stopped after the run.
+- Deviations from the prompt: Used the owner-confirmed set of 15 live destinations. Used local mocked auth on port 4340 rather than the owner API proxy; no API or protected port was touched.
+- Failures and classification: No required gate failures. The first temporary visual-runner attempt exited 1 because its temporary spec was one directory too deep; raw output: `Error: No tests found. Make sure that arguments are regular expressions matching test files. You may need to escape symbols like "$" or "*" and quote the arguments.` Moving it into the configured E2E directory produced 1 passed (31.4s). Chromium emitted the existing NG0913 warning for the owner-managed `frontend/assets/Logo_16_9_BG_Removed.png`; that asset was not changed.
+- Status files updated: `RESULT.md`; `TASK.md` was not edited.
+- Exact next action: Push this branch and open a Draft PR against `feat/mesp-178-shell-rail-grids`, titled `feat(workspace): MESP-191 (#333) realistic module card photos`, referencing #333; stop after the Draft PR is open.
 
 ## 2026-10-01 — MESP-187 (#329) Tenant branding logo PNGs — GPT-6 / effort not surfaced
 - Status: DONE. Draft PR publication is the remaining delivery action; stop after creating it, with no Ready, review request, approval, merge, or issue-state change.

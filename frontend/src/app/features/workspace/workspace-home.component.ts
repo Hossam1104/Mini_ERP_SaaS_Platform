@@ -4,13 +4,32 @@ import { ContextService } from '../../core/context/context.service';
 import { LanguageService } from '../../core/i18n/language.service';
 import { ThemeService } from '../../core/presentation/theme.service';
 import { StatusCardComponent } from '../../shared/ui/status-card.component';
-import { NAVIGATION_GROUPS } from '../shell/navigation.config';
+import { NAVIGATION_GROUPS, type NavigationItem } from '../shell/navigation.config';
+
+const MODULE_CARD_IMAGE_IDS: Record<NavigationItem['path'], string> = {
+  '/app/master-data/categories': 'master-data',
+  '/app/price-lists': 'price-lists',
+  '/app/master-data/imports': 'imports',
+  '/app/procurement/purchase-requests': 'purchase-requests',
+  '/app/procurement/supplier-quotations': 'supplier-quotations',
+  '/app/procurement/purchase-orders': 'purchase-orders',
+  '/app/procurement/goods-receipts': 'goods-receipts',
+  '/app/procurement/supplier-returns': 'supplier-returns',
+  '/app/procurement/invoice-handoffs': 'invoice-handoffs',
+  '/app/procurement/invoice-matching': 'invoice-matching',
+  '/app/inventory': 'inventory',
+  '/app/inventory/valuation': 'inventory-valuation',
+  '/app/finance': 'finance',
+  '/app/sales/quotations': 'sales',
+  '/app/reporting': 'reporting',
+};
 
 interface OverviewModule {
   path: string;
   labelEn: string;
   labelAr: string;
   icon: string;
+  imageSrc: string;
   groupId: string;
   groupLabelEn: string;
   groupLabelAr: string;
@@ -54,7 +73,7 @@ interface OverviewModule {
           <div class="capability-grid">
             @for (module of visibleModules(); track module.path; let index = $index) {
               <a class="module-card" [class]="'module-card module-card--' + module.groupId" [routerLink]="module.path" [style.--card-order]="index" [attr.aria-label]="label('View links for ' + module.labelEn, 'عرض روابط ' + module.labelAr)">
-                <span class="module-card__banner" aria-hidden="true"><svg class="icon"><use [attr.href]="'#icon-' + module.icon" /></svg><span class="module-card__art-orbit"></span></span>
+                <span class="module-card__banner" aria-hidden="true"><img class="module-card__image" [src]="module.imageSrc" width="640" height="360" loading="lazy" decoding="async" alt="" /></span>
                 <span class="module-card__tag">{{ label(module.groupLabelEn, module.groupLabelAr) }}</span>
                 <strong>{{ navigationLabel(module) }}</strong>
                 <span class="module-card__view">{{ label('View links', 'عرض الروابط') }}<svg class="icon icon--arrow-up-right" aria-hidden="true"><use href="#icon-arrow-up-right" /></svg></span>
@@ -113,15 +132,11 @@ interface OverviewModule {
     .module-card { display: grid; min-width: 0; gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--line)); border-radius: 18px; padding: .8rem; color: var(--ink); background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 88%, transparent), color-mix(in srgb, var(--surface-raised) 84%, transparent) 76%); box-shadow: var(--shadow-card), inset 0 1px 0 var(--glass-highlight), inset 0 0 0 1px color-mix(in srgb, var(--glass-highlight) 36%, transparent); backdrop-filter: blur(16px) saturate(155%); text-decoration: none; animation: card-enter 420ms ease both; animation-delay: calc(var(--card-order, 0) * 35ms); transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease; }
     .module-card:hover { border-color: color-mix(in srgb, var(--accent) 42%, var(--line)); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); transform: translateY(-5px); }
     .module-card:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
-    .module-card__banner { position: relative; display: grid; min-height: 112px; place-items: center; overflow: hidden; border-radius: 12px; color: var(--accent-strong); background: radial-gradient(circle at 18% 15%, color-mix(in srgb, var(--accent) 24%, white), transparent 40%), linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--surface-raised) 72%, var(--accent-soft))); }
-    .module-card__banner::before { position: absolute; inset: 0; background: linear-gradient(145deg, transparent 40%, color-mix(in srgb, var(--accent) 9%, transparent) 41% 53%, transparent 54%), radial-gradient(ellipse at 50% 120%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 65%); content: ''; }
-    .module-card__banner .icon { position: relative; z-index: 1; width: 42px; height: 42px; filter: drop-shadow(0 5px 10px color-mix(in srgb, var(--accent) 30%, transparent)); stroke-width: 1.6; }
-    .module-card__art-orbit { position: absolute; inset: auto -16px -46px auto; width: 116px; height: 116px; border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); border-radius: 50%; }
-    .module-card--procurement .module-card__banner { color: #14613d; background: radial-gradient(circle at 18% 18%, #d8f4e5, transparent 42%), linear-gradient(135deg, #e7f6ed, color-mix(in srgb, var(--surface-raised) 70%, #a5e1bb)); }
-    .module-card--operations .module-card__banner { color: #0b655e; background: radial-gradient(circle at 78% 15%, #c9f2e8, transparent 40%), linear-gradient(135deg, #e4f7f3, color-mix(in srgb, var(--surface-raised) 70%, #90d8ca)); }
-    .module-card--finance-sales .module-card__banner { color: #7044a4; background: radial-gradient(circle at 20% 14%, #e9dcff, transparent 42%), linear-gradient(135deg, #f2ecff, color-mix(in srgb, var(--surface-raised) 70%, #c8b0eb)); }
-    :host-context(html[data-color-scheme='dark']) .module-card__banner { color: var(--accent-strong); background-color: var(--surface-raised); background-image: radial-gradient(circle at 18% 15%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 40%), linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--surface-raised)), color-mix(in srgb, var(--accent) 24%, var(--surface-raised))); }
-    :host-context(html[data-color-scheme='dark']) .module-card__banner::before { background: linear-gradient(145deg, transparent 40%, color-mix(in srgb, var(--accent) 10%, transparent) 41% 53%, transparent 54%), radial-gradient(ellipse at 50% 120%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 65%); }
+    .module-card__banner { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 12px; background: var(--surface-raised); }
+    .module-card__banner::after { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 35%, color-mix(in srgb, var(--accent) 12%, transparent)); content: ''; pointer-events: none; }
+    .module-card__image { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+    :host-context(html[data-color-scheme='dark']) .module-card__image { filter: brightness(.85); }
+    @media (prefers-reduced-motion: no-preference) { .module-card__image { transition: transform var(--motion-fast) ease; } .module-card:hover .module-card__image { transform: scale(1.03); } }
     .module-card__tag { justify-self: start; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line)); border-radius: 999px; padding: .25rem .6rem; color: var(--accent-strong); background: var(--accent-soft); font-size: 14px; font-weight: 700; }
     .module-card strong { color: var(--ink-strong); font: 700 1.05rem/1.25 var(--font-display); }
     .module-card__view { display: inline-flex; min-height: 40px; align-items: center; justify-content: space-between; gap: .45rem; justify-self: start; border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); border-radius: 999px; padding: .35rem .7rem; color: var(--accent-strong); background: var(--surface-glass); box-shadow: var(--shadow-soft); font-size: 14px; font-weight: 700; }
@@ -129,7 +144,7 @@ interface OverviewModule {
     .module-empty { grid-column: 1 / -1; margin: 0; border: 1px dashed var(--line-strong); border-radius: 14px; padding: 1.5rem; color: var(--ink-muted); text-align: center; }
     @media (max-width: 1100px) { .overview-hero { min-height: 0; grid-template-columns: minmax(0, 1fr); } .overview-hero__content { grid-column: 1; grid-row: 1; } .overview-hero__art { grid-column: 1; grid-row: 2; justify-self: center; } .overview-hero__tenant-logo { grid-column: 1; grid-row: 2; justify-self: center; } .overview-search { width: 100%; grid-column: 1; grid-row: 3; } }
     @media (max-width: 760px) { .overview-hero { padding: 1.25rem; } .overview-hero__tenant-logo img { max-height: 130px; } .hero-mark { width: 58px; height: 58px; border-radius: 19px; font-size: 1.65rem; } .overview-section-heading__hint { display: none; } }
-    @media (max-width: 500px) { .overview-hero__tenant-logo { max-width: 220px; } .overview-hero__tenant-logo img { max-height: 96px; } .module-chips { margin-inline: -.2rem; } .capability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; } .module-card { padding: .65rem; } .module-card__banner { min-height: 88px; } .module-card__banner .icon { width: 34px; height: 34px; } .module-card strong { font-size: 14px; } .module-card__tag, .module-card__view { font-size: 14px; } }
+    @media (max-width: 500px) { .overview-hero__tenant-logo { max-width: 220px; } .overview-hero__tenant-logo img { max-height: 96px; } .module-chips { margin-inline: -.2rem; } .capability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; } .module-card { padding: .65rem; } .module-card strong { font-size: 14px; } .module-card__tag, .module-card__view { font-size: 14px; } }
     @media (max-width: 350px) { .capability-grid { grid-template-columns: 1fr; } }
     @media (prefers-reduced-motion: reduce) { .overview-hero, .module-card { animation: none; } }
   `,
@@ -143,6 +158,7 @@ export class WorkspaceHomeComponent implements OnInit {
   readonly selectedGroup = signal('all');
   readonly moduleDestinations: OverviewModule[] = NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => ({
     ...item,
+    imageSrc: `/images/modules/${MODULE_CARD_IMAGE_IDS[item.path]}.webp`,
     groupId: group.id,
     groupLabelEn: group.labelEn,
     groupLabelAr: group.labelAr,
