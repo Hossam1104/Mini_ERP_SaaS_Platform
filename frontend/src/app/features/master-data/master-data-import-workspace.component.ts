@@ -269,7 +269,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
           <button class="text-button" type="button" (click)="reapplyAutoMapping()">↻ {{ language.text('importMappingReapplyAuto') }}</button>
         </div>
 
-        <app-data-grid [rows]="facade.columnMappings()" [columns]="mappingColumns" [rowActionsTemplate]="mappingActions" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="language.text('importMappingTitle')" [countLabel]="language.text('importMappingTitle')">
+        <app-data-grid [rows]="facade.columnMappings()" [columns]="mappingColumns" rowKey="sourceColumn" [rowActionsTemplate]="mappingActions" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="language.text('importMappingTitle')" [countLabel]="language.text('importMappingTitle')">
           <ng-template #mappingActions let-mapping>
             <select [ngModel]="mapping.targetField ?? ''" (ngModelChange)="onMappingChange(mapping.sourceColumn, $event)" [ngModelOptions]="{standalone: true}" [attr.aria-label]="language.text('importMapsTo') + ' ' + mapping.sourceColumn">
               <option value="">{{ language.text('importMappingIgnoreOption') }}</option>
