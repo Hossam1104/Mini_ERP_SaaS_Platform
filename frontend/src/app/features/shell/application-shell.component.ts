@@ -84,9 +84,9 @@ export function accountInitials(value: string): string {
           <div class="topbar__start">
             <button class="button button--secondary icon-button header-control sidebar-toggle desktop-toggle" type="button" (click)="toggleSidebar()" [attr.aria-label]="sidebarExpanded() ? label('Collapse navigation', 'طي القائمة') : label('Expand navigation', 'توسيع القائمة')" [attr.aria-expanded]="sidebarExpanded()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
             <button class="button button--secondary icon-button header-control sidebar-toggle mobile-toggle" type="button" (click)="toggleMobileMenu()" [attr.aria-label]="mobileMenuOpen() ? label('Close navigation', 'إغلاق القائمة') : label('Open navigation', 'فتح القائمة')" [attr.aria-expanded]="mobileMenuOpen()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
-            <a class="topbar__brand" [class.topbar__brand--light-backplate]="theme.darkMode() && !!context.entry()?.branding?.logoLightUrl && !context.entry()?.branding?.logoDarkUrl" routerLink="/app" [attr.aria-label]="brandName()">
+            <a class="topbar__brand" [class.topbar__brand--tenant]="!!tenantLogoUrl()" [class.topbar__brand--light-backplate]="theme.darkMode() && !!context.entry()?.branding?.logoLightUrl && !context.entry()?.branding?.logoDarkUrl" routerLink="/app" [attr.aria-label]="brandName()">
               @if (tenantLogoUrl()) {
-                <img class="topbar__tenant-logo" [src]="tenantLogoUrl()" [alt]="context.entry()?.branding?.logoAltText || brandName()" />
+                <img class="tenant-brand-image topbar__tenant-logo" [src]="tenantLogoUrl()" [alt]="context.entry()?.branding?.logoAltText || brandName()" />
               } @else {
                 <app-brand-mark class="topbar__mesp-logo" variant="logo" [theme]="theme.darkMode() ? 'dark' : 'light'" alt="MESP" />
               }
@@ -213,15 +213,14 @@ export function accountInitials(value: string): string {
     .topbar__brand { display: flex; width: 5.8rem; min-height: 2.75rem; align-items: center; justify-content: center; flex: none; border-radius: 10px; }
     .topbar__brand--light-backplate { border: 1px solid #fff; padding: .18rem .35rem; background: #fff; box-shadow: 0 2px 8px rgb(0 0 0 / 12%); }
     .topbar__mesp-logo { display: block; width: 5.1rem; }
-    .topbar__tenant-logo { display: block; width: auto; max-width: 5.1rem; max-height: 2.45rem; object-fit: contain; }
     .breadcrumbs { display: flex; min-width: 0; overflow: hidden; align-items: center; gap: .5rem; color: var(--ink-muted); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
     .breadcrumbs [aria-current='page'] { overflow: hidden; text-overflow: ellipsis; }
     .breadcrumbs .icon { width: 14px; height: 14px; }
     .breadcrumbs a { color: var(--ink-muted); text-decoration: none; }
     .breadcrumbs a:hover, .breadcrumbs [aria-current='page'] { color: var(--accent); }
-    .topbar__actions { flex: none; justify-content: flex-end; gap: .4rem; white-space: nowrap; }
+    .topbar__actions { flex: none; justify-content: flex-end; white-space: nowrap; }
     .header-menu-control { position: relative; flex: none; }
-    .header-tool-group { display: flex; flex: none; align-items: center; gap: .35rem; border-inline: 1px solid var(--line); padding-inline: .45rem; }
+    .header-tool-group { display: flex; flex: none; align-items: center; border-inline: 1px solid var(--line); }
     .icon-button.mobile-toggle { display: none !important; }
     .context-chip { width: min(15rem, 24vw); min-width: 0; max-width: 15rem; text-align: start; }
     .context-chip__building { width: 18px; height: 18px; flex: none; }
@@ -235,7 +234,7 @@ export function accountInitials(value: string): string {
     .context-menu { width: min(18rem, calc(100vw - 24px)); }
     .theme-menu { width: 264px; }
     .account-menu { width: min(16rem, calc(100vw - 24px)); }
-    .account-trigger { width: auto; max-width: min(12rem, 30vw); padding-inline: .4rem; }
+    .account-trigger { width: auto; max-width: min(12rem, 30vw); }
     .account-trigger__avatar { display: grid; width: 1.75rem; aspect-ratio: 1; flex: none; place-items: center; border-radius: 50%; background: var(--accent-soft); }
     .account-trigger__name { min-width: 0; }
     .theme-swatch { width: 15px; height: 15px; flex: none; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; box-shadow: 0 2px 6px rgb(0 0 0 / 16%); }
@@ -256,7 +255,7 @@ export function accountInitials(value: string): string {
       .shell { display: block; }
       .topbar { min-height: var(--header-height); align-items: stretch; flex-direction: column; justify-content: center; gap: .25rem; padding-block: .45rem; }
       .topbar__start { min-height: 42px; justify-content: space-between; }
-      .topbar__actions { min-height: 40px; justify-content: flex-end; gap: .35rem; }
+      .topbar__actions { min-height: 40px; justify-content: flex-end; }
       .topbar__brand { width: 4.8rem; }
       .topbar__mesp-logo { width: 4.3rem; }
       .account-trigger__name { display: none; }
@@ -279,8 +278,6 @@ export function accountInitials(value: string): string {
       .header-menu { max-width: calc(100vw - 24px); }
     }
     @media (max-width: 420px) {
-      .topbar__actions { gap: .25rem; }
-      .header-tool-group { gap: .2rem; padding-inline: .25rem; }
       .context-chip { width: 9rem; max-width: 9rem; }
       .theme-menu { width: min(264px, calc(100vw - 24px)); }
       .breadcrumbs { gap: .3rem; font-size: .74rem; }

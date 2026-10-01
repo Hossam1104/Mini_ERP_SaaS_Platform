@@ -1,3 +1,43 @@
+.topbar .topbar__actions {
+  column-gap: .7rem;
+  row-gap: .55rem;
+}
+
+.topbar .header-tool-group {
+  column-gap: .5rem;
+  padding-inline: .6rem;
+}
+
+.topbar .topbar__brand--tenant {
+  width: clamp(6.5rem, 9vw, 8rem);
+  height: 2.75rem;
+  max-width: 8rem;
+  min-height: 0;
+}
+
+@media (max-width: 760px) {
+  .topbar .topbar__actions {
+    column-gap: .6rem;
+    row-gap: .5rem;
+  }
+
+  .topbar .topbar__brand--tenant {
+    width: 7rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .topbar .topbar__actions {
+    column-gap: .5rem;
+    row-gap: .5rem;
+  }
+
+  .topbar .header-tool-group {
+    column-gap: .4rem;
+    padding-inline: .5rem;
+  }
+}
+
 .app-rail {
   --primary: var(--accent);
 }
