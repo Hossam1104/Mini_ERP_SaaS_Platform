@@ -1,5 +1,18 @@
 ﻿# Results
 
+## 2026-10-01 — MESP-196 (#348) execution read scope denial — GPT-6 / max — MESP-196 (#348)
+- Status: DONE. Draft PR creation is the final authorized delivery action; no Ready, review request, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: fix/mesp-196-execution-read-scope-denial; created at 5e3457a7b5766ccb464833880ab80efe9ddd76a8, fast-forwarded to f828f54aeef8df2c9d3844283e487db7d95430f0 after main advanced; code commit ec5ea1389a566fca1b98785e47a23cef60800a81; RESULT hand-back commit follows.
+- What changed: Root cause was MigrationExecutionService.ReadAsync collapsing an out-of-scope source, a missing run, and an absent execution attempt into null, which the endpoint always mapped to 404. ExecuteExecutionReadAsync now checks resource authorization before reading and checks tenant visibility only after authorization denial: same-Tenant out-of-scope resources return 403 migration_source_scope_denied, while foreign-Tenant or missing resources still return 404. The authority matrix now covers the sibling 403 path and preserves foreign-Tenant and in-scope missing-attempt 404 cases. OpenAPI declares 403 and the Foundation contract asserts it. Updated the M40-REQ-028 audit evidence; Status remains Partial because successful in-scope execution-result coverage is still open.
+- Gates:
+  - .\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false: Release build 0 warnings / 0 errors; 1,623 passed, 0 failed, 0 skipped; duration 2m34s; exit 0. Disposable database MiniErpFoundation_20261001113848_20b3db65; output reported MESP data is intact.
+  - git diff --check: clean, exit 0.
+- Evidence: MigrationAuthorityMatrixTests.Resource_scoped_operations_deny_company_scope_without_changing_run_state verifies same-Tenant 403 and in-scope missing-attempt 404; MigrationAuthorityMatrixTests.Migration_operations_hide_foreign_tenant_sources_and_runs retains foreign-Tenant 404; RestFoundationTests.Generated_openapi_documents_every_public_operation_and_tax_contract asserts the execution-read 403 response. docs/audit/mesp-141-m40-traceability.md records the updated M40-REQ-028 evidence.
+- Deviations from the prompt: origin/main advanced during validation, so the worktree was fast-forwarded to f828f54 after PR #343 merged; no overlapping changes were present. An earlier gate invocation lost its shell session when the prior turn ended and yielded no result; the complete gate was rerun on the final code after #343 merged, and that run passed. No frontend or API server was started and no restricted port was touched.
+- Failures and classification: No final gate failures. The earlier interrupted gate invocation produced no counts and is not treated as validation evidence.
+- Status files updated: RESULT.md; M40-REQ-028 audit evidence updated in docs/audit/mesp-141-m40-traceability.md; TASK.md was not changed.
+- Exact next action: Push the branch and open the authorized Draft PR to main; then stop with the PR Draft/Open/Unmerged for Opus 5.5 review.
+
 ## 2026-10-01 — MESP-166 (#285) scope denial during unconfirmed execution — GPT-6 / max — MESP-166 (#285)
 - Status: DONE
 - Branch / starting SHA / ending SHA: `fix/mesp-166-claim-race-flake`; started `716e541db3fd00e5af038ffbf9250d6e9918e98a`; code commit `30a347394eecdfaea935525f144e3095266e90a2`; RESULT hand-back commit follows.
