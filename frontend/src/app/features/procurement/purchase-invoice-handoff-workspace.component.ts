@@ -139,7 +139,7 @@ interface CreateHandoffLineDraft {
                     <app-currency-amount [amount]="calculateLineTotal(line)" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" />
                   }
                 </ng-template>
-                <app-data-grid [rows]="createLines" [columns]="createLineColumns(createAmount)" [rowActionsTemplate]="createLineActions" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="pihText('invoiceHandoffLineEntryTitle')" [countLabel]="pihText('invoiceHandoffLines')" [rowActionsLabel]="pihText('handoffQty')">
+                <app-data-grid [rows]="createLines" [columns]="createLineColumns(createAmount)" [rowActionsTemplate]="createLineActions" rowKey="goodsReceiptLineId" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="pihText('invoiceHandoffLineEntryTitle')" [countLabel]="pihText('invoiceHandoffLines')" [rowActionsLabel]="pihText('handoffQty')">
                   <ng-template #createLineActions let-line>
                     <label class="handoff-quantity-editor"><span>{{ pihText('handoffQty') }} *</span><input class="table-input numeric" type="number" min="0" [max]="line.remainingHandoffQuantity" step="0.000001" [(ngModel)]="line.handoffQuantity" (ngModelChange)="onLineQuantityChange()" [ngModelOptions]="{standalone: true}" [attr.aria-label]="pihText('handoffQty')" /></label>
                   </ng-template>
