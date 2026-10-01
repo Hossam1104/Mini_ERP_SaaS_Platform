@@ -1,5 +1,19 @@
 ﻿# Results
 
+## 2026-10-01 — MESP-166 (#285) scope denial during unconfirmed execution — GPT-6 / max — MESP-166 (#285)
+- Status: DONE
+- Branch / starting SHA / ending SHA: `fix/mesp-166-claim-race-flake`; started `716e541db3fd00e5af038ffbf9250d6e9918e98a`; code commit `30a347394eecdfaea935525f144e3095266e90a2`; RESULT hand-back commit follows.
+- What changed: Root cause was `MigrationExecutionService.ExecuteCoreAsync` inspecting unconfirmed evidence and competing attempt state before checking the caller's current Company/Branch scope, allowing an out-of-scope same-Tenant caller to distinguish claim states. Moved the source-scope check ahead of those responses. Extended the deterministic blocked-audit regression to verify an out-of-scope caller receives `migration_source_scope_denied` while the execution attempt remains unconfirmed. `MigrationPersistence.StartAttemptAsync` has no intake source or organization-scope resolver, so that persistence path cannot perform this check and was left unchanged.
+- Gates:
+  - Targeted Migration tests: `dotnet test .\backend\tests\MiniErp.ArchitectureTests\MiniErp.ArchitectureTests.csproj --configuration Release --no-restore --filter 'FullyQualifiedName~Migration|FullyQualifiedName~MESP166_sql_server_unconfirmed_execution_preserves_scope_and_claim_denials' --logger 'console;verbosity=minimal'` with a fresh disposable LocalDB safety connection: 381 passed, 0 failed, 0 skipped; duration 4m12s; exit 0.
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build 0 warnings / 0 errors; 1,620 passed, 0 failed, 0 skipped; disposable database `MiniErpFoundation_20261001074359_3cdce8f6`; duration 9m7s; exit 0; `MESP data is intact`.
+  - `git diff --check`: clean, exit 0.
+- Evidence: Commit `30a347394eecdfaea935525f144e3095266e90a2`; PR #343 thread `PRRT_kwDOTplnks6nzP0i` replied to at https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/343#discussion_r4151972743 and resolved via GraphQL (`isResolved: true`).
+- Deviations from the prompt: No source-scope check was added in `MigrationPersistence.StartAttemptAsync` because the required source intake and resolver are unavailable there. PR #343 was already OPEN and not Draft before this correction; no Ready-state or merge action was taken.
+- Failures and classification: Authorization-scope disclosure defect; fixed at the application boundary. No requested gate failed.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews the MESP-166 (#285) correction on PR #343; this executor does not change readiness or merge state.
+
 ## 2026-10-01 — MESP-166 (#285) execution claim race fix — GPT-6 / max — MESP-166 (#285)
 - Status: STOPPED
 - Branch / starting SHA / ending SHA: fix/mesp-166-claim-race-flake; started 7a80884db223d48816b5fc245e56185da8e67a89; fast-forwarded to origin/main c543a9e6ca4894050f0d67135e39dfce3e208dcb; code commit b68464cd186462ea8f2a81fbec2c5608139ad11e; RESULT hand-back commit follows.
