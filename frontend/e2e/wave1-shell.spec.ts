@@ -91,7 +91,7 @@ test.describe('Tenant-aware shell', () => {
       selectedOperationalContextId: 'company-a',
     } }));
 
-    await page.goto('http://wafra.localhost:4370/app/workspaces');
+    await page.goto('/app/workspaces');
 
     const summary = page.locator('.context-summary');
     await expect(summary).toContainText('Alpha Tenant');
@@ -125,7 +125,7 @@ test.describe('Tenant-aware shell', () => {
       { contextId: 'context-b', kind: 'OrdinaryMembership', tenantId: 'tenant-b', displayName: 'Beta Tenant', eligibilityVersion: 1 },
     ] } }));
 
-    await page.goto('http://mesp.localhost:4370/app/workspaces');
+    await page.goto('/app/workspaces');
 
     await expect(page.locator('#workspace-select')).toBeVisible();
     await expect(page.locator('#workspace-select option:not([disabled])')).toHaveText([
@@ -142,7 +142,7 @@ test.describe('Tenant-aware shell', () => {
       canonicalHost: 'mesp.localhost',
     } }));
 
-    await page.goto('http://mesp.localhost:4370/app/workspaces');
+    await page.goto('/app/workspaces');
 
     await expect(page.locator('.context-summary')).toContainText('Alpha Tenant');
     await expect(page.locator('#workspace-select')).toHaveCount(0);
