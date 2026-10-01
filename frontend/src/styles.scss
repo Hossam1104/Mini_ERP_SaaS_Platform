@@ -169,8 +169,8 @@ body app-root input[type='checkbox'][role='switch']:focus-visible, body app-root
 body app-root label:has(> input[type='checkbox']), body app-root label:has(> input[type='radio']) { display: inline-flex; align-items: center; gap: 8px; }
 body app-root p:not(.eyebrow):not(.section-kicker):not(.nav-group__title) { font-size: max(14px, 1em) !important; }
 body app-root :is(.field__label, .ui-field__label, .filter-field, .grid-filter-popover label) { font-size: max(14px, 1em) !important; }
-body app-root :is(.ui-grid, .data-grid-table, .return-table) { font-size: 14px !important; }
-body app-root :is(.ui-grid, .data-grid-table, .return-table) :is(th, td, small) { font-size: max(14px, 1em) !important; }
+body app-root :is(.data-grid-table, .return-table) { font-size: 14px !important; }
+body app-root :is(.data-grid-table, .return-table) :is(th, td, small) { font-size: max(14px, 1em) !important; }
 
 .ui-page { display: grid; gap: 1.25rem; min-width: 0; animation: page-enter 360ms ease both; }
 .ui-page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line)); border-radius: var(--radius-lg); padding: clamp(1.25rem, 3vw, 2rem); background: linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 70%, var(--surface-glass)), var(--surface-glass) 62%), var(--surface-raised); box-shadow: var(--shadow-glass); backdrop-filter: blur(14px) saturate(150%); }
@@ -182,12 +182,6 @@ body app-root :is(.ui-grid, .data-grid-table, .return-table) :is(th, td, small) 
 .ui-surface:hover, .card:hover { border-color: color-mix(in srgb, var(--accent) 32%, var(--line)); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); transform: translateY(-3px); }
 .ui-surface--glass { background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 88%, transparent), color-mix(in srgb, var(--surface-raised) 84%, transparent)); }
 .ui-toolbar { border-block: 1px solid var(--line); background: color-mix(in srgb, var(--surface-tint) 70%, transparent); }
-.ui-grid-shell { max-height: min(66vh, 640px); min-width: 0; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-raised); }
-.ui-grid { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
-.ui-grid th, .ui-grid td { border-block-end: 1px solid var(--line); padding: 0.8rem 0.75rem; text-align: start; vertical-align: middle; }
-.ui-grid th { position: sticky; inset-block-start: 0; z-index: 2; color: var(--ink-muted); background: var(--grid-header); font-size: 14px; font-weight: 700; }
-.ui-grid tbody tr:last-child td { border-block-end: 0; }
-.ui-grid tbody tr:hover { background: color-mix(in srgb, var(--accent-soft) 58%, var(--surface-raised)); }
 .ui-status-chip { display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid var(--line); border-radius: 99px; padding: 0.3rem 0.65rem; color: var(--ink-muted); background: var(--surface-raised); font-size: 14px; font-weight: 700; white-space: nowrap; }
 .ui-status-chip--accent { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); background: var(--accent-soft); }
 .ui-technical-reference { border-inline-start: 3px solid var(--accent); padding-inline-start: 0.8rem; color: var(--ink-muted); }
