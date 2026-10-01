@@ -77,7 +77,7 @@ test.describe('Tenant-aware shell', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
 
     await page.goto('/app/workspaces');
-    await expect(page.locator('.context-summary')).toContainText('Alpha Tenant');
+    await expect(page.locator('.context-summary')).toContainText('وفرة');
     await expect(page.locator('#workspace-select')).toHaveCount(0);
     await expect(page.getByText('No Tenant context selected')).toHaveCount(0);
   });
@@ -164,14 +164,16 @@ test.describe('Tenant-aware shell', () => {
     await page.screenshot({
       path: resolve(process.cwd(), '../.playwright-mcp/mesp-202/arabic-overview-account.png'),
       fullPage: false,
+      animations: 'disabled',
     });
 
     await page.goto('/app/workspaces');
-    await expect(page.locator('#context-switcher-title')).toHaveText('وفرة');
-    await expect(page.locator('#workspace-select option[value="context-a"]')).toContainText('وفرة');
+    await expect(page.locator('.context-summary__value').first()).toHaveText('وفرة');
+    await expect(page.locator('.context-summary__value').nth(1)).toContainText('Alpha Company');
     await page.screenshot({
       path: resolve(process.cwd(), '../.playwright-mcp/mesp-202/arabic-workspaces.png'),
       fullPage: false,
+      animations: 'disabled',
     });
   });
 
