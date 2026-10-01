@@ -415,7 +415,8 @@ test.describe('MESP-153 Slice A UI', () => {
     const totalHeader = page.locator('app-data-grid thead th.numeric');
     await expect(totalHeader).toHaveCSS('text-align', 'end');
     await expect(totalHeader.locator('.grid-heading')).toHaveCSS('justify-content', 'flex-end');
-    await expect(page.locator('.filter-field select')).toHaveCSS('appearance', 'none');
+    const expectedSelectAppearance = await page.evaluate(() => CSS.supports('appearance', 'base-select') ? 'base-select' : 'none');
+    await expect(page.locator('.filter-field select')).toHaveCSS('appearance', expectedSelectAppearance);
     await expect(page.locator('.filter-select__chevron')).toBeVisible();
 
     await page.locator('.language-button').click();
@@ -430,7 +431,11 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('.filter-search input')).toHaveCount(1);
     await expect(page.locator('.filter-search input')).toHaveAttribute('aria-label', 'Search supplier or quotation reference');
     await expect(page.locator('.filter-search input')).toHaveCSS('height', '44px');
-    await expect(page.locator('.filter-search input')).toHaveCSS('border-top-width', '1px');
+    const searchWrapper = page.locator('label.filter-search').first();
+    await expect(searchWrapper).toHaveCSS('height', '44px');
+    await expect(searchWrapper).toHaveCSS('box-shadow', /inset/);
+    await expect(page.locator('.filter-search input')).toHaveCSS('border-top-width', '0px');
+    await expect(page.locator('.filter-search input')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await expect(grid.locator('.pager-summary')).toHaveText('1–7 / 8');
     await expect(grid.locator('.data-grid-pager')).toBeVisible();
     await expect(grid.locator('.data-grid-badge--issued').first()).toHaveText('Issued');
@@ -504,5 +509,92 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect.poll(() => dialog.evaluate((element) => getComputedStyle(element, '::before').backgroundImage)).toContain('linear-gradient');
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
+  });
+
+  test('keeps search fields single-box and single-line controls at 44px on Master Data and Procurement', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.route('**/api/v1/master-data/**', (route) => route.fulfill({ json: [] }));
+
+    await page.goto('/app/master-data/categories');
+    const masterSearch = page.locator('label.search-field');
+    const masterInput = masterSearch.locator('input[type="search"]');
+    await expect(masterInput).toBeVisible();
+    const masterSearchStyle = await masterSearch.evaluate((element) => ({
+      height: getComputedStyle(element).height,
+      border: getComputedStyle(element).borderTopWidth,
+      shadow: getComputedStyle(element).boxShadow,
+      inputHeight: getComputedStyle(element.querySelector('input')!).height,
+      inputBorder: getComputedStyle(element.querySelector('input')!).borderTopWidth,
+      inputBackground: getComputedStyle(element.querySelector('input')!).backgroundColor,
+      inputOutline: getComputedStyle(element.querySelector('input')!).outlineStyle,
+    }));
+    expect(masterSearchStyle.height).toBe('44px');
+    expect(masterSearchStyle.border).toBe('0px');
+    expect(masterSearchStyle.inputHeight).toBe('44px');
+    expect(masterSearchStyle.shadow).toContain('inset');
+    expect(masterSearchStyle.inputBorder).toBe('0px');
+    expect(masterSearchStyle.inputBackground).toBe('rgba(0, 0, 0, 0)');
+    expect(masterSearchStyle.inputOutline).toBe('none');
+    await masterInput.focus();
+    await expect.poll(() => masterSearch.evaluate((element) => getComputedStyle(element).outlineWidth)).toBe('3px');
+
+    await page.goto('/app/procurement/purchase-requests');
+    await page.route('**/api/v1/procurement/purchase-requests*', (route) => route.fulfill({ json: [{
+      id: 'pr-185-overflow', companyId: 'company-185', branchId: null, requesterId: 'actor-ui', status: 'Draft',
+      purpose: 'Office restocking smoke test - updated', lineCount: 1, createdAt: '2026-08-17T08:00:00Z',
+      updatedAt: '2026-08-17T08:00:00Z', version: 'PR-V1',
+    }] }));
+    await page.route('**/api/v1/procurement/organization-scopes', (route) => route.fulfill({ json: [{
+      companyId: 'company-185', branchId: null, companyDisplayName: 'Development Organization', branchDisplayName: null,
+      displayName: 'Development Organization',
+    }] }));
+    await page.reload();
+    const procurementSearch = page.locator('label.search-field');
+    const procurementInput = procurementSearch.locator('input[type="search"]');
+    await expect(procurementInput).toBeVisible();
+    const listHeights = await page.locator('input:not([type="checkbox"]):not([type="hidden"]), select').evaluateAll((elements) =>
+      [...new Set(elements.filter((element) => (element as HTMLElement).offsetParent !== null).map((element) => Math.round(element.getBoundingClientRect().height)))],
+    );
+    expect(listHeights).toEqual([44]);
+    expect(await procurementInput.evaluate((element) => getComputedStyle(element).height)).toBe('44px');
+    const purposeCell = page.getByRole('row', { name: /Office restocking smoke test - updated/ }).locator('td').nth(2);
+    await expect(purposeCell).toContainText('Office restocking smoke test - updated');
+    const purposeCellFits = await purposeCell.evaluate((element) => ({
+      overflowWrap: getComputedStyle(element).overflowWrap,
+      whiteSpace: getComputedStyle(element).whiteSpace,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(purposeCellFits.overflowWrap).toBe('anywhere');
+    expect(purposeCellFits.whiteSpace).toBe('normal');
+    expect(purposeCellFits.scrollWidth).toBeLessThanOrEqual(purposeCellFits.clientWidth);
+    const numericAlignment = await page.locator('app-data-grid').evaluate((grid) => ({
+      header: getComputedStyle(grid.querySelector('th.numeric .grid-sort')!).textAlign,
+      cell: getComputedStyle(grid.querySelector('td.numeric')!).textAlign,
+    }));
+    expect(numericAlignment.header).toBe(numericAlignment.cell);
+    for (const width of [1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const minDataColumnWidth = await page.locator('app-data-grid colgroup col:not(.selection-column):not(.action-column)').evaluateAll((columns) =>
+        Math.min(...columns.map((column) => (column as HTMLElement).getBoundingClientRect().width)),
+      );
+      expect(minDataColumnWidth).toBeGreaterThanOrEqual(144);
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const headerLabels = await page.locator('app-data-grid .grid-sort-label').evaluateAll((labels) => labels.map((element) => ({
+      text: element.textContent?.trim() ?? '',
+      title: element.getAttribute('title'),
+      clipped: (element as HTMLElement).scrollWidth > (element as HTMLElement).clientWidth + 1,
+    })));
+    expect(headerLabels.length).toBeGreaterThan(0);
+    expect(headerLabels.filter((label) => label.clipped)).toEqual([]);
+    expect(headerLabels.every((label) => label.title === label.text)).toBe(true);
+
+    await page.goto('/app/procurement/purchase-requests/new');
+    await expect(page.locator('input[type="date"]').first()).toBeVisible();
+    const formHeights = await page.locator('input:not([type="checkbox"]):not([type="hidden"]), select').evaluateAll((elements) =>
+      [...new Set(elements.filter((element) => (element as HTMLElement).offsetParent !== null).map((element) => Math.round(element.getBoundingClientRect().height)))],
+    );
+    expect(formHeights).toEqual([44]);
   });
 });

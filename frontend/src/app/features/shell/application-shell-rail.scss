@@ -33,49 +33,12 @@
 }
 
 .app-rail .rail-tiles {
-  display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
 }
 
 .app-rail .rail-tile {
   position: relative;
-  display: grid;
-  width: 44px;
-  height: 44px;
   flex: none;
-  place-items: center;
-  border: 0;
-  border-radius: 12px;
-  padding: 0;
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
-  box-shadow: 0 4px 12px rgb(15 23 42 / .08);
-  cursor: pointer;
-  transition: transform .18s ease-out, box-shadow .18s, background .18s;
-}
-
-.app-rail .rail-tile .icon {
-  width: 20px;
-  height: 20px;
-}
-
-.app-rail .rail-tile:hover,
-.app-rail .rail-tile:focus-visible {
-  transform: translateY(-2px) scale(1.04);
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--primary) 22%, transparent);
-}
-
-.app-rail .rail-tile:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 3px;
-}
-
-.app-rail .rail-tile.is-active {
-  color: var(--action-text);
-  background: var(--accent-action);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent-action) 35%, transparent);
 }
 
 .app-rail .rail-tile.is-active::before {
@@ -302,9 +265,6 @@ html[dir='rtl'] .app-flyout.nav-flyout.is-open {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-rail .rail-tile {
-    transition: none;
-  }
 
   .app-rail .rail-tile:hover,
   .app-rail .rail-tile:focus-visible,
