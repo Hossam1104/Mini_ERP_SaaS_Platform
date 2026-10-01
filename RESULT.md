@@ -1,5 +1,21 @@
 ﻿# Results
 
+## 2026-10-01 — MESP-185 (#326) tab navigation accessibility correction — GPT-6 / effort not surfaced — MESP-185 (#326)
+- Status: DONE. No PR state, review-thread, approval, or merge action was taken.
+- Branch / starting SHA / ending SHA: `feat/mesp-185-ui-consistency-primitives`; started `5eed1c4b449a751b4d83ee41d32717175b825bf9`; code commit `d46de6a`; RESULT hand-back commit follows.
+- What changed: Root cause was the shared `TabsComponent` rendering router links as `role="tab"` with roving tabindex and using `scrollIntoView({ block: 'nearest' })`, which could move ancestor scroll containers vertically. Router-backed entries now render as a labelled `nav` of normal-order links, with `aria-current="page"` on the active route. Real in-page tabs retain the tablist keyboard pattern and are associated with their active tabpanel. Active control reveal adjusts only the tab list's `scrollLeft`, including RTL direction. Updated finance, inventory valuation, sales, price-list, Goods Receipt, and Purchase Invoice Handoff panel relationships; updated the Master Data test for navigation semantics. No API, contract, data, permission, finance-boundary, asset, or e2e assertion changes. No e2e selectors queried router-backed tabs, so no e2e selector edits were needed.
+- Gates:
+  - `npm test -- --watch=false --no-progress`: exit 0; style guard 0 violations; 51 files, 351 passed, 0 failed, 0 skipped.
+  - `npm run build`: exit 0; initial total 499.76 kB (480.28 kB JS + 19.48 kB CSS), under 500 kB.
+  - `dotnet build .\backend\src\MiniErp.Api\MiniErp.Api.csproj --configuration Release --no-restore`: exit 0; 0 warnings, 0 errors; used to refresh the Release API before e2e.
+  - `$env:MESP_E2E_BASE_URL = 'http://localhost:4380'; npm run test:e2e -- --project=chromium --workers=1`: exit 0; 66 passed, 0 failed. Fresh Angular server ran on 4380 and Release API on 5380. Both were stopped; both ports are clear.
+  - `git diff --check`: clean, exit 0 after this entry was added.
+- Evidence: Unit coverage verifies no `scrollIntoView` call or document/body vertical-scroll change, horizontal-only reveal in LTR and RTL, router entries without `role="tab"`, normal link tab order, active `aria-current="page"`, and matching in-page tabpanel associations. PR #349 remained OPEN; no GitHub lifecycle or review-thread operation was performed.
+- Deviations from the prompt: None.
+- Failures and classification: The first unit run exposed TS2349 because a template reference shadowed `valuationTabs()`; renamed the template reference and reran the full unit suite successfully. Classification: implementation error, corrected before delivery. No final gate failures.
+- Status files updated: `RESULT.md` only; `TASK.md` untouched.
+- Exact next action: Opus 5.5 replies to and resolves the two PR #349 review threads and handles the merge; this executor stops.
+
 ## 2026-10-01 — MESP-185 (#326) PR #349 shared header controls — GPT-6 / effort not surfaced — MESP-185 (#326)
 - Status: DONE. PR #349 remains OPEN/Draft; no Ready, review, approval, merge, or issue-state change.
 - Branch / starting SHA / ending SHA: `feat/mesp-185-ui-consistency-primitives`; started `a9dbf49d4baaeddd85e9b6bf6157af65710582d5`; code commit `e0fd9298f7eddf1647f4f8cdce095fffe11b474b`; RESULT hand-back commit follows.
