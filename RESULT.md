@@ -1,5 +1,21 @@
 # Results
 
+## 2026-10-01 — MESP-178 (#309) PR #313 review correction — GPT-6 / Bug Fixer — MESP-178 (#309)
+- Status: DONE. PR #313 is OPEN and unmerged; `isDraft=false` was already present when inspected and was not changed.
+- Branch / starting SHA / ending SHA: `feat/mesp-178-shell-rail-grids`; started `34f6848f361a1e62342d08522505c0f1b00e1e6a`; code commit `8fd334687c56a42712f4c71e7438f41e9d52c204`; RESULT hand-back commit follows.
+- What changed: Root cause for hidden-pager data loss was unconditional client slicing. `data-grid.component.ts:209,258` now renders all filtered rows when `showPager=false` and defaults to no inert View action. Added unit coverage at `data-grid.component.spec.ts:75,90`; added nine-line Goods Receipt and Invoice Handoff visibility, editability, and submitted-payload coverage at `goods-receipt-purchase-invoice-handoff.spec.ts:312`. Preserved the expanded rail header offset by changing only inline padding at `application-shell-rail.scss:22-24`, with visible/clickable Overview coverage at `ui-modernization.spec.ts:142`. Added `rowKey="key"` for Reporting at `reporting-workspace.component.ts:126`; the cross-grid audit added stable row keys/ID functions to Finance report, settlement, GL, tax/FX, and Import mapping grids that lack `id`.
+- Gates:
+  - `npm test -- --watch=false --no-progress`: 50 files passed, 341 tests passed, 0 failed.
+  - `npm run build`: passed with no warnings; initial bundle total 499.89 kB.
+  - `MESP_E2E_BASE_URL=http://localhost:4345 npm run test:e2e -- --project=chromium --workers=1`: 62 passed. Worktree Angular ran on 4345 and proxied to the worktree API on 5345.
+  - `git diff --check`: clean before the RESULT update; rerun for the hand-back commit.
+  - Runtime prerequisite `dotnet build backend/MiniErp.sln --configuration Release`: succeeded, 0 warnings/errors. `GET http://localhost:4345/api/v1/module-registration` returned HTTP 200. Worktree API/frontend processes were stopped after E2E.
+- Evidence: Threads PRRT_kwDOTplnks6nwIgg, PRRT_kwDOTplnks6nwIgi, PRRT_kwDOTplnks6nwIgn, and PRRT_kwDOTplnks6nwIgp each received a fix reply and were resolved through `resolveReviewThread`. No merge was performed.
+- Deviations from the prompt: Serena initialization hung; used targeted read-only `rg` navigation. Five additional in-scope row-identity diffs appeared after the initial status capture (Finance reports, settlement, tax/FX, general ledger, and Import mapping); reviewed, included, and reran the final unit/build/E2E gates on the complete source state. The API Release executable was absent, so the unchanged backend solution was built to run the requested preview.
+- Failures and classification: The first Chromium run had 61 passed and one failure in the new handoff test because the fixture edited quantities before entering the required invoice reference, leaving the form validation error set. Reordered the test setup to enter the reference first and asserted the submit button enables; the final Chromium run passed 62/62. Classified as an automation/test-data setup defect; no test assertion was weakened.
+- Status files updated: `RESULT.md` only; `TASK.md`, roadmap, and tracker state were not changed.
+- Exact next action: Opus 5.5 reviews MESP-178 (#309) on PR #313; owner approval before merge.
+
 ## 2026-10-01 — MESP-192 (#335) Angular audit remediation — GPT-6 / max — MESP-192 (#335)
 - Status: DONE; no Ready, review request, approval, merge, or issue-state change.
 - Branch / starting SHA / ending SHA: `fix/mesp-192-angular-audit`; started `79111ee99d4bb8bb770f97bb30607000d1f23967`; code commit `a9d0c6b6b5d3b5284a32af03b5f0eb87f3814a7a`; RESULT hand-back commit follows.
