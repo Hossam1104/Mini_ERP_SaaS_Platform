@@ -24,7 +24,7 @@ const authenticatedSession: FoundationSessionResponse = {
   selectedContextId: 'context-a',
   selectionVersion: 2,
   displayName: 'Amina Hassan',
-  login: 'amina@example.com',
+  login: 'admin@mesp.com',
 };
 
 const contextCandidate: FoundationContextCandidate = {
@@ -277,14 +277,14 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     expect(trigger.textContent).toContain('Amina Hassan');
     expect(menu.textContent).toContain('Signed in');
     expect(menu.textContent).toContain('Amina Hassan');
-    expect(menu.textContent).toContain('Login: amina@example.com');
+    expect(menu.textContent).toContain('Login: admin@mesp.com');
     expect(menu.textContent).toContain('Alpha Tenant');
     expect(menu.textContent).toContain('Alpha Branch');
     expect(menu.textContent!.indexOf('Amina Hassan')).toBeLessThan(menu.textContent!.indexOf('Alpha Tenant'));
-    expect(menu.textContent!.indexOf('Login: amina@example.com')).toBeLessThan(menu.textContent!.indexOf('Alpha Tenant'));
+    expect(menu.textContent!.indexOf('Login: admin@mesp.com')).toBeLessThan(menu.textContent!.indexOf('Alpha Tenant'));
     language.toggle();
     fixture.detectChanges();
-    expect(menu.textContent).toContain('اسم الدخول: amina@example.com');
+    expect(menu.textContent).toContain('اسم الدخول: admin@mesp.com');
     language.toggle();
     fixture.detectChanges();
     expect(document.activeElement).toBe(menu.querySelector('[role="menuitem"]'));
@@ -297,14 +297,17 @@ describe('ApplicationShellComponent sign-out behavior', () => {
 
   it('uses initials from the display name and falls back to login when the name is absent', () => {
     expect(accountInitials('Amina Hassan')).toBe('AH');
-    expect(accountInitials('amina@example.com')).toBe('AM');
+    expect(accountInitials('admin@mesp.com')).toBe('AD');
 
-    auth.acceptServerSession({ ...authenticatedSession, displayName: null, login: 'fallback@example.com' });
+    auth.acceptServerSession({ ...authenticatedSession, displayName: null, login: 'admin@mesp.com' });
     fixture.detectChanges();
     const trigger = (fixture.nativeElement as HTMLElement).querySelector('#account-trigger') as HTMLButtonElement;
-    expect(fixture.componentInstance.accountDisplayName()).toBe('fallback@example.com');
-    expect(trigger.querySelector('.account-trigger__avatar')?.textContent).toContain('FA');
-    expect(trigger.textContent).toContain('fallback@example.com');
+    expect(fixture.componentInstance.accountDisplayName()).toBe('admin@mesp.com');
+    expect(trigger.querySelector('.account-trigger__avatar')?.textContent).toContain('AD');
+    expect(trigger.textContent).toContain('admin@mesp.com');
+    trigger.click();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('#account-menu')?.textContent).toContain('Login: admin@mesp.com');
   });
 
   it('closes the Account menu on Escape and restores focus to its trigger', async () => {

@@ -64,7 +64,7 @@ async function installMocks(page: Page): Promise<void> {
     }
   });
   await page.route('**/api/v1/auth/development-bypass', (route) => route.fulfill({ json: { authenticated: false } }));
-  await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: { authenticated: true, actorId: 'actor-ui', sessionId: 'session-ui', lifecycleState: 'Active', absoluteExpiresAt: null, selectedPath: 'OrdinaryMembership', selectedTenantId: tenantId, selectedContextId: 'context-ui', selectionVersion: 1, displayName: 'Amina Hassan', login: 'amina@example.com' } }));
+  await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: { authenticated: true, actorId: 'actor-ui', sessionId: 'session-ui', lifecycleState: 'Active', absoluteExpiresAt: null, selectedPath: 'OrdinaryMembership', selectedTenantId: tenantId, selectedContextId: 'context-ui', selectionVersion: 1, displayName: 'Amina Hassan', login: 'admin@mesp.com' } }));
   await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [{ contextId: 'context-ui', kind: 'OrdinaryMembership', tenantId, displayName: 'Alpha Company', eligibilityVersion: 1 }] } }));
   await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: entryResponse() }));
   await page.route('**/api/v1/auth/antiforgery', (route) => route.fulfill({ headers: { 'X-CSRF-TOKEN': 'test-token' }, json: { status: 'issued' } }));
@@ -183,7 +183,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(accountTrigger.locator('.account-trigger__avatar')).toHaveText('AH');
     await expect(accountTrigger).toContainText('Amina Hassan');
     await expect(accountMenu).toContainText('Amina Hassan');
-    await expect(accountMenu).toContainText('Login: amina@example.com');
+    await expect(accountMenu).toContainText('Login: admin@mesp.com');
     await expect(accountMenu).toContainText('Alpha Tenant');
     await expect(accountMenu).toContainText('Alpha Branch');
     await expect(accountMenu.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();

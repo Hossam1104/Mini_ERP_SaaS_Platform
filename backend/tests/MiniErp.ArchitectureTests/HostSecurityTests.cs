@@ -240,13 +240,13 @@ public sealed class HostSecurityTests
         Assert.DoesNotContain(FoundationIdentityClaims.SessionToken, raw, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("cookieValue", raw, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("password", raw, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("OWNER@EXAMPLE.COM", body.GetProperty("login").GetString());
+        Assert.Equal("owner@example.com", body.GetProperty("login").GetString());
         Assert.Equal(JsonValueKind.Null, body.GetProperty("displayName").ValueKind);
 
         var session = await client.GetAsync("/api/v1/auth/session");
         Assert.Equal(HttpStatusCode.OK, session.StatusCode);
         var sessionBody = await ReadJsonAsync(session);
-        Assert.Equal("OWNER@EXAMPLE.COM", sessionBody.GetProperty("login").GetString());
+        Assert.Equal("owner@example.com", sessionBody.GetProperty("login").GetString());
         Assert.Equal(JsonValueKind.Null, sessionBody.GetProperty("displayName").ValueKind);
 
         var entry = await ReadJsonAsync(await client.GetAsync("/api/v1/auth/entry"));
@@ -256,8 +256,14 @@ public sealed class HostSecurityTests
         using var foreignClient = factory.CreateClient();
         Assert.Equal(HttpStatusCode.OK, (await SignInAsync(foreignClient, "foreign@example.com", factory.Password)).StatusCode);
         var foreignSession = await ReadJsonAsync(await foreignClient.GetAsync("/api/v1/auth/session"));
-        Assert.Equal("FOREIGN@EXAMPLE.COM", foreignSession.GetProperty("login").GetString());
+        Assert.Equal("foreign@example.com", foreignSession.GetProperty("login").GetString());
         Assert.NotEqual(sessionBody.GetProperty("login").GetString(), foreignSession.GetProperty("login").GetString());
+
+        factory.Identity.CreateUser("admin@mesp.com", factory.Password);
+        using var adminClient = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await SignInAsync(adminClient, "ADMIN@MESP.COM", factory.Password)).StatusCode);
+        var adminSession = await ReadJsonAsync(await adminClient.GetAsync("/api/v1/auth/session"));
+        Assert.Equal("admin@mesp.com", adminSession.GetProperty("login").GetString());
     }
 
     [Fact]

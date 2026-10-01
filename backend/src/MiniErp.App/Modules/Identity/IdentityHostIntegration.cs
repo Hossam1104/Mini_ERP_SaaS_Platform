@@ -939,7 +939,7 @@ internal sealed class FoundationIdentityHost : IFoundationIdentityHost
             }
 
             expiresAt = session.AbsoluteExpiresAt;
-            login = user.NormalizedEmail;
+            login = user.NormalizedEmail.ToLowerInvariant();
         }
 
         SelectedContext? selected;
