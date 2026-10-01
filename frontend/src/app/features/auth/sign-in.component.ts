@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, isDevMode, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { FoundationContextCandidate } from '../../core/api/foundation.models';
 import { AuthService } from '../../core/auth/auth.service';
 import { ContextService } from '../../core/context/context.service';
 import { DevelopmentApiIdentityService } from '../../core/dev/development-api-identity.service';
@@ -152,7 +153,7 @@ type SignInStep = 'credentials' | 'chooseTenant' | 'empty';
                 >
                   <option value="">{{ language.text('chooseTenant') }}</option>
                   @for (candidate of tenantContexts(); track candidate.contextId) {
-                    <option [value]="candidate.contextId">{{ candidate.displayName }}</option>
+                    <option [value]="candidate.contextId">{{ localizedDisplayName(candidate) }}</option>
                   }
                 </select>
                 <button class="button primary-button" type="submit" [disabled]="busy() || !selectedContextId()" [attr.aria-busy]="busy()">
@@ -274,6 +275,11 @@ export class SignInComponent implements OnInit {
   readonly selectionError = signal('');
   readonly devApiStatus = this.devApi.status;
   readonly tenantContexts = computed(() => this.context.contexts().filter((candidate) => candidate.kind === 'OrdinaryMembership'));
+
+  localizedDisplayName(candidate: FoundationContextCandidate): string {
+    const arabicName = candidate.arabicDisplayName?.trim();
+    return this.language.language() === 'ar' && arabicName ? arabicName : candidate.displayName;
+  }
   readonly form = this.formBuilder.nonNullable.group({
     login: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required]],

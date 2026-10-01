@@ -203,7 +203,7 @@ describe('SignInComponent', () => {
     await tick();
     http.expectOne('/api/v1/auth/contexts').flush({
       contexts: [
-        ordinaryTenantContext('context-a', 'tenant-a', 'Alpha ERP'),
+        { ...ordinaryTenantContext('context-a', 'tenant-a', 'Alpha ERP'), arabicDisplayName: 'ألفا' },
         ordinaryTenantContext('context-b', 'tenant-b', 'Beta ERP'),
       ],
     });
@@ -223,6 +223,12 @@ describe('SignInComponent', () => {
     select.focus();
     expect(document.activeElement).toBe(select);
     expect(fixture.nativeElement.querySelector('.tenant-form button[type="submit"]')).toBeTruthy();
+
+    component.language.toggle();
+    fixture.detectChanges();
+    expect(select.options[1].textContent).toBe('ألفا');
+    expect(select.options[2].textContent).toBe('Beta ERP');
+    component.language.toggle();
   });
 
   it('switches the selected Tenant through the existing antiforgery-protected context operation', async () => {
