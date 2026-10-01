@@ -43,11 +43,11 @@ export function accountInitials(value: string): string {
               }
             } @else {
               <div class="rail-tiles">
-                <button #railTrigger class="rail-tile" type="button" routerLink="/app" [class.is-active]="isOverviewCurrent()" [attr.aria-current]="isOverviewCurrent() ? 'page' : null" [attr.aria-label]="language.text('overview')" [title]="language.text('overview')" (keydown)="onRailKeydown($event)" (click)="closeModuleFlyout()">
+                <button #railTrigger class="button icon-button rail-tile" type="button" routerLink="/app" [class.is-active]="isOverviewCurrent()" [attr.aria-current]="isOverviewCurrent() ? 'page' : null" [attr.aria-label]="language.text('overview')" [title]="language.text('overview')" (keydown)="onRailKeydown($event)" (click)="closeModuleFlyout()">
                   <svg class="icon" aria-hidden="true"><use href="#icon-home" /></svg>
                 </button>
                 @for (group of navigationGroups; track group.id) {
-                  <button #railTrigger class="rail-tile" type="button" [class.is-active]="isNavigationGroupCurrent(group)" [attr.aria-label]="navigationLabel(group)" [title]="navigationLabel(group)" [attr.aria-expanded]="openNavGroup() === group.id" aria-controls="module-flyout" (mouseenter)="onModuleTileEnter(group.id, $event.currentTarget)" (mouseleave)="scheduleFlyoutClose()" (focus)="onModuleTileFocus(group.id, $event)" (click)="toggleModuleFlyout(group.id, $event.currentTarget, $event)" (keydown)="onRailKeydown($event, group.id)">
+                  <button #railTrigger class="button icon-button rail-tile" type="button" [class.is-active]="isNavigationGroupCurrent(group)" [attr.aria-label]="navigationLabel(group)" [title]="navigationLabel(group)" [attr.aria-expanded]="openNavGroup() === group.id" aria-controls="module-flyout" (mouseenter)="onModuleTileEnter(group.id, $event.currentTarget)" (mouseleave)="scheduleFlyoutClose()" (focus)="onModuleTileFocus(group.id, $event)" (click)="toggleModuleFlyout(group.id, $event.currentTarget, $event)" (keydown)="onRailKeydown($event, group.id)">
                     <svg class="icon" aria-hidden="true"><use [attr.href]="'#icon-' + group.icon" /></svg>
                   </button>
                 }

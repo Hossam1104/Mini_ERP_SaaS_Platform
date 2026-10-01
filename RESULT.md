@@ -1,5 +1,13 @@
 ﻿# Results
 
+## 2026-10-01 — MESP-200 (#356) restore navigation rail tile styling — Claude Opus 5.5 / medium — MESP-200 (#356)
+- Status: DONE. Opus merge-integration fix for a regression introduced by its own #349 merge resolution.
+- Branch: `fix/mesp-200-rail-tile-styling` from `origin/main` `0ab72c5`.
+- Root cause: MESP-185 (#349) moved rail tile styling onto the shared button primitives and removed the feature-level tile rules. The #349 merge kept main's bare `class="rail-tile"` markup, so the tiles rendered as unstyled browser buttons. `.rail-tiles` had also lost `display: flex`.
+- What changed: rail buttons use `button icon-button rail-tile`; `.rail-tiles` regains its flex column layout, centring and 12px gap; `shared/ui/primitives.scss` defines the owner-approved MESP-178 tinted tile (44px, 12px radius, tint, shadow, hover lift, focus ring). The active-tile rule and the reduced-motion overrides are unchanged. No allowlist changes.
+- Gates: `npm test -- --watch=false --no-progress`: style guard passed; 51 files, 353 passed. `npm run build`: exit 0, initial total 317.99 kB. Chromium e2e runs in hosted Frontend CI. `git diff --check`: clean.
+- Evidence: live preview on `wafra.localhost:4300` matched the MESP-178 rail.
+- Exact next action: merge after required checks pass.
 ## 2026-10-01 — MESP-194 (#340) lowercase session login correction — GPT-6 / effort not surfaced — MESP-194 (#340)
 - Status: DONE. PR #350 remains OPEN and Draft; no Ready or merge action was taken.
 - Branch / starting SHA / ending SHA: `feat/mesp-194-session-user-identity`; started from `11a4e6a11eabffda993f0a07b7cf588ab19d4d74`; merged `origin/main` at `f828f54aeef8df2c9d3844283e487db7d95430f0` via merge commit `f29c90c7bf3a29d491204fdae95d3976b3df6afc`; initial implementation commit `7f20f641a18cf184db380544a35d44071f362fa5`; correction commit `1ea80408b00119b01b9460e4a0215c4af63b5f1b`; RESULT hand-back commit follows.
