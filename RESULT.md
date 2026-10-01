@@ -1,5 +1,22 @@
 ﻿# Results
 
+## 2026-10-01 — MESP-194 (#340) lowercase session login correction — GPT-6 / effort not surfaced — MESP-194 (#340)
+- Status: DONE. PR #350 remains OPEN and Draft; no Ready or merge action was taken.
+- Branch / starting SHA / ending SHA: `feat/mesp-194-session-user-identity`; started from `11a4e6a11eabffda993f0a07b7cf588ab19d4d74`; merged `origin/main` at `f828f54aeef8df2c9d3844283e487db7d95430f0` via merge commit `f29c90c7bf3a29d491204fdae95d3976b3df6afc`; initial implementation commit `7f20f641a18cf184db380544a35d44071f362fa5`; correction commit `1ea80408b00119b01b9460e4a0215c4af63b5f1b`; RESULT hand-back commit follows.
+- What changed: `GET /api/v1/auth/session` returns the authenticated caller's `displayName` (nullable) and own `login`; catalogue/OpenAPI, backend contract/security tests, the typed frontend session, Account header/menu, bilingual labels, initials fallback, and MESP-190 E2E coverage are included. `GlobalUser` has no stored original-case email, so `BuildState` now returns its authenticated user's `NormalizedEmail.ToLowerInvariant()`. The backend and shell assertions cover `admin@mesp.com` and `AD` fallback initials. Preserved identity scoping and `/auth/entry` behavior. The merge brought in #343's MESP-166 claim-race fix.
+- Gates:
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build 0 warnings / 0 errors; 1,624 passed, 0 failed, 0 skipped, 1,624 total; exit 0, 2m49s.
+  - EF pending-model check: not applicable; no EF context or schema changed.
+  - `npm test -- --watch=false --no-progress`: 50 files passed, 348 tests passed; exit 0.
+  - `npm run build`: exit 0; initial bundle total 500.19 kB. This matches current `origin/main`; the owner confirmed this size is acceptable pending the MESP-185 re-land in #349.
+  - `dotnet build backend/src/MiniErp.Api/MiniErp.Api.csproj --configuration Release --no-restore`: succeeded, 0 warnings / 0 errors; exit 0.
+  - `$env:MESP_E2E_BASE_URL='http://localhost:4370'; npm run test:e2e -- --project=chromium --workers=1`: 65 passed, 0 failed; exit 0, 1.5m. Used this worktree's API on 5370 behind Angular on 4370; both servers were stopped and both ports are clear.
+  - `git diff --check`: clean; exit 0 after this RESULT entry.
+- Evidence: Refreshed light screenshot `.playwright-mcp/mesp-194/header-light.png` and dark screenshot `.playwright-mcp/mesp-194/header-dark.png`; both show `Login: admin@mesp.com`.
+- Deviations from the prompt: No original-case address exists in the identity record, so lowercase normalization is used without a schema change. The #343 merge auto-merged `RESULT.md`; all entries were retained and this newest MESP-194 entry is first.
+- Failures and classification: No failures in the final gates. The earlier MESP141 race is fixed on merged `origin/main` by #343. The build reports the same 500.19 kB as `origin/main`, accepted under the owner's #349 clarification.
+- Status files updated: `RESULT.md` only; `TASK.md` was not edited.
+- Exact next action: Push the correction and RESULT commits to update Draft PR #350, then stop for Opus 5.5 review; leave it Draft/Open/Unmerged.
 ## 2026-10-01 — MESP-185 (#326) tab navigation accessibility correction — GPT-6 / effort not surfaced — MESP-185 (#326)
 - Status: DONE. No PR state, review-thread, approval, or merge action was taken.
 - Branch / starting SHA / ending SHA: `feat/mesp-185-ui-consistency-primitives`; started `5eed1c4b449a751b4d83ee41d32717175b825bf9`; code commit `d46de6a`; RESULT hand-back commit follows.

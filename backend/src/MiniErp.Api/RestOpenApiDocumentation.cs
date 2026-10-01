@@ -155,6 +155,7 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         "platform.health" => "Check platform availability",
         "platform.openapi" => "Read the generated API contract",
         "platform.module-registration" => "Read registered module boundaries",
+        "auth.session.read" => "Read the authenticated user's session and identity",
         "auth.entry.read" => "Resolve the current host's entry mode and public branding",
         "auth.development-bypass" => "Establish the configured Development QA session",
         "master-data.tax.list" => "List Tenant-owned Tax rules",
@@ -327,6 +328,11 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
             + $"Effective-date contract: {descriptor.EffectiveDate}. "
             + "Tenant and actor authority are derived by the server; request fields cannot select a foreign Tenant or broaden scope. ";
 
+        if (descriptor.BoundaryDescription is { } boundaryDescription)
+        {
+            return $"{contextRules}{boundaryDescription}";
+        }
+
         var migrationBoundary = descriptor.OperationId switch
         {
             "migration.validation.corrected-retry" => "A corrected retry revalidates only supplied rejected or quarantined source rows. It preserves the staged source package, accepted source identities, and prior findings; it creates no execution attempt or owner effect.",
@@ -480,6 +486,7 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
 
     private static string SuccessResponseFor(string operationId) => operationId switch
     {
+        "auth.session.read" => "The authenticated caller's server-validated session, nullable display name, and own login identifier.",
         "auth.entry.read" => "The host entry mode, public branding, and (only for an authenticated caller) authorized context candidates.",
         "auth.development-bypass" => "An authenticated session for the server-configured Development actor with server-derived context candidates.",
         "master-data.tax.calculate" => "A deterministic Tax amount and immutable reference snapshot for the explicit inputs.",

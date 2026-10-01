@@ -18,6 +18,8 @@ const authenticatedSession: FoundationSessionResponse = {
   selectedTenantId: 'tenant-a',
   selectedContextId: 'context-a',
   selectionVersion: 2,
+  displayName: 'Amina Hassan',
+  login: 'amina@example.com',
 };
 
 async function flushSignOutRequest(): Promise<void> {
