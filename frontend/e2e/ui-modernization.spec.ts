@@ -87,8 +87,8 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'sapphire');
-    await expect(page.locator('.module-card').first().locator('.module-card__tag')).toHaveText('Master data');
-    await expect(page.locator('.module-card').first().locator('strong')).toHaveText('Master Data');
+    await expect(page.locator('.module-card').first().locator('.module-card__code')).toHaveText('MD');
+    await expect(page.locator('.module-card').first().locator('.module-card__title')).toHaveText('Master Data');
 
     const sidebar = page.locator('#app-sidebar');
     const overviewTile = sidebar.getByRole('button', { name: 'Overview' });
@@ -104,7 +104,7 @@ test.describe('MESP-153 Slice A UI', () => {
     const overviewSearch = page.getByRole('searchbox', { name: 'Search modules and destinations' });
     await overviewSearch.fill('Purchase Orders');
     await expect(page.locator('.module-card')).toHaveCount(1);
-    await expect(page.locator('.module-card strong')).toHaveText('Purchase Orders');
+    await expect(page.locator('.module-card__title')).toHaveText('Purchase Orders');
     await overviewSearch.fill('');
 
     const trigger = page.getByRole('button', { name: 'Themes' });
@@ -211,11 +211,22 @@ test.describe('MESP-153 Slice A UI', () => {
 
   test('loads every Overview module card image', async ({ page }) => {
     await page.goto('/app');
+    const cards = page.locator('.module-card');
     const images = page.locator('.module-card img');
+    await expect(cards).toHaveCount(15);
     await expect(images).toHaveCount(15);
-    for (const image of await images.all()) {
+    for (const card of await cards.all()) {
+      const image = card.locator('img');
+      const code = card.locator('.module-card__code');
+      const description = card.locator('.module-card__description');
       await image.scrollIntoViewIfNeeded();
       await expect.poll(() => image.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+      await expect(code).toHaveCount(1);
+      await expect(code).toBeVisible();
+      await expect(code).toHaveText(/^[A-Z]{2,4}$/);
+      await expect(description).toHaveCount(1);
+      await expect(description).toBeVisible();
+      await expect(description).toHaveText(/\S/);
     }
   });
 
