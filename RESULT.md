@@ -19,6 +19,81 @@
 - Runtime and review state: The first API build with `--no-restore` exited 1 because this worktree had no `project.assets.json`; the Release build with restore then succeeded. Development health checks passed on API 5360 and frontend 4360. Chromium completed, both launcher-owned servers were stopped, and both ports were verified free. Live PR #341 remained OPEN/Draft; no review threads were specified or modified, and no Ready or merge action occurred.
 - Status files updated: the existing single MESP-185 entry in `RESULT.md` and `.playwright-mcp/mesp-185/summary.md`; `TASK.md` untouched. The 4325 server was stopped and the port verified free. No tracker writes.
 - Exact next action: Opus 5.5 reviews Draft PR #341; leave it Draft/Open and do not request review, mark Ready, merge, or close the issue.
+## 2026-10-01 — MESP-166 (#285) scope denial during unconfirmed execution — GPT-6 / max — MESP-166 (#285)
+- Status: DONE
+- Branch / starting SHA / ending SHA: `fix/mesp-166-claim-race-flake`; started `716e541db3fd00e5af038ffbf9250d6e9918e98a`; code commit `30a347394eecdfaea935525f144e3095266e90a2`; RESULT hand-back commit follows.
+- What changed: Root cause was `MigrationExecutionService.ExecuteCoreAsync` inspecting unconfirmed evidence and competing attempt state before checking the caller's current Company/Branch scope, allowing an out-of-scope same-Tenant caller to distinguish claim states. Moved the source-scope check ahead of those responses. Extended the deterministic blocked-audit regression to verify an out-of-scope caller receives `migration_source_scope_denied` while the execution attempt remains unconfirmed. `MigrationPersistence.StartAttemptAsync` has no intake source or organization-scope resolver, so that persistence path cannot perform this check and was left unchanged.
+- Gates:
+  - Targeted Migration tests: `dotnet test .\backend\tests\MiniErp.ArchitectureTests\MiniErp.ArchitectureTests.csproj --configuration Release --no-restore --filter 'FullyQualifiedName~Migration|FullyQualifiedName~MESP166_sql_server_unconfirmed_execution_preserves_scope_and_claim_denials' --logger 'console;verbosity=minimal'` with a fresh disposable LocalDB safety connection: 381 passed, 0 failed, 0 skipped; duration 4m12s; exit 0.
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build 0 warnings / 0 errors; 1,620 passed, 0 failed, 0 skipped; disposable database `MiniErpFoundation_20261001074359_3cdce8f6`; duration 9m7s; exit 0; `MESP data is intact`.
+  - `git diff --check`: clean, exit 0.
+- Evidence: Commit `30a347394eecdfaea935525f144e3095266e90a2`; PR #343 thread `PRRT_kwDOTplnks6nzP0i` replied to at https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/343#discussion_r4151972743 and resolved via GraphQL (`isResolved: true`).
+- Deviations from the prompt: No source-scope check was added in `MigrationPersistence.StartAttemptAsync` because the required source intake and resolver are unavailable there. PR #343 was already OPEN and not Draft before this correction; no Ready-state or merge action was taken.
+- Failures and classification: Authorization-scope disclosure defect; fixed at the application boundary. No requested gate failed.
+- Status files updated: `RESULT.md`.
+- Exact next action: Opus 5.5 reviews the MESP-166 (#285) correction on PR #343; this executor does not change readiness or merge state.
+
+## 2026-10-01 — MESP-166 (#285) execution claim race fix — GPT-6 / max — MESP-166 (#285)
+- Status: STOPPED
+- Branch / starting SHA / ending SHA: fix/mesp-166-claim-race-flake; started 7a80884db223d48816b5fc245e56185da8e67a89; fast-forwarded to origin/main c543a9e6ca4894050f0d67135e39dfce3e208dcb; code commit b68464cd186462ea8f2a81fbec2c5608139ad11e; RESULT hand-back commit follows.
+- What changed: Root cause was split across MigrationExecutionService.ExecuteCoreAsync and MigrationPersistence.StartAttemptAsync. The service treated a competing different-key attempt as a claim conflict only while Pending; once a durable Succeeded/KnownFailure outcome existed while audit evidence was still unconfirmed, it returned Unknown/migration_audit_recovery_required. Persistence only checked a different-key Pending attempt when run evidence was already unconfirmed, permitting concurrent claims before that state transition. The shared path now rejects different-key Pending attempts and resolves known terminal outcomes as migration_execution_attempt_claim_conflict. Added one deterministic SQL regression using the existing audit sink seam. Existing MESP141 assertions are unchanged. Audit evidence remains unconfirmed during the blocked append and returns to confirmed only after append succeeds. No model, schema, permission, or idempotency semantics changed.
+- Gates:
+  - Pre-fix MESP141 reproduction: 1 failure / 30 isolated runs; failing assertion saw KnownFailure/migration_execution_batch_claim_conflict plus UnknownOutcome/migration_audit_recovery_required and no successful result.
+  - Deterministic MESP166 regression: failed before the product fix (expected migration_execution_attempt_claim_conflict, actual migration_audit_recovery_required; exit 1); passed after the fix and audit-confirmation assertions (1/1, 0 skipped; exit 0).
+  - Post-fix MESP141 focused repeat: 10/10 passes, 0 failures, 0 skipped; each invocation exit 0.
+  - Full backend wrapper .\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false: Release build 0 warnings / 0 errors; 1,604 passed, 16 failed, 0 skipped, 1,620 total, duration 8m27s, exit 1. All 16 failures were Sales tests: 14 explicitly reported quotation_expired (known MESP-195 #342 date fixture issue) and 2 NullReferenceException failures at order.Lines.Single() after conversion returned no order; no non-Sales tests failed. No Sales files were changed.
+  - Detailed Sales rerun: 38 total, 22 passed, 16 failed (14 quotation_expired, 2 NullReferenceException), exit 1.
+  - EF pending-model check not run because no EF model changed. git diff --check: clean, exit 0.
+- Evidence: .artifacts/mesp166-deterministic-before-fix-capture/before-fix.log; .artifacts/mesp166-audit-integrity-01/mesp166-audit-integrity.trx; .artifacts/mesp166-post-single-10/summary.csv; .artifacts/mesp166-sales-raw-20261001/sales-raw.trx; .artifacts/mesp166-sales-credit-5x-20261001/credit-*.trx.
+- Deviations from prompt: Full backend suite is not green because of the out-of-scope Sales date fixture defect tracked as MESP-195 (#342), with two downstream null-order dereferences also recorded. No unrelated Sales code or assertions were changed.
+- Failures and classification: A — product defect. The pre-fix deterministic interleaving returned Unknown for a durable known attempt outcome; after the shared-path fix the loser receives a documented claim conflict and audit evidence is confirmed after append. Full-suite Sales failures remain outside MESP-166.
+- Status files updated: RESULT.md only; TASK.md was not read or edited.
+- Exact next action: Keep the MESP-166 pull request Draft and unmerged. Rerun the full backend gate after the MESP-195 fixture date correction.
+
+## 2026-10-01 — MESP-183 (#324) preview scope denial — GPT-6 / effort not surfaced — MESP-183 (#324)
+- Status: DONE. Draft PR creation is the final authorized delivery action; no Ready, review request, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-183-preview-scope-denial`; created at `bf2d1206e0a3635600488e8b7bc49eba374206b0`, fast-forwarded to `11a4e6a11eabffda993f0a07b7cf588ab19d4d74` after main advanced, code commit `46853615abe1fc8dfb88694941480ddd9a1680c2`; RESULT hand-back commit follows.
+- What changed: Root cause was `ExecutePreviewReadAsync` mapping the application helper's null result to `migration_preview_not_found` without first checking resource scope. It now calls the existing `IsResourceAuthorizedAsync` helper and returns `403 migration_source_scope_denied`. The MESP-171 authority matrix verifies an out-of-scope preview denial and preserves `404 migration_preview_not_found` for an in-scope run without a dry-run. Removed preview's Company-scope and foreign-Tenant 404 special cases; kept the execution-read special case and all response disclosure assertions. The Foundation descriptor already carried the matching permission/scope and the endpoint already declared 403; the Foundation/OpenAPI contract test now asserts that catalogue metadata and generated 403 response.
+- Gates:
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` attempt 1: exit 1; Release build 0 warnings / 0 errors; 1,621 passed, 1 failed, 0 skipped, 1,622 total; suite duration 9m01s. The failure was the old preview-only foreign-Tenant 404 expectation; the matrix now expects the shared 403 response while retaining its no-disclosure assertions.
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` final attempt: exit 1; Release build 0 warnings / 0 errors; 1,621 passed, 1 failed, 0 skipped, 1,622 total; suite duration 11m32s. Disposable database `MiniErpFoundation_20261001080655_15b491f4`; the wrapper reported `MESP data is intact`.
+  - `git diff --check`: exit 0; clean.
+- Evidence: `MigrationAuthorityMatrixTests.Resource_scoped_operations_deny_company_scope_without_changing_run_state` covers preview scope denial and missing dry-run. `RestFoundationTests.Generated_openapi_documents_every_public_operation_and_tax_contract` asserts the preview descriptor's `tenant.migration.intake` permission, Tenant scope, and generated 403 response. The final gate's only failure was `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` at `SqlServerSafetyTests.cs:3539`, reporting `Succeeded:migration_execution_completed` alongside `UnknownOutcome:migration_audit_recovery_required`.
+- Deviations from the prompt: `origin/main` advanced during validation, so the worktree branch was fast-forwarded to `11a4e6a` before delivery to preserve newer `RESULT.md` entries. No frontend or API server was started and no restricted port was touched.
+- Failures and classification: The first run's matrix failure was an outdated preview-specific expectation and was corrected. The final backend gate remains non-green due to the known MESP-166 execution-claim race; no unrelated code or test was changed to mask it.
+- Status files updated: `RESULT.md`; `TASK.md` was not changed.
+- Exact next action: Opus 5.5 reviews MESP-183 (#324) on the Draft PR; leave it Draft/Open/Unmerged.
+
+## 2026-10-01 — MESP-190 (#332) Header bar redesign — GPT-6 / effort not surfaced — MESP-190 (#332)
+- Status: DONE. Draft PR creation is the final authorized delivery action; no Ready, review request, or merge.
+- Branch / starting SHA / ending SHA: `feat/mesp-190-header-bar`; started at `1a12d100efbf5d6c244aff4e6c81fde3e9439b1b`; implementation commit `54697c6`; merged `origin/main` at `aef54f2`; RESULT hand-back commit follows.
+- What changed: Rebuilt the shell header as a 40px context chip, icon tool group, and generic Account menu. The context chip reuses `ContextService` and `app-operational-context-switcher`; Themes and dark/light use `ThemeService`; Language uses `LanguageService`; Sign out still calls `AuthService.signOut`; Notifications remains a presentation-only button with no service action; sidebar state uses `localStorage` key `mesp.ui.rail`, and brand/breadcrumb navigation uses Angular `RouterLink`. Changed `application-shell.component.ts`, its unit spec, and the three header-adapted e2e specs. Merged `origin/main`, retaining its changes; kept both colliding `ui-modernization.spec.ts` tests as separate tests with all assertions intact.
+- Gates:
+  - `npm test -- --watch=false --no-progress`: 50 files passed, 346 tests passed, 0 failed; exit 0.
+  - `npm run build`: passed; initial total 499.09 kB (479.18 kB JavaScript + 19.91 kB CSS); exit 0.
+  - `dotnet build backend/src/MiniErp.Api/MiniErp.Api.csproj --configuration Release`: succeeded, 0 warnings, 0 errors; exit 0.
+  - `MESP_E2E_BASE_URL=http://localhost:4335 npm run test:e2e -- --project=chromium --workers=1`: 64 passed, 0 failed, 1.5m; Angular on 4335 proxied only to the task-local API on 5335; exit 0.
+  - `git diff --check`: clean; exit 0, including after this RESULT entry.
+- Evidence: Before screenshots are in `.playwright-mcp/mesp-190/before/` and refreshed screenshots are in `.playwright-mcp/mesp-190/after-final/`: `light-1440.png`, `light-1200.png`, `light-900.png`, `light-800.png`, and matching `dark-*.png` files (plus 1024px captures). Menus: `menu-context.png`, `menu-themes.png`, `menu-account.png`; Arabic: `arabic-1440.png`. Both task-owned servers were stopped; ports 4335 and 5335 are clear.
+- Deviations from the prompt: The first `ng serve` attempt failed before E2E because Windows PowerShell wrote a BOM to the ignored temporary proxy JSON. Rewrote that file without a BOM and started a fresh server; no file was edited during the E2E run. Merge conflict in `ui-modernization.spec.ts` was resolved by retaining both sides' test intent.
+- Failures and classification: Initial temporary-proxy parse error was a configuration/setup failure, corrected before E2E. Final required gates all passed.
+- Status files updated: `RESULT.md` only; `TASK.md` was not edited.
+- Exact next action: Push `feat/mesp-190-header-bar` and open a Draft PR to `main` titled `[MESP-190] Header bar redesign`, referencing #332; leave it Draft/Open/Unmerged.
+## 2026-10-01 — MESP-191 (#333) Overview module card photography — GPT-6 / default — MESP-191 (#333)
+- Status: DONE; implementation and required gates passed for the 15 live Overview cards confirmed by the owner.
+- Branch / starting SHA / ending SHA: `feat/mesp-191-module-card-photos`; started `fdb94c466cef84696cd5d653e802b79880202a7b`; implementation commit `3c4ef0b840023b205c4936ae1a31995ab503282a`; RESULT handoff commit follows.
+- What changed: Replaced the Overview card banner art with locally served, decorative 640×360 WebP photographs for all 15 live navigation destinations. Added Unsplash source, author, licence, and download-date credits. Added unit coverage for each local image URL and empty alt text, plus a Chromium check that every image loads.
+- Gates:
+  - `npm test -- --watch=false --no-progress`: 50 files passed, 342 tests passed, 0 failed; exit 0.
+  - `npm run build`: passed; initial total 499.89 kB against the 500 kB budget, unchanged from the 499.89 kB baseline.
+  - `$env:MESP_E2E_BASE_URL='http://127.0.0.1:4340'; npm run test:e2e -- --project=chromium --workers=1`: 63 passed, exit 0.
+  - Visual capture: 1 Playwright capture passed. All 15 files are 640×360 and below 60 KB; largest is 51,170 bytes.
+  - `git diff --check`: exit 0 after this entry is added.
+- Evidence: `.playwright-mcp/mesp-191/overview-meadow-light-1440.png`, `overview-meadow-dark-1440.png`, `overview-luxury-light-1440.png`, and `overview-meadow-light-800.png`; credits at `frontend/public/images/modules/CREDITS.md`. Chromium used the isolated 4340 preview with test auth mocks; its server stopped after the run.
+- Deviations from the prompt: Used the owner-confirmed set of 15 live destinations. Used local mocked auth on port 4340 rather than the owner API proxy; no API or protected port was touched.
+- Failures and classification: No required gate failures. The first temporary visual-runner attempt exited 1 because its temporary spec was one directory too deep; raw output: `Error: No tests found. Make sure that arguments are regular expressions matching test files. You may need to escape symbols like "$" or "*" and quote the arguments.` Moving it into the configured E2E directory produced 1 passed (31.4s). Chromium emitted the existing NG0913 warning for the owner-managed `frontend/assets/Logo_16_9_BG_Removed.png`; that asset was not changed.
+- Status files updated: `RESULT.md`; `TASK.md` was not edited.
+- Exact next action: Push this branch and open a Draft PR against `feat/mesp-178-shell-rail-grids`, titled `feat(workspace): MESP-191 (#333) realistic module card photos`, referencing #333; stop after the Draft PR is open.
 
 ## 2026-10-01 — MESP-187 (#329) Tenant branding logo PNGs — GPT-6 / effort not surfaced
 - Status: DONE. Draft PR publication is the remaining delivery action; stop after creating it, with no Ready, review request, approval, merge, or issue-state change.

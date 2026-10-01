@@ -186,18 +186,20 @@ public sealed class MigrationExecutionService
         var intake = await validationPersistence.FindIntakeAsync(tenant, runId, cancellationToken);
         if (run is null || intake is null)
             return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_run_not_found");
+        if (!IsCurrentScopeAuthorized(tenant, intake.Source))
+            return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_source_scope_denied");
         if (!run.EvidenceConfirmed)
         {
             var attempts = await foundationPersistence.ListAttemptsAsync(tenant, runId, cancellationToken);
             if (attempts.Any(item => item.Operation == MigrationOperationKind.Execution
-                    && item.Outcome == MigrationAttemptOutcome.Pending
+                    && (item.Outcome is MigrationAttemptOutcome.Pending
+                        or MigrationAttemptOutcome.Succeeded
+                        or MigrationAttemptOutcome.KnownFailure)
                     && !string.Equals(item.IdempotencyKey, idempotencyKey, StringComparison.Ordinal)))
                 return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_execution_attempt_claim_conflict");
 
             return MigrationOperationResult<MigrationExecutionResult>.Unknown("migration_audit_recovery_required");
         }
-        if (!IsCurrentScopeAuthorized(tenant, intake.Source))
-            return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_source_scope_denied");
 
         var validation = await validationPersistence.FindLatestValidationAsync(tenant, runId, cancellationToken);
         var dryRun = await validationPersistence.FindLatestDryRunAsync(tenant, runId, cancellationToken);
