@@ -65,4 +65,13 @@ describe('WorkspaceHomeComponent', () => {
       expect(image?.getAttribute('alt')).toBe('');
     }
   });
+
+  it('matches the card code in Overview search without widening name searches', () => {
+    const fixture: ComponentFixture<WorkspaceHomeComponent> = TestBed.createComponent(WorkspaceHomeComponent);
+    const home = fixture.componentInstance;
+    home.searchQuery.set('Purchase Orders');
+    expect(home.visibleModules().map((module) => module.code)).toEqual(['PO']);
+    home.searchQuery.set('sq');
+    expect(home.visibleModules().map((module) => module.code)).toContain('SQ');
+  });
 });

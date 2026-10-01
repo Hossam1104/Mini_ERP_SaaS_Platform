@@ -1,19 +1,47 @@
-# Overview module card photo credits
+# Overview module card illustrations
 
-| File | Source page | Author | Licence | Download date |
-| --- | --- | --- | --- | --- |
-| `master-data.webp` | https://unsplash.com/photos/fresh-vegetables-and-fruits-displayed-in-crates-ZKEmz-ps1LY | Zhen Yao | Unsplash License | 2026-10-01 |
-| `price-lists.webp` | https://unsplash.com/photos/lemons-in-black-plastic-crate-_ivzP0tAfZA | Teo Zac | Unsplash License | 2026-10-01 |
-| `imports.webp` | https://unsplash.com/photos/turned-on-black-and-grey-laptop-computer-mcSDtbWXUZU | Lukas Blazek | Unsplash License | 2026-10-01 |
-| `purchase-requests.webp` | https://unsplash.com/photos/a-clipboard-with-a-notepad-attached-to-it-fTM-hp2q3Cs | aceofnet | Unsplash License | 2026-10-01 |
-| `supplier-quotations.webp` | https://unsplash.com/photos/desk-with-papers-glasses-calculator-and-office-supplies-sW02MHv37yk | Cht Gsml | Unsplash License | 2026-10-01 |
-| `purchase-orders.webp` | https://unsplash.com/photos/stack-of-cardboard-boxes-near-a-window-gh6uXXV9a5I | Andrew Bright | Unsplash License | 2026-10-01 |
-| `goods-receipts.webp` | https://unsplash.com/photos/warehouse-loading-dock-with-stacked-wooden-pallets-EkhNNwpYuB4 | Theo Laflamme | Unsplash License | 2026-10-01 |
-| `supplier-returns.webp` | https://unsplash.com/photos/pile-of-cardboard-boxes-stacked-in-a-storage-area-RI_VrbUngcA | Tim Mossholder | Unsplash License | 2026-10-01 |
-| `invoice-handoffs.webp` | https://unsplash.com/photos/desk-with-books-papers-and-calculator-in-tray-rBpTZ6msfgs | Jonathan Cosens Photography | Unsplash License | 2026-10-01 |
-| `invoice-matching.webp` | https://unsplash.com/photos/calculator-and-papers-in-a-folder-on-a-dark-surface-_1QHMYHNeN0 | Kelly Sikkema | Unsplash License | 2026-10-01 |
-| `inventory.webp` | https://unsplash.com/photos/a-long-row-of-shelves-in-a-warehouse-1Elnip2SeM8 | Brian Wangenheim | Unsplash License | 2026-10-01 |
-| `inventory-valuation.webp` | https://unsplash.com/photos/a-calculator-sitting-on-top-of-a-piece-of-paper-ySZdYkPGEbs | Aaron Lefler | Unsplash License | 2026-10-01 |
-| `finance.webp` | https://unsplash.com/photos/desk-with-calculator-pens-and-yellow-envelope-UuxwEGwkIgk | Cht Gsml | Unsplash License | 2026-10-01 |
-| `sales.webp` | https://unsplash.com/photos/fresh-vegetables-displayed-in-wooden-crates-at-market-XPltBlxfChk | Noah Buisson | Unsplash License | 2026-10-01 |
-| `reporting.webp` | https://unsplash.com/photos/laptop-displaying-charts-next-to-notebook-and-mug-adFE-OdO7RA | nicoll camacho | Unsplash License | 2026-10-01 |
+These images are transparent compositions of Microsoft Fluent Emoji 3D object assets. The assets are distributed under the MIT License; no people are depicted.
+
+| File | Illustration sources | Licence |
+| --- | --- | --- |
+| `master-data.webp` | [Card index dividers](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Card%20index%20dividers/3D/card_index_dividers_3d.png), [File folder](https://github.com/microsoft/fluentui-emoji/blob/main/assets/File%20folder/3D/file_folder_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `price-lists.webp` | [Label](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Label/3D/label_3d.png), [Receipt](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Receipt/3D/receipt_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `imports.webp` | [Inbox tray](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Inbox%20tray/3D/inbox_tray_3d.png), [Page facing up](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Page%20facing%20up/3D/page_facing_up_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `purchase-requests.webp` | [Clipboard](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Clipboard/3D/clipboard_3d.png), [Pencil](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Pencil/3D/pencil_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `supplier-quotations.webp` | [Memo](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Memo/3D/memo_3d.png), [Coin](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Coin/3D/coin_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `purchase-orders.webp` | [Shopping cart](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Shopping%20cart/3D/shopping_cart_3d.png), [Page facing up](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Page%20facing%20up/3D/page_facing_up_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `goods-receipts.webp` | [Delivery truck](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Delivery%20truck/3D/delivery_truck_3d.png), [Package](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Package/3D/package_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `supplier-returns.webp` | [Package](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Package/3D/package_3d.png), [Envelope with arrow](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Envelope%20with%20arrow/3D/envelope_with_arrow_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `invoice-handoffs.webp` | [Receipt](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Receipt/3D/receipt_3d.png), [Envelope with arrow](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Envelope%20with%20arrow/3D/envelope_with_arrow_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `invoice-matching.webp` | [Magnifying glass tilted left](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Magnifying%20glass%20tilted%20left/3D/magnifying_glass_tilted_left_3d.png), [Receipt](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Receipt/3D/receipt_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `inventory.webp` | [File cabinet](https://github.com/microsoft/fluentui-emoji/blob/main/assets/File%20cabinet/3D/file_cabinet_3d.png), [Package](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Package/3D/package_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `inventory-valuation.webp` | [Chart increasing](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Chart%20increasing/3D/chart_increasing_3d.png), [Coin](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Coin/3D/coin_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `finance.webp` | [Ledger](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Ledger/3D/ledger_3d.png), [Coin](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Coin/3D/coin_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `sales.webp` | [Briefcase](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Briefcase/3D/briefcase_3d.png), [Memo](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Memo/3D/memo_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| `reporting.webp` | [Bar chart](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Bar%20chart/3D/bar_chart_3d.png), [Chart decreasing](https://github.com/microsoft/fluentui-emoji/blob/main/assets/Chart%20decreasing/3D/chart_decreasing_3d.png) | [MIT](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+
+Copyright (c) Microsoft Corporation. The following MIT License notice applies to the source artwork:
+
+```text
+MIT License
+
+Copyright (c) Microsoft Corporation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
