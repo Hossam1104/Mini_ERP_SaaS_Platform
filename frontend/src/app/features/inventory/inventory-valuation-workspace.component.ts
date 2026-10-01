@@ -122,8 +122,9 @@ const copy = {
           <article class="metric-card metric-card--ink"><span>{{ text('asOf') }}</span><strong>{{ formatDate(currentSummary()?.asOf) }}</strong><small>{{ text('freshness') }} {{ formatDate(currentSummary()?.freshAsOf) }}</small></article>
         </section>
 
-        <app-tabs [tabs]="valuationTabs()" [selected]="activeTab()" ariaLabel="Valuation views" (selectedChange)="selectTab($event)" />
+        <app-tabs #valuationTabsRef [tabs]="valuationTabs()" [selected]="activeTab()" ariaLabel="Valuation views" (selectedChange)="selectTab($event)" />
 
+        <section role="tabpanel" [id]="valuationTabsRef.panelId(activeTab())" [attr.aria-labelledby]="valuationTabsRef.tabId(activeTab())" tabindex="0">
         @if (activeTab() === 'summary') {
           <section class="valuation-grid">
             <article class="ui-surface valuation-panel valuation-panel--wide">
@@ -165,6 +166,7 @@ const copy = {
             <app-data-grid [rows]="handoffs()" [columns]="handoffColumns" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="text('handoff')" [countLabel]="text('handoff')" [emptyLabel]="text('noHandoff')" />
           </section>
         }
+        </section>
       }
     </section>
   `,

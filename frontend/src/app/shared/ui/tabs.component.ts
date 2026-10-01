@@ -15,15 +15,23 @@ export interface AppTab {
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
   template: `
-    <nav #tablist class="app-tabs__list" role="tablist" aria-orientation="horizontal" [attr.aria-label]="ariaLabel" (keydown)="onKeydown($event)">
-      @for (tab of tabs; track tab.id) {
-        @if (tab.routerLink !== undefined) {
-          <a #tabControl [attr.id]="tab.tabId ?? null" [routerLink]="tab.routerLink" routerLinkActive="is-active" ariaCurrentWhenActive="page" #active="routerLinkActive" [routerLinkActiveOptions]="{ exact: tab.exact ?? true }" role="tab" [class.is-active]="active.isActive" [attr.aria-selected]="active.isActive" [attr.aria-controls]="tab.panelId ?? null" [attr.tabindex]="active.isActive ? 0 : -1">{{ tab.label }}</a>
-        } @else {
-          <button #tabControl [attr.id]="tab.tabId ?? null" type="button" role="tab" [class.is-active]="selected === tab.id" [attr.aria-selected]="selected === tab.id" [attr.aria-controls]="tab.panelId ?? null" [attr.tabindex]="selected === tab.id ? 0 : -1" (click)="selectedChange.emit(tab.id)">{{ tab.label }}</button>
+    @if (isNavigation) {
+      <nav #tablist class="app-tabs__list" [attr.aria-label]="ariaLabel">
+        @for (tab of tabs; track tab.id) {
+          @if (tab.routerLink !== undefined) {
+            <a [attr.id]="tab.tabId ?? null" [routerLink]="tab.routerLink" routerLinkActive="is-active" ariaCurrentWhenActive="page" #active="routerLinkActive" [routerLinkActiveOptions]="{ exact: tab.exact ?? true }" [class.is-active]="active.isActive">{{ tab.label }}</a>
+          }
         }
-      }
-    </nav>
+      </nav>
+    } @else {
+      <div #tablist class="app-tabs__list" role="tablist" aria-orientation="horizontal" [attr.aria-label]="ariaLabel" (keydown)="onKeydown($event)">
+        @for (tab of tabs; track tab.id) {
+          @if (tab.routerLink === undefined) {
+            <button [attr.id]="tab.tabId ?? tabId(tab.id)" type="button" role="tab" [class.is-active]="selected === tab.id" [attr.aria-selected]="selected === tab.id" [attr.aria-controls]="selected === tab.id ? panelId(tab.id) : null" [attr.tabindex]="selected === tab.id ? 0 : -1" (click)="selectedChange.emit(tab.id)">{{ tab.label }}</button>
+          }
+        }
+      </div>
+    }
   `,
   styles: [`
     :host { display: block; min-width: 0; }
@@ -42,15 +50,40 @@ export class TabsComponent implements AfterViewChecked {
   @Input() selected = '';
   @Input() ariaLabel = '';
   @Output() readonly selectedChange = new EventEmitter<string>();
-  @ViewChild('tablist', { static: true }) private tablist!: ElementRef<HTMLElement>;
+  @ViewChild('tablist') private tablist!: ElementRef<HTMLElement>;
   private activeTab: HTMLElement | null = null;
 
+  get isNavigation(): boolean {
+    return this.tabs.length > 0 && this.tabs.every(tab => tab.routerLink !== undefined);
+  }
+
+  tabId(id: string): string {
+    return this.tabs.find(tab => tab.id === id)?.tabId ?? `app-tab-${id}`;
+  }
+
+  panelId(id: string): string {
+    return this.tabs.find(tab => tab.id === id)?.panelId ?? `app-tabpanel-${id}`;
+  }
+
   ngAfterViewChecked(): void {
-    const active = this.tablist.nativeElement.querySelector<HTMLElement>('[aria-selected="true"]');
+    const active = this.tablist.nativeElement.querySelector<HTMLElement>(this.isNavigation ? '[aria-current="page"]' : '[aria-selected="true"]');
     if (active && active !== this.activeTab) {
       this.activeTab = active;
-      active.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      this.revealHorizontally(active);
     }
+  }
+
+  private revealHorizontally(active: HTMLElement): void {
+    const list = this.tablist.nativeElement;
+    const listRect = list.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const rtl = getComputedStyle(list).direction === 'rtl';
+    const startOverflow = rtl ? listRect.right - activeRect.right : activeRect.left - listRect.left;
+    const endOverflow = rtl ? listRect.left - activeRect.left : activeRect.right - listRect.right;
+    const delta = startOverflow < 0 ? (rtl ? -startOverflow : startOverflow)
+      : endOverflow > 0 ? (rtl ? -endOverflow : endOverflow)
+        : 0;
+    if (delta !== 0) list.scrollLeft += delta;
   }
 
   onKeydown(event: KeyboardEvent): void {

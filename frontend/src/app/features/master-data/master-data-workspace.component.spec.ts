@@ -187,18 +187,18 @@ describe('MasterDataWorkspaceComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders nine deep-linkable resource tabs under the shared page header', async () => {
+  it('renders nine deep-linkable resource links under the shared page header', async () => {
     await TestBed.inject(Router).navigateByUrl('/app/master-data/categories');
     await fixture.whenStable();
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
-    const tabs = Array.from(element.querySelectorAll<HTMLAnchorElement>('app-tabs [role="tab"]'));
-    expect(tabs).toHaveLength(9);
-    expect(element.querySelector('app-tabs [role="tablist"]')?.getAttribute('aria-label')).toBe('Master data resources');
+    const links = Array.from(element.querySelectorAll<HTMLAnchorElement>('app-tabs nav[aria-label="Master data resources"] a'));
+    expect(links).toHaveLength(9);
     expect(element.querySelector('app-page-header h1#master-data-title')?.textContent).toContain('Categories');
-    expect(tabs.map((tab) => tab.getAttribute('href'))).toContain('/app/master-data/categories');
-    expect(tabs.filter((tab) => tab.tabIndex === 0)).toHaveLength(1);
-    expect(tabs.find((tab) => tab.getAttribute('aria-selected') === 'true')?.tabIndex).toBe(0);
+    expect(links.map((link) => link.getAttribute('href'))).toContain('/app/master-data/categories');
+    expect(links.every((link) => link.getAttribute('role') !== 'tab' && link.tabIndex === 0 && !link.hasAttribute('tabindex'))).toBe(true);
+    expect(links.find((link) => link.getAttribute('href') === '/app/master-data/categories')?.getAttribute('aria-current')).toBe('page');
+    expect(element.querySelector('app-tabs [role="tablist"]')).toBeNull();
     expect(element.textContent).toContain('Categories');
     expect(element.textContent).toContain('CAT-01');
     expect(data.list).toHaveBeenCalledWith('categories');

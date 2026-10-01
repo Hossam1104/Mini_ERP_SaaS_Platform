@@ -200,7 +200,7 @@ interface CreateHandoffLineDraft {
         <app-tabs [tabs]="detailTabItems()" [selected]="activeTab()" [ariaLabel]="pihText('invoiceHandoffSections')" (selectedChange)="selectTab($event)" />
 
         @if (activeTab() === 'summary') {
-          <section class="detail-layout" role="tabpanel" [attr.aria-labelledby]="tabId('summary')">
+          <section id="pih-tabpanel-summary" class="detail-layout" role="tabpanel" [attr.aria-labelledby]="tabId('summary')" tabindex="0">
             <section class="ui-surface detail-card">
               <p class="section-kicker">{{ pihText('handoffDetails') }}</p>
               <h2>{{ pihText('invoiceHandoffSummaryTitle') }}</h2>
@@ -219,7 +219,7 @@ interface CreateHandoffLineDraft {
             </section>
           </section>
         } @else if (activeTab() === 'lines') {
-          <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('lines')">
+          <section id="pih-tabpanel-lines" class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('lines')" tabindex="0">
             <p class="section-kicker">{{ pihText('invoiceHandoffLines') }}</p>
             <h2>{{ pihText('invoiceHandoffLinesTitle') }}</h2>
             <ng-template #detailAmount let-line let-column="column">
@@ -232,13 +232,13 @@ interface CreateHandoffLineDraft {
             <app-data-grid [rows]="currentHandoff.lines" [columns]="detailLineColumns(currentHandoff.currencyCode, detailAmount)" [language]="language.language()" [clientPaging]="true" [showPager]="true" [caption]="pihText('invoiceHandoffLinesTitle')" [countLabel]="pihText('invoiceHandoffLines')" />
           </section>
         } @else if (activeTab() === 'sources') {
-          <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('sources')">
+          <section id="pih-tabpanel-sources" class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('sources')" tabindex="0">
             <p class="section-kicker">{{ pihText('sourceReceipts') }}</p>
             <h2>{{ pihText('sourceReceiptLineageTitle') }}</h2>
             <app-data-grid [rows]="currentHandoff.sources" [columns]="sourceColumns" [language]="language.language()" [clientPaging]="true" [showPager]="true" [caption]="pihText('sourceReceiptLineageTitle')" [countLabel]="pihText('invoiceHandoffLines')" />
           </section>
         } @else if (activeTab() === 'history') {
-          <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('history')">
+          <section id="pih-tabpanel-history" class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('history')" tabindex="0">
             <p class="section-kicker">{{ pihText('lifecycleHistory') }}</p>
             <h2>{{ pihText('lifecycleHistory') }}</h2>
             @if (history().length === 0) {
@@ -256,7 +256,7 @@ interface CreateHandoffLineDraft {
             }
           </section>
         } @else {
-          <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('audit')">
+          <section id="pih-tabpanel-audit" class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('audit')" tabindex="0">
             <p class="section-kicker">{{ pihText('auditEvidence') }}</p>
             <h2>{{ pihText('auditEvidence') }}</h2>
             @if (audit().length === 0) {
@@ -390,7 +390,7 @@ export class PurchaseInvoiceHandoffWorkspaceComponent implements OnInit {
 
   readonly statuses: PurchaseInvoiceHandoffStatus[] = ['Recorded', 'Cancelled'];
   readonly tabs: DetailTab[] = ['summary', 'lines', 'sources', 'history', 'audit'];
-  detailTabItems(): AppTab[] { return this.tabs.map(tab => ({ id: tab, label: this.tabLabel(tab), tabId: this.tabId(tab) })); }
+  detailTabItems(): AppTab[] { return this.tabs.map(tab => ({ id: tab, label: this.tabLabel(tab), tabId: this.tabId(tab), panelId: `pih-tabpanel-${tab}` })); }
 
   readonly filteredRecords = computed(() => {
     const query = this.search().trim().toLowerCase();

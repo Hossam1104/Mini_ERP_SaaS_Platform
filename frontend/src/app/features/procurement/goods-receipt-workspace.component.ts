@@ -201,7 +201,7 @@ interface CreateReceiptLineDraft {
         <app-tabs [tabs]="detailTabItems()" [selected]="activeTab()" [ariaLabel]="grText('goodsReceiptSections')" (selectedChange)="selectTab($event)" />
 
         @if (activeTab() === 'summary') {
-          <section class="detail-layout" role="tabpanel" [attr.aria-labelledby]="tabId('summary')">
+          <section id="gr-tabpanel-summary" class="detail-layout" role="tabpanel" [attr.aria-labelledby]="tabId('summary')" tabindex="0">
             <section class="ui-surface detail-card">
               <p class="section-kicker">{{ grText('receiptDetails') }}</p>
               <h2>{{ grText('goodsReceiptSummaryTitle') }}</h2>
@@ -220,7 +220,7 @@ interface CreateReceiptLineDraft {
             </section>
           </section>
         } @else if (activeTab() === 'lines') {
-          <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('lines')">
+          <section id="gr-tabpanel-lines" class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('lines')" tabindex="0">
             <p class="section-kicker">{{ grText('goodsReceiptLines') }}</p>
             <h2>{{ grText('goodsReceiptLinesTitle') }}</h2>
             <app-data-grid [rows]="currentReceipt.lines" [columns]="detailLineColumns" [rowActionsTemplate]="detailLineActions" [language]="language.language()" [clientPaging]="true" [showPager]="true" [caption]="grText('goodsReceiptLinesTitle')" [countLabel]="grText('goodsReceiptLines')" [rowActionsLabel]="grText('inventoryMovement')">
@@ -232,7 +232,7 @@ interface CreateReceiptLineDraft {
             </app-data-grid>
           </section>
         } @else if (activeTab() === 'history') {
-          <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('history')">
+          <section id="gr-tabpanel-history" class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('history')" tabindex="0">
             <p class="section-kicker">{{ grText('lifecycleHistory') }}</p>
             <h2>{{ grText('lifecycleHistory') }}</h2>
             @if (history().length === 0) {
@@ -250,7 +250,7 @@ interface CreateReceiptLineDraft {
             }
           </section>
         } @else {
-          <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('audit')">
+          <section id="gr-tabpanel-audit" class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('audit')" tabindex="0">
             <p class="section-kicker">{{ grText('auditEvidence') }}</p>
             <h2>{{ grText('auditEvidence') }}</h2>
             @if (audit().length === 0) {
@@ -388,7 +388,7 @@ export class GoodsReceiptWorkspaceComponent implements OnInit {
 
   readonly statuses: GoodsReceiptStatus[] = ['Recorded', 'Cancelled'];
   readonly tabs: DetailTab[] = ['summary', 'lines', 'history', 'audit'];
-  detailTabItems(): AppTab[] { return this.tabs.map(tab => ({ id: tab, label: this.tabLabel(tab), tabId: this.tabId(tab) })); }
+  detailTabItems(): AppTab[] { return this.tabs.map(tab => ({ id: tab, label: this.tabLabel(tab), tabId: this.tabId(tab), panelId: `gr-tabpanel-${tab}` })); }
 
   readonly filteredRecords = computed(() => {
     const query = this.search().trim().toLowerCase();

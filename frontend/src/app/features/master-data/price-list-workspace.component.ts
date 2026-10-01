@@ -147,14 +147,14 @@ interface ResolveDraft {
           @if (formNotice()) { <div class="inline-alert inline-alert--success" role="status">{{ formNotice() }}</div> }
 
           @if (detailMode() === 'view' && selectedRecord()) {
-            <app-tabs [tabs]="priceListTabs()" [selected]="detailTab()" [ariaLabel]="language.text('priceListDetail')" (selectedChange)="selectPriceListTab($event)" />
+            <app-tabs #priceListTabsRef [tabs]="priceListTabs()" [selected]="detailTab()" [ariaLabel]="language.text('priceListDetail')" (selectedChange)="selectPriceListTab($event)" />
 
             @switch (detailTab()) {
-              @case ('overview') { <div role="tabpanel"><ng-container *ngTemplateOutlet="overviewTab" /></div> }
-              @case ('prices') { <div role="tabpanel"><ng-container *ngTemplateOutlet="pricesTab" /></div> }
-              @case ('history') { <div role="tabpanel"><ng-container *ngTemplateOutlet="historyTab" /></div> }
-              @case ('audit') { <div role="tabpanel"><ng-container *ngTemplateOutlet="auditTab" /></div> }
-              @case ('resolve') { <div role="tabpanel"><ng-container *ngTemplateOutlet="resolveTab" /></div> }
+              @case ('overview') { <div role="tabpanel" [id]="priceListTabsRef.panelId('overview')" [attr.aria-labelledby]="priceListTabsRef.tabId('overview')" tabindex="0"><ng-container *ngTemplateOutlet="overviewTab" /></div> }
+              @case ('prices') { <div role="tabpanel" [id]="priceListTabsRef.panelId('prices')" [attr.aria-labelledby]="priceListTabsRef.tabId('prices')" tabindex="0"><ng-container *ngTemplateOutlet="pricesTab" /></div> }
+              @case ('history') { <div role="tabpanel" [id]="priceListTabsRef.panelId('history')" [attr.aria-labelledby]="priceListTabsRef.tabId('history')" tabindex="0"><ng-container *ngTemplateOutlet="historyTab" /></div> }
+              @case ('audit') { <div role="tabpanel" [id]="priceListTabsRef.panelId('audit')" [attr.aria-labelledby]="priceListTabsRef.tabId('audit')" tabindex="0"><ng-container *ngTemplateOutlet="auditTab" /></div> }
+              @case ('resolve') { <div role="tabpanel" [id]="priceListTabsRef.panelId('resolve')" [attr.aria-labelledby]="priceListTabsRef.tabId('resolve')" tabindex="0"><ng-container *ngTemplateOutlet="resolveTab" /></div> }
             }
           } @else {
             <form class="edit-card" (ngSubmit)="save()" novalidate>

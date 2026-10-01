@@ -12,7 +12,7 @@ class FinancePayablesComponent {}
 @Component({
   standalone: true,
   imports: [TabsComponent, RouterOutlet],
-  template: '<app-tabs [tabs]="tabs" [selected]="selected" ariaLabel="Views" (selectedChange)="selected = $event" /><router-outlet />',
+  template: '<app-tabs #viewTabs [tabs]="tabs" [selected]="selected" ariaLabel="Views" (selectedChange)="selected = $event" /><section role="tabpanel" [id]="viewTabs.panelId(selected)" [attr.aria-labelledby]="viewTabs.tabId(selected)" tabindex="0">{{ selected }} view</section><router-outlet />',
 })
 class TabsHostComponent {
   selected = 'first';
@@ -46,6 +46,8 @@ describe('TabsComponent', () => {
     fixture.detectChanges();
     expect(host.selected).toBe('second');
     expect(second.getAttribute('aria-selected')).toBe('true');
+    expect(second.getAttribute('aria-controls')).toBe(fixture.nativeElement.querySelector('[role="tabpanel"]')?.id);
+    expect(fixture.nativeElement.querySelector('[role="tabpanel"]')?.getAttribute('aria-labelledby')).toBe(second.id);
     expect(fixture.nativeElement.querySelector('[aria-selected="false"]')?.textContent.trim()).toBe('First');
   });
 
@@ -66,7 +68,37 @@ describe('TabsComponent', () => {
     expect(third.getAttribute('role')).toBe('tab');
   });
 
-  it('renders router-link tabs and selects the active route', async () => {
+  it('scrolls only the tab list horizontally when the active tab changes', () => {
+    const list = fixture.nativeElement.querySelector('[role="tablist"]') as HTMLElement;
+    const third = fixture.nativeElement.querySelectorAll('[role="tab"]')[2] as HTMLElement;
+    Object.defineProperty(list, 'getBoundingClientRect', { configurable: true, value: () => new DOMRect(0, 0, 100, 40) });
+    Object.defineProperty(third, 'getBoundingClientRect', { configurable: true, value: () => new DOMRect(110, 0, 35, 40) });
+    let scrollIntoViewCalls = 0;
+    Object.defineProperty(third, 'scrollIntoView', { configurable: true, value: () => scrollIntoViewCalls++ });
+    document.documentElement.scrollTop = 17;
+    document.body.scrollTop = 23;
+
+    third.click();
+    fixture.detectChanges();
+
+    expect(list.scrollLeft).toBe(45);
+    expect(document.documentElement.scrollTop).toBe(17);
+    expect(document.body.scrollTop).toBe(23);
+    expect(scrollIntoViewCalls).toBe(0);
+
+    const first = fixture.nativeElement.querySelector('[role="tab"]') as HTMLElement;
+    list.dir = 'rtl';
+    list.scrollLeft = -10;
+    Object.defineProperty(first, 'getBoundingClientRect', { configurable: true, value: () => new DOMRect(-15, 0, 30, 40) });
+    first.click();
+    fixture.detectChanges();
+
+    expect(list.scrollLeft).toBe(-25);
+    expect(document.documentElement.scrollTop).toBe(17);
+    expect(document.body.scrollTop).toBe(23);
+  });
+
+  it('renders router-backed entries as normal navigation links with the active page marked', async () => {
     host.tabs = [
       { id: 'home', label: 'Overview', routerLink: '/finance' },
       { id: 'ap', label: 'Payables', routerLink: '/finance/ap' },
@@ -76,9 +108,13 @@ describe('TabsComponent', () => {
     await router.navigateByUrl('/finance/ap');
     await fixture.whenStable();
     fixture.detectChanges();
-    const tabs = fixture.nativeElement.querySelectorAll('[role="tab"]') as NodeListOf<HTMLAnchorElement>;
-    expect(tabs[1].getAttribute('href')).toBe('/finance/ap');
-    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
-    expect(tabs[0].getAttribute('aria-selected')).toBe('false');
+    const links = fixture.nativeElement.querySelectorAll('nav[aria-label="Views"] a') as NodeListOf<HTMLAnchorElement>;
+    expect(links).toHaveLength(2);
+    expect(links[1].getAttribute('href')).toBe('/finance/ap');
+    expect(links[1].getAttribute('aria-current')).toBe('page');
+    expect(links[0].hasAttribute('aria-current')).toBe(false);
+    expect([...links].every(link => link.getAttribute('role') !== 'tab' && link.tabIndex === 0 && !link.hasAttribute('tabindex'))).toBe(true);
+    expect(fixture.nativeElement.querySelector('[role="tab"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[role="tablist"]')).toBeNull();
   });
 });
