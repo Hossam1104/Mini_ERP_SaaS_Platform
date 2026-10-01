@@ -1,4 +1,21 @@
-# Results
+﻿# Results
+
+## 2026-10-01 — MESP-166 (#285) execution claim race fix — GPT-6 / max — MESP-166 (#285)
+- Status: STOPPED
+- Branch / starting SHA / ending SHA: fix/mesp-166-claim-race-flake; started 7a80884db223d48816b5fc245e56185da8e67a89; fast-forwarded to origin/main c543a9e6ca4894050f0d67135e39dfce3e208dcb; code commit b68464cd186462ea8f2a81fbec2c5608139ad11e; RESULT hand-back commit follows.
+- What changed: Root cause was split across MigrationExecutionService.ExecuteCoreAsync and MigrationPersistence.StartAttemptAsync. The service treated a competing different-key attempt as a claim conflict only while Pending; once a durable Succeeded/KnownFailure outcome existed while audit evidence was still unconfirmed, it returned Unknown/migration_audit_recovery_required. Persistence only checked a different-key Pending attempt when run evidence was already unconfirmed, permitting concurrent claims before that state transition. The shared path now rejects different-key Pending attempts and resolves known terminal outcomes as migration_execution_attempt_claim_conflict. Added one deterministic SQL regression using the existing audit sink seam. Existing MESP141 assertions are unchanged. Audit evidence remains unconfirmed during the blocked append and returns to confirmed only after append succeeds. No model, schema, permission, or idempotency semantics changed.
+- Gates:
+  - Pre-fix MESP141 reproduction: 1 failure / 30 isolated runs; failing assertion saw KnownFailure/migration_execution_batch_claim_conflict plus UnknownOutcome/migration_audit_recovery_required and no successful result.
+  - Deterministic MESP166 regression: failed before the product fix (expected migration_execution_attempt_claim_conflict, actual migration_audit_recovery_required; exit 1); passed after the fix and audit-confirmation assertions (1/1, 0 skipped; exit 0).
+  - Post-fix MESP141 focused repeat: 10/10 passes, 0 failures, 0 skipped; each invocation exit 0.
+  - Full backend wrapper .\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false: Release build 0 warnings / 0 errors; 1,604 passed, 16 failed, 0 skipped, 1,620 total, duration 8m27s, exit 1. All 16 failures were Sales tests: 14 explicitly reported quotation_expired (known MESP-195 #342 date fixture issue) and 2 NullReferenceException failures at order.Lines.Single() after conversion returned no order; no non-Sales tests failed. No Sales files were changed.
+  - Detailed Sales rerun: 38 total, 22 passed, 16 failed (14 quotation_expired, 2 NullReferenceException), exit 1.
+  - EF pending-model check not run because no EF model changed. git diff --check: clean, exit 0.
+- Evidence: .artifacts/mesp166-deterministic-before-fix-capture/before-fix.log; .artifacts/mesp166-audit-integrity-01/mesp166-audit-integrity.trx; .artifacts/mesp166-post-single-10/summary.csv; .artifacts/mesp166-sales-raw-20261001/sales-raw.trx; .artifacts/mesp166-sales-credit-5x-20261001/credit-*.trx.
+- Deviations from prompt: Full backend suite is not green because of the out-of-scope Sales date fixture defect tracked as MESP-195 (#342), with two downstream null-order dereferences also recorded. No unrelated Sales code or assertions were changed.
+- Failures and classification: A — product defect. The pre-fix deterministic interleaving returned Unknown for a durable known attempt outcome; after the shared-path fix the loser receives a documented claim conflict and audit evidence is confirmed after append. Full-suite Sales failures remain outside MESP-166.
+- Status files updated: RESULT.md only; TASK.md was not read or edited.
+- Exact next action: Keep the MESP-166 pull request Draft and unmerged. Rerun the full backend gate after the MESP-195 fixture date correction.
 
 ## 2026-10-01 — MESP-192 (#335) Angular audit remediation — GPT-6 / max — MESP-192 (#335)
 - Status: DONE; no Ready, review request, approval, merge, or issue-state change.
