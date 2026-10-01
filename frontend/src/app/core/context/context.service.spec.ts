@@ -17,6 +17,8 @@ const session = {
   selectedTenantId: null,
   selectedContextId: null,
   selectionVersion: 0,
+  displayName: null,
+  login: 'owner@example.com',
 };
 
 describe('ContextService', () => {

@@ -138,6 +138,44 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
     }
 
     [Fact]
+    public async Task Authenticated_session_catalogue_and_openapi_publish_only_the_callers_identity_fields()
+    {
+        var descriptor = FoundationOperationCatalog.GetRequired("auth.session.read");
+        Assert.Equal("GET", descriptor.HttpMethod);
+        Assert.Equal("/api/v1/auth/session", descriptor.Route);
+        Assert.Equal(FoundationSecurityProfile.AuthenticatedSession, descriptor.SecurityProfile);
+        Assert.Equal("authenticated.session", descriptor.ExactPermissionCode);
+        Assert.Equal(FoundationScopePolicy.None, descriptor.ScopePolicy);
+        Assert.False(descriptor.RequiresAntiforgery);
+        Assert.False(descriptor.RequiresMandatoryAudit);
+        Assert.False(descriptor.IsUnsafe);
+        Assert.Contains("session owner's display name and login", descriptor.BoundaryDescription, StringComparison.Ordinal);
+        Assert.Contains("displayName is null", descriptor.BoundaryDescription, StringComparison.Ordinal);
+
+        using var client = factory.CreateClient();
+        using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
+        var operation = document.RootElement.GetProperty("paths")
+            .GetProperty("/api/v1/auth/session")
+            .GetProperty("get");
+        Assert.Equal("auth.session.read", operation.GetProperty("operationId").GetString());
+        Assert.Contains("authenticated user's session", operation.GetProperty("summary").GetString(), StringComparison.OrdinalIgnoreCase);
+        var description = operation.GetProperty("description").GetString()!;
+        Assert.Contains("only the authenticated session owner's", description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("displayName is null", description, StringComparison.Ordinal);
+        Assert.Contains("200", operation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("401", operation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+
+        var properties = new HashSet<string>(StringComparer.Ordinal);
+        CollectOpenApiProperties(
+            operation.GetProperty("responses").GetProperty("200").GetProperty("content")
+                .GetProperty("application/json").GetProperty("schema"),
+            document.RootElement,
+            properties);
+        Assert.Contains("displayName", properties);
+        Assert.Contains("login", properties);
+    }
+
+    [Fact]
     public async Task Mesp169_cancellation_is_catalogued_and_published_with_a_typed_openapi_contract()
     {
         var descriptor = FoundationOperationCatalog.GetRequired("migration.run.cancel");

@@ -41,6 +41,8 @@ const authenticatedSession: FoundationSessionResponse = {
   selectedTenantId: null,
   selectedContextId: null,
   selectionVersion: 1,
+  displayName: 'Amina Hassan',
+  login: 'amina@example.com',
 };
 
 const ordinaryTenantContext = (contextId: string, tenantId: string, displayName: string) => ({
