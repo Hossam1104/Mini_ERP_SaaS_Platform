@@ -846,6 +846,16 @@ public sealed class MigrationValidationService
             ? IsResourceAuthorizedAsync(tenant, runId, cancellationToken)
             : Task.FromResult(false);
 
+    public async Task<bool> IsResourceInTenantAsync(
+        FoundationRequestContext requestContext,
+        Guid runId,
+        CancellationToken cancellationToken = default)
+    {
+        if (requestContext.TenantContext is not { } tenant || runId == Guid.Empty)
+            return false;
+        return await persistence.FindIntakeAsync(tenant, runId, cancellationToken) is not null;
+    }
+
     public async Task<bool> IsResourceAuthorizedAsync(
         TenantContext tenant,
         Guid runId,
