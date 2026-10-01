@@ -142,7 +142,7 @@ interface CreateReceiptLineDraft {
                 <h2>{{ grText('goodsReceiptLineEntryTitle') }}</h2>
                 <p class="detail-copy">{{ grText('goodsReceiptLineEntryLead') }}</p>
 
-                <app-data-grid [rows]="createLines" [columns]="createLineColumns" [rowActionsTemplate]="createLineActions" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="grText('goodsReceiptLineEntryTitle')" [countLabel]="grText('goodsReceiptLines')" [rowActionsLabel]="grText('goodsReceiptLinesTitle')">
+                <app-data-grid [rows]="createLines" [columns]="createLineColumns" [rowActionsTemplate]="createLineActions" rowKey="purchaseOrderLineId" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="grText('goodsReceiptLineEntryTitle')" [countLabel]="grText('goodsReceiptLines')" [rowActionsLabel]="grText('goodsReceiptLinesTitle')">
                   <ng-template #createLineActions let-line>
                     <div class="grid-line-editors">
                       <label><span>{{ grText('goodsReceiptReceivedQty') }} *</span><input class="table-input numeric" type="number" min="0" step="0.000001" [(ngModel)]="line.receivedQuantity" (ngModelChange)="onLineReceivedChange(line)" [ngModelOptions]="{standalone: true}" [attr.aria-label]="grText('goodsReceiptReceivedQty')" /></label>

@@ -100,7 +100,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
             </tbody>
           </table>
         </div>
-      @if (showPager && !loading && filteredRows().length > 0) { <footer class="data-grid-pager">
+      @if (showPager() && !loading && filteredRows().length > 0) { <footer class="data-grid-pager">
           <span class="pager-summary">{{ pagerSummaryLabel() }}</span>
           <div class="pager-controls">
             <button type="button" class="button button--secondary button--small pager-button" (click)="changePage(-1)" [disabled]="currentPage() === 0" [attr.aria-label]="previousPageLabel"><svg class="icon icon--chevron-left" aria-hidden="true"><use href="#icon-chevron-left" /></svg></button>
@@ -199,12 +199,12 @@ export class DataGridComponent<T extends object> {
   @Input() rowKey: keyof T & string = 'id' as keyof T & string;
   @Input() rowIdFor: ((row: T) => string) | null = null;
   @Input() focusedRowId: string | null = null;
-  @Input() rowActions: readonly { key: string; label: string; visible?: (row: T) => boolean; disabled?: (row: T) => boolean }[] = [{ key: 'view', label: 'View' }];
+  @Input() rowActions: readonly { key: string; label: string; visible?: (row: T) => boolean; disabled?: (row: T) => boolean }[] = [];
   @Input() rowActionsTemplate: TemplateRef<{ $implicit: T }> | null = null;
   @Input() loading = false;
   @Input() pageSize = 7;
-  @Input() showPager = true;
-  @Input() clientPaging = true;
+  readonly showPager = input(true);
+  readonly clientPaging = input(true);
   @Input() scopeLabel = '';
   @Input() countLabel = 'records';
   @Input() loadingLabel = 'Loading records';
@@ -246,10 +246,13 @@ export class DataGridComponent<T extends object> {
     }
     return result;
   });
-  readonly pageCount = computed(() => this.clientPaging ? Math.max(1, Math.ceil(this.filteredRows().length / Math.max(1, this.pageSize))) : 1);
+  readonly pageCount = computed(() => this.clientPaging() ? Math.max(1, Math.ceil(this.filteredRows().length / Math.max(1, this.pageSize))) : 1);
   columnCount(): number { return 1 + this.columns().length + (this.rowActions.length || this.rowActionsTemplate ? 1 : 0); }
   readonly currentPage = computed(() => Math.min(Math.max(0, this.page()), this.pageCount() - 1));
-  readonly pageRows = computed(() => this.clientPaging ? this.filteredRows().slice(this.currentPage() * this.pageSize, (this.currentPage() + 1) * this.pageSize) : this.filteredRows());
+  readonly pageRows = computed(() => {
+    const rows = this.filteredRows();
+    return this.clientPaging() && this.showPager() ? rows.slice(this.currentPage() * this.pageSize, (this.currentPage() + 1) * this.pageSize) : rows;
+  });
   private resizing: { key: string; startX: number; startWidth: number } | null = null;
 
   constructor() {

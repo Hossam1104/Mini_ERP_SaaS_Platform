@@ -111,7 +111,9 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(trigger).not.toHaveAttribute('aria-controls');
     await trigger.click();
     const menu = page.getByRole('menu', { name: 'Choose a theme' });
-    await expect(menu.getByRole('menuitemradio')).toHaveCount(9);
+    await expect(menu.getByRole('menuitemradio')).toHaveCount(10);
+    await expect(menu.getByRole('menuitemradio', { name: 'Luxury' }).locator('.theme-swatch')).toHaveCSS('background-color', 'rgb(201, 162, 39)');
+    await expect(menu.getByRole('menuitemradio', { name: 'Brown' }).locator('.theme-swatch')).toHaveCSS('background-color', 'rgb(123, 74, 43)');
     await expect(trigger).toHaveAttribute('aria-controls', 'theme-menu');
     await expect(menu.getByRole('menuitemradio', { name: 'Sapphire' })).toHaveAttribute('aria-checked', 'true');
     await page.keyboard.press('End');
@@ -132,11 +134,39 @@ test.describe('MESP-153 Slice A UI', () => {
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'teal');
     await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'dark');
+
+    await page.locator('#theme-trigger').click();
+    await page.locator('#theme-menu').getByRole('menuitemradio', { name: 'Brown' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'brown');
+    expect(await page.evaluate(() => localStorage.getItem('mesp.ui.theme'))).toBe('brown');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'brown');
+
     await page.locator('.language-button').click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  });
+
+  test('keeps the Overview link visible and clickable below the header in expanded navigation', async ({ page }) => {
+    await page.goto('/app/procurement/purchase-orders');
+    const sidebar = page.locator('#app-sidebar');
+    await page.getByRole('button', { name: 'Expand navigation' }).click();
+
+    const overviewLink = sidebar.getByRole('link', { name: 'Overview' });
+    await expect(overviewLink).toBeVisible();
+    const [headerBox, overviewBox] = await Promise.all([
+      page.locator('.topbar').boundingBox(),
+      overviewLink.boundingBox(),
+    ]);
+    expect(headerBox).not.toBeNull();
+    expect(overviewBox).not.toBeNull();
+    expect(overviewBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height);
+
+    await overviewLink.click();
+    await expect(page).toHaveURL(/\/app$/);
+    await expect(page.locator('#tenant-overview-title')).toBeVisible();
   });
 
   test('uses the Tenant branding theme when there is no saved user choice', async ({ page }) => {
