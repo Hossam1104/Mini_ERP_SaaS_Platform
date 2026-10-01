@@ -10,6 +10,8 @@ import { MAX_FILE_SIZE_BYTES } from './import-parser';
 import { MasterDataImportFacade } from './master-data-import.facade';
 import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { TabsComponent } from '../../shared/ui/tabs.component';
+import type { AppTab } from '../../shared/ui/tabs.component';
 import {
   IMPORT_RESOURCE_DEFINITIONS,
   ImportColumnMapping,
@@ -37,7 +39,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
 @Component({
   selector: 'app-master-data-import-workspace',
   standalone: true,
-  imports: [DatePipe, LowerCasePipe, FormsModule, NgTemplateOutlet, RouterLink, DataGridComponent, PageHeaderComponent],
+  imports: [DatePipe, LowerCasePipe, FormsModule, NgTemplateOutlet, RouterLink, DataGridComponent, PageHeaderComponent, TabsComponent],
   template: `
     <section class="import-workspace" aria-labelledby="import-title">
       <app-page-header>
@@ -50,7 +52,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
           @if (viewMode() === 'list') {
             <button class="button button--primary" type="button" (click)="openNewImport()" [disabled]="!canMutate()" [title]="canMutate() ? '' : language.text('accessUnavailable')">＋ {{ language.text('newImport') }}</button>
           } @else {
-            <a class="back-link" routerLink="/app/master-data/imports">← {{ language.text('backToImports') }}</a>
+            <a class="button button--quiet" routerLink="/app/master-data/imports">← {{ language.text('backToImports') }}</a>
           }
         </div>
       </app-page-header>
@@ -78,13 +80,13 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
         @if (facade.busy() && facade.batchList().length === 0) {
           <div class="state-card state-card--loading" role="status" aria-live="polite"><span class="loader" aria-hidden="true"></span><b>{{ language.text('loading') }}…</b></div>
         } @else if (facade.error()) {
-          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(facade.error()) }}</b><button class="text-button" type="button" (click)="facade.refreshBatchList()">{{ language.text('retry') }} ↗</button></div></div>
+          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(facade.error()) }}</b><button class="button button--quiet button--small" type="button" (click)="facade.refreshBatchList()">{{ language.text('retry') }} ↗</button></div></div>
         } @else if (facade.batchList().length === 0) {
           <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><div><b>{{ language.text('importNoBatchesYet') }}</b><p>{{ language.text('importNoBatchesYetLead') }}</p></div></div>
         } @else {
           <app-data-grid [rows]="facade.batchList()" [columns]="batchColumns" [rowActionsTemplate]="batchActions" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="language.text('importBatchListTitle')" [countLabel]="language.text('importBatchListTitle')">
             <ng-template #batchActions let-batch>
-              <button class="text-button" type="button" (click)="openBatch(batch.id)">{{ language.text('importOpenBatch') }} ↗</button>
+              <button class="button button--quiet button--small" type="button" (click)="openBatch(batch.id)">{{ language.text('importOpenBatch') }} ↗</button>
             </ng-template>
           </app-data-grid>
         }
@@ -99,7 +101,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
             <p class="eyebrow eyebrow--soft">{{ language.text('newImport') }}</p>
             <h2 id="import-wizard-title">{{ resourceLabel(facade.selectedResourceKind()) }}</h2>
           </div>
-          <button class="text-button" type="button" (click)="resetWizard()">{{ language.text('importResetWizard') }}</button>
+          <button class="button button--quiet button--small" type="button" (click)="resetWizard()">{{ language.text('importResetWizard') }}</button>
         </div>
 
         <ol class="stepper" [attr.aria-label]="language.text('importWorkspaceTitle')">
@@ -107,9 +109,10 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
             <li>
               <button
                 type="button"
-                class="stepper__item"
+                class="button stepper__item"
                 [class.is-complete]="stepStatus(step) === 'complete'"
                 [class.is-current]="stepStatus(step) === 'current'"
+                [class.button--primary]="stepStatus(step) === 'current'"
                 [disabled]="stepStatus(step) === 'pending'"
                 [attr.aria-current]="stepStatus(step) === 'current' ? 'step' : null"
                 (click)="goToStep(step)"
@@ -145,10 +148,11 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
           @for (def of resourceDefinitions; track def.kind) {
             <button
               type="button"
-              class="resource-card"
+              class="button resource-card"
               role="radio"
               [attr.aria-checked]="facade.selectedResourceKind() === def.kind"
               [class.is-selected]="facade.selectedResourceKind() === def.kind"
+              [class.button--primary]="facade.selectedResourceKind() === def.kind"
               (click)="onSelectResource(def.kind)"
             >
               <span class="resource-card__name">{{ resourceLabel(def.kind) }}</span>
@@ -266,7 +270,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
 
         <div class="section-heading section-heading--tight">
           <span></span>
-          <button class="text-button" type="button" (click)="reapplyAutoMapping()">↻ {{ language.text('importMappingReapplyAuto') }}</button>
+          <button class="button button--quiet button--small" type="button" (click)="reapplyAutoMapping()">↻ {{ language.text('importMappingReapplyAuto') }}</button>
         </div>
 
         <app-data-grid [rows]="facade.columnMappings()" [columns]="mappingColumns" [rowActionsTemplate]="mappingActions" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="language.text('importMappingTitle')" [countLabel]="language.text('importMappingTitle')">
@@ -350,7 +354,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
         @if (facade.busy() && !facade.currentBatch()) {
           <div class="state-card state-card--loading" role="status"><span class="loader" aria-hidden="true"></span><b>{{ language.text('loading') }}…</b></div>
         } @else if (facade.error() && !facade.currentBatch()) {
-          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(facade.error()) }}</b><button class="text-button" type="button" (click)="reloadDetail()">{{ language.text('retryLoad') || language.text('retry') }} ↗</button></div></div>
+          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(facade.error()) }}</b><button class="button button--quiet button--small" type="button" (click)="reloadDetail()">{{ language.text('retryLoad') || language.text('retry') }} ↗</button></div></div>
         } @else if (facade.currentBatch(); as batch) {
           <div class="detail-heading">
             <div>
@@ -360,20 +364,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
             </div>
           </div>
 
-          <nav class="tabs" role="tablist" [attr.aria-label]="language.text('importBatchDetailTitle')" (keydown)="onTabsKeydown($event)">
-            @for (t of detailTabs; track t.tab) {
-              <button
-                [id]="'import-tab-' + t.tab"
-                role="tab"
-                type="button"
-                [class.is-active]="detailTab() === t.tab"
-                [attr.aria-selected]="detailTab() === t.tab"
-                [attr.aria-controls]="'import-tabpanel-' + t.tab"
-                [attr.tabindex]="detailTab() === t.tab ? 0 : -1"
-                (click)="setDetailTab(t.tab)"
-              >{{ language.text(t.labelKey) }}</button>
-            }
-          </nav>
+          <app-tabs [tabs]="importTabItems()" [selected]="detailTab()" [ariaLabel]="language.text('importBatchDetailTitle')" (selectedChange)="selectImportTab($event)" />
 
           <div [id]="'import-tabpanel-' + detailTab()" role="tabpanel" [attr.aria-labelledby]="'import-tab-' + detailTab()" tabindex="0">
             @switch (detailTab()) {
@@ -458,12 +449,12 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
         <h3>{{ language.text('importRowOutcomesTitle') }}</h3>
       </div>
       <div class="row-filters" role="group" [attr.aria-label]="language.text('importRowOutcomesTitle')">
-        <button type="button" class="filter-chip" [class.is-active]="rowFilter() === 'all'" (click)="setRowFilter('all')">{{ language.text('importFilterAll') }}</button>
-        <button type="button" class="filter-chip" [class.is-active]="rowFilter() === 'accepted'" (click)="setRowFilter('accepted')">{{ language.text('importFilterAccepted') }}</button>
-        <button type="button" class="filter-chip" [class.is-active]="rowFilter() === 'rejected'" (click)="setRowFilter('rejected')">{{ language.text('importFilterRejected') }}</button>
-        <button type="button" class="filter-chip" [class.is-active]="rowFilter() === 'quarantined'" (click)="setRowFilter('quarantined')">{{ language.text('importFilterQuarantined') }}</button>
-        <button type="button" class="filter-chip" [class.is-active]="rowFilter() === 'warnings'" (click)="setRowFilter('warnings')">{{ language.text('importFilterWarnings') }}</button>
-        <button type="button" class="filter-chip" [class.is-active]="rowFilter() === 'errors'" (click)="setRowFilter('errors')">{{ language.text('importFilterErrors') }}</button>
+        <button type="button" class="button filter-chip" [class.is-active]="rowFilter() === 'all'" [class.button--primary]="rowFilter() === 'all'" (click)="setRowFilter('all')">{{ language.text('importFilterAll') }}</button>
+        <button type="button" class="button filter-chip" [class.is-active]="rowFilter() === 'accepted'" [class.button--primary]="rowFilter() === 'accepted'" (click)="setRowFilter('accepted')">{{ language.text('importFilterAccepted') }}</button>
+        <button type="button" class="button filter-chip" [class.is-active]="rowFilter() === 'rejected'" [class.button--primary]="rowFilter() === 'rejected'" (click)="setRowFilter('rejected')">{{ language.text('importFilterRejected') }}</button>
+        <button type="button" class="button filter-chip" [class.is-active]="rowFilter() === 'quarantined'" [class.button--primary]="rowFilter() === 'quarantined'" (click)="setRowFilter('quarantined')">{{ language.text('importFilterQuarantined') }}</button>
+        <button type="button" class="button filter-chip" [class.is-active]="rowFilter() === 'warnings'" [class.button--primary]="rowFilter() === 'warnings'" (click)="setRowFilter('warnings')">{{ language.text('importFilterWarnings') }}</button>
+        <button type="button" class="button filter-chip" [class.is-active]="rowFilter() === 'errors'" [class.button--primary]="rowFilter() === 'errors'" (click)="setRowFilter('errors')">{{ language.text('importFilterErrors') }}</button>
         <label class="search-field">
           <span class="sr-only">{{ language.text('importSearchRows') }}</span>
           <span class="search-field__icon" aria-hidden="true">⌕</span>
@@ -473,7 +464,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
 
       <app-data-grid [rows]="filteredRows()" [columns]="outcomeColumns" [rowActionsTemplate]="rowOutcomeActions" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="language.text('importRowOutcomesTitle')" [countLabel]="language.text('importRowOutcomesTitle')" [emptyLabel]="language.text('importNoRowsMatchFilter')">
         <ng-template #rowOutcomeActions let-row>
-          <button class="text-button" type="button" (click)="openRowDetail(row)">{{ language.text('importViewRowDetails') }} ↗</button>
+          <button class="button button--quiet button--small" type="button" (click)="openRowDetail(row)">{{ language.text('importViewRowDetails') }} ↗</button>
         </ng-template>
       </app-data-grid>
     </ng-template>
@@ -498,7 +489,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
           <span class="state-icon" aria-hidden="true">!</span>
           <div>
             <b>{{ errorMessage(evidenceError()) }}</b>
-            <button class="text-button" type="button" (click)="retryEvidenceLoad()">{{ language.text('retry') }} ↗</button>
+            <button class="button button--quiet button--small" type="button" (click)="retryEvidenceLoad()">{{ language.text('retry') }} ↗</button>
           </div>
         </div>
       } @else if (evidenceStatus() === 'loaded' && facade.currentBatch(); as batch) {
@@ -541,7 +532,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
       } @else {
         <app-data-grid [rows]="evidenceRowsSorted()" [columns]="evidenceColumns" [rowActionsTemplate]="evidenceRowActions" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="language.text('importEvidenceRowSection')" [countLabel]="language.text('importEvidenceRowSection')" [emptyLabel]="language.text('importNoRowsMatchFilter')">
           <ng-template #evidenceRowActions let-row>
-            <button class="text-button" type="button" (click)="openRowDetail(row)">{{ language.text('importViewRowDetails') }} ↗</button>
+            <button class="button button--quiet button--small" type="button" (click)="openRowDetail(row)">{{ language.text('importViewRowDetails') }} ↗</button>
           </ng-template>
         </app-data-grid>
       }
@@ -642,9 +633,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
       </div>
     }
   `,
-  styles: `
-    :host { display: block; }
-    .back-link { border: 1px solid var(--line); padding: .5rem .8rem; border-radius: .5rem; color: var(--primary); background: var(--surface); font-weight: 700; text-decoration: none; }
+  styles: `:host { display: block; }
     .workspace-panel { min-width: 0; margin-block-start: 1.2rem; border: 1px solid var(--line); border-radius: 1.15rem; background: var(--surface-raised); box-shadow: var(--shadow-soft); }
     .list-view, .wizard-view, .detail-view { padding: 1.4rem; }
     .section-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-block-end: 1rem; }
@@ -655,14 +644,6 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
     h4 { margin: 1rem 0 .4rem; color: var(--ink); font: 800 .8rem/1.3 var(--font-sans); }
     .muted-line { margin: 0 0 .6rem; color: var(--ink-muted); font-size: .78rem; line-height: 1.5; }
     .boundary-note { margin: .5rem 0; border-inline-start: 3px solid var(--accent); padding-inline-start: .7rem; color: var(--ink-muted); font-size: .72rem; line-height: 1.5; }
-
-    .button { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid transparent; border-radius: .6rem; padding: .6rem 1rem; font: 800 .78rem/1 var(--font-sans); cursor: pointer; }
-    .button--primary { color: var(--action-text); background: var(--accent-action); }
-    .button--quiet { border-color: var(--line); color: var(--ink-muted); background: transparent; }
-    .button--quiet:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); background: var(--canvas); }
-    .button--danger { color: #fff; background: var(--danger); }
-    .button:disabled { cursor: not-allowed; opacity: .55; }
-    .text-button { border: 0; padding: 0; color: var(--accent-strong); background: transparent; font: 800 .74rem/1 var(--font-sans); cursor: pointer; }
 
     .state-card { display: flex; align-items: flex-start; gap: .8rem; border: 1px dashed var(--line-strong); border-radius: .8rem; padding: 1.35rem; background: var(--canvas); }
     .state-card b { color: var(--ink); font-size: .85rem; }
@@ -680,10 +661,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
 
     .stepper { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1.2rem; padding: 0; list-style: none; }
     .stepper li { flex: 1 1 8rem; }
-    .stepper__item { display: flex; align-items: center; gap: .5rem; width: 100%; border: 1px solid var(--line); border-radius: .7rem; padding: .55rem .7rem; color: var(--ink-muted); background: var(--canvas); cursor: pointer; text-align: start; }
-    .stepper__item:disabled { cursor: not-allowed; opacity: .6; }
-    .stepper__item.is-current { border-color: var(--accent-strong); background: var(--accent-soft); color: var(--ink); }
-    .stepper__item.is-complete { border-color: var(--line-strong); color: var(--accent-strong); }
+    .stepper__item { width: 100%; text-align: start; }
     .stepper__mark { display: grid; flex: 0 0 1.5rem; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--surface-raised); font: 800 .68rem/1 ui-monospace, monospace; }
     .stepper__label { display: flex; flex-direction: column; font-size: .72rem; font-weight: 800; }
     .stepper__label small { color: var(--ink-muted); font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
@@ -692,8 +670,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
     .wizard-actions { display: flex; justify-content: space-between; align-items: center; margin-block-start: 1.2rem; padding-block-start: 1rem; border-block-start: 1px solid var(--line); }
 
     .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: .6rem; }
-    .resource-card { border: 1px solid var(--line); border-radius: .7rem; padding: .8rem; color: var(--ink); background: var(--canvas); font-weight: 700; font-size: .78rem; cursor: pointer; text-align: start; }
-    .resource-card.is-selected { border-color: var(--accent-strong); background: var(--accent-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-strong) 30%, transparent); }
+    .resource-card { text-align: start; }
 
     .panel-block { margin-block-start: 1rem; border-block-start: 1px solid var(--line); padding-block-start: 1rem; }
     .policy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .6rem; }
@@ -711,7 +688,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
     .file-meta small { color: var(--ink-muted); font-size: .68rem; }
     .file-meta__actions { display: flex; gap: .5rem; }
 
-    .form-field select { width: 100%; border: 1px solid var(--line); border-radius: .45rem; padding: .5rem .6rem; color: var(--ink); background: var(--surface-raised); font-size: .76rem; }
+    .form-field select { width: 100%; }
     .mapping-badges { display: flex; flex-wrap: wrap; gap: .3rem; }
 
     .badge { display: inline-flex; align-items: center; gap: .3rem; border-radius: 99px; padding: .25rem .55rem; font-size: .64rem; font-weight: 800; white-space: nowrap; }
@@ -738,17 +715,8 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
     .tile b { display: block; margin-block-start: .3rem; color: var(--ink); font: 800 1.2rem/1 var(--font-display); }
 
     .row-filters { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-block-end: .8rem; }
-    .filter-chip { border: 1px solid var(--line); border-radius: 99px; padding: .35rem .7rem; color: var(--ink-muted); background: transparent; font: 800 .68rem/1 var(--font-sans); cursor: pointer; }
-    .filter-chip.is-active { border-color: var(--accent-strong); color: var(--ink); background: var(--accent-soft); }
-    .search-field { display: flex; align-items: center; flex: 1 1 12rem; gap: .5rem; border: 1px solid var(--line); border-radius: .55rem; padding-inline: .7rem; background: var(--canvas); }
-    .search-field:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px rgb(13 138 131 / 12%); }
-    .search-field input { min-width: 0; width: 100%; border: 0; outline: 0; padding-block: .5rem; color: var(--ink); background: transparent; font-size: .78rem; }
 
     .record-code { display: block; border: 0; padding: 0; color: var(--accent-strong); background: none; font: 800 .82rem/1.2 ui-monospace, monospace; cursor: pointer; text-align: start; }
-
-    .tabs { display: flex; gap: .2rem; margin-block-end: 1.1rem; border-block-end: 1px solid var(--line); overflow-x: auto; }
-    .tabs button { border: 0; border-block-end: 2px solid transparent; padding: .65rem .2rem; margin-inline-end: 1.2rem; color: var(--ink-muted); background: transparent; font: 800 .78rem/1 var(--font-sans); cursor: pointer; white-space: nowrap; }
-    .tabs button.is-active { color: var(--accent-strong); border-block-end-color: var(--accent-strong); }
 
     .field-read-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .6rem; margin-block-end: .8rem; }
     .field-read-grid > div { min-width: 0; border-block-start: 2px solid var(--line); padding-block-start: .4rem; }
@@ -762,8 +730,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .7rem; margin-block-end: .8rem; }
     .form-field { display: flex; flex-direction: column; gap: .3rem; }
     .form-field > span { color: var(--ink-muted); font-size: .68rem; font-weight: 800; }
-    .form-field input { width: 100%; border: 1px solid var(--line); border-radius: .45rem; padding: .55rem .65rem; color: var(--ink); background: var(--surface-raised); font-size: .78rem; }
-    .form-field input:focus { border-color: var(--focus); outline: 0; box-shadow: 0 0 0 3px rgb(13 138 131 / 10%); }
+    .form-field input { width: 100%; }
 
     .dialog-backdrop { display: grid; position: fixed; z-index: 5; inset: 0; place-items: center; padding: 1rem; background: rgb(16 39 37 / 48%); }
     .dialog-panel { width: min(38rem, 100%); max-height: 88vh; overflow-y: auto; border-radius: 1rem; background: var(--surface-raised); box-shadow: var(--shadow-card); }
@@ -771,7 +738,7 @@ const WIZARD_STEPS: ImportWizardStep[] = ['resource', 'file', 'mapping', 'previe
     .dialog-panel__header h3 { margin: 0; }
     .dialog-panel__header h3:focus { outline: 0; }
     .dialog-panel__body { padding: 1rem 1.2rem 1.2rem; }
-    .dialog-panel :focus-visible, .tabs button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .dialog-panel :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
@@ -829,6 +796,8 @@ export class MasterDataImportWorkspaceComponent {
     { tab: 'audit', labelKey: 'importBatchAuditTab' },
     { tab: 'evidence', labelKey: 'importBatchEvidenceTab' },
   ];
+  importTabItems(): AppTab[] { return this.detailTabs.map(item => ({ id: item.tab, label: this.language.text(item.labelKey), tabId: 'import-tab-' + item.tab, panelId: 'import-tabpanel-' + item.tab })); }
+  selectImportTab(tab: string): void { this.setDetailTab(tab as ImportDetailTab); }
 
   readonly batchColumns: DataGridColumn<MasterDataImportBatchResponse>[] = [
     { key: 'resourceKind', label: this.language.text('importBatchResourceCol'), value: row => this.resourceLabel(row.resourceKind), filter: 'select' },
@@ -1316,30 +1285,6 @@ export class MasterDataImportWorkspaceComponent {
       this.evidenceLoadedForBatch.set(batch.id);
       void this.loadEvidenceForBatch(batch.id);
     }
-  }
-
-  onTabsKeydown(event: KeyboardEvent): void {
-    const key = event.key;
-    if (key !== 'ArrowLeft' && key !== 'ArrowRight' && key !== 'Home' && key !== 'End') return;
-    event.preventDefault();
-    const tabs = this.detailTabs.map((t) => t.tab);
-    const currentIdx = tabs.indexOf(this.detailTab());
-    const isRtl = this.language.language() === 'ar';
-    let nextIdx: number;
-
-    if (key === 'Home') {
-      nextIdx = 0;
-    } else if (key === 'End') {
-      nextIdx = tabs.length - 1;
-    } else {
-      const forward = key === 'ArrowRight';
-      const movesNext = isRtl ? !forward : forward;
-      nextIdx = movesNext ? (currentIdx + 1) % tabs.length : (currentIdx - 1 + tabs.length) % tabs.length;
-    }
-
-    const nextTab = tabs[nextIdx];
-    this.setDetailTab(nextTab);
-    setTimeout(() => document.getElementById('import-tab-' + nextTab)?.focus(), 0);
   }
 
   private async loadEvidenceForBatch(batchId: string): Promise<void> {

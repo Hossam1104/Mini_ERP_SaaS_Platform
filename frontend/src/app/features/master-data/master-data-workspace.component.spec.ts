@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { BehaviorSubject, of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
@@ -187,14 +187,18 @@ describe('MasterDataWorkspaceComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders nine deep-linkable resource tabs under the shared page header', () => {
+  it('renders nine deep-linkable resource tabs under the shared page header', async () => {
+    await TestBed.inject(Router).navigateByUrl('/app/master-data/categories');
+    await fixture.whenStable();
+    fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
-    const tabs = Array.from(element.querySelectorAll<HTMLAnchorElement>('.md-tabs__tab'));
+    const tabs = Array.from(element.querySelectorAll<HTMLAnchorElement>('app-tabs [role="tab"]'));
     expect(tabs).toHaveLength(9);
-    expect(element.querySelector('.md-tabs')?.getAttribute('aria-label')).toBe('Master data resources');
+    expect(element.querySelector('app-tabs [role="tablist"]')?.getAttribute('aria-label')).toBe('Master data resources');
     expect(element.querySelector('app-page-header h1#master-data-title')?.textContent).toContain('Categories');
     expect(tabs.map((tab) => tab.getAttribute('href'))).toContain('/app/master-data/categories');
-    expect(tabs.every((tab) => tab.tabIndex === 0)).toBe(true);
+    expect(tabs.filter((tab) => tab.tabIndex === 0)).toHaveLength(1);
+    expect(tabs.find((tab) => tab.getAttribute('aria-selected') === 'true')?.tabIndex).toBe(0);
     expect(element.textContent).toContain('Categories');
     expect(element.textContent).toContain('CAT-01');
     expect(data.list).toHaveBeenCalledWith('categories');

@@ -4,6 +4,8 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LanguageService } from '../../core/i18n/language.service';
 import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
+import { TabsComponent } from '../../shared/ui/tabs.component';
+import type { AppTab } from '../../shared/ui/tabs.component';
 import { FinanceService } from './finance.service';
 import { FinanceAgingReportRow, FinanceCloseReconciliation, FinanceCompany, FinanceGeneralLedgerLine, FinanceReconciliationView, FinanceStatementReport, FinanceStatementRow, FinanceTrialBalanceReport, FinanceTrialBalanceRow } from './finance.model';
 
@@ -33,7 +35,7 @@ const copy: Record<string, Bilingual> = {
 @Component({
   selector: 'app-finance-reports-workspace',
   standalone: true,
-  imports: [PageHeaderComponent, DataGridComponent, CommonModule, FormsModule],
+  imports: [PageHeaderComponent, DataGridComponent, TabsComponent, CommonModule, FormsModule],
   template: `
     <section class="reports-page" [attr.dir]="language.language() === 'ar' ? 'rtl' : 'ltr'">
       <app-page-header class="page-header"><div page-header-copy><p class="eyebrow">{{ text('kicker') }}</p><h1>{{ text('title') }}</h1><p class="lead">{{ text('lead') }}</p></div>
@@ -41,7 +43,7 @@ const copy: Record<string, Bilingual> = {
           </div>
         </app-page-header>
       <section class="toolbar"><label><span>{{ text('company') }}</span><select [ngModel]="companyId()" (ngModelChange)="companyId.set($event)"><option value="">—</option>@for (company of companies(); track company.companyId) { <option [value]="company.companyId">{{ company.companyName }} · {{ company.functionalCurrencyCode }}</option> }</select></label><label><span>{{ text('asOf') }}</span><input type="date" [(ngModel)]="asOfDate" /></label><label><span>{{ text('from') }}</span><input type="date" [(ngModel)]="fromDate" /></label><label><span>{{ text('to') }}</span><input type="date" [(ngModel)]="toDate" /></label><button class="button button--primary" type="button" (click)="run()" [disabled]="busy()">{{ text('run') }}</button></section>
-      <nav class="tabs" aria-label="Finance reports">@for (tab of tabs; track tab) { <button type="button" [class.active]="active() === tab" (click)="active.set(tab); run()">{{ text(tab) }}</button> }</nav>
+      <app-tabs [tabs]="reportTabs()" [selected]="active()" ariaLabel="Finance reports" (selectedChange)="selectTab($event)" />
       @if (error()) { <p class="error">{{ error() }}</p> }
       @if (!companyId()) { <section class="empty">{{ text('empty') }}</section> }
       @if (active() === 'trial' && trial()) { <section class="panel"><div class="panel-head"><h2>{{ text('trial') }}</h2><a class="button button--small" [href]="exportUrl('trial-balance')">{{ text('export') }}</a></div><p class="summary">{{ trial()!.functionalCurrencyCode }} · Debit {{ trial()!.totalDebit | number:'1.2-2' }} · Credit {{ trial()!.totalCredit | number:'1.2-2' }}</p><app-data-grid [rows]="trial()!.rows" [columns]="trialColumns" [clientPaging]="false" [showPager]="false" caption="Trial balance" /></section> }
@@ -52,7 +54,7 @@ const copy: Record<string, Bilingual> = {
       @if (companyId() && !resultAvailable()) { <section class="empty">{{ text('empty') }}</section> }
     </section>
   `,
-  styles: [`:host{display:block}.reports-page{display:grid;gap:1.1rem}.eyebrow{margin:0;color:var(--teal);font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.lead{max-width:760px;color:var(--muted);line-height:1.6}.toolbar,.tabs{display:flex;align-items:end;gap:.75rem;flex-wrap:wrap;padding:1rem;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow-sm)}label{display:grid;gap:.35rem;min-width:170px;flex:1}label span{color:var(--muted);font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}select,input{min-height:2.6rem;padding:.5rem .7rem;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit}.button{display:inline-flex;align-items:center;justify-content:center;min-height:2.6rem;padding:.5rem .8rem;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit;font-weight:750;text-decoration:none;cursor:pointer}.button--primary{border-color:var(--teal);background:var(--ink);color:#fff}.button--small{min-height:2rem;padding:.25rem .6rem;font-size:.8rem}.button:disabled{opacity:.5}.tabs{overflow-x:auto;padding:.35rem}.tabs button{padding:.7rem .8rem;border:0;border-bottom:3px solid transparent;background:transparent;color:var(--muted);font:inherit;font-weight:750;white-space:nowrap;cursor:pointer}.tabs button.active{border-bottom-color:var(--teal);color:var(--ink)}.panel,.empty{padding:1.15rem;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow-sm)}.empty{min-height:180px;display:grid;place-items:center;color:var(--muted)}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:.8rem}.panel h2{margin:0}.summary{color:var(--muted)}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{padding:.75rem .6rem;border-bottom:1px solid var(--line);text-align:start;vertical-align:top}th{color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em}td small{display:block;margin-top:.18rem;color:var(--muted)}.num{text-align:end;font-variant-numeric:tabular-nums}.recon-row{display:grid;grid-template-columns:1fr auto;gap:.25rem .8rem;padding:.75rem 0;border-bottom:1px solid var(--line)}.recon-row small{grid-column:1/-1;color:var(--muted)}.muted{color:var(--muted)}.error{padding:.75rem 1rem;border:1px solid #d98c8c;border-radius:9px;color:#9d3f3f;background:#fff4f4}@media(max-width:800px){.toolbar{align-items:stretch;flex-direction:column}label{width:100%}}`],
+  styles: [`:host{display:block}.reports-page{display:grid;gap:1.1rem}.eyebrow{margin:0;color:var(--teal);font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.lead{max-width:760px;color:var(--muted);line-height:1.6}.toolbar{display:flex;align-items:end;gap:.75rem;flex-wrap:wrap;padding:1rem;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow-sm)}label{display:grid;gap:.35rem;min-width:170px;flex:1}label span{color:var(--muted);font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.panel,.empty{padding:1.15rem;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow-sm)}.empty{min-height:180px;display:grid;place-items:center;color:var(--muted)}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:.8rem}.panel h2{margin:0}.summary{color:var(--muted)}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{padding:.75rem .6rem;border-bottom:1px solid var(--line);text-align:start;vertical-align:top}th{color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em}td small{display:block;margin-top:.18rem;color:var(--muted)}.num{text-align:end;font-variant-numeric:tabular-nums}.recon-row{display:grid;grid-template-columns:1fr auto;gap:.25rem .8rem;padding:.75rem 0;border-bottom:1px solid var(--line)}.recon-row small{grid-column:1/-1;color:var(--muted)}.muted{color:var(--muted)}.error{padding:.75rem 1rem;border:1px solid #d98c8c;border-radius:9px;color:#9d3f3f;background:#fff4f4}@media(max-width:800px){.toolbar{align-items:stretch;flex-direction:column}label{width:100%}}`],
 })
 export class FinanceReportsWorkspaceComponent implements OnInit {
   readonly language = inject(LanguageService);
@@ -61,6 +63,8 @@ export class FinanceReportsWorkspaceComponent implements OnInit {
   readonly companies = signal<FinanceCompany[]>([]);
   readonly companyId = signal('');
   readonly active = signal<ReportTab>('trial');
+  reportTabs(): AppTab[] { return this.tabs.map(id => ({ id, label: this.text(id) })); }
+  selectTab(id: string): void { this.active.set(id as ReportTab); this.run(); }
   readonly trial = signal<FinanceTrialBalanceReport | null>(null);
   readonly ledger = signal<FinanceGeneralLedgerLine[] | null>(null);
   readonly aging = signal<FinanceAgingReportRow[] | null>(null);
