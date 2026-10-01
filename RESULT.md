@@ -18,6 +18,28 @@
 - Failures and classification: The initial E2E attempt found an actual workspaces localization omission in `TenantSelectComponent`; fixed. The remaining initial failures were expectations against the older MESP-201 selector and a selector hidden for the one-Company fixture; updated to assert current rendered behavior. The final full Chromium run passed 70/70. Screenshot upload failure is a browser configuration blocker; no screenshot was committed.
 - Status files updated: `RESULT.md` and Draft PR #361 description; `TASK.md` untouched.
 - Exact next action: Enable Chrome extension access to file URLs as documented, attach both local Arabic screenshots to PR #361, and keep it Draft/Open.
+## 2026-10-01 — MESP-199 (#354) complete Scalar/OpenAPI documentation — GPT-6 / effort not surfaced — MESP-199 (#354)
+- Status: DONE. Draft PR creation is the final authorized delivery action; no Ready, review request, approval, merge, or issue-state action.
+- Branch / starting SHA / ending SHA: `docs/mesp-199-api-documentation`; branched from `origin/main` at `77e3410c403a907c37c0461e300d25bea5dd0e27`; implementation commit `8313ae3`; wording correction `99d74f5`; merged `origin/main` at `a03c389` and later `36fe9f2` via merge commit `58f212f344a6e8dbb54dfd86c087b645182fc541`. The RESULT hand-back commit follows.
+- What changed: Registered the schema transformer; added ordered, described module tags; documented every public catalogue operation with a specific summary, owner, preconditions/state transition, effects, permission/scope, Tenant boundary, declared headers/effective date, and responses; documented response and schema properties; strengthened `RestFoundationTests` to enforce the contract. The inventory covers 469 catalogue operations, all mapped to endpoint source; generated OpenAPI now includes all 469 including `platform.openapi`. No route, permission, status, runtime behavior, or DTO shape was changed by this task. No test host or port literal was added.
+- Coverage before / after (baseline OpenAPI at `77e3410` / served OpenAPI on final API-doc code):
+  - Specific summaries: 124/468 / 469/469.
+  - Non-generic descriptions: 110/468 / 469/469 with all required sections.
+  - Response declarations: 468/468 were present but generic / 469/469 have documented per-status responses.
+  - Operation tags with a description: 0/468; 0/34 baseline tags described / 469/469 assigned one described module tag; 10/10 tags described.
+  - Schema property descriptions: 0/1,145 across 227 schemas / 1,157/1,157 across 228 schemas.
+  - Parameter descriptions: 9/423 / 1,004/1,004.
+- Gates:
+  - `dotnet test .\backend\tests\MiniErp.ArchitectureTests\MiniErp.ArchitectureTests.csproj --configuration Release --filter FullyQualifiedName~OpenApi_contains_no_secret_or_internal_schema`: 1 passed, 0 failed, 0 skipped after removing credential-transport wording from generated docs.
+  - Final ` .\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false` on merged head: Release build 0 warnings / 0 errors; 1,628 passed, 0 failed, 0 skipped; 2m55s; disposable LocalDB reported `MESP data is intact`.
+  - All eight Infrastructure contexts reported `No changes have been made to the model since the last migration`. The design-time connection was a process-local LocalDB placeholder; no database connection or write was performed by these checks.
+  - `git diff --check`: clean after this entry is added.
+  - Development API on port 5390: `/health`, `/openapi/v1.json`, and `/scalar` returned 200. API PID 56084 was verified as this worktree's executable, stopped, and port 5390 is clear. Existing `.DisableAgent()` remains configured.
+- Evidence: Draft PR [#362](https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/362), base `main`, remains OPEN/Draft. `.playwright-mcp/mesp-199/operation-inventory.md`, `operation-inventory.csv`, `coverage-before.md`, `openapi-before.json`, and `openapi-after.json`. Screenshots, ignored and not committed: `.playwright-mcp/mesp-199/scalar-module-tags.png` and `.playwright-mcp/mesp-199/scalar-documented-operation.png`.
+- Deviations from the prompt: `origin/main` advanced during the task; its updates through `36fe9f2` were merged before the final backend and EF gates. The final merge included unrelated main-owned frontend and RESULT updates, which were preserved.
+- Failures and classification: An earlier full suite run caught the OpenAPI secret guard because descriptions included credential transport wording; the wording was removed and the final merged-head suite passed. The first EF invocation lacked the required design-time connection setting and stopped before model inspection; the process-local placeholder rerun passed all eight contexts. The Foundation catalogue has no closed per-operation domain-error-code registry. Descriptions list shared codes and status families and state that owning-module results are returned unchanged; the exact possible module codes and rejected-rule conditions remain defined by each owner handler and cannot be exhaustively named from the Foundation descriptor alone. Scalar's Development page also visibly retains its `Generate MCP` navigation entry while `.DisableAgent()` is configured; that entry was not activated, and its relation to the disabled agent integration remains unclear.
+- Status files updated: `RESULT.md` only; `TASK.md` untouched; no tracker writes. Screenshot artifacts under `.playwright-mcp` were not staged.
+- Exact next action: Opus 5.5 reviews MESP-199 Draft PR #362; leave it Draft/Open/Unmerged.
 
 ## 2026-10-01 — MESP-201 (#357) Tenant-host workspace context — GPT-6 / effort not surfaced — MESP-201 (#357)
 - Status: DONE. Draft PR #360 remains OPEN/Draft; no Ready, review request, approval, merge, or issue-state change.

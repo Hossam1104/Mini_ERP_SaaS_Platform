@@ -365,6 +365,7 @@ builder.Services.AddOpenApi("v1", options =>
 {
     options.AddDocumentTransformer<MiniErpOpenApiDocumentTransformer>();
     options.AddOperationTransformer<MiniErpOpenApiOperationTransformer>();
+    options.AddSchemaTransformer<MiniErpOpenApiSchemaTransformer>();
 });
 
 var app = builder.Build();
@@ -606,6 +607,7 @@ app.MapPost("/api/v1/auth/sign-out", async (
     return Results.NoContent();
 })
     .WithName("auth.sign-out")
+    .Produces(StatusCodes.Status204NoContent)
     .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("auth.sign-out")));
 
 app.MapGet("/api/v1/auth/session", (
@@ -1024,6 +1026,11 @@ app.MapPost("/api/v1/notifications", async (
         return Results.Json(response, statusCode: statusCode);
     })
     .WithName("notification.intent.dispatch")
+    .Produces<NotificationDispatchResponse>(StatusCodes.Status202Accepted)
+    .Produces<NotificationDispatchResponse>(StatusCodes.Status400BadRequest)
+    .Produces<NotificationDispatchResponse>(StatusCodes.Status403Forbidden)
+    .Produces<NotificationDispatchResponse>(StatusCodes.Status502BadGateway)
+    .Produces<NotificationDispatchResponse>(StatusCodes.Status503ServiceUnavailable)
     .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("notification.intent.dispatch")));
 
 app.MapGet("/api/v1/foundation/platform-context", async (
@@ -1120,6 +1127,7 @@ if ((app.Environment.IsDevelopment()
         options => options
             .AddDocument("v1")
             .DisableAgent()
+            .DisableMcp()
             .WithTitle("Mini ERP SaaS Platform API"));
 }
 
