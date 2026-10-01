@@ -8,6 +8,13 @@ import { BrandMarkComponent } from '../../shared/ui/brand-mark.component';
 import { OperationalContextSwitcherComponent } from '../../shared/ui/operational-context-switcher.component';
 import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation.config';
 
+export function accountInitials(value: string): string {
+  const words = value.trim().split(/\s+/);
+  const first = Array.from(words[0] ?? '');
+  const last = Array.from(words[words.length - 1] ?? '');
+  return `${first[0] ?? ''}${(words.length > 1 ? last[0] : first[1]) ?? ''}`.toUpperCase();
+}
+
 @Component({
   selector: 'app-application-shell',
   standalone: true,
@@ -138,12 +145,15 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
 
             <div class="header-menu-control account-control">
               <button #accountTrigger id="account-trigger" class="header-control toolbar-button account-trigger" type="button" (click)="toggleHeaderMenu('account')" [attr.aria-label]="label('Account', 'الحساب')" [title]="label('Account', 'الحساب')" aria-haspopup="menu" [attr.aria-controls]="accountMenuOpen() ? 'account-menu' : null" [attr.aria-expanded]="accountMenuOpen()">
-                <svg class="icon" aria-hidden="true"><use href="#icon-user" /></svg>
+                <span class="account-trigger__avatar" aria-hidden="true">{{ accountInitials() }}</span>
+                <span class="account-trigger__name">{{ accountDisplayName() }}</span>
               </button>
               @if (accountMenuOpen()) {
                 <div #accountMenu id="account-menu" class="header-menu account-menu" role="menu" [attr.aria-label]="label('Account menu', 'قائمة الحساب')" (keydown)="onHeaderMenuKeydown($event, 'account')">
                   <div class="account-menu__identity" role="group" [attr.aria-label]="label('Signed in', 'تم تسجيل الدخول')">
                     <strong>{{ label('Signed in', 'تم تسجيل الدخول') }}</strong>
+                    <span class="account-menu__user-name">{{ accountDisplayName() }}</span>
+                    @if (auth.session()?.login; as login) { <small class="account-menu__user-login">{{ label('Login', 'اسم الدخول') }}: {{ login }}</small> }
                     @if (tenantDisplayName(); as tenantName) { <span>{{ tenantName }}</span> }
                     @if (context.currentOperationalContext()?.displayName; as operationalName) { <small>{{ operationalName }}</small> }
                   </div>
@@ -220,7 +230,7 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
     .context-chip { width: min(15rem, 24vw); min-width: 0; max-width: 15rem; justify-content: flex-start; gap: .42rem; padding-inline: .55rem; text-align: start; }
     .context-chip__building { width: 18px; height: 18px; flex: none; }
     .context-chip__copy { display: grid; min-width: 0; flex: 1; gap: .08rem; line-height: 1.05; }
-    .context-chip__copy strong, .context-chip__copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .context-chip__copy strong, .context-chip__copy small, .account-trigger__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .context-chip__copy strong { color: var(--ink); font-size: .78rem; font-weight: 800; }
     .context-chip__copy small { color: var(--ink-muted); font-size: .68rem; font-weight: 650; }
     .chevron { width: 14px !important; height: 14px !important; flex: none; color: var(--ink-muted); }
@@ -231,6 +241,9 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
     .context-menu { width: min(18rem, calc(100vw - 24px)); }
     .theme-menu { width: 264px; }
     .account-menu { width: min(16rem, calc(100vw - 24px)); }
+    .account-trigger { width: auto; max-width: min(12rem, 30vw); padding-inline: .4rem; }
+    .account-trigger__avatar { display: grid; width: 1.75rem; aspect-ratio: 1; flex: none; place-items: center; border-radius: 50%; background: var(--accent-soft); }
+    .account-trigger__name { min-width: 0; }
     .header-menu__item, .theme-option { display: flex; width: 100%; min-height: 40px; align-items: center; gap: .65rem; border: 1px solid transparent; border-radius: var(--radius-control); padding: .4rem .55rem; color: var(--ink); background: transparent; text-align: start; font: 600 14px/1.2 var(--font-sans); text-decoration: none; }
     .header-menu__item { cursor: pointer; }
     .header-menu__item:hover:not(:disabled), .header-menu__item:focus-visible, .theme-option:hover, .theme-option:focus-visible { border-color: color-mix(in srgb, var(--accent) 20%, var(--line)); background: var(--accent-soft); }
@@ -324,6 +337,11 @@ export class ApplicationShellComponent implements OnInit, OnDestroy {
   readonly contextMenuOpen = computed(() => this.openHeaderMenu() === 'context');
   readonly themeMenuOpen = computed(() => this.openHeaderMenu() === 'theme');
   readonly accountMenuOpen = computed(() => this.openHeaderMenu() === 'account');
+  accountDisplayName(): string {
+    const session = this.auth.session();
+    return session?.displayName?.trim() || session?.login?.trim() || this.label('Account', 'الحساب');
+  }
+  accountInitials(): string { return accountInitials(this.accountDisplayName()); }
   readonly themeMenuFocus = signal<ThemeName>('sapphire');
   private contextMenuElement?: HTMLElement;
   private themeMenuElement?: HTMLElement;

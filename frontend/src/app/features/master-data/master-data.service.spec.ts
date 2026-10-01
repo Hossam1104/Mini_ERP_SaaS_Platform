@@ -17,6 +17,8 @@ const session = {
   selectedTenantId: 'tenant-a',
   selectedContextId: 'context-a',
   selectionVersion: 1,
+  displayName: null,
+  login: 'owner@example.com',
 };
 
 describe('MasterDataService', () => {

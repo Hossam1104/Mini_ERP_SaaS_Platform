@@ -25,6 +25,8 @@ const authenticatedSession: FoundationSessionResponse = {
   selectedTenantId: 'tenant-a',
   selectedContextId: null,
   selectionVersion: 1,
+  displayName: 'Amina Hassan',
+  login: 'amina@example.com',
 };
 
 describe('SignInComponent', () => {

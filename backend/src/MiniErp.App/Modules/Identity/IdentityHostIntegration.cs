@@ -40,7 +40,9 @@ public sealed record FoundationHostSessionState(
     DateTimeOffset? AbsoluteExpiresAt,
     long SelectionVersion,
     FoundationHostContextCandidate? SelectedContext,
-    IReadOnlyList<FoundationHostContextCandidate> Contexts);
+    IReadOnlyList<FoundationHostContextCandidate> Contexts,
+    string? DisplayName,
+    string? Login);
 
 /// <summary>Safe sign-in outcome. The raw opaque token is never a public property.</summary>
 public sealed class FoundationHostSignInResult
@@ -926,15 +928,18 @@ internal sealed class FoundationIdentityHost : IFoundationIdentityHost
     private FoundationHostSessionState BuildState(UserId userId, SessionId sessionId, string cookieValue)
     {
         DateTimeOffset? expiresAt = null;
+        string? login;
         lock (identity.Store.SyncRoot)
         {
             if (!identity.Store.Sessions.TryGetValue(sessionId, out var session)
-                || !identity.Store.Users.TryGetValue(userId, out _))
+                || session.UserId != userId
+                || !identity.Store.Users.TryGetValue(userId, out var user))
             {
                 return AnonymousState();
             }
 
             expiresAt = session.AbsoluteExpiresAt;
+            login = user.NormalizedEmail;
         }
 
         SelectedContext? selected;
@@ -960,7 +965,9 @@ internal sealed class FoundationIdentityHost : IFoundationIdentityHost
             expiresAt,
             selected?.SelectionVersion ?? 0,
             selectedCandidate,
-            contexts);
+            contexts,
+            null,
+            login);
     }
 
     private IReadOnlyList<FoundationHostContextCandidate> ListContexts(UserId userId, string cookieValue)
@@ -1121,7 +1128,7 @@ internal sealed class FoundationIdentityHost : IFoundationIdentityHost
     }
 
     private static FoundationHostSessionState AnonymousState() =>
-        new(false, null, null, "Unauthenticated", null, 0, null, []);
+        new(false, null, null, "Unauthenticated", null, 0, null, [], null, null);
 }
 
 #pragma warning restore CS1591

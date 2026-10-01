@@ -217,7 +217,17 @@ public sealed class HostSecurityTests
         using var client = factory.CreateClient();
         factory.SeedCore();
 
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/auth/session")).StatusCode);
+        var anonymousSession = await client.GetAsync("/api/v1/auth/session");
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousSession.StatusCode);
+        var anonymousSessionBody = await ReadJsonAsync(anonymousSession);
+        Assert.False(anonymousSessionBody.TryGetProperty("displayName", out _));
+        Assert.False(anonymousSessionBody.TryGetProperty("login", out _));
+        var anonymousEntry = await client.GetAsync("/api/v1/auth/entry");
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousEntry.StatusCode);
+        var anonymousEntryBody = await ReadJsonAsync(anonymousEntry);
+        Assert.False(anonymousEntryBody.TryGetProperty("displayName", out _));
+        Assert.False(anonymousEntryBody.TryGetProperty("login", out _));
+
         var response = await SignInAsync(client, "owner@example.com", factory.Password);
         var body = await ReadJsonAsync(response);
         var raw = body.GetRawText();
@@ -230,9 +240,24 @@ public sealed class HostSecurityTests
         Assert.DoesNotContain(FoundationIdentityClaims.SessionToken, raw, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("cookieValue", raw, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("password", raw, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("OWNER@EXAMPLE.COM", body.GetProperty("login").GetString());
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("displayName").ValueKind);
 
         var session = await client.GetAsync("/api/v1/auth/session");
         Assert.Equal(HttpStatusCode.OK, session.StatusCode);
+        var sessionBody = await ReadJsonAsync(session);
+        Assert.Equal("OWNER@EXAMPLE.COM", sessionBody.GetProperty("login").GetString());
+        Assert.Equal(JsonValueKind.Null, sessionBody.GetProperty("displayName").ValueKind);
+
+        var entry = await ReadJsonAsync(await client.GetAsync("/api/v1/auth/entry"));
+        Assert.False(entry.TryGetProperty("displayName", out _));
+        Assert.False(entry.TryGetProperty("login", out _));
+
+        using var foreignClient = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await SignInAsync(foreignClient, "foreign@example.com", factory.Password)).StatusCode);
+        var foreignSession = await ReadJsonAsync(await foreignClient.GetAsync("/api/v1/auth/session"));
+        Assert.Equal("FOREIGN@EXAMPLE.COM", foreignSession.GetProperty("login").GetString());
+        Assert.NotEqual(sessionBody.GetProperty("login").GetString(), foreignSession.GetProperty("login").GetString());
     }
 
     [Fact]

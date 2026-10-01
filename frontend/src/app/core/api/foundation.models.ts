@@ -14,6 +14,8 @@ export interface FoundationSessionResponse {
   selectedTenantId: string | null;
   selectedContextId: string | null;
   selectionVersion: number;
+  displayName: string | null;
+  login: string | null;
   replayed?: boolean;
 }
 

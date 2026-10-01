@@ -8,7 +8,7 @@ import { authInterceptor } from '../../core/api/auth.interceptor';
 import { FoundationContextCandidate, FoundationEntryResponse, FoundationSessionResponse } from '../../core/api/foundation.models';
 import { ContextService } from '../../core/context/context.service';
 import { LanguageService } from '../../core/i18n/language.service';
-import { ApplicationShellComponent } from './application-shell.component';
+import { accountInitials, ApplicationShellComponent } from './application-shell.component';
 
 @Component({ standalone: true, template: '' })
 class NavigationTestRouteComponent {}
@@ -23,6 +23,8 @@ const authenticatedSession: FoundationSessionResponse = {
   selectedTenantId: 'tenant-a',
   selectedContextId: 'context-a',
   selectionVersion: 2,
+  displayName: 'Amina Hassan',
+  login: 'amina@example.com',
 };
 
 const contextCandidate: FoundationContextCandidate = {
@@ -271,15 +273,38 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     expect(trigger.getAttribute('aria-label')).toBe('Account');
     expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(trigger.querySelector('.account-trigger__avatar')?.textContent).toContain('AH');
+    expect(trigger.textContent).toContain('Amina Hassan');
     expect(menu.textContent).toContain('Signed in');
+    expect(menu.textContent).toContain('Amina Hassan');
+    expect(menu.textContent).toContain('Login: amina@example.com');
     expect(menu.textContent).toContain('Alpha Tenant');
     expect(menu.textContent).toContain('Alpha Branch');
+    expect(menu.textContent!.indexOf('Amina Hassan')).toBeLessThan(menu.textContent!.indexOf('Alpha Tenant'));
+    expect(menu.textContent!.indexOf('Login: amina@example.com')).toBeLessThan(menu.textContent!.indexOf('Alpha Tenant'));
+    language.toggle();
+    fixture.detectChanges();
+    expect(menu.textContent).toContain('اسم الدخول: amina@example.com');
+    language.toggle();
+    fixture.detectChanges();
     expect(document.activeElement).toBe(menu.querySelector('[role="menuitem"]'));
 
     (menu.querySelector('.sign-out') as HTMLButtonElement).click();
     fixture.detectChanges();
     await Promise.resolve();
     expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('uses initials from the display name and falls back to login when the name is absent', () => {
+    expect(accountInitials('Amina Hassan')).toBe('AH');
+    expect(accountInitials('amina@example.com')).toBe('AM');
+
+    auth.acceptServerSession({ ...authenticatedSession, displayName: null, login: 'fallback@example.com' });
+    fixture.detectChanges();
+    const trigger = (fixture.nativeElement as HTMLElement).querySelector('#account-trigger') as HTMLButtonElement;
+    expect(fixture.componentInstance.accountDisplayName()).toBe('fallback@example.com');
+    expect(trigger.querySelector('.account-trigger__avatar')?.textContent).toContain('FA');
+    expect(trigger.textContent).toContain('fallback@example.com');
   });
 
   it('closes the Account menu on Escape and restores focus to its trigger', async () => {

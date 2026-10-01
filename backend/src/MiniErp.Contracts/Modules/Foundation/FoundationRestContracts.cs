@@ -93,7 +93,11 @@ public sealed record FoundationOperationDescriptor(
     bool IsUnsafe = false,
     FoundationConcurrencyPolicy Concurrency = FoundationConcurrencyPolicy.None,
     FoundationIdempotencyPolicy Idempotency = FoundationIdempotencyPolicy.None,
-    FoundationEffectiveDatePolicy EffectiveDate = FoundationEffectiveDatePolicy.None);
+    FoundationEffectiveDatePolicy EffectiveDate = FoundationEffectiveDatePolicy.None)
+{
+    /// <summary>Additional operation-specific OpenAPI boundary statement.</summary>
+    public string? BoundaryDescription { get; init; }
+}
 
 /// <summary>
 /// Metadata attached to every public endpoint.
@@ -183,6 +187,8 @@ public sealed record FoundationSessionResponse(
     Guid? SelectedTenantId,
     Guid? SelectedContextId,
     long SelectionVersion,
+    string? DisplayName,
+    string? Login,
     bool Replayed = false);
 
 /// <summary>One safe server-derived context candidate.</summary>
@@ -790,7 +796,10 @@ public static class FoundationOperationCatalog
         new("auth.sign-in", "/api/v1/auth/sign-in", "POST", FoundationSecurityProfile.Anonymous, FoundationOperationVisibility.Public, RequiresAntiforgery: false, IsUnsafe: true),
         new("auth.development-bypass", "/api/v1/auth/development-bypass", "POST", FoundationSecurityProfile.Anonymous, FoundationOperationVisibility.Public, RequiresAntiforgery: false, IsUnsafe: true),
         new("auth.sign-out", "/api/v1/auth/sign-out", "POST", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session", FoundationScopePolicy.None, RequiresAntiforgery: true, RequiresMandatoryAudit: false, IsUnsafe: true),
-        new("auth.session.read", "/api/v1/auth/session", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session"),
+        new("auth.session.read", "/api/v1/auth/session", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session")
+        {
+            BoundaryDescription = "Returns only the authenticated session owner's display name and login. No user identifier or identity value is accepted from the request; displayName is null when the identity record has no display name."
+        },
         new("auth.contexts.read", "/api/v1/auth/contexts", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session"),
         new("auth.entry.read", "/api/v1/auth/entry", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session"),
         new("auth.operational-contexts.read", "/api/v1/auth/operational-contexts", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session"),
