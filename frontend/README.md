@@ -41,12 +41,9 @@ npm install
 npm start
 ```
 
-The official repository launcher runs the shell at `http://localhost:4300/`
-and calls the API through its generated same-origin proxy. In Development,
-`localhost` is the common entry host, `tenant.localhost` is the generic Tenant
-host, and `admin.localhost` is the platform-admin boundary. The proxy
-preserves the browser Host so the API remains the entry authority; Angular
-does not parse or authorize subdomains.
+The official Development launcher uses the API same-origin proxy. Its host
+entries, default sign-in account, and opt-in bypass behavior are documented in
+the [repository Local quick start](../README.md#local-quick-start).
 
 ## Validation
 

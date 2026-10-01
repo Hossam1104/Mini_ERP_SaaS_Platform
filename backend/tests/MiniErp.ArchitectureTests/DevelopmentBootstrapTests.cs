@@ -104,6 +104,59 @@ public sealed class DevelopmentBootstrapTests
     }
 
     [Fact]
+    public void Bootstrap_DummyAccountAndPublicHintAreDevelopmentOnly()
+    {
+        var settings = new Dictionary<string, string?>
+        {
+            ["MESP_DEV_BOOTSTRAP_ENABLED"] = "true",
+            ["MESP_DEV_ADMIN_LOGIN"] = DevelopmentBootstrap.DefaultAdminLogin,
+            ["MESP_DEV_ADMIN_PASSWORD"] = DevelopmentBootstrap.DefaultAdminPassword
+        };
+        using var productionHost = Host.CreateDefaultBuilder()
+            .UseEnvironment(Environments.Production)
+            .ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings))
+            .ConfigureServices((_, services) => services.AddSingleton(new IdentityAuthorizationService()))
+            .Build();
+        var identity = productionHost.Services.GetRequiredService<IdentityAuthorizationService>();
+
+        productionHost.SeedDevelopmentBootstrap();
+
+        Assert.False(identity.Authenticate(
+            DevelopmentBootstrap.DefaultAdminLogin,
+            DevelopmentBootstrap.DefaultAdminPassword).Succeeded);
+        Assert.Null(DevelopmentBootstrap.GetPublicDefaultAccountHint(
+            productionHost.Services.GetRequiredService<IHostEnvironment>(),
+            productionHost.Services.GetRequiredService<IConfiguration>()));
+        var developmentConfiguration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+        Assert.Equal(
+            "admin@mesp.com / 123",
+            DevelopmentBootstrap.GetPublicDefaultAccountHint(
+                CreateHostEnvironment(Environments.Development),
+                developmentConfiguration));
+    }
+
+    [Fact]
+    public void Bootstrap_DefaultDummyAccountAuthenticatesWithItsTenantMembership()
+    {
+        using var factory = new CustomTestWebApplicationFactory(new Dictionary<string, string?>
+        {
+            ["MESP_DEV_BOOTSTRAP_ENABLED"] = "true",
+            ["MESP_DEV_ADMIN_PASSWORD"] = DevelopmentBootstrap.DefaultAdminPassword
+        });
+        using var scope = factory.Services.CreateScope();
+        var identity = scope.ServiceProvider.GetRequiredService<IFoundationIdentityHost>();
+
+        var signIn = identity.SignIn(
+            DevelopmentBootstrap.DefaultAdminLogin,
+            DevelopmentBootstrap.DefaultAdminPassword);
+
+        Assert.True(signIn.Succeeded);
+        Assert.NotNull(signIn.Principal);
+        Assert.Single(identity.ListContexts(signIn.Principal));
+        Assert.Equal(DevelopmentBootstrap.DevTenantId.Value, identity.ListContexts(signIn.Principal)[0].TenantId);
+    }
+
+    [Fact]
     public async Task DevelopmentBypass_DisabledByDefault_IsUnavailable()
     {
         using var factory = new CustomTestWebApplicationFactory(new Dictionary<string, string?>
@@ -270,13 +323,12 @@ public sealed class DevelopmentBootstrapTests
     }
 
     [Fact]
-    public async Task DevelopmentBypass_EnabledInDevelopment_UsesConfiguredServerActorAndHumanTenantName()
+    public async Task DevelopmentBypass_EnabledInDevelopment_UsesDefaultBootstrapLoginAndHumanTenantName()
     {
         var settings = new Dictionary<string, string?>
         {
             ["MESP_DEV_BOOTSTRAP_ENABLED"] = "true",
             ["MESP_DEV_AUTH_BYPASS"] = "true",
-            ["MESP_DEV_ADMIN_LOGIN"] = "admin@minierp.local",
             ["MESP_DEV_ADMIN_PASSWORD"] = null,
             ["MESP_DEV_TENANT_DISPLAY_NAME"] = "Wafra"
         };

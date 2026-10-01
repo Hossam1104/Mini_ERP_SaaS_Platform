@@ -1275,12 +1275,14 @@ An authenticated user without Wafra access receives a safe denial and no Wafra b
 
 Illustrative `mesp.com` behavior:
 
-- exactly one authorized Tenant → redirect directly to its canonical host;
-- multiple authorized Tenants → show only those legitimate memberships, then redirect;
+- exactly one authorized Tenant → select it server-side and land on its Overview on the common host;
+- multiple authorized Tenants → show only those legitimate memberships, then land on the chosen Tenant's Overview on the common host;
 - zero memberships → safe no-access/onboarding state;
 - never expose an unrelated Tenant catalogue to an ordinary user.
 
 Raw Tenant GUIDs are not user-facing selectors.
+
+Owner decision 2026-10-01 (MESP-186 (#327), MESP-23 (#112), Option A): the common host does not redirect to the Tenant's canonical host after selection; the session stays on the common host. Tenant isolation remains server-enforced by the authenticated membership and selected context, never by hostname. A redirect with a secure cross-host session handoff is out of scope for Release 1.
 
 ##### 2.4 Platform Administration is a separate control plane
 

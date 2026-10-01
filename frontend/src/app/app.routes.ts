@@ -1,10 +1,9 @@
 import { Routes } from '@angular/router';
 import { sessionGuard } from './core/auth/session.guard';
-import { SignInComponent } from './features/auth/sign-in.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'app' },
-  { path: 'login', component: SignInComponent },
+  { path: 'login', loadComponent: () => import('./features/auth/sign-in.component').then((module) => module.SignInComponent) },
   {
     path: 'app',
     loadComponent: () => import('./features/shell/application-shell.component').then((module) => module.ApplicationShellComponent),
