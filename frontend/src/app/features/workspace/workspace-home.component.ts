@@ -6,22 +6,87 @@ import { ThemeService } from '../../core/presentation/theme.service';
 import { StatusCardComponent } from '../../shared/ui/status-card.component';
 import { NAVIGATION_GROUPS, type NavigationItem } from '../shell/navigation.config';
 
-const MODULE_CARD_IMAGE_IDS: Record<NavigationItem['path'], string> = {
-  '/app/master-data/categories': 'master-data',
-  '/app/price-lists': 'price-lists',
-  '/app/master-data/imports': 'imports',
-  '/app/procurement/purchase-requests': 'purchase-requests',
-  '/app/procurement/supplier-quotations': 'supplier-quotations',
-  '/app/procurement/purchase-orders': 'purchase-orders',
-  '/app/procurement/goods-receipts': 'goods-receipts',
-  '/app/procurement/supplier-returns': 'supplier-returns',
-  '/app/procurement/invoice-handoffs': 'invoice-handoffs',
-  '/app/procurement/invoice-matching': 'invoice-matching',
-  '/app/inventory': 'inventory',
-  '/app/inventory/valuation': 'inventory-valuation',
-  '/app/finance': 'finance',
-  '/app/sales/quotations': 'sales',
-  '/app/reporting': 'reporting',
+const MODULE_CARD_CONTENT: Record<NavigationItem['path'], {
+  imageId: string;
+  code: string;
+  descriptionEn: string;
+  descriptionAr: string;
+}> = {
+  '/app/master-data/categories': {
+    imageId: 'master-data', code: 'MD',
+    descriptionEn: 'Maintain product categories and shared reference data used across the ERP.',
+    descriptionAr: 'إدارة فئات المنتجات والبيانات المرجعية المشتركة بين وحدات النظام.',
+  },
+  '/app/price-lists': {
+    imageId: 'price-lists', code: 'PL',
+    descriptionEn: 'Create and manage product price lists and their effective dates.',
+    descriptionAr: 'إنشاء قوائم أسعار المنتجات وإدارة فترات سريانها.',
+  },
+  '/app/master-data/imports': {
+    imageId: 'imports', code: 'IMP',
+    descriptionEn: 'Import master data files, validate rows, and review import outcomes.',
+    descriptionAr: 'استيراد ملفات البيانات الرئيسية والتحقق من الصفوف ومراجعة النتائج.',
+  },
+  '/app/procurement/purchase-requests': {
+    imageId: 'purchase-requests', code: 'PR',
+    descriptionEn: 'Create and review internal purchase requests before orders are issued.',
+    descriptionAr: 'إنشاء طلبات الشراء الداخلية ومراجعتها قبل إصدار الأوامر.',
+  },
+  '/app/procurement/supplier-quotations': {
+    imageId: 'supplier-quotations', code: 'SQ',
+    descriptionEn: 'Record supplier offers against requests and review their quoted terms.',
+    descriptionAr: 'تسجيل عروض الموردين للطلبات ومراجعة الشروط والأسعار المقدمة.',
+  },
+  '/app/procurement/purchase-orders': {
+    imageId: 'purchase-orders', code: 'PO',
+    descriptionEn: 'Prepare purchase orders from eligible requests or supplier offers and manage their status.',
+    descriptionAr: 'إعداد أوامر الشراء من الطلبات أو عروض الموردين ومتابعة حالاتها.',
+  },
+  '/app/procurement/goods-receipts': {
+    imageId: 'goods-receipts', code: 'GR',
+    descriptionEn: 'Record quantities received against confirmed purchase orders.',
+    descriptionAr: 'تسجيل الكميات المستلمة مقابل أوامر الشراء المؤكدة.',
+  },
+  '/app/procurement/supplier-returns': {
+    imageId: 'supplier-returns', code: 'SR',
+    descriptionEn: 'Record supplier returns against their original received order lines.',
+    descriptionAr: 'تسجيل مرتجعات الموردين وربطها ببنود الاستلام الأصلية.',
+  },
+  '/app/procurement/invoice-handoffs': {
+    imageId: 'invoice-handoffs', code: 'IH',
+    descriptionEn: 'Register supplier invoice evidence and hand it off to Finance for review.',
+    descriptionAr: 'تسجيل مستندات فواتير الموردين وإحالتها إلى المالية للمراجعة.',
+  },
+  '/app/procurement/invoice-matching': {
+    imageId: 'invoice-matching', code: 'IM',
+    descriptionEn: 'Compare supplier invoices with purchase orders and receipts, then review matching results.',
+    descriptionAr: 'مطابقة فواتير الموردين مع أوامر الشراء والاستلام ومراجعة النتائج.',
+  },
+  '/app/inventory': {
+    imageId: 'inventory', code: 'INV',
+    descriptionEn: 'Review stock availability, balances, and movements within the authorized scope.',
+    descriptionAr: 'مراجعة توفر المخزون وأرصدته وحركاته ضمن النطاق المصرح به.',
+  },
+  '/app/inventory/valuation': {
+    imageId: 'inventory-valuation', code: 'VAL',
+    descriptionEn: 'Review inventory valuation summaries and their supporting details.',
+    descriptionAr: 'مراجعة ملخصات تقييم المخزون والتفاصيل الداعمة لها.',
+  },
+  '/app/finance': {
+    imageId: 'finance', code: 'FIN',
+    descriptionEn: 'Manage Company books, journals, settlements, and finance period workflows.',
+    descriptionAr: 'إدارة دفاتر الشركة والقيود والتسويات وسير عمل الفترات المالية.',
+  },
+  '/app/sales/quotations': {
+    imageId: 'sales', code: 'SAL',
+    descriptionEn: 'Manage customer quotations and sales orders in their current workflows.',
+    descriptionAr: 'إدارة عروض أسعار العملاء وأوامر البيع ضمن مسارات العمل الحالية.',
+  },
+  '/app/reporting': {
+    imageId: 'reporting', code: 'RPT',
+    descriptionEn: 'Run available source-linked reports and review results within your authorized scope.',
+    descriptionAr: 'تشغيل التقارير المتاحة المرتبطة بالمصادر ومراجعة نتائجها ضمن نطاق الصلاحيات.',
+  },
 };
 
 interface OverviewModule {
@@ -29,6 +94,9 @@ interface OverviewModule {
   labelEn: string;
   labelAr: string;
   icon: string;
+  code: string;
+  descriptionEn: string;
+  descriptionAr: string;
   imageSrc: string;
   groupId: string;
   groupLabelEn: string;
@@ -72,11 +140,11 @@ interface OverviewModule {
           </div>
           <div class="capability-grid">
             @for (module of visibleModules(); track module.path; let index = $index) {
-              <a class="module-card" [class]="'module-card module-card--' + module.groupId" [routerLink]="module.path" [style.--card-order]="index" [attr.aria-label]="label('View links for ' + module.labelEn, 'عرض روابط ' + module.labelAr)">
-                <span class="module-card__banner" aria-hidden="true"><img class="module-card__image" [src]="module.imageSrc" width="640" height="360" loading="lazy" decoding="async" alt="" /></span>
-                <span class="module-card__tag">{{ label(module.groupLabelEn, module.groupLabelAr) }}</span>
-                <strong>{{ navigationLabel(module) }}</strong>
-                <span class="module-card__view">{{ label('View links', 'عرض الروابط') }}<svg class="icon icon--arrow-up-right" aria-hidden="true"><use href="#icon-arrow-up-right" /></svg></span>
+              <a class="module-card ui-surface" [class]="'module-card ui-surface module-card--' + module.groupId" [routerLink]="module.path" [style.--card-order]="index" [attr.aria-label]="label('View links for ' + module.labelEn, 'عرض روابط ' + module.labelAr)">
+                <span class="module-card__banner" aria-hidden="true"><img class="module-card__image" [src]="module.imageSrc" width="640" height="360" loading="lazy" decoding="async" alt="" /><span class="module-card__code">{{ module.code }}</span></span>
+                <span class="module-card__title">{{ navigationLabel(module) }}</span>
+                <span class="module-card__description">{{ label(module.descriptionEn, module.descriptionAr) }}</span>
+                <span class="module-card__view">{{ label('View links →', 'عرض الروابط ←') }}</span>
               </a>
             } @empty {
               <p class="module-empty" role="status">{{ label('No matching destinations', 'لا توجد صفحات مطابقة') }}</p>
@@ -129,22 +197,19 @@ interface OverviewModule {
     .module-chip:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
     .module-chip.is-active { border-color: var(--accent); color: var(--action-text); background: var(--accent-action); }
     .capability-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 225px), 1fr)); gap: .9rem; }
-    .module-card { display: grid; min-width: 0; gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--line)); border-radius: 18px; padding: .8rem; color: var(--ink); background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 88%, transparent), color-mix(in srgb, var(--surface-raised) 84%, transparent) 76%); box-shadow: var(--shadow-card), inset 0 1px 0 var(--glass-highlight), inset 0 0 0 1px color-mix(in srgb, var(--glass-highlight) 36%, transparent); backdrop-filter: blur(16px) saturate(155%); text-decoration: none; animation: card-enter 420ms ease both; animation-delay: calc(var(--card-order, 0) * 35ms); transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease; }
-    .module-card:hover { border-color: color-mix(in srgb, var(--accent) 42%, var(--line)); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); transform: translateY(-5px); }
+    .module-card { display: grid; min-width: 0; gap: .7rem; padding: .8rem; color: var(--ink); text-decoration: none; animation-delay: calc(var(--card-order, 0) * 35ms); }
     .module-card:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
-    .module-card__banner { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 12px; background: var(--surface-raised); }
-    .module-card__banner::after { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 35%, color-mix(in srgb, var(--accent) 12%, transparent)); content: ''; pointer-events: none; }
-    .module-card__image { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
-    :host-context(html[data-color-scheme='dark']) .module-card__image { filter: brightness(.85); }
+    .module-card__banner { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 12px; background-color: var(--surface-raised); background-image: radial-gradient(circle at 50% 50%, transparent 0 35%, color-mix(in srgb, var(--accent) 12%, transparent) 35.5% 36%, transparent 36.5% 52%, color-mix(in srgb, var(--accent) 8%, transparent) 52.5% 53%, transparent 53.5%), linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 80%, var(--surface-raised)), var(--surface-raised)); }
+    .module-card__image { position: relative; z-index: 1; display: block; width: 100%; height: 100%; border-radius: inherit; padding: .35rem; object-fit: contain; }
+    .module-card__code { position: absolute; z-index: 2; top: .6rem; right: .6rem; border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line)); border-radius: 999px; padding: .3rem .55rem; color: var(--accent-strong); background: color-mix(in srgb, var(--surface-raised) 92%, transparent); font: 700 .72rem/1 var(--font-sans); letter-spacing: .08em; direction: ltr; }
     @media (prefers-reduced-motion: no-preference) { .module-card__image { transition: transform var(--motion-fast) ease; } .module-card:hover .module-card__image { transform: scale(1.03); } }
-    .module-card__tag { justify-self: start; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line)); border-radius: 999px; padding: .25rem .6rem; color: var(--accent-strong); background: var(--accent-soft); font-size: 14px; font-weight: 700; }
-    .module-card strong { color: var(--ink-strong); font: 700 1.05rem/1.25 var(--font-display); }
-    .module-card__view { display: inline-flex; min-height: 40px; align-items: center; justify-content: space-between; gap: .45rem; justify-self: start; border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); border-radius: 999px; padding: .35rem .7rem; color: var(--accent-strong); background: var(--surface-glass); box-shadow: var(--shadow-soft); font-size: 14px; font-weight: 700; }
-    .module-card__view .icon { width: 16px; height: 16px; }
+    .module-card__title { color: var(--ink-strong); font: 500 1.05rem/1.25 var(--font-display); }
+    .module-card__description { display: -webkit-box; min-height: 2.8em; overflow: hidden; color: var(--ink-muted); font-size: 14px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .module-card__view { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; justify-self: start; border: 1px solid var(--line-strong); border-radius: 999px; padding: .35rem .8rem; color: var(--ink); background: var(--surface-raised); font-size: 14px; font-weight: 600; }
     .module-empty { grid-column: 1 / -1; margin: 0; border: 1px dashed var(--line-strong); border-radius: 14px; padding: 1.5rem; color: var(--ink-muted); text-align: center; }
     @media (max-width: 1100px) { .overview-hero { min-height: 0; grid-template-columns: minmax(0, 1fr); } .overview-hero__content { grid-column: 1; grid-row: 1; } .overview-hero__art { grid-column: 1; grid-row: 2; justify-self: center; } .overview-hero__tenant-logo { grid-column: 1; grid-row: 2; justify-self: center; } .overview-search { width: 100%; grid-column: 1; grid-row: 3; } }
     @media (max-width: 760px) { .overview-hero { padding: 1.25rem; } .overview-hero__tenant-logo img { max-height: 130px; } .hero-mark { width: 58px; height: 58px; border-radius: 19px; font-size: 1.65rem; } .overview-section-heading__hint { display: none; } }
-    @media (max-width: 500px) { .overview-hero__tenant-logo { max-width: 220px; } .overview-hero__tenant-logo img { max-height: 96px; } .module-chips { margin-inline: -.2rem; } .capability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; } .module-card { padding: .65rem; } .module-card strong { font-size: 14px; } .module-card__tag, .module-card__view { font-size: 14px; } }
+    @media (max-width: 500px) { .overview-hero__tenant-logo { max-width: 220px; } .overview-hero__tenant-logo img { max-height: 96px; } .module-chips { margin-inline: -.2rem; } .capability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; } .module-card { padding: .65rem; } .module-card__title, .module-card__view { font-size: 14px; } .module-card__code { top: .4rem; right: .4rem; padding: .25rem .45rem; } }
     @media (max-width: 350px) { .capability-grid { grid-template-columns: 1fr; } }
     @media (prefers-reduced-motion: reduce) { .overview-hero, .module-card { animation: none; } }
   `,
@@ -156,13 +221,19 @@ export class WorkspaceHomeComponent implements OnInit {
   readonly navigationGroups = NAVIGATION_GROUPS;
   readonly searchQuery = signal('');
   readonly selectedGroup = signal('all');
-  readonly moduleDestinations: OverviewModule[] = NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => ({
-    ...item,
-    imageSrc: `/images/modules/${MODULE_CARD_IMAGE_IDS[item.path]}.webp`,
-    groupId: group.id,
-    groupLabelEn: group.labelEn,
-    groupLabelAr: group.labelAr,
-  })));
+  readonly moduleDestinations: OverviewModule[] = NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => {
+    const card = MODULE_CARD_CONTENT[item.path];
+    return {
+      ...item,
+      code: card.code,
+      descriptionEn: card.descriptionEn,
+      descriptionAr: card.descriptionAr,
+      imageSrc: '/images/modules/' + card.imageId + '.webp',
+      groupId: group.id,
+      groupLabelEn: group.labelEn,
+      groupLabelAr: group.labelAr,
+    };
+  }));
   readonly visibleModules = computed(() => {
     const query = this.searchQuery().trim().toLocaleLowerCase();
     const group = this.selectedGroup();
