@@ -87,10 +87,17 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
 
         using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
         var paths = document.RootElement.GetProperty("paths");
-        // The document endpoint serves the document and therefore is not
-        // represented as a self-referential path inside that document.
         var publicOperations = FoundationOperationCatalog.PublicOperations
-            .Where(descriptor => descriptor.OperationId != "platform.openapi");
+            .ToArray();
+
+        var tags = document.RootElement.GetProperty("tags").EnumerateArray().ToArray();
+        Assert.Equal(
+            ["Foundation/Auth", "Identity", "Master Data", "Procurement", "Inventory", "Sales", "Finance", "Reporting", "Migration", "Platform"],
+            tags.Select(tag => tag.GetProperty("name").GetString()!).ToArray());
+        var tagDescriptions = tags.ToDictionary(
+            tag => tag.GetProperty("name").GetString()!,
+            tag => tag.GetProperty("description").GetString()!);
+        Assert.All(tagDescriptions.Values, description => Assert.False(string.IsNullOrWhiteSpace(description)));
 
         foreach (var descriptor in publicOperations)
         {
@@ -99,15 +106,83 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
             var method = descriptor.HttpMethod.ToLowerInvariant();
             Assert.True(path.TryGetProperty(method, out var operation), $"OpenAPI method missing for {descriptor.OperationId}: {method} {route}");
             Assert.Equal(descriptor.OperationId, operation.GetProperty("operationId").GetString());
-            Assert.False(string.IsNullOrWhiteSpace(operation.GetProperty("summary").GetString()));
+            var summary = operation.GetProperty("summary").GetString() ?? string.Empty;
+            Assert.False(string.IsNullOrWhiteSpace(summary));
+            Assert.DoesNotContain("Use the documented", summary, StringComparison.OrdinalIgnoreCase);
+            Assert.True(summary.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 3,
+                $"Summary is not specific for {descriptor.OperationId}: {summary}");
             var description = operation.GetProperty("description").GetString() ?? string.Empty;
             Assert.False(string.IsNullOrWhiteSpace(description));
+            Assert.Contains("Purpose:", description, StringComparison.Ordinal);
+            Assert.Contains("Owner:", description, StringComparison.Ordinal);
+            Assert.Contains("Preconditions and state transition:", description, StringComparison.Ordinal);
+            Assert.Contains("Side effects:", description, StringComparison.Ordinal);
+            Assert.Contains("Authorization:", description, StringComparison.Ordinal);
+            Assert.Contains("Tenant boundary:", description, StringComparison.Ordinal);
+            Assert.Contains("Headers and effective date:", description, StringComparison.Ordinal);
+            Assert.Contains("Errors:", description, StringComparison.Ordinal);
             Assert.DoesNotContain("TBD", description, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("TODO", description, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("Gets data", description, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("Creates resource", description, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("Updates item", description, StringComparison.OrdinalIgnoreCase);
-            Assert.True(operation.GetProperty("responses").EnumerateObject().Any(), $"Responses missing for {descriptor.OperationId}");
+            Assert.DoesNotContain("reusable internal ERP contract", description, StringComparison.OrdinalIgnoreCase);
+
+            var operationTags = operation.GetProperty("tags").EnumerateArray().ToArray();
+            Assert.Single(operationTags);
+            Assert.True(tagDescriptions.ContainsKey(operationTags[0].GetString()!), $"Tag description missing for {descriptor.OperationId}");
+
+            if (operation.TryGetProperty("parameters", out var parameters))
+            {
+                foreach (var parameter in parameters.EnumerateArray())
+                {
+                    Assert.False(string.IsNullOrWhiteSpace(parameter.GetProperty("description").GetString()),
+                        $"Parameter description missing for {descriptor.OperationId}/{parameter.GetProperty("name").GetString()}");
+                }
+            }
+            if (descriptor.Idempotency == FoundationIdempotencyPolicy.Required)
+            {
+                AssertRequiredHeader(operation, descriptor.OperationId, "Idempotency-Key");
+            }
+            if (descriptor.Concurrency == FoundationConcurrencyPolicy.IfMatch)
+            {
+                AssertRequiredHeader(operation, descriptor.OperationId, "If-Match");
+            }
+            if (descriptor.RequiresAntiforgery)
+            {
+                AssertRequiredHeader(operation, descriptor.OperationId, "X-CSRF-TOKEN");
+            }
+
+            var responses = operation.GetProperty("responses");
+            Assert.True(responses.EnumerateObject().Any(), $"Responses missing for {descriptor.OperationId}");
+            foreach (var response in responses.EnumerateObject())
+            {
+                Assert.False(string.IsNullOrWhiteSpace(response.Value.GetProperty("description").GetString()),
+                    $"Response description missing for {descriptor.OperationId} status {response.Name}");
+                if (response.Value.TryGetProperty("content", out var responseContent))
+                {
+                    foreach (var mediaType in responseContent.EnumerateObject())
+                    {
+                        if (mediaType.Value.TryGetProperty("schema", out var responseSchema))
+                        {
+                            AssertSchemaPropertiesHaveDescriptions(responseSchema, $"{descriptor.OperationId} response {response.Name}");
+                        }
+                    }
+                }
+            }
+
+            if (operation.TryGetProperty("requestBody", out var requestBody)
+                && requestBody.TryGetProperty("content", out var requestContent))
+            {
+                foreach (var mediaType in requestContent.EnumerateObject())
+                {
+                    if (mediaType.Value.TryGetProperty("schema", out var requestSchema))
+                    {
+                        AssertSchemaPropertiesHaveDescriptions(requestSchema, $"{descriptor.OperationId} request");
+                    }
+                }
+            }
+
             if (descriptor.OperationId == "migration.preview.read")
             {
                 Assert.Equal("tenant.migration.intake", descriptor.ExactPermissionCode);
@@ -125,6 +200,11 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
         Assert.True(paths.TryGetProperty("/api/v1/master-data/taxes/{taxId}", out _));
         Assert.True(paths.TryGetProperty("/api/v1/master-data/taxes/{taxId}/calculate", out _));
         Assert.Contains("explicit taxable base", document.RootElement.GetProperty("info").GetProperty("description").GetString()!, StringComparison.OrdinalIgnoreCase);
+
+        foreach (var schema in document.RootElement.GetProperty("components").GetProperty("schemas").EnumerateObject())
+        {
+            AssertSchemaPropertiesHaveDescriptions(schema.Value, $"schema {schema.Name}");
+        }
 
         var exchangeReference = paths
             .GetProperty("/api/v1/master-data/exchange-rates/{exchangeRateId}/reference")
@@ -923,6 +1003,49 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
             if (!schema.TryGetProperty(composition, out var alternatives)) continue;
             foreach (var alternative in alternatives.EnumerateArray()) CollectOpenApiProperties(alternative, root, properties);
         }
+    }
+
+    private static void AssertSchemaPropertiesHaveDescriptions(JsonElement schema, string source)
+    {
+        if (schema.TryGetProperty("properties", out var properties))
+        {
+            foreach (var property in properties.EnumerateObject())
+            {
+                Assert.True(property.Value.TryGetProperty("description", out var description)
+                    && !string.IsNullOrWhiteSpace(description.GetString()),
+                    $"Schema property description missing: {source}.{property.Name}");
+                AssertSchemaPropertiesHaveDescriptions(property.Value, $"{source}.{property.Name}");
+            }
+        }
+
+        if (schema.TryGetProperty("items", out var items))
+        {
+            AssertSchemaPropertiesHaveDescriptions(items, $"{source} items");
+        }
+
+        foreach (var composition in new[] { "allOf", "oneOf", "anyOf" })
+        {
+            if (!schema.TryGetProperty(composition, out var alternatives))
+            {
+                continue;
+            }
+
+            foreach (var alternative in alternatives.EnumerateArray())
+            {
+                AssertSchemaPropertiesHaveDescriptions(alternative, $"{source} {composition}");
+            }
+        }
+    }
+
+    private static void AssertRequiredHeader(JsonElement operation, string operationId, string name)
+    {
+        var parameter = Assert.Single(
+            operation.GetProperty("parameters").EnumerateArray(),
+            item => item.GetProperty("in").GetString() == "header"
+                && string.Equals(item.GetProperty("name").GetString(), name, StringComparison.OrdinalIgnoreCase));
+        Assert.True(parameter.GetProperty("required").GetBoolean(), $"Required header is not marked required for {operationId}: {name}");
+        Assert.False(string.IsNullOrWhiteSpace(parameter.GetProperty("description").GetString()),
+            $"Required header description missing for {operationId}: {name}");
     }
 
     private async Task<HttpResponseMessage> PostProbeAsync(

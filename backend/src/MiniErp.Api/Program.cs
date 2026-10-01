@@ -365,6 +365,7 @@ builder.Services.AddOpenApi("v1", options =>
 {
     options.AddDocumentTransformer<MiniErpOpenApiDocumentTransformer>();
     options.AddOperationTransformer<MiniErpOpenApiOperationTransformer>();
+    options.AddSchemaTransformer<MiniErpOpenApiSchemaTransformer>();
 });
 
 var app = builder.Build();
