@@ -58,6 +58,8 @@ Business decisions (BR/PD rows and the BRDs' open decisions) live with their BRD
 | Q-U | The owner **approved the MESP-153 (#268) design** (ECM+-style mockups) with these modifications: Cairo font for English and Arabic, larger and smooth; a header Themes dropdown (Sapphire, Luxury, Forest, Ruby, Purple, Amber, Teal, Noir, with colour dots and a check); English default; rounded, shadowed, bright controls; grids with filtering, sorting and column resizing; boxes with shadows and animations; a glassy, modern look. Every UI slice goes Luna → Opus review → **owner approval** before merge, even under Q-O. | Owner decision 2026-09-28. The UI lane runs in a git worktree under the git-excluded `.worktrees/`, beside the backend lane in the main checkout; this narrows Q-T for the UI lane only. Follow-ups: the default theme follows the Tenant logo through branding configuration, SAR symbol, notification bell as the attention inbox, Login page (MESP-175..177, #305–#307). |
 | Q-V | Paseo profile routing replaces fixed model effort: Executor (Luna xhigh) for normal implementation while used Codex quota ≤ 70%, Executor-Fallback (Luna high) above 70%, Bug Fixer (Luna max) for LOW–HIGH defects, Hard Bug (Sonnet 5 high) for CRITICAL defects only, Hard Bug Fallback (Sol medium) and Independent Review (Sol high), and owner-gated Planner-Fallback (Sol high) and Lowest Executor (Haiku 4.5). Plugins are telemetry or prose tools, never routers. | `AGENTS.md` §6–§7; `MODEL_ROUTING.md` §3 and §5. Supersedes the executor-effort and bug-routing parts of Q1 and Q-N. Owner decision 2026-09-30, MESP-179. |
 
+| Q-W | **Entry and access model.** (1) One sign-in page (login + password) for every user. The server resolves the Tenant from the account's membership and opens it directly. One login belongs to exactly one Tenant. A multi-country customer is one Tenant with one Company per country (own base currency, tax configuration and price lists), and the header switcher selects Company/Branch by permission. (2) Tenant host domains are removed for now. Branding (logo, name, Arabic name) comes from the resolved Tenant after sign-in, with MESP fallback; per-Tenant URLs may return later as optional branding only. (3) One owner-held **emergency super-administrator** account, never shared, designated only by server configuration and never grantable by role or UI. After sign-in it gets a dropdown of all Tenants and full access to the chosen Tenant's environment. | MESP-204 (#364). Supersedes ADR-019's host-resolved candidate Tenant and the common-host chooser (MESP-203 (#363) closed). `AGENTS.md` §2 is amended for the one configured account only. Every super-administrator action stays audited under its own identity. The PDPL/privacy review of this account is deferred to the Production gate (MESP-23 (#112)). Owner decision 2026-10-01. |
+
 ### 1.3 Standing product decisions (still in force)
 
 - **Release 1** is a full-feature, reusable **B2B ERP**. Retail POS is excluded.
@@ -112,7 +114,7 @@ standalone file in the repository. For those, the row below is the decision of r
 | ADR-016 | SQL Server Row-Level Security: either adopt it explicitly with session-context and pool-reset evidence, or defer it formally with accepted risk. It is never assumed. | Open before Production security approval | index-only |
 | ADR-017 | External partner/machine API authentication is deferred. It never reuses human browser cookies or token storage. | Deferred | index-only |
 | ADR-018 | SQL safety tests run against disposable SQL Server LocalDB with a strict `MiniErpFoundation_*` target and fail-closed validation. LocalDB is not Production-equivalent. Docker/Testcontainers need a separately approved change. | Active; Production equivalence is deferred | §5 |
-| ADR-019 | Tenant is the security boundary. The operational context (Company/Branch) sits inside an authorized Tenant. The host resolves only a *candidate* Tenant. Users land on Overview first. Branding and host binding are configuration. SAR is presentation-only. | Active; implemented (MESP-143 (#231)) | §5 |
+| ADR-019 | Tenant is the security boundary. The operational context (Company/Branch) sits inside an authorized Tenant. The host resolves only a *candidate* Tenant. Users land on Overview first. Branding and host binding are configuration. SAR is presentation-only. | Active; host-based Tenant resolution superseded by Q-W (2026-10-01) | §5 |
 
 ## 4. Supersessions and corrections
 
@@ -129,6 +131,10 @@ standalone file in the repository. For those, the row below is the decision of r
   statement that the grant goes "only to ArchitectureTests" was incomplete.
 - The temporary flow `Login → Choose workspace/Tenant → ERP` is superseded by ADR-019's
   Tenant-host, Overview-first model.
+- **Q-W (2026-10-01)** supersedes ADR-019's host-based Tenant resolution and Tenant-host bindings:
+  sign-in resolves the Tenant from the account, and only the configured emergency
+  super-administrator chooses among all Tenants. Overview-first, configured branding and SAR
+  presentation-only remain in force.
 - **Governance (2026-09-25):**
   - `.ai/AI_EXECUTION_POLICY.md`, the `AGENTS.md`/`CLAUDE.md` overlays, `.ai/CURRENT_STATE.md` and
     `docs/staticts.md` are superseded by `AGENTS.md`, `MODEL_ROUTING.md`, `ROADMAP.md` and
