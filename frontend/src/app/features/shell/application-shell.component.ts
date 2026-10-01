@@ -36,11 +36,11 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
               }
             } @else {
               <div class="rail-tiles">
-                <button #railTrigger class="rail-tile" type="button" routerLink="/app" [class.is-active]="isOverviewCurrent()" [attr.aria-current]="isOverviewCurrent() ? 'page' : null" [attr.aria-label]="language.text('overview')" [title]="language.text('overview')" (keydown)="onRailKeydown($event)" (click)="closeModuleFlyout()">
+                <button #railTrigger class="button button--quiet icon-button rail-tile" type="button" routerLink="/app" [class.is-active]="isOverviewCurrent()" [attr.aria-current]="isOverviewCurrent() ? 'page' : null" [attr.aria-label]="language.text('overview')" [title]="language.text('overview')" (keydown)="onRailKeydown($event)" (click)="closeModuleFlyout()">
                   <svg class="icon" aria-hidden="true"><use href="#icon-home" /></svg>
                 </button>
                 @for (group of navigationGroups; track group.id) {
-                  <button #railTrigger class="rail-tile" type="button" [class.is-active]="isNavigationGroupCurrent(group)" [attr.aria-label]="navigationLabel(group)" [title]="navigationLabel(group)" [attr.aria-expanded]="openNavGroup() === group.id" aria-controls="module-flyout" (mouseenter)="onModuleTileEnter(group.id, $event.currentTarget)" (mouseleave)="scheduleFlyoutClose()" (focus)="onModuleTileFocus(group.id, $event)" (click)="toggleModuleFlyout(group.id, $event.currentTarget, $event)" (keydown)="onRailKeydown($event, group.id)">
+                  <button #railTrigger class="button button--quiet icon-button rail-tile" type="button" [class.is-active]="isNavigationGroupCurrent(group)" [attr.aria-label]="navigationLabel(group)" [title]="navigationLabel(group)" [attr.aria-expanded]="openNavGroup() === group.id" aria-controls="module-flyout" (mouseenter)="onModuleTileEnter(group.id, $event.currentTarget)" (mouseleave)="scheduleFlyoutClose()" (focus)="onModuleTileFocus(group.id, $event)" (click)="toggleModuleFlyout(group.id, $event.currentTarget, $event)" (keydown)="onRailKeydown($event, group.id)">
                     <svg class="icon" aria-hidden="true"><use [attr.href]="'#icon-' + group.icon" /></svg>
                   </button>
                 }
@@ -98,14 +98,14 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
             <app-operational-context-switcher />
             <a class="context-management-link" routerLink="/app/workspaces">{{ language.text('manageContexts') }}</a>
             <div class="theme-control">
-              <button #themeTrigger id="theme-trigger" class="theme-trigger" type="button" (click)="toggleThemeMenu()" [attr.aria-label]="label('Themes', 'المظاهر')" aria-haspopup="menu" [attr.aria-controls]="themeMenuOpen() ? 'theme-menu' : null" [attr.aria-expanded]="themeMenuOpen()">
+              <button #themeTrigger id="theme-trigger" class="button button--quiet theme-trigger" type="button" (click)="toggleThemeMenu()" [attr.aria-label]="label('Themes', 'المظاهر')" aria-haspopup="menu" [attr.aria-controls]="themeMenuOpen() ? 'theme-menu' : null" [attr.aria-expanded]="themeMenuOpen()">
                 <svg class="icon" aria-hidden="true"><use href="#icon-palette" /></svg>
                 <span>{{ label('Themes', 'المظاهر') }}</span><svg class="icon chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
               </button>
               @if (themeMenuOpen()) {
                 <div #themeMenu id="theme-menu" class="theme-menu" role="menu" [attr.aria-label]="label('Choose a theme', 'اختر مظهراً')" (keydown)="onThemeMenuKeydown($event)">
                   @for (option of theme.options; track option.id) {
-                    <button class="theme-option" type="button" role="menuitemradio" [attr.aria-checked]="theme.selectedTheme() === option.id" [attr.tabindex]="themeMenuFocus() === option.id ? 0 : -1" (click)="selectTheme(option.id)">
+                    <button class="button button--quiet theme-option" type="button" role="menuitemradio" [attr.aria-checked]="theme.selectedTheme() === option.id" [attr.tabindex]="themeMenuFocus() === option.id ? 0 : -1" (click)="selectTheme(option.id)">
                       <span class="theme-swatch" [style.backgroundColor]="option.color" aria-hidden="true"></span><span class="theme-option__label">{{ option.label }}</span>
                       @if (theme.selectedTheme() === option.id) { <svg class="icon theme-check" aria-hidden="true"><use href="#icon-check" /></svg> }
                     </button>
@@ -124,7 +124,7 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
             <div class="user-pill">
               <span class="user-avatar" aria-hidden="true"><svg class="icon"><use href="#icon-user" /></svg></span>
               <span class="user-pill__label">{{ label('Account', 'الحساب') }}</span>
-              <button class="sign-out" type="button" (click)="signOut()" [disabled]="auth.signingOut()" [attr.aria-describedby]="auth.signOutFailed() ? 'sign-out-feedback' : null">{{ auth.signingOut() ? language.text('signingOut') : language.text('signOut') }}</button>
+              <button class="button button--quiet sign-out" type="button" (click)="signOut()" [disabled]="auth.signingOut()" [attr.aria-describedby]="auth.signOutFailed() ? 'sign-out-feedback' : null">{{ auth.signingOut() ? language.text('signingOut') : language.text('signOut') }}</button>
             </div>
           </div>
         </header>
@@ -139,8 +139,7 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
       </div>
     </div>
   `,
-  styles: `
-    :host { display: block; min-height: 100dvh; }
+  styles: `:host { display: block; min-height: 100dvh; }
     .skip-link { position: fixed; z-index: 90; inset-block-start: .75rem; inset-inline-start: .75rem; transform: translateY(-200%); border-radius: var(--radius-control); padding: .7rem .9rem; color: var(--action-text); background: var(--accent-action); font-weight: 700; }
     .skip-link:focus { transform: translateY(0); }
     .shell { display: grid; grid-template-columns: var(--sidebar-collapsed) minmax(0, 1fr); min-height: 100dvh; background: transparent; transition: grid-template-columns var(--motion-slow) ease; }
@@ -189,33 +188,22 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
     .context-management-link { color: var(--ink-muted); font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap; }
     .context-management-link:hover { color: var(--accent); }
     .context-management-link--mobile { display: none; }
-    .icon-button, .language-button, .theme-trigger { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: .5rem; border: 1px solid var(--line); border-radius: 14px; padding: .45rem .7rem; color: var(--accent); background: var(--surface-raised); box-shadow: 0 3px 9px rgb(15 26 48 / 6%); font: 700 .9rem/1.1 var(--font-sans); transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease, background var(--motion-fast) ease; }
-    .icon-button.mobile-toggle { display: none; }
-    .icon-button { width: 42px; padding: 0; font-size: 1.15rem; }
-    .icon-button:hover, .language-button:hover, .theme-trigger:hover { border-color: var(--accent); box-shadow: 0 6px 14px color-mix(in srgb, var(--accent) 14%, transparent); transform: translateY(-1px); }
     .theme-control { position: relative; }
-    .theme-trigger { border-radius: 999px; padding-inline: .85rem; }
     .theme-trigger .icon { width: 18px; height: 18px; }
     .chevron { width: 15px !important; height: 15px !important; color: var(--ink-muted); }
     .theme-menu { position: absolute; z-index: 80; inset-block-start: calc(100% + .65rem); inset-inline-end: 0; display: grid; width: 264px; gap: .25rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 18px; padding: .55rem; background: var(--surface-glass); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); backdrop-filter: blur(22px) saturate(160%); animation: menu-enter 150ms ease both; }
-    .theme-option { display: flex; min-height: 42px; align-items: center; gap: .75rem; border: 1px solid transparent; border-radius: 12px; padding: .45rem .6rem; color: var(--ink); background: transparent; text-align: start; font: 600 14px/1.2 var(--font-sans); }
-    .theme-option:hover, .theme-option:focus-visible { border-color: color-mix(in srgb, var(--accent) 20%, var(--line)); background: var(--accent-soft); }
+    .theme-option { text-align: start; }
     .theme-swatch { width: 15px; height: 15px; flex: none; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; box-shadow: 0 2px 6px rgb(0 0 0 / 16%); }
     .theme-option__label { flex: 1; }
     .theme-check { width: 18px; height: 18px; color: var(--accent); }
-    .language-button { border-radius: 999px; color: var(--ink); }
-    .language-button__globe { width: 18px; height: 18px; color: var(--accent); }
+    .language-button__globe { width: 18px; }
     .user-pill { display: inline-flex; min-height: 42px; align-items: center; gap: .45rem; border: 1px solid var(--line); border-radius: 999px; padding: .22rem .45rem; background: var(--surface-raised); box-shadow: 0 3px 10px rgb(15 26 48 / 5%); }
     .user-avatar { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: var(--action-text); background: var(--accent-action); font-size: .8rem; font-weight: 800; }
     .user-avatar svg { width: 16px; height: 16px; fill: currentColor; }
     .user-pill__label { color: var(--ink); font-size: 14px; font-weight: 700; }
-    .sign-out { border: 0; border-inline-start: 1px solid var(--line); padding-inline-start: .55rem; color: var(--ink-muted); background: transparent; font: 600 14px/1 var(--font-sans); }
-    .sign-out:hover { color: var(--accent); }
-    .sign-out:disabled { color: var(--ink-muted); cursor: wait; opacity: .65; }
-    .mobile-nav-backdrop { display: none; }
     .sign-out-feedback { margin: 1rem 1.5rem 0; border: 1px solid color-mix(in srgb, var(--danger) 38%, var(--line)); border-radius: var(--radius-control); padding: .8rem 1rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); font-size: .9rem; line-height: 1.5; }
     .shell__content { min-width: 0; padding: clamp(1rem, 2.8vw, 2.25rem); }
-    .content-grid__main { width: min(100%, 94rem); min-width: 0; margin-inline: auto; }
+    .content-grid__main { min-width: 0; margin-inline: auto; }
     @keyframes menu-enter { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
     @media (max-width: 1100px) { .tenant-context { display: none; } .topbar { gap: .5rem; } .context-management-link { display: none; } .context-management-link--mobile { display: inline-flex; } }
     @media (max-width: 760px) {
@@ -227,8 +215,6 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
       .topbar__brand { width: 4.8rem; }
       .topbar__mesp-logo { width: 4.3rem; }
       .breadcrumbs { margin-inline-start: auto; font-size: .8rem; }
-      .desktop-toggle { display: none; }
-      .icon-button.mobile-toggle { display: inline-flex; }
       .sidebar { display: none; }
       .sidebar--mobile-open { position: fixed; z-index: 70; inset-block-start: var(--header-height); inset-inline-start: 0; inset-block-end: 0; display: flex; width: min(var(--sidebar-expanded), 88vw); height: auto; min-height: 0; max-height: none; padding: 1rem .85rem; }
       .sidebar--mobile-open .nav-group__title, .sidebar--mobile-open .nav-label, .sidebar--mobile-open .sidebar__help { display: block; }
@@ -236,15 +222,10 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
       .sidebar--mobile-open .nav-link { width: auto; }
       .sidebar--mobile-open .nav-icon { width: 38px; height: 38px; }
       .nav-flyout { display: none; }
-      .mobile-nav-backdrop { position: fixed; z-index: 60; inset-block-start: var(--header-height); inset-inline: 0; inset-block-end: 0; display: block; border: 0; background: rgb(9 15 26 / 38%); backdrop-filter: blur(4px); }
       .shell__body, .shell--sidebar-expanded .shell__body { margin-inline: 0; }
       .shell__content { padding: 1rem .75rem; }
-      .theme-trigger { min-width: 42px; padding-inline: .55rem; }
-      .theme-trigger span:not(.chevron) { font-size: .82rem; }
       .user-pill__label { display: none; }
       .user-pill { gap: .25rem; padding-inline: .25rem; }
-      .sign-out { padding-inline-start: .35rem; font-size: .75rem; }
-      .notification-button { display: none; }
     }
     @media (max-width: 520px) {
       :host { --header-height: 176px; }
@@ -252,16 +233,12 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
     }
     @media (max-width: 420px) {
       .topbar__actions { gap: .25rem; }
-      .icon-button, .language-button, .theme-trigger { min-height: 40px; }
-      .icon-button { width: 40px; }
-      .language-button { padding-inline: .45rem; }
-      .theme-trigger { width: 40px; min-width: 40px; gap: .3rem; padding-inline: 0; }
       .theme-trigger span, .theme-trigger .chevron { display: none; }
       .context-management-link--mobile { display: none; }
       .theme-menu { width: min(264px, calc(100vw - 24px)); }
       .breadcrumbs { gap: .3rem; font-size: .74rem; }
     }
-    @supports not (backdrop-filter: blur(4px)) { .sidebar, .topbar, .theme-menu { background: var(--surface-raised); } .mobile-nav-backdrop { background: rgb(9 15 26 / 58%); } }
+    @supports not (backdrop-filter: blur(4px)) { .sidebar, .topbar, .theme-menu { background: var(--surface-raised); } }
     @media (prefers-reduced-motion: reduce) { .sidebar, .nav-link, .nav-icon { transition: none; } .nav-link:hover .nav-icon, .nav-link:focus-visible .nav-icon { transform: none; } }
     .shell { grid-template-columns: 76px minmax(0, 1fr); }
     .shell--sidebar-expanded { grid-template-columns: 260px minmax(0, 1fr); }
@@ -271,18 +248,14 @@ import { NAVIGATION_GROUPS, NavigationGroup, NavigationItem } from './navigation
       .sidebar--mobile-open { position: fixed; z-index: 70; inset-block-start: var(--header-height); inset-inline-start: 0; inset-block-end: 0; display: flex; width: min(260px, 88vw); height: auto; min-height: 0; max-height: none; padding: 16px; }
       .sidebar--mobile-open .nav-group__title, .sidebar--mobile-open .nav-label, .sidebar--mobile-open .sidebar__help { display: block; }
       .sidebar--mobile-open .nav-link--expanded { width: 100%; }
-      .desktop-toggle { display: none; }
-      .icon-button.mobile-toggle { display: inline-flex; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .rail-tile { transition: none; }
-      .rail-tile:hover, .rail-tile:focus-visible { transform: none; }
       .nav-flyout { transform: none; transition: opacity 160ms ease-out, visibility 160ms; }
       :host-context([dir=rtl]) .nav-flyout { transform: none; }
       .nav-flyout.is-open, :host-context([dir=rtl]) .nav-flyout.is-open { transform: none; }
     }
   `,
-  styleUrls: ['./application-shell-rail.scss'],
+  styleUrls: ['./application-shell-rail.scss', '../../shared/ui/primitives.scss'],
 })
 export class ApplicationShellComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService);

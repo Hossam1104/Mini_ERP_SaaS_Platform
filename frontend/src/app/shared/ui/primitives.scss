@@ -1,0 +1,180 @@
+/* One button family, also applied to native buttons that have no class. */
+:host ::ng-deep :where(button:not([role='tab']):not(.mobile-nav-backdrop), a.button, input[type='button'], input[type='submit'], input[type='reset']) {
+  display: inline-flex !important;
+  min-width: 0;
+  height: var(--button-height) !important;
+  min-height: var(--button-height) !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: var(--button-gap) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: var(--button-radius) !important;
+  padding: 0 var(--button-padding-inline) !important;
+  color: var(--ink) !important;
+  background: var(--surface) !important;
+  box-shadow: none;
+  font-family: var(--font-sans) !important;
+  font-size: var(--button-font-size) !important;
+  font-weight: var(--button-font-weight) !important;
+  line-height: 1.2 !important;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+:host ::ng-deep * { font-family: var(--font-sans) !important; }
+:host ::ng-deep .sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: -1px !important;
+}
+
+:host ::ng-deep :is(.button--primary) { border-color: var(--accent-action) !important; color: var(--action-text) !important; background: var(--accent-action) !important; }
+:host ::ng-deep :is(.button--secondary) { border-color: var(--line-strong) !important; color: var(--ink) !important; background: var(--surface) !important; }
+:host ::ng-deep :is(.button--quiet) { border-color: transparent !important; color: var(--accent-strong) !important; background: transparent !important; }
+:host ::ng-deep :is(.button--danger) { border-color: var(--danger) !important; color: var(--danger) !important; background: var(--surface) !important; }
+:host ::ng-deep :is(.button--small) { height: var(--button-small-height) !important; min-height: var(--button-small-height) !important; font-size: var(--button-small-font-size) !important; }
+:host ::ng-deep :is(.icon-button) { width: var(--button-height) !important; min-width: var(--button-height) !important; padding: 0 !important; }
+:host ::ng-deep :where(button:not([role='tab']):not(.mobile-nav-backdrop), a.button, input[type='button'], input[type='submit'], input[type='reset']):hover:not(:disabled) {
+  border-color: var(--accent-strong) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+:host ::ng-deep :where(button:not([role='tab']):not(.mobile-nav-backdrop), a.button, input[type='button'], input[type='submit'], input[type='reset']):active:not(:disabled) { transform: translateY(1px); }
+:host ::ng-deep :where(button:not([role='tab']):not(.mobile-nav-backdrop), a.button, input[type='button'], input[type='submit'], input[type='reset']):focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+:host ::ng-deep :where(button:not([role='tab']):not(.mobile-nav-backdrop), a.button, input[type='button'], input[type='submit'], input[type='reset']):disabled { color: var(--ink-muted) !important; background: var(--surface-tint) !important; cursor: not-allowed; opacity: .55; }
+:host ::ng-deep .rail-tile.is-active { border-color: var(--accent-action) !important; color: var(--action-text) !important; background: var(--accent-action) !important; }
+:host ::ng-deep .mobile-nav-backdrop { display: none; }
+@media (max-width: 760px) {
+  :host ::ng-deep .mobile-nav-backdrop { position: fixed; z-index: 60; inset-block-start: var(--header-height); inset-inline: 0; inset-block-end: 0; display: block; border: 0; background: var(--overlay-scrim); backdrop-filter: blur(4px); }
+}
+
+/* Text-like controls use one field surface; select arrows use current text color. */
+:host ::ng-deep :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']), select, textarea) {
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+}
+:host ::ng-deep select {
+  appearance: none;
+  padding-inline-end: 36px !important;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%) !important;
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50% !important;
+  background-size: 5px 5px, 5px 5px !important;
+  background-repeat: no-repeat !important;
+}
+:host-context([dir='rtl']) ::ng-deep select { background-position: 17px 50%, 12px 50% !important; }
+:host ::ng-deep textarea { resize: vertical; }
+:host ::ng-deep :is(input, select, textarea):hover:not(:disabled) { border-color: var(--accent-strong) !important; }
+:host ::ng-deep :is(input, select, textarea):focus-visible { border-color: var(--accent-action) !important; outline: 3px solid color-mix(in srgb, var(--accent) 28%, transparent); outline-offset: 1px; }
+:host ::ng-deep :is(input, select, textarea):user-invalid,
+:host ::ng-deep :is(input, select, textarea).ng-invalid.ng-touched { border-color: var(--danger) !important; outline-color: color-mix(in srgb, var(--danger) 28%, transparent); }
+:host ::ng-deep :is(input, select, textarea):disabled { color: var(--ink-muted) !important; background-color: var(--surface-tint) !important; cursor: not-allowed; opacity: .8; }
+:host ::ng-deep :is(input, textarea)::placeholder { color: var(--field-placeholder) !important; opacity: 1; }
+:host ::ng-deep label:has(> input:not([type='checkbox']):not([type='radio']), > select, > textarea),
+:host ::ng-deep label:has(> span + input:not([type='checkbox']):not([type='radio']), > span + select, > span + textarea) {
+  display: grid;
+  align-content: start;
+  gap: var(--field-label-gap) !important;
+  color: var(--ink-muted) !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--field-label-size) !important;
+  font-weight: var(--field-label-weight) !important;
+}
+:host ::ng-deep label:not(.grid-filter-field):has(input[type='search']) {
+  display: flex !important;
+  height: var(--field-height) !important;
+  min-height: var(--field-height) !important;
+  align-items: center !important;
+  min-width: 0 !important;
+  flex: 1 1 16rem !important;
+  gap: var(--space-2) !important;
+  border: 0 !important;
+  border-radius: var(--field-radius) !important;
+  padding: 0 var(--field-padding-inline) !important;
+  color: var(--ink-muted) !important;
+  background: var(--field-background) !important;
+  box-shadow: inset 0 0 0 1px var(--field-border) !important;
+}
+:host ::ng-deep label:not(.grid-filter-field):has(input[type='search']):focus-within {
+  box-shadow: inset 0 0 0 1px var(--accent-action) !important;
+  outline: 3px solid color-mix(in srgb, var(--accent) 28%, transparent) !important;
+  outline-offset: 1px;
+}
+:host ::ng-deep label:not(.grid-filter-field):has(input[type='search']) input[type='search'] {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  flex: 1 1 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+:host ::ng-deep label:not(.grid-filter-field):has(input[type='search']) input[type='search']:focus-visible {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+:host ::ng-deep label:not(.grid-filter-field):has(input[type='search']) > :not(input) { flex: none; color: var(--accent-strong); font-size: var(--search-icon-size); line-height: 1; }
+@supports (appearance: base-select) {
+  :host ::ng-deep select,
+  :host ::ng-deep ::picker(select) { appearance: base-select; }
+  :host ::ng-deep select::picker-icon { display: none; }
+  :host ::ng-deep ::picker(select) {
+    margin-block-start: var(--space-1);
+    border: 1px solid var(--field-border);
+    border-radius: var(--field-radius);
+    padding: var(--select-picker-padding);
+    color: var(--ink);
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-overlay);
+    font-family: var(--font-sans);
+    font-size: var(--field-text-size);
+  }
+  :host ::ng-deep select option {
+    border: 0;
+    border-radius: var(--select-option-radius);
+    padding: var(--select-option-padding);
+    color: var(--ink);
+    background: var(--surface-raised);
+    font-family: var(--font-sans);
+    font-size: var(--field-text-size);
+  }
+  :host ::ng-deep select option:hover,
+  :host ::ng-deep select option:focus-visible { color: var(--ink-strong); background: var(--accent-soft); }
+  :host ::ng-deep select option:checked { color: var(--accent-strong); background: var(--accent-soft); font-weight: 600; }
+  :host ::ng-deep select option::checkmark { color: var(--accent-action); }
+}
+:host ::ng-deep .data-grid-table th.numeric .grid-sort { justify-content: flex-end !important; text-align: end !important; }
+:host ::ng-deep .data-grid-table th:not(.numeric) .grid-sort { justify-content: flex-start !important; text-align: start !important; }
+:host ::ng-deep .data-grid-table .grid-sort { padding-inline: 4px !important; gap: 4px !important; }
+:host ::ng-deep .data-grid-table .grid-filter-button { width: var(--grid-header-filter-width) !important; min-width: var(--grid-header-filter-width) !important; padding: 0 !important; }
+
+/* Shared page frame and the only page-header surface. */
+:host ::ng-deep #main-content > .content-grid__main { width: min(calc(100% - 2 * var(--page-gutter)), var(--page-max-width)); max-width: none; margin-inline: auto; padding: 0; }
+:host ::ng-deep #main-content > .content-grid__main > router-outlet + * { display: block; width: 100%; }
+:host ::ng-deep app-page-header { display: block; min-width: 0; color: var(--ink); }
+:host ::ng-deep app-page-header .page-header__surface { display: grid; gap: var(--space-3); min-width: 0; border: 1px solid var(--line); border-radius: var(--page-header-radius); padding: var(--page-header-padding); color: var(--ink); background: var(--surface-raised); box-shadow: var(--shadow-soft); }
+:host ::ng-deep app-page-header .page-header__body { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--space-5); }
+:host ::ng-deep app-page-header .page-header__actions,
+:host ::ng-deep app-page-header [page-header-actions] { display: flex; min-width: 0; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); }
+:host ::ng-deep app-page-header [page-header-actions] a:not([class*='button--']) { display: inline-flex; min-height: var(--button-height); align-items: center; justify-content: center; gap: var(--button-gap); border: 1px solid var(--line-strong); border-radius: var(--button-radius); padding: 0 var(--button-padding-inline); color: var(--ink); background: var(--surface); font-size: var(--button-font-size); font-weight: var(--button-font-weight); text-decoration: none; }
+:host ::ng-deep app-page-header [page-header-copy] { display: block; min-width: 0; flex: 1 1 auto; }
+:host ::ng-deep app-page-header [page-header-copy] h1 { margin: 0; color: var(--ink-strong); font-size: var(--page-title-size); font-weight: 700; line-height: 1.2; letter-spacing: 0; }
+:host ::ng-deep app-page-header [page-header-copy] > p:not(.eyebrow):not(.return-kicker),
+:host ::ng-deep app-page-header [page-header-copy] .lede,
+:host ::ng-deep app-page-header [page-header-copy] .lead { max-width: 52rem; margin: var(--space-2) 0 0; color: var(--ink-muted); font-size: var(--text-base); line-height: 1.5; }
+:host ::ng-deep app-page-header [page-header-copy] > p:not(.eyebrow) { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+:host ::ng-deep app-page-header .eyebrow,
+:host ::ng-deep app-page-header .return-kicker { margin: 0 0 var(--space-1); color: var(--accent-strong); font-size: var(--text-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+:host ::ng-deep app-page-header [page-header-actions] a { text-decoration: none; }
+@media (max-width: 620px) {
+  :host ::ng-deep app-page-header .page-header__body { align-items: stretch; flex-direction: column; }
+  :host ::ng-deep app-page-header .page-header__actions, :host ::ng-deep app-page-header [page-header-actions] { justify-content: flex-start; }
+}

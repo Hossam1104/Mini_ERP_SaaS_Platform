@@ -16,6 +16,8 @@ import {
 import { InventoryValuationFilters, InventoryValuationService } from './inventory-valuation.service';
 import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { TabsComponent } from '../../shared/ui/tabs.component';
+import type { AppTab } from '../../shared/ui/tabs.component';
 
 type ValuationTab = 'summary' | 'history' | 'pending' | 'reconciliation' | 'handoff';
 type Bilingual = { en: string; ar: string };
@@ -79,7 +81,7 @@ const copy = {
 @Component({
   selector: 'app-inventory-valuation-workspace',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, DataGridComponent, PageHeaderComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DataGridComponent, PageHeaderComponent, TabsComponent],
   template: `
     <section class="ui-page valuation-page" data-testid="inventory-valuation-workspace">
       <app-page-header class="valuation-header">
@@ -120,13 +122,7 @@ const copy = {
           <article class="metric-card metric-card--ink"><span>{{ text('asOf') }}</span><strong>{{ formatDate(currentSummary()?.asOf) }}</strong><small>{{ text('freshness') }} {{ formatDate(currentSummary()?.freshAsOf) }}</small></article>
         </section>
 
-        <nav class="valuation-tabs" aria-label="Valuation views" role="tablist">
-          <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'summary'" [class.is-active]="activeTab() === 'summary'" (click)="setTab('summary')">{{ text('summary') }}</button>
-          <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'history'" [class.is-active]="activeTab() === 'history'" (click)="setTab('history')">{{ text('history') }}</button>
-          <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'pending'" [class.is-active]="activeTab() === 'pending'" (click)="setTab('pending')">{{ text('pendingTab') }} <em>{{ pendingEvents().length }}</em></button>
-          <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'reconciliation'" [class.is-active]="activeTab() === 'reconciliation'" (click)="setTab('reconciliation')">{{ text('reconciliation') }}</button>
-          <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'handoff'" [class.is-active]="activeTab() === 'handoff'" (click)="setTab('handoff')">{{ text('handoff') }}</button>
-        </nav>
+        <app-tabs [tabs]="valuationTabs()" [selected]="activeTab()" ariaLabel="Valuation views" (selectedChange)="selectTab($event)" />
 
         @if (activeTab() === 'summary') {
           <section class="valuation-grid">
@@ -172,14 +168,14 @@ const copy = {
       }
     </section>
   `,
-  styles: [`
-    .valuation-page { --valuation-ink: #172f32; --valuation-teal: #2f7b72; --valuation-copper: #c17a4a; }
+  styles: [
+    `.valuation-page { --valuation-ink: #172f32; --valuation-teal: #2f7b72; --valuation-copper: #c17a4a; }
     .valuation-header__actions { display: flex; gap: .65rem; flex-wrap: wrap; }
     .valuation-note { margin: 0; padding: .8rem 1rem; border-inline-start: .25rem solid var(--valuation-copper); border-radius: .6rem; color: var(--ink-muted); background: var(--surface-raised); font-size: .82rem; line-height: 1.5; }
     .valuation-controlbar { display: grid; grid-template-columns: minmax(12rem,1.2fr) minmax(13rem,1fr) auto; gap: 1rem; align-items: end; padding: 1rem 1.2rem; border-inline-start: .25rem solid var(--valuation-copper); }
     .scope-select, .policy-readout, .controlbar-meta { display: grid; gap: .28rem; }
     .scope-select span, .policy-readout>span, .controlbar-meta>span { color: var(--ink-muted); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-    .scope-select select { width: 100%; border: 1px solid var(--line-strong); border-radius: .55rem; padding: .62rem; background: var(--surface-raised); color: var(--ink); font: 700 .8rem/1.2 var(--font-sans); }
+    .scope-select select { width: 100%; }
     .policy-readout strong, .controlbar-meta strong { color: var(--valuation-ink); font-size: .88rem; }
     .policy-readout small { color: var(--ink-muted); font-size: .72rem; }
     .controlbar-meta { text-align: end; }
@@ -191,10 +187,6 @@ const copy = {
     .metric-card--warn { border-color: #e8c4a7; background: #fff5ec; }
     .metric-card--ink { color: #eff8f4; background: var(--valuation-ink); }
     .metric-card--ink strong, .metric-card--ink span, .metric-card--ink small { color: #eff8f4; }
-    .valuation-tabs { display: flex; gap: .25rem; overflow: auto; margin: 1.1rem 0 .85rem; border-bottom: 1px solid var(--line); }
-    .valuation-tabs button { border: 0; border-bottom: .18rem solid transparent; padding: .7rem .85rem; color: var(--ink-muted); background: transparent; font: 750 .75rem/1 var(--font-sans); white-space: nowrap; cursor: pointer; }
-    .valuation-tabs button:hover, .valuation-tabs button.is-active { border-bottom-color: var(--valuation-copper); color: var(--valuation-ink); }
-    .valuation-tabs em { display: inline-grid; place-items: center; min-width: 1.2rem; height: 1.2rem; margin-inline-start: .2rem; border-radius: 99px; color: #fff; background: var(--valuation-teal); font-size: .62rem; font-style: normal; }
     .valuation-grid { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(16rem,.6fr); gap: 1rem; }
     .valuation-panel { padding: 1.25rem; }
     .valuation-panel--wide { min-height: 14rem; }
@@ -214,7 +206,7 @@ const copy = {
     .boundary-chip { display: inline-flex; max-width: 15rem; border: 1px solid #d8e6e2; border-radius: 99px; padding: .35rem .6rem; color: var(--valuation-teal); font-size: .66rem; font-weight: 800; }
     .empty-copy { color: var(--ink-muted); font-size: .82rem; line-height: 1.55; }
     @media (max-width: 1100px) { .valuation-metrics { grid-template-columns: repeat(3,1fr); } }
-    @media (max-width: 760px) { .valuation-controlbar, .valuation-grid { grid-template-columns: 1fr; } .controlbar-meta { text-align: start; } .valuation-metrics { grid-template-columns: repeat(2,1fr); } .recon-line { grid-template-columns: 1fr 1fr; } .recon-line>span { display: none; } .recon-line div { border-inline-start: 0; padding: 0; } .valuation-tabs button { padding-inline: .55rem; } }
+    @media (max-width: 760px) { .valuation-controlbar, .valuation-grid { grid-template-columns: 1fr; } .controlbar-meta { text-align: start; } .valuation-metrics { grid-template-columns: repeat(2,1fr); } .recon-line { grid-template-columns: 1fr 1fr; } .recon-line>span { display: none; } .recon-line div { border-inline-start: 0; padding: 0; } }
     @media (max-width: 480px) { .valuation-metrics { grid-template-columns: 1fr; } .valuation-header__actions { width: 100%; } .valuation-header__actions .button { flex: 1; text-align: center; } }
   `],
 })
@@ -234,6 +226,7 @@ export class InventoryValuationWorkspaceComponent implements OnInit {
   readonly loading = signal(false);
   readonly error = signal('');
   readonly activeTab = signal<ValuationTab>('summary');
+  valuationTabs(): AppTab[] { return (['summary', 'history', 'pending', 'reconciliation', 'handoff'] as const).map(id => ({ id, label: id === 'pending' ? `${this.text('pendingTab')} ${this.pendingEvents().length}` : this.text(id) })); }
   readonly selectedWarehouse = computed(() => this.warehouses().find(item => item.warehouseId === this.selectedWarehouseId()) ?? null);
   readonly currentSummary = computed(() => this.summary());
   readonly policy = computed(() => this.valuation.selectCurrentPolicy(this.policies()));
@@ -301,6 +294,7 @@ export class InventoryValuationWorkspaceComponent implements OnInit {
   }
 
   setTab(tab: ValuationTab): void { this.activeTab.set(tab); }
+  selectTab(tab: string): void { this.setTab(tab as ValuationTab); }
 
   async processValuation(): Promise<void> {
     const warehouse = this.selectedWarehouse();

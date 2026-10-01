@@ -93,8 +93,8 @@ type WorkspaceMode = 'list' | 'detail';
       </section>
     }
   `,
-  styles: [`
-    :host { display: block; }
+  styles: [
+    `:host { display: block; }
     .matching-page { --match-ink: #253340; --match-muted: #6d7b84; --match-line: #d7e0df; --match-accent: #c47a32; --match-cool: #2c7180; }
     .matching-panel, .detail-card, .variance-card { padding: clamp(1rem, 2vw, 1.6rem); }
     .match-status { display: inline-flex; align-items: center; gap: .42rem; font-weight: 700; color: var(--match-ink); }
