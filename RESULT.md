@@ -1,5 +1,22 @@
 # Results
 
+## 2026-10-01 — MESP-186 (#327) PR #338 review corrections — GPT-6 / max — MESP-186 (#327)
+- Status: DONE; requested corrections are pushed. No Ready or merge action was taken.
+- Branch / starting SHA / ending SHA: `feat/mesp-186-entry-hosts-dev-login`; started `942316ef1bb523e7bc81d0d4b14c7f41c288ab2e`; code commit `f057a7f11e4aa65352f982d5765d6177110a1244`; RESULT hand-back commit follows.
+- What changed: Root cause for PRRT_kwDOTplnks6nzhGr was `navigateAfterSignIn` using the possibly stale `loginEntryMode` from a fire-and-forget initial request. It now branches on the freshly awaited `entry.entryMode`; a unit test holds the initial request pending until after successful sign-in and verifies navigation to `/app`. The existing empty-context test now supplies a CommonHost response with no authorized tenants, preserving its no-context coverage. Root cause for PRRT_kwDOTplnks6nzhGt was the endpoint's hard-coded `admin@minierp.local` fallback diverging from bootstrap's default; the endpoint now uses `DevelopmentBootstrap.DefaultAdminLogin`, and its integration test omits the login override. Canonical-host behavior was not changed.
+- Gates:
+  - `npm test -- --watch=false --no-progress`: final run passed, 50 files and 344 tests, 0 failed; exit 0, 16.56s. The first run had 343 passed / 1 failed because the empty-context fixture returned `NoAccess` but expected a CommonHost context request; the fixture was corrected and the full unit gate rerun.
+  - `npm run build`: exit 0; initial bundle 317.41 kB raw / 84.88 kB estimated transfer, under the 500 kB budget.
+  - `.\scripts\Test-MiniErpBackend.ps1 -NoBuild:$false`: Release build 0 warnings / 0 errors; 1,625 passed, 1 failed, 0 skipped, 1,626 total; duration 12m41s; exit 1; disposable database `MiniErpFoundation_20261001080455_59f675e0`; `MESP data is intact`.
+  - `dotnet build .\backend\src\MiniErp.Api\MiniErp.Api.csproj --configuration Release --no-restore`: 0 warnings / 0 errors; exit 0.
+  - `.\scripts\Start-MiniErpDevelopment.ps1 -ApiPort 5360 -FrontendPort 4360 -StartupTimeoutSeconds 240`: exit 0; API and Angular health checks passed. `$env:MESP_E2E_BASE_URL='http://localhost:4360'; npm run test:e2e -- --project=chromium --workers=1`: 62 passed, exit 0, 1.4m. Stopped the task runtime processes; ports 4360 and 5360 verified free.
+  - `git diff --check`: clean, exit 0.
+- Evidence: Code commit `f057a7f11e4aa65352f982d5765d6177110a1244`. PR #338 threads PRRT_kwDOTplnks6nzhGr and PRRT_kwDOTplnks6nzhGt were replied to and resolved via GraphQL; the held canonical-host thread PRRT_kwDOTplnks6nzhGo remains unresolved and unchanged. PR #338 was OPEN/non-Draft before this correction; its state was not changed.
+- Deviations from the prompt: The full backend gate failed only on the existing MESP-166 claim-race test; no unrelated migration code or test was changed or retried. The first Angular run's fixture mismatch and correction are recorded above.
+- Failures and classification: Full backend failure: `SqlServerSafetyTests.MESP141_sql_server_execution_claim_is_acquired_before_owner_preflight` returned `Succeeded:migration_execution_completed` and `Rejected:migration_attempt_version_conflict` at `SqlServerSafetyTests.cs:3539`. This is the separate known MESP-166 concurrency race, outside MESP-186. The Angular fixture mismatch was corrected; the final unit gate passed.
+- Status files updated: `RESULT.md` only; `TASK.md` was not edited.
+- Exact next action: Opus 5.5 reviews the MESP-186 (#327) corrections on PR #338; keep its current state and do not merge.
+
 ## 2026-10-01 — MESP-186 (#327) entry hosts, tenant choice, Development login, animated sign-in — GPT-6 Luna / xhigh — MESP-186 (#327)
 - Status: DONE. Implementation and Draft PR delivery are complete; validation findings are recorded below. PR #338 remains OPEN/Draft; no Ready, review request, approval, merge or issue-state change.
 - Branch / starting SHA / ending SHA: `feat/mesp-186-entry-hosts-dev-login`; started at `1a12d100efbf5d6c244aff4e6c81fde3e9439b1b`; code commits `d794b36` and `7a94e5a`; ending code SHA `7a94e5a0738792bbff81351302452f6246131820` (README commits 2671f81 and 392d623 follow the code commits; this is the final RESULT hand-back).
