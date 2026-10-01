@@ -30,15 +30,8 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
   template: `
     <section class="data-grid-card" [attr.aria-label]="caption">
       @if (scopeLabel) { <div class="data-grid-toolbar"><span class="data-grid-scope">{{ scopeLabel }}</span></div> }
-      @if (loading) {
-        <div class="data-grid-state data-grid-state--loading" role="status" aria-live="polite"><span class="grid-spinner" aria-hidden="true"></span>{{ loadingLabel }}</div>
-      } @else if (rows().length === 0) {
-        <div class="data-grid-state" role="status"><svg class="icon grid-empty-icon" aria-hidden="true"><use href="#icon-receipt" /></svg><strong>{{ emptyLabel }}</strong><span>{{ emptyHint }}</span></div>
-      } @else if (filteredRows().length === 0) {
-        <div class="data-grid-state" role="status"><svg class="icon grid-empty-icon" aria-hidden="true"><use href="#icon-search" /></svg><strong>{{ noMatchesLabel }}</strong><button class="grid-clear-all" type="button" (click)="clearAllFilters()">{{ clearFiltersLabel }}</button></div>
-      } @else {
-        <div class="data-grid-scroll" tabindex="0" [attr.aria-label]="caption + ' table'">
-          <table class="data-grid-table">
+      <div class="data-grid-scroll" tabindex="0" [attr.aria-label]="caption + ' table'">
+        <table class="data-grid-table">
             <caption class="sr-only">{{ caption }}</caption>
             <colgroup>
               <col class="selection-column" />
@@ -51,11 +44,11 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
                 @for (column of columns(); track column.key) {
                   <th scope="col" [attr.aria-sort]="ariaSort(column)" [class.numeric]="column.align === 'end'">
                     <div class="grid-heading">
-                      <button class="grid-sort" type="button" (click)="sortBy(column)" [class.is-sorted]="sortKey() === column.key" [attr.aria-label]="sortLabel(column)">{{ column.label }}<svg class="icon sort-icon" [class.is-sorted]="sortKey() === column.key" aria-hidden="true"><use [attr.href]="'#icon-' + sortMark(column)" /></svg></button>
+                      <button class="button button--quiet button--small grid-sort" type="button" (click)="sortBy(column)" [class.is-sorted]="sortKey() === column.key" [attr.aria-label]="sortLabel(column)"><span class="grid-sort-label">{{ column.label }}</span><svg class="icon sort-icon" [class.is-sorted]="sortKey() === column.key" aria-hidden="true"><use [attr.href]="'#icon-' + sortMark(column)" /></svg></button>
                       @if (column.filter) {
-                        <button class="grid-filter-button" type="button" [id]="filterTriggerId(column)" [class.is-filtered]="filterIsActive(column.key)" [attr.aria-label]="filterLabel(column)" aria-haspopup="dialog" [attr.aria-expanded]="filterColumn() === column.key" [attr.aria-controls]="filterColumn() === column.key ? filterPopoverId(column) : null" (click)="toggleFilter(column.key, $event)"><svg class="icon" aria-hidden="true"><use href="#icon-filter" /></svg></button>
+                        <button class="button button--quiet button--small grid-filter-button" type="button" [id]="filterTriggerId(column)" [class.is-filtered]="filterIsActive(column.key)" [attr.aria-label]="filterLabel(column)" aria-haspopup="dialog" [attr.aria-expanded]="filterColumn() === column.key" [attr.aria-controls]="filterColumn() === column.key ? filterPopoverId(column) : null" (click)="toggleFilter(column.key, $event)"><svg class="icon" aria-hidden="true"><use href="#icon-filter" /></svg></button>
                       }
-                      <span class="grid-resize-handle" role="separator" aria-orientation="vertical" tabindex="0" [attr.aria-label]="resizeLabel(column)" [attr.aria-valuemin]="112" [attr.aria-valuemax]="520" [attr.aria-valuenow]="columnWidth(column)" (mousedown)="startResize($event, column)" (keydown)="resizeByKeyboard($event, column)"></span>
+                      <span class="grid-resize-handle" role="separator" aria-orientation="vertical" tabindex="0" [attr.aria-label]="resizeLabel(column)" [attr.aria-valuemin]="columnMinWidth" [attr.aria-valuemax]="columnMaxWidth" [attr.aria-valuenow]="columnWidth(column)" (mousedown)="startResize($event, column)" (keydown)="resizeByKeyboard($event, column)"></span>
                     </div>
                   </th>
                 }
@@ -63,6 +56,13 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
               </tr>
             </thead>
             <tbody>
+              @if (loading) {
+                <tr><td class="data-grid-state-cell" [attr.colspan]="columnCount()"><div class="data-grid-state data-grid-state--loading" role="status" aria-live="polite"><span class="grid-spinner" aria-hidden="true"></span>{{ loadingLabel }}</div></td></tr>
+              } @else if (rows().length === 0) {
+                <tr><td class="data-grid-state-cell" [attr.colspan]="columnCount()"><div class="data-grid-state" role="status"><svg class="icon grid-empty-icon" aria-hidden="true"><use href="#icon-receipt" /></svg><strong>{{ emptyLabel }}</strong><span>{{ emptyHint }}</span></div></td></tr>
+              } @else if (filteredRows().length === 0) {
+                <tr><td class="data-grid-state-cell" [attr.colspan]="columnCount()"><div class="data-grid-state" role="status"><svg class="icon grid-empty-icon" aria-hidden="true"><use href="#icon-search" /></svg><strong>{{ noMatchesLabel }}</strong><button class="button button--secondary button--small grid-clear-all" type="button" (click)="clearAllFilters()">{{ clearFiltersLabel }}</button></div></td></tr>
+              } @else {
               @for (row of pageRows(); track rowId(row)) {
                 <tr [attr.data-row-id]="rowId(row)" [class.is-selected]="isSelected(row)" [class.is-focused]="focusedRowId === rowId(row)" (click)="rowClick.emit(row)">
                   <td class="selection-cell"><input type="checkbox" [checked]="isSelected(row)" [attr.aria-label]="selectRowLabel(row)" (change)="toggleRowSelection(row, $event)" /></td>
@@ -86,33 +86,33 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
                     @if (rowActionsTemplate) {
                       <ng-container [ngTemplateOutlet]="rowActionsTemplate" [ngTemplateOutletContext]="{ $implicit: row }" />
                     } @else {
-                    <button class="grid-row-menu-trigger" type="button" [id]="rowMenuButtonId(row)" [attr.aria-label]="rowActionButtonLabel(row)" aria-haspopup="menu" [attr.aria-expanded]="actionRowId() === rowId(row)" (click)="toggleRowActions(row)"><svg class="icon" aria-hidden="true"><use href="#icon-ellipsis" /></svg></button>
+                    <button class="icon-button grid-row-menu-trigger" type="button" [id]="rowMenuButtonId(row)" [attr.aria-label]="rowActionButtonLabel(row)" aria-haspopup="menu" [attr.aria-expanded]="actionRowId() === rowId(row)" (click)="toggleRowActions(row)"><svg class="icon" aria-hidden="true"><use href="#icon-ellipsis" /></svg></button>
                     @if (actionRowId() === rowId(row)) {
                       <div class="grid-row-menu" role="menu" [attr.aria-label]="rowActionsLabel" (keydown)="onRowMenuKeydown($event)">
-                        @for (action of rowActions; track action.key) { @if (!action.visible || action.visible(row)) { <button type="button" role="menuitem" [disabled]="action.disabled?.(row) ?? false" (click)="runRowAction(action.key, row)">{{ action.label }}</button> } }
+                        @for (action of rowActions; track action.key) { @if (!action.visible || action.visible(row)) { <button class="button button--quiet button--small" type="button" role="menuitem" [disabled]="action.disabled?.(row) ?? false" (click)="runRowAction(action.key, row)">{{ action.label }}</button> } }
                       </div>
                     }
                     }
                   </td> }
                 </tr>
               }
+              }
             </tbody>
           </table>
         </div>
-        @if (showPager) { <footer class="data-grid-pager">
+      @if (showPager && !loading && filteredRows().length > 0) { <footer class="data-grid-pager">
           <span class="pager-summary">{{ pagerSummaryLabel() }}</span>
           <div class="pager-controls">
-            <button type="button" class="pager-button" (click)="changePage(-1)" [disabled]="currentPage() === 0" [attr.aria-label]="previousPageLabel"><svg class="icon icon--chevron-left" aria-hidden="true"><use href="#icon-chevron-left" /></svg></button>
+            <button type="button" class="button button--secondary button--small pager-button" (click)="changePage(-1)" [disabled]="currentPage() === 0" [attr.aria-label]="previousPageLabel"><svg class="icon icon--chevron-left" aria-hidden="true"><use href="#icon-chevron-left" /></svg></button>
             <span>{{ currentPage() + 1 }} / {{ pageCount() }}</span>
-            <button type="button" class="pager-button" (click)="changePage(1)" [disabled]="currentPage() + 1 >= pageCount()" [attr.aria-label]="nextPageLabel"><svg class="icon icon--chevron-right" aria-hidden="true"><use href="#icon-chevron-right" /></svg></button>
+            <button type="button" class="button button--secondary button--small pager-button" (click)="changePage(1)" [disabled]="currentPage() + 1 >= pageCount()" [attr.aria-label]="nextPageLabel"><svg class="icon icon--chevron-right" aria-hidden="true"><use href="#icon-chevron-right" /></svg></button>
           </div>
           <span class="pager-size">{{ pageSize }} {{ perPageLabel }}</span>
         </footer> }
-      }
       @if (activeFilterColumn(); as column) {
         <div class="grid-filter-popover" role="dialog" [attr.id]="filterPopoverId(column)" [attr.aria-label]="filterLabel(column)" [style.top.px]="filterPopoverPosition().top" [style.left.px]="filterPopoverPosition().left" (keydown.escape)="closeFilter(column.key, true)">
           @if (column.filter === 'text') {
-            <label><span>{{ filterLabel(column) }}</span><input type="search" [value]="textFilterValue(column.key)" [attr.aria-label]="filterLabel(column)" (input)="setTextFilter(column.key, $any($event.target).value)" /></label>
+            <label class="grid-filter-field"><span>{{ filterLabel(column) }}</span><input type="search" [value]="textFilterValue(column.key)" [attr.aria-label]="filterLabel(column)" (input)="setTextFilter(column.key, $any($event.target).value)" /></label>
           } @else if (column.filter === 'select') {
             <label><span>{{ filterLabel(column) }}</span><select [value]="textFilterValue(column.key)" [attr.aria-label]="filterLabel(column)" (change)="setTextFilter(column.key, $any($event.target).value)"><option value="">{{ allValuesLabel }}</option>@for (option of optionsFor(column); track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select></label>
           } @else {
@@ -121,7 +121,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
               <label><span>{{ toLabel }}</span><input [type]="column.filter === 'date-range' ? 'date' : 'number'" [attr.aria-label]="toLabel + ' ' + column.label" [value]="rangeFilterValue(column.key, 'to')" (input)="setRangeFilter(column.key, 'to', $any($event.target).value)" /></label>
             </div>
           }
-          <button class="grid-filter-clear" type="button" (click)="clearFilter(column.key)">{{ clearFiltersLabel }}</button>
+                        <button class="button button--quiet button--small grid-filter-clear" type="button" (click)="clearFilter(column.key)">{{ clearFiltersLabel }}</button>
         </div>
       }
     </section>
@@ -138,7 +138,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
     .data-grid-table .action-column { width: 58px; }
     .data-grid-table th, .data-grid-table td { height: 52px; border-block-end: 1px solid var(--line); padding: .55rem .7rem; text-align: start; vertical-align: middle; }
     .data-grid-table th { position: sticky; inset-block-start: 0; z-index: 5; color: var(--ink-muted); background: var(--grid-header); font-size: 14px; font-weight: 800; }
-    .data-grid-table td { color: var(--ink); white-space: nowrap; }
+    .data-grid-table td { min-width: 0; overflow-wrap: anywhere; color: var(--ink); white-space: normal; }
     .grid-cell-link { color: var(--accent); font-weight: 750; text-decoration: none; }
     .grid-cell-link:hover { text-decoration: underline; }
     .grid-cell-detail { display: block; color: var(--ink-muted); font-size: 14px; }
@@ -156,15 +156,13 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
     .data-grid-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--accent-soft) 18%, var(--surface-raised)); }
     .data-grid-table tbody tr:hover, .data-grid-table tbody tr.is-selected { background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface-raised)); }
     .data-grid-table tbody tr.is-focused td { background: color-mix(in srgb, var(--accent-soft) 66%, var(--surface-raised)); }
-    .grid-heading { position: relative; display: flex; min-width: 0; align-items: center; gap: .2rem; padding-inline-end: .7rem; }
-    .grid-sort { display: inline-flex; min-width: 0; align-items: center; gap: .3rem; border: 0; padding: .25rem 0; color: inherit; background: transparent; font: inherit; text-align: start; white-space: nowrap; }
-    .grid-sort:hover { color: var(--accent); }
-    .grid-sort.is-sorted { color: var(--accent); }
+    .grid-heading { position: relative; display: flex; min-width: 0; align-items: center; gap: var(--space-1); padding-inline-end: var(--space-2); }
+    .grid-sort { min-width: 0; flex: 1 1 auto; overflow: hidden; }
+    .grid-sort-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sort-icon { width: 16px; height: 16px; color: var(--ink-muted); }
     .sort-icon.is-sorted { color: var(--accent); }
-    .grid-filter-button { display: inline-grid; width: 40px; height: 40px; place-items: center; flex: none; border: 1px solid transparent; border-radius: 10px; color: var(--ink-muted); background: transparent; font-size: 14px; }
+    .grid-filter-button, .pager-button { width: var(--button-small-height); flex: none; }
     .grid-filter-button .icon { width: 15px; height: 15px; }
-    .grid-filter-button:hover, .grid-filter-button.is-filtered, .grid-filter-button[aria-expanded='true'] { border-color: color-mix(in srgb, var(--accent) 26%, var(--line)); color: var(--accent); background: var(--accent-soft); }
     .grid-filter-popover { position: absolute; z-index: 70; display: grid; width: min(260px, calc(100vw - 24px)); gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 14px; padding: .8rem; color: var(--ink); background: var(--surface-glass); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); backdrop-filter: blur(18px) saturate(150%); }
     .grid-filter-popover label, .grid-range-fields label { display: grid; min-width: 0; gap: .35rem; color: var(--ink-muted); font-size: 14px; font-weight: 700; }
     .grid-filter-popover input, .grid-filter-popover select { width: 100%; min-width: 0; min-height: 44px; }
@@ -176,21 +174,15 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
     .selection-cell { width: 44px; text-align: center !important; }
     .selection-cell input { display: inline-grid; vertical-align: middle; }
     .action-cell { position: relative; width: 58px; text-align: center !important; }
-    .grid-row-menu-trigger { display: inline-grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--line); border-radius: 12px; color: var(--accent); background: var(--surface-raised); }
     .grid-row-menu-trigger .icon { width: 18px; height: 18px; }
-    .grid-row-menu-trigger:hover, .grid-row-menu-trigger[aria-expanded='true'] { border-color: var(--accent); background: var(--accent-soft); }
     .grid-row-menu { position: absolute; z-index: 22; inset-block-start: calc(100% - .2rem); inset-inline-end: .5rem; display: grid; min-width: 138px; gap: .2rem; border: 1px solid var(--line); border-radius: 12px; padding: .35rem; background: var(--surface-glass); box-shadow: var(--shadow-overlay); backdrop-filter: blur(16px); }
     .grid-row-menu button { min-height: 40px; border: 0; border-radius: 8px; padding: .55rem .65rem; color: var(--ink); background: transparent; font-size: 14px; text-align: start; }
-    .grid-row-menu button:hover, .grid-row-menu button:focus-visible { color: var(--accent); background: var(--accent-soft); }
     .data-grid-pager { display: flex; min-height: 60px; align-items: center; justify-content: space-between; gap: 1rem; padding: .55rem 1rem; }
     .pager-controls { display: inline-flex; align-items: center; gap: .65rem; color: var(--ink); font-size: 14px; font-weight: 700; }
-    .pager-button { display: inline-grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--line); border-radius: 12px; color: var(--accent); background: var(--surface-raised); }
-    .pager-button:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
-    .pager-button:disabled { color: var(--ink-muted); cursor: not-allowed; opacity: .48; }
+    .data-grid-state-cell { padding: 0; }
     .data-grid-state { display: grid; min-height: 230px; place-content: center; justify-items: center; gap: .6rem; padding: 2rem; color: var(--ink-muted); text-align: center; }
     .data-grid-state strong { color: var(--ink-strong); font-size: 1.05rem; }
     .grid-empty-icon { width: 30px; height: 30px; color: var(--accent); }
-    .grid-clear-all { min-height: 40px; border: 1px solid var(--line-strong); border-radius: 999px; padding: .45rem .8rem; color: var(--accent); background: var(--surface-raised); font-size: 14px; font-weight: 700; }
     .grid-spinner { width: 26px; height: 26px; border: 3px solid var(--line); border-inline-start-color: var(--accent); border-radius: 50%; animation: grid-spin .8s linear infinite; }
     @keyframes grid-spin { to { transform: rotate(360deg); } }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -254,6 +246,7 @@ export class DataGridComponent<T extends object> {
     return result;
   });
   readonly pageCount = computed(() => this.clientPaging ? Math.max(1, Math.ceil(this.filteredRows().length / Math.max(1, this.pageSize))) : 1);
+  columnCount(): number { return 1 + this.columns().length + (this.rowActions.length || this.rowActionsTemplate ? 1 : 0); }
   readonly currentPage = computed(() => Math.min(Math.max(0, this.page()), this.pageCount() - 1));
   readonly pageRows = computed(() => this.clientPaging ? this.filteredRows().slice(this.currentPage() * this.pageSize, (this.currentPage() + 1) * this.pageSize) : this.filteredRows());
   private resizing: { key: string; startX: number; startWidth: number } | null = null;
@@ -303,7 +296,9 @@ export class DataGridComponent<T extends object> {
   rowId(row: T): string { return this.rowIdFor?.(row) ?? String((row as Record<string, unknown>)[this.rowKey] ?? ''); }
   rowMenuButtonId(row: T): string { return `grid-row-menu-${this.rowId(row)}`; }
   rowActionButtonLabel(row: T): string { return `${this.rowActionsLabel}: ${this.columns()[0] ? this.cellText(this.columns()[0], row) : this.rowId(row)}`; }
-  columnWidth(column: DataGridColumn<T>): number { return this.columnWidths()[column.key] ?? column.width ?? 176; }
+  readonly columnMinWidth = 144;
+  readonly columnMaxWidth = 520;
+  columnWidth(column: DataGridColumn<T>): number { return Math.max(this.columnMinWidth, Math.min(this.columnMaxWidth, this.columnWidths()[column.key] ?? column.width ?? 176)); }
   cellText(column: DataGridColumn<T>, row: T): string { return column.display?.(row) ?? String(column.value(row) ?? '—'); }
   linkFor(column: DataGridColumn<T>, row: T): string | null { return column.link?.(row) ?? null; }
   secondaryTextFor(column: DataGridColumn<T>, row: T): string | null { return column.secondaryText?.(row) ?? null; }
@@ -471,6 +466,6 @@ export class DataGridComponent<T extends object> {
   }
 
   private setColumnWidth(key: string, width: number): void {
-    this.columnWidths.update((columns) => ({ ...columns, [key]: Math.max(112, Math.min(520, Math.round(width))) }));
+    this.columnWidths.update((columns) => ({ ...columns, [key]: Math.max(this.columnMinWidth, Math.min(this.columnMaxWidth, Math.round(width))) }));
   }
 }

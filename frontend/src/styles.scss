@@ -18,9 +18,9 @@
 
 :root {
   color-scheme: light;
-  --font-sans: 'Cairo Variable', Cairo, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: 'Cairo Variable', Cairo, sans-serif;
   --font-display: var(--font-sans);
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-mono: var(--font-sans);
   --text-xs: 13px;
   --text-sm: 14px;
   --text-base: 15px;
@@ -137,48 +137,23 @@ html[dir='rtl'] .icon--chevron-right, html[dir='rtl'] .icon--chevron-left, html[
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 ::selection { color: var(--ink); background: var(--accent-soft); }
 
-body app-root input:not([type='checkbox']):not([type='radio']):not([type='range']),
-body app-root select,
-body app-root textarea {
-  min-height: 44px !important;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-control);
-  padding: 0.58rem var(--space-3);
-  color: var(--ink);
-  font-size: max(14px, 1em) !important;
-  background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint));
-  box-shadow: inset 0 1px var(--control-gloss), 0 3px 9px rgb(15 32 58 / 10%);
-  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background-color var(--motion-fast) ease, transform var(--motion-fast) ease;
-}
-body app-root textarea { min-height: 6rem; padding-block: 0.7rem; resize: vertical; }
-body app-root input:not([type='checkbox']):not([type='radio']):not([type='range']):hover,
-body app-root select:hover,
-body app-root textarea:hover { border-color: var(--accent); }
-body app-root input:not([type='checkbox']):not([type='radio']):not([type='range']):focus,
-body app-root select:focus,
-body app-root textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent), 0 5px 14px color-mix(in srgb, var(--accent) 12%, transparent), inset 0 1px var(--control-gloss); outline: 0; }
-body app-root input:not([type='checkbox']):not([type='radio']):not([type='range']):focus-visible,
-body app-root select:focus-visible,
-body app-root textarea:focus-visible { animation: control-focus-ring 190ms ease-out; }
-body app-root input:disabled, body app-root select:disabled, body app-root textarea:disabled { color: var(--ink-muted); background: var(--surface-tint); cursor: not-allowed; opacity: 0.8; }
-body app-root input::placeholder, body app-root textarea::placeholder { color: var(--ink-muted); opacity: 0.9; }
 body app-root input[type='checkbox'], body app-root input[type='radio'] {
   appearance: none;
   display: inline-grid;
   place-content: center;
-  width: 20px;
-  min-width: 20px;
-  height: 20px;
-  min-height: 20px;
+  width: var(--choice-size);
+  min-width: var(--choice-size);
+  height: var(--choice-size);
+  min-height: var(--choice-size);
   margin: 0;
   border: 1px solid var(--line-strong);
   color: var(--action-text);
-  background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint));
-  box-shadow: inset 0 1px var(--control-gloss), 0 1px 2px rgb(15 32 58 / 5%);
+  background: var(--surface);
+  box-shadow: none;
   transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease;
   cursor: pointer;
 }
-body app-root input[type='checkbox'] { border-radius: 6px; }
+body app-root input[type='checkbox'] { border-radius: var(--choice-radius); }
 body app-root input[type='radio'] { border-radius: 50%; }
 body app-root input[type='checkbox']::after { content: ''; width: 5px; height: 9px; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg) scale(0); transition: transform var(--motion-fast) ease; }
 body app-root input[type='radio']::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; transform: scale(0); transition: transform var(--motion-fast) ease; }
@@ -187,12 +162,11 @@ body app-root input[type='checkbox']:checked::after, body app-root input[type='r
 body app-root input[type='checkbox']:indeterminate { border-color: var(--accent-action); background: var(--accent-action); }
 body app-root input[type='checkbox']:indeterminate::after { width: 9px; height: 2px; border: 0; border-radius: 2px; background: var(--action-text); transform: scale(1); }
 body app-root input[type='checkbox'][role='switch'] { position: relative; width: 42px; height: 24px; min-width: 42px; min-height: 24px; border: 0; border-radius: 999px; background: var(--line-strong); }
-body app-root input[type='checkbox'][role='switch']::after { position: absolute; inset-block-start: 3px; inset-inline-start: 3px; width: 18px; height: 18px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 20%); transform: none; transition: inset-inline-start var(--motion-fast) ease; }
+body app-root input[type='checkbox'][role='switch']::after { position: absolute; inset-block-start: 3px; inset-inline-start: 3px; width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--surface); box-shadow: none; transform: none; transition: inset-inline-start var(--motion-fast) ease; }
 body app-root input[type='checkbox'][role='switch']:checked { background: var(--accent-action); }
 body app-root input[type='checkbox'][role='switch']:checked::after { inset-inline-start: 21px; background: var(--action-text); }
 body app-root input[type='checkbox'][role='switch']:focus-visible, body app-root input[type='radio']:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 body app-root label:has(> input[type='checkbox']), body app-root label:has(> input[type='radio']) { display: inline-flex; align-items: center; gap: 8px; }
-body app-root button, body app-root .button { min-height: 40px !important; font-size: max(14px, 1em) !important; font-weight: 600 !important; }
 body app-root p:not(.eyebrow):not(.section-kicker):not(.nav-group__title) { font-size: max(14px, 1em) !important; }
 body app-root :is(.field__label, .ui-field__label, .filter-field, .grid-filter-popover label) { font-size: max(14px, 1em) !important; }
 body app-root :is(.ui-grid, .data-grid-table, .return-table) { font-size: 14px !important; }
@@ -243,3 +217,73 @@ body app-root :is(.ui-grid, .data-grid-table, .return-table) :is(th, td, small) 
 
 .currency-amount { unicode-bidi: isolate; }
 .currency-symbol-asset { display: inline-block; flex: 0 0 auto; width: .9em; height: 1em; background-color: currentColor; vertical-align: -.12em; -webkit-mask: var(--currency-symbol-url) center / contain no-repeat; mask: var(--currency-symbol-url) center / contain no-repeat; }
+
+/* Shared control and page tokens. Theme colors above remain the only palette source. */
+:root {
+  --choice-size: 20px;
+  --choice-radius: 6px;
+  --button-height: 44px;
+  --button-small-height: 36px;
+  --button-radius: 10px;
+  --button-padding-inline: 12px;
+  --button-gap: 8px;
+  --button-font-size: 15px;
+  --button-small-font-size: 14px;
+  --button-font-weight: 600;
+  --field-height: 44px;
+  --field-text-size: 15px;
+  --field-text-weight: 400;
+  --field-radius: 12px;
+  --field-border: var(--line-strong);
+  --field-padding-inline: 12px;
+  --field-label-size: 13px;
+  --field-label-weight: 600;
+  --field-label-gap: 6px;
+  --field-background: var(--surface);
+  --field-placeholder: var(--ink-muted);
+  --search-icon-size: 1.3rem;
+  --select-picker-padding: 4px;
+  --select-option-padding: 8px 12px;
+  --select-option-radius: 8px;
+  --tabs-height: 40px;
+  --tabs-radius: 16px;
+  --tabs-item-radius: 12px;
+  --tabs-gap: 4px;
+  --tabs-padding: 6px;
+  --tabs-item-padding: 16px;
+  --tabs-font: 500 14px/1.2 var(--font-sans);
+  --tabs-active-weight: 600;
+  --tabs-border: var(--line);
+  --tabs-background: color-mix(in srgb, var(--surface) 70%, transparent);
+  --tabs-ink: var(--ink-muted);
+  --tabs-active-ink: var(--action-text);
+  --tabs-active-background: var(--accent-action);
+  --tabs-indicator-height: 2px;
+  --tabs-indicator-bottom: 4px;
+  --tabs-active-shadow: 0 6px 16px color-mix(in srgb, var(--accent-action) 30%, transparent);
+  --page-max-width: 94rem;
+  --page-gutter: clamp(16px, 3vw, 32px);
+  --page-header-radius: var(--radius-lg);
+  --page-header-padding: clamp(20px, 2.5vw, 32px);
+  --page-title-size: clamp(26px, 2.2vw, 34px);
+  --overlay-scrim: color-mix(in srgb, var(--ink-strong) 42%, transparent);
+}
+
+/* Shared single-line field geometry also covers routes outside the app shell. */
+body app-root :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']), select, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--field-height) !important;
+  min-height: var(--field-height) !important;
+  border: 1px solid var(--field-border) !important;
+  border-radius: var(--field-radius) !important;
+  padding: 0 var(--field-padding-inline) !important;
+  color: var(--ink) !important;
+  background-color: var(--field-background) !important;
+  box-shadow: none !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--field-text-size) !important;
+  font-weight: var(--field-text-weight) !important;
+  line-height: 1.35 !important;
+}
+body app-root textarea { height: auto !important; min-height: 96px !important; padding-block: 10px !important; resize: vertical; }
