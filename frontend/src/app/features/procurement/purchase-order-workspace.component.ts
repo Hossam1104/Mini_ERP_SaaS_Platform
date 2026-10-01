@@ -181,16 +181,8 @@ interface ConfirmationLineDraft {
 
     @if (dialogAction(); as action) {<div class="dialog-backdrop" role="presentation" (click)="closeAction()"><section class="action-dialog" role="dialog" aria-modal="true" aria-labelledby="purchase-order-action-title" tabindex="-1" (click)="$event.stopPropagation()" (keydown)="onActionDialogKeydown($event)"><p class="section-kicker">{{ poText('purchaseOrderKicker') }}</p><h2 id="purchase-order-action-title">{{ actionTitle(action) }}</h2><p>{{ actionLead(action) }}</p><label class="field"><span class="field__label">{{ poText('purchaseOrderReason') }} *</span><textarea [(ngModel)]="actionReason" rows="4" [placeholder]="poText('purchaseOrderReasonHint')"></textarea></label><div class="dialog-actions"><button id="purchase-order-action-cancel" class="button button--secondary" type="button" (click)="closeAction()">{{ language.text('cancel') }}</button><button class="button button--danger" type="button" [disabled]="saving()" (click)="confirmAction()">{{ saving() ? poText('saving') : actionTitle(action) }}</button></div></section></div>}
   `,
-  styles: `
-    :host { display: block; }
+  styles: `:host { display: block; }
     .page-header .lede { max-width: 54rem; margin-bottom: 0; line-height: 1.55; }
-    .button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 42px; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .9rem; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)); box-shadow: var(--shadow-soft), inset 0 1px var(--control-gloss); font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer; transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease, filter var(--motion-fast) ease; }
-    .button:hover:not(:disabled) { transform: translateY(-1px); }
-    .button:disabled { cursor: wait; opacity: .55; }
-    .button--primary { border-color: var(--accent-action); color: var(--action-text); background: var(--accent-action); }
-    .button--secondary { border-color: var(--line-strong); }
-    .button--quiet { border-color: transparent; color: var(--ink-muted); background: transparent; }
-    .button--danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }
     .boundary-note { display: flex; align-items: flex-start; gap: .65rem; border-inline-start: 3px solid var(--support); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: .72rem .9rem; color: var(--ink-muted); background: linear-gradient(120deg, var(--support-soft), color-mix(in srgb, var(--surface-glass) 62%, var(--support-soft))); box-shadow: var(--shadow-soft); font-size: 14px; line-height: 1.5; }
     .boundary-note > .icon { width: 19px; height: 19px; flex: none; color: var(--support); }
     .state-card { display: grid; justify-items: start; align-content: center; gap: .55rem; min-height: 12rem; }
@@ -202,13 +194,9 @@ interface ConfirmationLineDraft {
     @keyframes po-spin { to { transform: rotate(360deg); } }
     .ledger-panel { padding: 0; overflow: visible; }
     .filter-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: .7rem; padding: .85rem 1rem; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface-glass)); }
-    .filter-search { position: relative; display: block; min-height: 44px; min-width: min(100%, 18rem); flex: 1 1 16rem; color: var(--accent); }
-    .filter-search .icon { position: absolute; z-index: 1; inset-block-start: 50%; inset-inline-start: .8rem; width: 18px; height: 18px; pointer-events: none; transform: translateY(-50%); }
-    .filter-search input { display: block; width: 100%; height: 44px; min-height: 44px !important; border: 1px solid var(--line-strong) !important; border-radius: var(--radius-control) !important; padding-block: 0 !important; padding-inline: 2.7rem .75rem !important; outline: 0 !important; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)) !important; box-shadow: var(--shadow-soft), inset 0 1px var(--control-gloss) !important; font-size: 14px; }
-    .filter-search input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent), 0 5px 14px color-mix(in srgb, var(--accent) 12%, transparent), inset 0 1px var(--control-gloss) !important; animation: control-focus-ring 190ms ease-out; }
     .filter-field { display: grid; gap: .3rem; min-width: 12rem; color: var(--ink-muted); font-size: 14px; font-weight: 700; }
     .filter-select { position: relative; display: block; }
-    .filter-field select { width: 100%; min-height: 44px; appearance: none; border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding-block: .45rem; padding-inline: .65rem 2.6rem; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)); box-shadow: inset 0 1px var(--control-gloss), var(--shadow-soft); font-size: 14px; }
+    .filter-field select { width: 100%; }
     .filter-select__chevron { position: absolute; inset-inline-end: .75rem; inset-block-start: 50%; width: 16px; height: 16px; color: var(--ink-muted); pointer-events: none; transform: translateY(-50%); }
     .filter-note { flex: 1 1 100%; margin: 0; color: var(--ink-muted); font-size: 14px; }
     .purchase-order-grid-shell { border: 0; border-radius: 0; }
@@ -236,7 +224,7 @@ interface ConfirmationLineDraft {
     .form-card, .detail-card { display: grid; gap: 1rem; }
     .field { display: grid; gap: .5rem; color: var(--ink); font-size: 14px; }
     .field__label { color: var(--ink-muted); font-size: 14px; font-weight: 700; }
-    .field input, .field select, .field textarea, .table-input { width: 100%; min-height: 44px; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding: .55rem .7rem; color: var(--ink); background: linear-gradient(180deg, var(--surface-raised), var(--surface-tint)); box-shadow: inset 0 1px var(--control-gloss), var(--shadow-soft); font: 14px/1.4 var(--font-sans); }
+    .field input, .field select, .field textarea, .table-input { width: 100%; box-sizing: border-box; }
     .field textarea { resize: vertical; }
     .form-actions, .action-rail, .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
     .form-actions { justify-content: flex-end; }
@@ -249,9 +237,6 @@ interface ConfirmationLineDraft {
     .fact-grid div { display: grid; gap: .2rem; }
     .fact-grid dt, .fact-grid span { color: var(--ink-muted); font-size: 14px; font-weight: 700; }
     .fact-grid dd { margin: 0; color: var(--ink); font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
-    .detail-tabs { display: flex; gap: .3rem; overflow-x: auto; margin-block: 0 1rem; border-bottom: 1px solid var(--line); }
-    .detail-tabs button { min-height: 42px; border: 0; border-bottom: 2px solid transparent; padding: .65rem .8rem; color: var(--ink-muted); background: transparent; font: 600 14px/1.3 var(--font-sans); cursor: pointer; white-space: nowrap; }
-    .detail-tabs button.is-active { border-color: var(--accent-strong); color: var(--ink-strong); }
     .ui-grid-shell { overflow-x: auto; }
     .compact-grid, .detail-grid { min-width: 44rem; }
     .compact-grid th, .compact-grid td, .detail-grid th, .detail-grid td { padding: .65rem .55rem; }

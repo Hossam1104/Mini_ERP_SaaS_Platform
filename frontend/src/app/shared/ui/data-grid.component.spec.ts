@@ -42,6 +42,13 @@ describe('DataGridComponent', () => {
     expect(element.querySelector('[data-row-id=\"po-1\"] .currency-symbol-asset')).toBeNull();
     expect(element.querySelector('.sort-icon use')?.getAttribute('href')).toBe('#icon-arrow-up-down');
     expect(element.querySelector('.grid-filter-button use')?.getAttribute('href')).toBe('#icon-filter');
+    const numericHeader = element.querySelector('th.numeric .grid-sort') as HTMLElement;
+    const numericCell = element.querySelector('[data-row-id="po-2"] td.numeric') as HTMLElement;
+    expect(getComputedStyle(numericHeader).textAlign).toBe(getComputedStyle(numericCell).textAlign);
+    const textCell = element.querySelector('[data-row-id="po-2"] td') as HTMLElement;
+    expect(getComputedStyle(textCell).overflowWrap).toBe('anywhere');
+    expect(getComputedStyle(textCell).whiteSpace).toBe('normal');
+    expect(grid.columnWidth({ ...columns[0], width: 80 })).toBe(grid.columnMinWidth);
   });
 
   it('applies text, select, and numeric range filters', () => {
@@ -119,10 +126,14 @@ describe('DataGridComponent', () => {
 
     fixture.componentRef.setInput('rows', []);
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No records');
+    const emptyElement = fixture.nativeElement as HTMLElement;
+    expect(emptyElement.textContent).toContain('No records');
+    expect(emptyElement.querySelector('thead')?.textContent).toContain('Supplier');
     fixture.componentRef.setInput('loading', true);
     fixture.componentRef.setInput('rows', rows);
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Loading records');
+    const loadingElement = fixture.nativeElement as HTMLElement;
+    expect(loadingElement.textContent).toContain('Loading records');
+    expect(loadingElement.querySelector('thead')?.textContent).toContain('Supplier');
   });
 });

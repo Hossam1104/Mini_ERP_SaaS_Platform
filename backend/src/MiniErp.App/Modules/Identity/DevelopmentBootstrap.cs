@@ -17,8 +17,27 @@ namespace MiniErp.App.Modules.Identity;
 /// </summary>
 public static class DevelopmentBootstrap
 {
+    public const string DefaultAdminLogin = "admin@mesp.com";
+    public const string DefaultAdminPassword = "123";
+
     /// <summary>Generic Development Tenant identity (MiniERP Development).</summary>
     public static readonly TenantId DevTenantId = new(Guid.Parse("11111111-1111-1111-1111-111111111111"));
+
+    public static string? GetPublicDefaultAccountHint(IHostEnvironment environment, IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(configuration);
+        if (!environment.IsDevelopment()
+            || !string.Equals(configuration["MESP_DEV_BOOTSTRAP_ENABLED"], "true", StringComparison.OrdinalIgnoreCase)
+            || DevelopmentAuthBypassPolicy.IsEnabled(configuration)
+            || !string.Equals(configuration["MESP_DEV_ADMIN_LOGIN"] ?? DefaultAdminLogin, DefaultAdminLogin, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(configuration["MESP_DEV_ADMIN_PASSWORD"], DefaultAdminPassword, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return $"{DefaultAdminLogin} / {DefaultAdminPassword}";
+    }
 
     /// <summary>Enables development bootstrap seeding if configured and running in Development environment.</summary>
     public static IHost SeedDevelopmentBootstrap(this IHost host)
@@ -38,7 +57,7 @@ public static class DevelopmentBootstrap
             return host;
         }
 
-        var login = config["MESP_DEV_ADMIN_LOGIN"] ?? "admin@minierp.local";
+        var login = config["MESP_DEV_ADMIN_LOGIN"] ?? DefaultAdminLogin;
         var password = config["MESP_DEV_ADMIN_PASSWORD"];
 
         if (string.IsNullOrWhiteSpace(password))
@@ -90,6 +109,10 @@ public static class DevelopmentBootstrap
         {
             var adminId = identity.CreateUser(login, password, mfaEnabled: false);
             adminUser = store.Users[adminId];
+        }
+        else
+        {
+            identity.EnsureDevelopmentPassword(adminUser.Id, password);
         }
 
         // 3. Idempotently get or create Tenant Membership

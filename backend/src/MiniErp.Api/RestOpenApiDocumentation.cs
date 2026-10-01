@@ -155,6 +155,7 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         "platform.health" => "Check platform availability",
         "platform.openapi" => "Read the generated API contract",
         "platform.module-registration" => "Read registered module boundaries",
+        "auth.entry.read" => "Resolve the current host's entry mode and public branding",
         "auth.development-bypass" => "Establish the configured Development QA session",
         "master-data.tax.list" => "List Tenant-owned Tax rules",
         "master-data.tax.read" => "Read one Tenant-owned Tax rule",
@@ -301,6 +302,14 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
 
     private static string DescriptionFor(FoundationOperationDescriptor descriptor)
     {
+        if (descriptor.OperationId == "auth.entry.read")
+        {
+            return "Resolves the request Host against configured common, Tenant, and platform entry hosts. "
+                + "Anonymous callers receive only the resolved entry mode and public branding; Tenant identifiers, "
+                + "membership candidates, and operational contexts are omitted. Authenticated callers receive only "
+                + "server-authorized candidates. Hostname is a candidate hint and never grants Tenant authority.";
+        }
+
         if (descriptor.OperationId == "auth.development-bypass")
         {
             return "Development-only, loopback-only session establishment for the configured server-side Development actor. "
@@ -471,6 +480,7 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
 
     private static string SuccessResponseFor(string operationId) => operationId switch
     {
+        "auth.entry.read" => "The host entry mode, public branding, and (only for an authenticated caller) authorized context candidates.",
         "auth.development-bypass" => "An authenticated session for the server-configured Development actor with server-derived context candidates.",
         "master-data.tax.calculate" => "A deterministic Tax amount and immutable reference snapshot for the explicit inputs.",
         "master-data.tax.reference.read" => "The active Tax rate version selected for the requested effective date, including applied reference evidence.",

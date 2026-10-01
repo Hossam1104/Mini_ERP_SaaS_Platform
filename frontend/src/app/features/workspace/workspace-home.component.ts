@@ -133,9 +133,9 @@ interface OverviewModule {
             <span class="overview-section-heading__hint">{{ label('Your workspace', 'مساحة عملك') }}</span>
           </div>
           <div class="module-chips" role="group" [attr.aria-label]="label('Filter modules', 'تصفية الوحدات')">
-            <button type="button" class="module-chip" [class.is-active]="selectedGroup() === 'all'" [attr.aria-pressed]="selectedGroup() === 'all'" (click)="selectedGroup.set('all')">{{ label('All modules', 'كل الوحدات') }}</button>
+            <button type="button" class="button module-chip" [class.is-active]="selectedGroup() === 'all'" [class.button--primary]="selectedGroup() === 'all'" [attr.aria-pressed]="selectedGroup() === 'all'" (click)="selectedGroup.set('all')">{{ label('All modules', 'كل الوحدات') }}</button>
             @for (group of navigationGroups; track group.id) {
-              <button type="button" class="module-chip" [class.is-active]="selectedGroup() === group.id" [attr.aria-pressed]="selectedGroup() === group.id" (click)="selectedGroup.set(group.id)">{{ navigationLabel(group) }}</button>
+              <button type="button" class="button module-chip" [class.is-active]="selectedGroup() === group.id" [class.button--primary]="selectedGroup() === group.id" [attr.aria-pressed]="selectedGroup() === group.id" (click)="selectedGroup.set(group.id)">{{ navigationLabel(group) }}</button>
             }
           </div>
           <div class="capability-grid">
@@ -158,8 +158,7 @@ interface OverviewModule {
       }
     </section>
   `,
-  styles: `
-    :host { display: block; }
+  styles: `:host { display: block; }
     .tenant-overview { display: grid; gap: clamp(1.25rem, 2.8vw, 2rem); }
     .overview-hero { position: relative; display: grid; min-height: 260px; grid-template-columns: minmax(0, 1fr) minmax(0, clamp(220px, 34vw, 500px)); align-items: center; gap: .5rem 2rem; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line)); border-radius: 24px; padding: clamp(1.35rem, 3vw, 2.6rem); background: radial-gradient(ellipse at 12% 8%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 46%), linear-gradient(115deg, color-mix(in srgb, var(--accent-soft) 78%, var(--surface-glass)), var(--surface-glass) 68%, var(--surface-raised)); box-shadow: var(--shadow-glass); backdrop-filter: blur(14px) saturate(145%); animation: card-enter 480ms ease both; }
     .overview-hero__content { position: relative; z-index: 1; max-width: 52rem; grid-column: 1; grid-row: 1; }
@@ -169,10 +168,6 @@ interface OverviewModule {
     .overview-manage { display: inline-flex; min-height: 42px; align-items: center; gap: .5rem; border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line)); border-radius: 999px; padding: .45rem .9rem; color: var(--accent-strong); background: var(--surface-glass); box-shadow: var(--shadow-soft); font-size: 14px; font-weight: 700; text-decoration: none; transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease; }
     .overview-manage .icon { width: 18px; height: 18px; }
     .overview-manage:hover { box-shadow: var(--shadow-card); transform: translateY(-2px); }
-    .overview-search { position: relative; z-index: 2; display: flex; width: min(100%, 38rem); min-height: 48px; grid-column: 1; grid-row: 2; align-items: center; gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line-strong)); border-radius: 13px; padding-inline: .8rem; color: var(--accent); background: var(--surface-raised); box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 12%, transparent), inset 0 1px var(--control-gloss); }
-    .overview-search .icon { width: 19px; height: 19px; }
-    .overview-search input { width: 100%; min-width: 0; min-height: 44px; border: 0 !important; padding: 0; color: var(--ink); background: transparent !important; box-shadow: none !important; outline: 0; }
-    .overview-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent), 0 8px 22px color-mix(in srgb, var(--accent) 12%, transparent); }
     .overview-hero__art { position: relative; width: 100%; max-width: 500px; aspect-ratio: 500 / 280; height: auto; grid-column: 2; grid-row: 1 / span 2; }
     .overview-hero__tenant-logo { position: relative; z-index: 2; display: flex; grid-column: 2; grid-row: 1 / span 2; align-items: center; justify-content: center; max-width: 100%; justify-self: center; }
     .overview-hero__tenant-logo img { display: block; width: auto; max-width: 92%; max-height: 210px; height: auto; object-fit: contain; }
@@ -193,9 +188,7 @@ interface OverviewModule {
     .overview-section-heading .eyebrow { margin-block-end: .25rem; }
     .overview-section-heading__hint { color: var(--ink-muted); font-size: 14px; }
     .module-chips { display: flex; gap: .5rem; overflow-x: auto; padding: .15rem .15rem .45rem; }
-    .module-chip { min-height: 40px; flex: none; border: 1px solid var(--line); border-radius: 999px; padding: .45rem .9rem; color: var(--ink-muted); background: var(--surface-glass); box-shadow: var(--shadow-soft); font-size: 14px; font-weight: 700; transition: color var(--motion-fast) ease, background var(--motion-fast) ease, border-color var(--motion-fast) ease, transform var(--motion-fast) ease; }
-    .module-chip:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
-    .module-chip.is-active { border-color: var(--accent); color: var(--action-text); background: var(--accent-action); }
+    .module-chip { flex: none; }
     .capability-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 225px), 1fr)); gap: .9rem; }
     .module-card { display: grid; min-width: 0; gap: .7rem; padding: .8rem; color: var(--ink); text-decoration: none; animation-delay: calc(var(--card-order, 0) * 35ms); }
     .module-card:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
@@ -207,7 +200,7 @@ interface OverviewModule {
     .module-card__description { display: -webkit-box; min-height: 2.8em; overflow: hidden; color: var(--ink-muted); font-size: 14px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
     .module-card__view { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; justify-self: start; border: 1px solid var(--line-strong); border-radius: 999px; padding: .35rem .8rem; color: var(--ink); background: var(--surface-raised); font-size: 14px; font-weight: 600; }
     .module-empty { grid-column: 1 / -1; margin: 0; border: 1px dashed var(--line-strong); border-radius: 14px; padding: 1.5rem; color: var(--ink-muted); text-align: center; }
-    @media (max-width: 1100px) { .overview-hero { min-height: 0; grid-template-columns: minmax(0, 1fr); } .overview-hero__content { grid-column: 1; grid-row: 1; } .overview-hero__art { grid-column: 1; grid-row: 2; justify-self: center; } .overview-hero__tenant-logo { grid-column: 1; grid-row: 2; justify-self: center; } .overview-search { width: 100%; grid-column: 1; grid-row: 3; } }
+    @media (max-width: 1100px) { .overview-hero { min-height: 0; grid-template-columns: minmax(0, 1fr); } .overview-hero__content { grid-column: 1; grid-row: 1; } .overview-hero__art { grid-column: 1; grid-row: 2; justify-self: center; } .overview-hero__tenant-logo { grid-column: 1; grid-row: 2; justify-self: center; } }
     @media (max-width: 760px) { .overview-hero { padding: 1.25rem; } .overview-hero__tenant-logo img { max-height: 130px; } .hero-mark { width: 58px; height: 58px; border-radius: 19px; font-size: 1.65rem; } .overview-section-heading__hint { display: none; } }
     @media (max-width: 500px) { .overview-hero__tenant-logo { max-width: 220px; } .overview-hero__tenant-logo img { max-height: 96px; } .module-chips { margin-inline: -.2rem; } .capability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; } .module-card { padding: .65rem; } .module-card__title, .module-card__view { font-size: 14px; } .module-card__code { top: .4rem; right: .4rem; padding: .25rem .45rem; } }
     @media (max-width: 350px) { .capability-grid { grid-template-columns: 1fr; } }

@@ -36,8 +36,8 @@ describe('FinanceWorkspaceComponent', () => {
     expect(element.querySelector('[data-testid="finance-workspace"]')).not.toBeNull();
     expect(element.querySelector('select')?.textContent).toContain('Alpha Company');
     expect(element.querySelector('h1')?.textContent).toContain('Company books');
-    expect(element.querySelector('.finance-tabs')?.textContent).toContain('Chart of accounts');
-    expect(element.querySelector('.finance-tabs')?.textContent).toContain('GL inquiry');
+    expect(element.querySelector('app-tabs [role="tablist"]')?.textContent).toContain('Chart of accounts');
+    expect(element.querySelector('app-tabs [role="tablist"]')?.textContent).toContain('GL inquiry');
   });
 
   it('keeps the Finance view RTL-safe when Arabic is selected', () => {

@@ -29,6 +29,26 @@ namespace MiniErp.ArchitectureTests;
 public sealed class HostSecurityTests
 {
     [Fact]
+    public async Task Anonymous_entry_read_returns_host_branding_without_tenant_identifiers_or_contexts()
+    {
+        using var factory = new HostFactory { RequestHost = "tenant-a.example.com" };
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/auth/entry");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await ReadJsonAsync(response);
+        Assert.Equal("TenantHost", body.GetProperty("entryMode").GetString());
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("candidateTenantId").ValueKind);
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("candidateTenantDisplayName").ValueKind);
+        Assert.Empty(body.GetProperty("authorizedTenants").EnumerateArray());
+        Assert.Empty(body.GetProperty("operationalContexts").EnumerateArray());
+        Assert.Equal("MESP", body.GetProperty("branding").GetProperty("displayName").GetString());
+        Assert.False(body.GetProperty("isDevelopment").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("developmentAccountHint").ValueKind);
+    }
+
+    [Fact]
     public async Task Tenant_host_selects_only_exact_membership_and_denies_Tenant_B_only_user()
     {
         using var factory = new HostFactory { RequestHost = "tenant-a.example.com" };
@@ -52,7 +72,10 @@ public sealed class HostSecurityTests
         Assert.Equal(HttpStatusCode.OK, foreignEntry.StatusCode);
         var foreignBody = await ReadJsonAsync(foreignEntry);
         Assert.Equal("NoAccess", foreignBody.GetProperty("entryMode").GetString());
+        Assert.Equal(JsonValueKind.Null, foreignBody.GetProperty("candidateTenantId").ValueKind);
         Assert.Empty(foreignBody.GetProperty("authorizedTenants").EnumerateArray());
+        var foreignSession = await ReadJsonAsync(await foreignClient.GetAsync("/api/v1/auth/session"));
+        Assert.Equal(JsonValueKind.Null, foreignSession.GetProperty("selectedContextId").ValueKind);
 
         var deniedBusinessRead = await foreignClient.GetAsync("/api/v1/foundation/tenant-context");
         Assert.Equal(HttpStatusCode.Forbidden, deniedBusinessRead.StatusCode);
@@ -227,6 +250,7 @@ public sealed class HostSecurityTests
         Assert.Contains("__Host-MiniErp.Auth=", setCookie, StringComparison.Ordinal);
         Assert.Contains("Secure", setCookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("HttpOnly", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Domain=", setCookie, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(FoundationIdentityClaims.SessionToken, raw, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("cookieValue", raw, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("password", raw, StringComparison.OrdinalIgnoreCase);

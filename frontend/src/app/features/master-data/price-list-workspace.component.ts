@@ -22,6 +22,8 @@ import {
 import { PriceListService } from './price-list.service';
 import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { TabsComponent } from '../../shared/ui/tabs.component';
+import type { AppTab } from '../../shared/ui/tabs.component';
 
 type DetailMode = 'view' | 'edit' | 'create';
 type DetailTab = 'overview' | 'prices' | 'history' | 'audit' | 'resolve';
@@ -64,7 +66,7 @@ interface ResolveDraft {
 @Component({
   selector: 'app-price-list-workspace',
   standalone: true,
-  imports: [FormsModule, NgTemplateOutlet, DataGridComponent, PageHeaderComponent],
+  imports: [FormsModule, NgTemplateOutlet, DataGridComponent, PageHeaderComponent, TabsComponent],
   template: `
     <section class="price-list-workspace" aria-labelledby="price-list-title">
       <app-page-header>
@@ -105,7 +107,7 @@ interface ResolveDraft {
         @if (loading()) {
           <div class="state-card state-card--loading" role="status" aria-live="polite"><span class="loader" aria-hidden="true"></span><div><b>{{ language.text('loadingRecords') }}</b><p>{{ language.text('serverAuthority') }}</p></div></div>
         } @else if (listError()) {
-          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(listError()) }}</b><p>{{ language.text('listLoadFailed') }}</p><button class="text-button" type="button" (click)="loadList()">{{ language.text('retry') }} ↗</button></div></div>
+          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(listError()) }}</b><p>{{ language.text('listLoadFailed') }}</p><button class="button button--quiet button--small" type="button" (click)="loadList()">{{ language.text('retry') }} ↗</button></div></div>
         } @else if (records().length === 0) {
           <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><div><b>{{ language.text('noRecords') }}</b><p>{{ language.text('noRecordsLead') }}</p></div></div>
         } @else {
@@ -124,11 +126,11 @@ interface ResolveDraft {
 
     <ng-template #detailView>
       <section class="detail-view" aria-labelledby="detail-title">
-        <div class="detail-topline"><button class="back-link" type="button" (click)="backToList()">← {{ language.text('priceLists') }}</button></div>
+        <div class="detail-topline"><button class="button button--quiet" type="button" (click)="backToList()">← {{ language.text('priceLists') }}</button></div>
         @if (detailLoading()) {
           <div class="state-card state-card--loading" role="status"><span class="loader" aria-hidden="true"></span><b>{{ language.text('loadingRecord') }}</b></div>
         } @else if (detailError()) {
-          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(detailError()) }}</b><p>{{ language.text('detailLoadFailed') }}</p><button class="text-button" type="button" (click)="reloadDetail()">{{ language.text('retryLoad') }} ↗</button></div></div>
+          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(detailError()) }}</b><p>{{ language.text('detailLoadFailed') }}</p><button class="button button--quiet button--small" type="button" (click)="reloadDetail()">{{ language.text('retryLoad') }} ↗</button></div></div>
         } @else {
           <div class="detail-heading">
             <div><p class="eyebrow eyebrow--soft">{{ detailMode() === 'create' ? language.text('newRecord') : language.text('priceListDetail') }}</p><h2 id="detail-title">{{ detailMode() === 'create' ? language.text('createRecord') : (selectedRecord()!.code + ' · ' + selectedRecord()!.englishName) }}</h2><p>{{ language.text('priceListsLead') }}</p></div>
@@ -141,24 +143,18 @@ interface ResolveDraft {
             </div>
           </div>
 
-          @if (mutationError()) { <div class="inline-alert" role="alert"><b>{{ errorMessage(mutationError()) }}</b><span>{{ mutationError()?.code === 'concurrency_conflict' ? language.text('conflictLead') : '' }}</span>@if (mutationError()?.code === 'concurrency_conflict') { <button class="text-button" type="button" (click)="reloadDetail()">{{ language.text('retryLoad') }}</button> }</div> }
+          @if (mutationError()) { <div class="inline-alert" role="alert"><b>{{ errorMessage(mutationError()) }}</b><span>{{ mutationError()?.code === 'concurrency_conflict' ? language.text('conflictLead') : '' }}</span>@if (mutationError()?.code === 'concurrency_conflict') { <button class="button button--quiet button--small" type="button" (click)="reloadDetail()">{{ language.text('retryLoad') }}</button> }</div> }
           @if (formNotice()) { <div class="inline-alert inline-alert--success" role="status">{{ formNotice() }}</div> }
 
           @if (detailMode() === 'view' && selectedRecord()) {
-            <nav class="tabs" role="tablist" [attr.aria-label]="language.text('priceListDetail')">
-              <button role="tab" type="button" [attr.aria-selected]="detailTab() === 'overview'" [class.is-active]="detailTab() === 'overview'" (click)="setTab('overview')">{{ language.text('priceListOverview') }}</button>
-              <button role="tab" type="button" [attr.aria-selected]="detailTab() === 'prices'" [class.is-active]="detailTab() === 'prices'" (click)="setTab('prices')">{{ language.text('pricesSection') }} ({{ selectedRecord()!.prices.length }})</button>
-              <button role="tab" type="button" [attr.aria-selected]="detailTab() === 'history'" [class.is-active]="detailTab() === 'history'" (click)="setTab('history')">{{ language.text('historySection') }}</button>
-              <button role="tab" type="button" [attr.aria-selected]="detailTab() === 'audit'" [class.is-active]="detailTab() === 'audit'" (click)="setTab('audit')">{{ language.text('audit') }}</button>
-              <button role="tab" type="button" [attr.aria-selected]="detailTab() === 'resolve'" [class.is-active]="detailTab() === 'resolve'" (click)="setTab('resolve')">{{ language.text('referenceResolutionSection') }}</button>
-            </nav>
+            <app-tabs #priceListTabsRef [tabs]="priceListTabs()" [selected]="detailTab()" [ariaLabel]="language.text('priceListDetail')" (selectedChange)="selectPriceListTab($event)" />
 
             @switch (detailTab()) {
-              @case ('overview') { <div role="tabpanel"><ng-container *ngTemplateOutlet="overviewTab" /></div> }
-              @case ('prices') { <div role="tabpanel"><ng-container *ngTemplateOutlet="pricesTab" /></div> }
-              @case ('history') { <div role="tabpanel"><ng-container *ngTemplateOutlet="historyTab" /></div> }
-              @case ('audit') { <div role="tabpanel"><ng-container *ngTemplateOutlet="auditTab" /></div> }
-              @case ('resolve') { <div role="tabpanel"><ng-container *ngTemplateOutlet="resolveTab" /></div> }
+              @case ('overview') { <div role="tabpanel" [id]="priceListTabsRef.panelId('overview')" [attr.aria-labelledby]="priceListTabsRef.tabId('overview')" tabindex="0"><ng-container *ngTemplateOutlet="overviewTab" /></div> }
+              @case ('prices') { <div role="tabpanel" [id]="priceListTabsRef.panelId('prices')" [attr.aria-labelledby]="priceListTabsRef.tabId('prices')" tabindex="0"><ng-container *ngTemplateOutlet="pricesTab" /></div> }
+              @case ('history') { <div role="tabpanel" [id]="priceListTabsRef.panelId('history')" [attr.aria-labelledby]="priceListTabsRef.tabId('history')" tabindex="0"><ng-container *ngTemplateOutlet="historyTab" /></div> }
+              @case ('audit') { <div role="tabpanel" [id]="priceListTabsRef.panelId('audit')" [attr.aria-labelledby]="priceListTabsRef.tabId('audit')" tabindex="0"><ng-container *ngTemplateOutlet="auditTab" /></div> }
+              @case ('resolve') { <div role="tabpanel" [id]="priceListTabsRef.panelId('resolve')" [attr.aria-labelledby]="priceListTabsRef.tabId('resolve')" tabindex="0"><ng-container *ngTemplateOutlet="resolveTab" /></div> }
             }
           } @else {
             <form class="edit-card" (ngSubmit)="save()" novalidate>
@@ -207,7 +203,7 @@ interface ResolveDraft {
         @if (priceFormOpen()) {
           <form class="panel-block" (ngSubmit)="submitPrice()" novalidate>
             @if (priceFormError()) { <div class="form-summary" role="alert">{{ language.text('validationSummary') }}</div> }
-            @if (priceMutationError()) { <div class="inline-alert" role="alert"><b>{{ errorMessage(priceMutationError()) }}</b>@if (priceMutationError()?.code === 'concurrency_conflict') { <button class="text-button" type="button" (click)="reloadDetail()">{{ language.text('retryLoad') }}</button> }</div> }
+            @if (priceMutationError()) { <div class="inline-alert" role="alert"><b>{{ errorMessage(priceMutationError()) }}</b>@if (priceMutationError()?.code === 'concurrency_conflict') { <button class="button button--quiet button--small" type="button" (click)="reloadDetail()">{{ language.text('retryLoad') }}</button> }</div> }
             <div class="form-grid">
               <label class="form-field" [class.has-error]="priceInvalid('productId')"><span>{{ language.text('product') }} <em>*</em></span><select [ngModel]="priceDraft.productId" (ngModelChange)="setPriceField('productId', $event)" name="priceProductId"><option value="">{{ language.text('selectProduct') }}</option>@for (p of productChoices(); track p.id) { <option [value]="p.id">{{ productOptionLabel(p) }}</option> }</select><small>{{ priceInvalid('productId') ? language.text('required') : '' }}</small></label>
               <label class="form-field" [class.has-error]="priceInvalid('unitOfMeasureId')"><span>{{ language.text('unitOfMeasure') }} <em>*</em></span><select [ngModel]="priceDraft.unitOfMeasureId" (ngModelChange)="setPriceField('unitOfMeasureId', $event)" name="priceUnitId"><option value="">{{ language.text('selectUnit') }}</option>@for (u of unitChoices(); track u.id) { <option [value]="u.id">{{ unitOptionLabel(u) }}</option> }</select><small>{{ priceInvalid('unitOfMeasureId') ? language.text('required') : '' }}</small></label>
@@ -232,7 +228,7 @@ interface ResolveDraft {
       @if (historyLoading()) {
         <div class="state-card state-card--loading" role="status"><span class="loader" aria-hidden="true"></span><b>{{ language.text('loading') }}…</b></div>
       } @else if (historyError()) {
-        <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(historyError()) }}</b><button class="text-button" type="button" (click)="setTab('history', true)">{{ language.text('retry') }} ↗</button></div></div>
+        <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(historyError()) }}</b><button class="button button--quiet button--small" type="button" (click)="setTab('history', true)">{{ language.text('retry') }} ↗</button></div></div>
       } @else {
         <ng-container *ngTemplateOutlet="priceRows; context: { entries: sortedHistory(), empty: language.text('noPriceVersions'), emptyLead: language.text('noPriceVersionsLead') }" />
       }
@@ -316,7 +312,7 @@ interface ResolveDraft {
           <p class="eyebrow eyebrow--soft">{{ language.text('lifecycle') }}</p>
           <h2 id="lifecycle-title">{{ lifecycleAction() === 'deactivate' ? language.text('deactivateTitle') : language.text('reactivateTitle') }}</h2>
           @if (mutationError()) {
-            <div class="inline-alert" role="alert"><b>{{ errorMessage(mutationError()) }}</b>@if (mutationError()?.code === 'concurrency_conflict') { <button class="text-button" type="button" (click)="reloadAndCloseLifecycle()">{{ language.text('retryLoad') }}</button> }</div>
+            <div class="inline-alert" role="alert"><b>{{ errorMessage(mutationError()) }}</b>@if (mutationError()?.code === 'concurrency_conflict') { <button class="button button--quiet button--small" type="button" (click)="reloadAndCloseLifecycle()">{{ language.text('retryLoad') }}</button> }</div>
           }
           <div class="form-actions">
             <button class="button button--quiet" type="button" (click)="closeLifecycle()">{{ language.text('cancel') }}</button>
@@ -326,8 +322,7 @@ interface ResolveDraft {
       </div>
     }
   `,
-  styles: `
-    :host { display: block; }
+  styles: `:host { display: block; }
     .price-list-workspace { display: grid; gap: 1.35rem; }
     .eyebrow { margin: 0 0 .55rem; color: var(--primary); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
     .eyebrow--soft { color: var(--accent-strong); }
@@ -339,30 +334,16 @@ interface ResolveDraft {
     .section-heading h2, .detail-heading h2, .section-heading h3 { margin: 0; color: var(--ink); font: 800 clamp(1.3rem, 3vw, 1.9rem)/1 var(--font-display); letter-spacing: -.04em; }
     .section-heading p:not(.eyebrow), .detail-heading p:not(.eyebrow) { max-width: 37rem; margin: .5rem 0 0; color: var(--ink-muted); font-size: .82rem; line-height: 1.5; }
     .section-heading__actions, .detail-heading__actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
-    .button { min-height: 2.35rem; border: 1px solid transparent; border-radius: .55rem; padding: .58rem .82rem; font-size: .76rem; font-weight: 800; cursor: pointer; }
-    .button:disabled { cursor: not-allowed; opacity: .45; }
-    .button--primary { color: var(--action-text); background: var(--accent-action); }
-    .button--primary:hover:not(:disabled) { background: var(--accent-action); }
-    .button--quiet { border-color: var(--line); color: var(--ink-muted); background: transparent; }
-    .button--quiet:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); background: var(--canvas); }
-    .button--danger { color: #fff; background: var(--danger); }
     .toolbar { align-items: stretch; flex-wrap: wrap; margin-block-end: 1rem; border-block: 1px solid var(--line); padding-block: .75rem; }
-    .search-field { display: flex; align-items: center; flex: 1 1 16rem; gap: .5rem; border: 1px solid var(--line); border-radius: .55rem; padding-inline: .7rem; background: var(--canvas); }
-    .search-field:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px rgb(13 138 131 / 12%); }
     .search-field__icon { color: var(--accent-strong); font-size: 1.3rem; }
-    .search-field input { min-width: 0; width: 100%; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: .8rem; }
     .toolbar__count { align-self: center; margin-inline-start: auto; color: var(--ink-muted); font: 700 .68rem/1 ui-monospace, monospace; white-space: nowrap; }
     .record-name { display: block; color: var(--ink); font-weight: 700; }
     .status-pill { display: inline-flex; align-items: center; gap: .35rem; border-radius: 99px; padding: .3rem .5rem; color: var(--success); background: var(--accent-soft); font-size: .66rem; font-weight: 800; white-space: nowrap; }
     .status-pill i { width: .38rem; height: .38rem; border-radius: 50%; background: currentColor; }
     .status-pill--inactive { color: var(--support); background: var(--support-soft); }
     .table-action { text-align: end !important; }
-    .icon-button { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border: 1px solid var(--line); border-radius: .5rem; color: var(--accent-strong); background: transparent; cursor: pointer; }
-    .icon-button:hover { border-color: var(--accent-strong); background: var(--accent-soft); }
     .pagination { margin-block-start: .8rem; color: var(--ink-muted); font: 700 .68rem/1 ui-monospace, monospace; }
     .pagination > div { display: flex; gap: .4rem; }
-    .pager-button { border: 0; color: var(--accent-strong); background: transparent; font-size: .7rem; font-weight: 800; cursor: pointer; }
-    .pager-button:disabled { color: var(--line-strong); cursor: not-allowed; }
     .state-card { display: flex; align-items: flex-start; gap: .8rem; border: 1px dashed var(--line-strong); border-radius: .8rem; padding: 1.35rem; background: var(--canvas); }
     .state-card b { color: var(--ink); font-size: .85rem; }
     .state-card p { margin: .3rem 0 0; color: var(--ink-muted); font-size: .75rem; line-height: 1.5; }
@@ -371,16 +352,10 @@ interface ResolveDraft {
     .state-icon { display: grid; flex: 0 0 1.8rem; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: .5rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface-raised)); font-weight: 900; }
     .state-card--empty .state-icon { color: var(--accent-strong); background: var(--accent-soft); }
     .loader { width: 1.2rem; height: 1.2rem; border: 2px solid var(--line); border-top-color: var(--accent-strong); border-radius: 50%; animation: spin .8s linear infinite; }
-    .text-button, .back-link { border: 0; padding: 0; color: var(--accent-strong); background: transparent; font-size: .74rem; font-weight: 800; cursor: pointer; }
-    .text-button { display: block; margin-block-start: .7rem; }
+    .text-button { margin-block-start: .7rem; }
     .detail-topline { margin-block-end: 1.25rem; justify-content: flex-start; }
-    .back-link { color: var(--ink-muted); }
     .back-link:hover { color: var(--accent-strong); }
     .detail-heading { align-items: flex-end; margin-block-end: 1.25rem; flex-wrap: wrap; }
-    .tabs { display: flex; gap: .2rem; margin-block-end: 1.1rem; border-block-end: 1px solid var(--line); overflow-x: auto; }
-    .tabs button { border: 0; border-block-end: 2px solid transparent; padding: .65rem .2rem; margin-inline-end: 1.2rem; color: var(--ink-muted); background: transparent; font: 800 .78rem/1 var(--font-sans); cursor: pointer; white-space: nowrap; }
-    .tabs button:hover { color: var(--ink); }
-    .tabs button.is-active { color: var(--accent-strong); border-block-end-color: var(--accent-strong); }
     .field-read-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem 1.2rem; }
     .field-read-grid > div { min-width: 0; border-block-start: 2px solid var(--line); padding-block-start: .5rem; }
     .field-read-grid span, .contacts-read > span { display: block; color: var(--ink-muted); font-size: .67rem; font-weight: 700; }
@@ -399,9 +374,7 @@ interface ResolveDraft {
     .form-field { display: grid; gap: .35rem; min-width: 0; }
     .form-field > span, .check-field span { color: var(--ink-muted); font-size: .7rem; font-weight: 800; }
     .form-field em { color: var(--danger); font-style: normal; }
-    .form-field input, .form-field select, .form-field textarea { width: 100%; border: 1px solid var(--line); border-radius: .45rem; padding: .6rem .65rem; color: var(--ink); background: var(--surface-raised); font-size: .78rem; }
-    .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--focus); outline: 0; box-shadow: 0 0 0 3px rgb(13 138 131 / 10%); }
-    .form-field.has-error input, .form-field.has-error select { border-color: var(--danger); }
+    .form-field input, .form-field select, .form-field textarea { width: 100%; }
     .form-field small { min-height: 1rem; color: var(--danger); font-size: .62rem; line-height: 1.35; }
     .form-field:not(.has-error) small { color: var(--ink-muted); }
     .form-field--full { grid-column: 1 / -1; }
@@ -454,6 +427,14 @@ export class PriceListWorkspaceComponent {
 
   readonly detailMode = signal<DetailMode | null>(null);
   readonly detailTab = signal<DetailTab>('overview');
+  priceListTabs(): AppTab[] { return [
+    { id: 'overview', label: this.language.text('priceListOverview') },
+    { id: 'prices', label: `${this.language.text('pricesSection')} (${this.selectedRecord()?.prices.length ?? 0})` },
+    { id: 'history', label: this.language.text('historySection') },
+    { id: 'audit', label: this.language.text('audit') },
+    { id: 'resolve', label: this.language.text('referenceResolutionSection') },
+  ]; }
+  selectPriceListTab(tab: string): void { this.setTab(tab as DetailTab); }
   readonly detailLoading = signal(false);
   readonly detailError = signal<SafeUiError | null>(null);
   readonly selectedRecord = signal<PriceListRecord | null>(null);

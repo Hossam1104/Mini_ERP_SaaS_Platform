@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiClientService } from '../api/api-client.service';
 import {
@@ -44,7 +44,18 @@ export class ContextService {
       const state = this.auth.status();
       if (state === 'anonymous' || state === 'expired' || state === 'error') {
         this.contexts.set([]);
-        this.entry.set(null);
+        const entry = untracked(() => this.entry());
+        if (entry) {
+          this.entry.set({
+            ...entry,
+            candidateTenantId: null,
+            candidateTenantDisplayName: null,
+            authorizedTenants: [],
+            operationalContexts: [],
+            selectedOperationalContextId: null,
+            operationalSelectionVersion: 0,
+          });
+        }
         this.operationalContexts.set([]);
         this.selectedOperationalContextId.set(null);
         this.operationalSelectionVersion.set(0);
@@ -62,7 +73,6 @@ export class ContextService {
       this.operationalContexts.set(response.operationalContexts ?? []);
       this.selectedOperationalContextId.set(response.selectedOperationalContextId ?? null);
       this.operationalSelectionVersion.set(response.operationalSelectionVersion ?? 0);
-      this.redirectToCanonicalTenantHost(response);
       return response;
     } catch (error: unknown) {
       const safeError = toSafeUiError(error);
@@ -193,25 +203,4 @@ export class ContextService {
     return globalThis.crypto?.randomUUID?.() ?? `context-${Date.now().toString(36)}`;
   }
 
-  private redirectToCanonicalTenantHost(response: FoundationEntryResponse): void {
-    if (response.entryMode !== 'CommonHost'
-      || !response.candidateTenantId
-      || !response.canonicalHost
-      || typeof globalThis.location === 'undefined') {
-      return;
-    }
-
-    const currentHost = globalThis.location.hostname.toLowerCase().replace(/\.$/, '');
-    if (currentHost === response.canonicalHost.toLowerCase()) {
-      return;
-    }
-
-    const canonicalHost = response.canonicalHost.includes(':')
-      ? `[${response.canonicalHost}]`
-      : response.canonicalHost;
-    const port = globalThis.location.port ? `:${globalThis.location.port}` : '';
-    globalThis.location.replace(
-      `${globalThis.location.protocol}//${canonicalHost}${port}${globalThis.location.pathname}${globalThis.location.search}${globalThis.location.hash}`,
-    );
-  }
 }
