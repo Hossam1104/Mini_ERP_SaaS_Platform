@@ -434,6 +434,15 @@ test.describe('MESP-153 Slice A UI', () => {
       );
       expect(minDataColumnWidth).toBeGreaterThanOrEqual(144);
     }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const headerLabels = await page.locator('app-data-grid .grid-sort-label').evaluateAll((labels) => labels.map((element) => ({
+      text: element.textContent?.trim() ?? '',
+      title: element.getAttribute('title'),
+      clipped: (element as HTMLElement).scrollWidth > (element as HTMLElement).clientWidth + 1,
+    })));
+    expect(headerLabels.length).toBeGreaterThan(0);
+    expect(headerLabels.filter((label) => label.clipped)).toEqual([]);
+    expect(headerLabels.every((label) => label.title === label.text)).toBe(true);
 
     await page.goto('/app/procurement/purchase-requests/new');
     await expect(page.locator('input[type="date"]').first()).toBeVisible();

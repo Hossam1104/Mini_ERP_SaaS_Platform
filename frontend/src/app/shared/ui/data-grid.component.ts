@@ -44,7 +44,7 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
                 @for (column of columns(); track column.key) {
                   <th scope="col" [attr.aria-sort]="ariaSort(column)" [class.numeric]="column.align === 'end'">
                     <div class="grid-heading">
-                      <button class="button button--quiet button--small grid-sort" type="button" (click)="sortBy(column)" [class.is-sorted]="sortKey() === column.key" [attr.aria-label]="sortLabel(column)"><span class="grid-sort-label">{{ column.label }}</span><svg class="icon sort-icon" [class.is-sorted]="sortKey() === column.key" aria-hidden="true"><use [attr.href]="'#icon-' + sortMark(column)" /></svg></button>
+                      <button class="button button--quiet button--small grid-sort" type="button" (click)="sortBy(column)" [class.is-sorted]="sortKey() === column.key" [attr.aria-label]="sortLabel(column)"><span class="grid-sort-label" [attr.title]="column.label">{{ column.label }}</span><svg class="icon sort-icon" [class.is-sorted]="sortKey() === column.key" aria-hidden="true"><use [attr.href]="'#icon-' + sortMark(column)" /></svg></button>
                       @if (column.filter) {
                         <button class="button button--quiet button--small grid-filter-button" type="button" [id]="filterTriggerId(column)" [class.is-filtered]="filterIsActive(column.key)" [attr.aria-label]="filterLabel(column)" aria-haspopup="dialog" [attr.aria-expanded]="filterColumn() === column.key" [attr.aria-controls]="filterColumn() === column.key ? filterPopoverId(column) : null" (click)="toggleFilter(column.key, $event)"><svg class="icon" aria-hidden="true"><use href="#icon-filter" /></svg></button>
                       }
@@ -156,12 +156,13 @@ export interface DataGridAction<T extends object> { action: string; row: T; }
     .data-grid-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--accent-soft) 18%, var(--surface-raised)); }
     .data-grid-table tbody tr:hover, .data-grid-table tbody tr.is-selected { background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface-raised)); }
     .data-grid-table tbody tr.is-focused td { background: color-mix(in srgb, var(--accent-soft) 66%, var(--surface-raised)); }
-    .grid-heading { position: relative; display: flex; min-width: 0; align-items: center; gap: var(--space-1); padding-inline-end: var(--space-2); }
-    .grid-sort { min-width: 0; flex: 1 1 auto; overflow: hidden; }
-    .grid-sort-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sort-icon { width: 16px; height: 16px; color: var(--ink-muted); }
+    .grid-heading { position: relative; display: flex; min-width: 0; align-items: center; gap: 2px; }
+    .grid-sort { min-width: 0; flex: 1 1 auto; overflow: visible; }
+    .grid-sort-label { display: block; min-width: 0; flex: 1 1 auto; overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
+    .sort-icon { width: var(--grid-header-sort-icon-size); height: var(--grid-header-sort-icon-size); flex: none; color: var(--ink-muted); }
     .sort-icon.is-sorted { color: var(--accent); }
-    .grid-filter-button, .pager-button { width: var(--button-small-height); flex: none; }
+    .grid-filter-button { width: var(--grid-header-filter-width); min-width: var(--grid-header-filter-width); flex: none; }
+    .pager-button { width: var(--button-small-height); flex: none; }
     .grid-filter-button .icon { width: 15px; height: 15px; }
     .grid-filter-popover { position: absolute; z-index: 70; display: grid; width: min(260px, calc(100vw - 24px)); gap: .7rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 14px; padding: .8rem; color: var(--ink); background: var(--surface-glass); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); backdrop-filter: blur(18px) saturate(150%); }
     .grid-filter-popover label, .grid-range-fields label { display: grid; min-width: 0; gap: .35rem; color: var(--ink-muted); font-size: 14px; font-weight: 700; }

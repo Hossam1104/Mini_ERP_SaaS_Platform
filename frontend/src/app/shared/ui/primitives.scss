@@ -83,6 +83,7 @@
 :host ::ng-deep label:has(> input:not([type='checkbox']):not([type='radio']), > select, > textarea),
 :host ::ng-deep label:has(> span + input:not([type='checkbox']):not([type='radio']), > span + select, > span + textarea) {
   display: grid;
+  align-content: start;
   gap: var(--field-label-gap) !important;
   color: var(--ink-muted) !important;
   font-family: var(--font-sans) !important;
@@ -158,6 +159,8 @@
 }
 :host ::ng-deep .data-grid-table th.numeric .grid-sort { justify-content: flex-end !important; text-align: end !important; }
 :host ::ng-deep .data-grid-table th:not(.numeric) .grid-sort { justify-content: flex-start !important; text-align: start !important; }
+:host ::ng-deep .data-grid-table .grid-sort { padding-inline: 4px !important; gap: 4px !important; }
+:host ::ng-deep .data-grid-table .grid-filter-button { width: var(--grid-header-filter-width) !important; min-width: var(--grid-header-filter-width) !important; padding: 0 !important; }
 
 /* Shared page frame and the only page-header surface. */
 :host ::ng-deep #main-content > .content-grid__main { width: min(calc(100% - 2 * var(--page-gutter)), var(--page-max-width)); max-width: none; margin-inline: auto; padding: 0; }

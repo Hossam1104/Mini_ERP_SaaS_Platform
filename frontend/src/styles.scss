@@ -239,6 +239,8 @@ body app-root :is(.data-grid-table, .return-table) :is(th, td, small) { font-siz
   --select-picker-padding: 4px;
   --select-option-padding: 8px 12px;
   --select-option-radius: 8px;
+  --grid-header-filter-width: 24px;
+  --grid-header-sort-icon-size: 14px;
   --tabs-height: 40px;
   --tabs-radius: 16px;
   --tabs-item-radius: 12px;
@@ -280,4 +282,5 @@ body app-root :where(input:not([type='checkbox']):not([type='radio']):not([type=
   font-weight: var(--field-text-weight) !important;
   line-height: 1.35 !important;
 }
+body app-root :where(select) { display: flex; align-items: center; line-height: normal !important; }
 body app-root textarea { height: auto !important; min-height: 96px !important; padding-block: 10px !important; resize: vertical; }
