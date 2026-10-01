@@ -3549,7 +3549,7 @@ public sealed class SqlServerSafetyTests
     }
 
     [Fact]
-    public async Task MESP166_sql_server_known_execution_outcome_during_audit_append_is_a_claim_conflict()
+    public async Task MESP166_sql_server_unconfirmed_execution_preserves_scope_and_claim_denials()
     {
         var (foundation, _, options) = await CreateMigrationServiceAsync();
         var persistence = new MigrationPersistence(options);
@@ -3577,6 +3577,14 @@ public sealed class SqlServerSafetyTests
 
             loser = await CreateExecutionService(options, owner)
                 .ExecuteAsync(request, run.RunId, losingKey, run.Version);
+
+            var outOfScope = await CreateExecutionService(
+                    options,
+                    owner,
+                    currentScope: TenantWorkScopeRequest.ForCompany(Guid.NewGuid()))
+                .ExecuteAsync(request, run.RunId, $"sql-execution-out-of-scope-{Guid.NewGuid():N}", run.Version);
+            Assert.Equal("migration_source_scope_denied", outOfScope.Code);
+            Assert.False((await persistence.FindRunAsync(tenant, run.RunId))!.EvidenceConfirmed);
         }
         finally
         {
@@ -3924,10 +3932,11 @@ public sealed class SqlServerSafetyTests
     private static MigrationExecutionService CreateExecutionService(
         DbContextOptions options,
         IOwnerExecutionGateway owner,
-        MiniErp.App.Modules.Audit.IFoundationAuditEvidenceSink? auditSink = null)
+        MiniErp.App.Modules.Audit.IFoundationAuditEvidenceSink? auditSink = null,
+        TenantWorkScopeRequest? currentScope = null)
     {
         var persistence = new MigrationPersistence(options);
-        var scope = new SqlMigrationExecutionScopeResolver();
+        var scope = new SqlMigrationExecutionScopeResolver(currentScope);
         return new MigrationExecutionService(
             new MigrationFoundationService(persistence, auditSink ?? new SqlMigrationAuditSink([])),
             persistence,
@@ -4137,11 +4146,16 @@ public sealed class SqlServerSafetyTests
 
     private sealed class SqlMigrationExecutionScopeResolver : ICurrentOrganizationScopeResolver, IOrganizationScopeOwnershipResolver
     {
+        private readonly TenantWorkScopeRequest currentScope;
+
+        internal SqlMigrationExecutionScopeResolver(TenantWorkScopeRequest? currentScope = null) =>
+            this.currentScope = currentScope ?? TenantWorkScopeRequest.TenantWide();
+
         public TenantWorkScopeResolution ResolveCurrent(TenantContext trustedTenantContext) =>
             TenantWorkScopeResolution.Resolved(
                 TenantWorkScope.IssueFromVerifiedAuthority(
                     trustedTenantContext,
-                    TenantWorkScopeRequest.TenantWide()));
+                    currentScope));
 
         public TenantWorkScopeResolution Resolve(TenantContext trustedTenantContext, TenantWorkScopeRequest requestedScope) =>
             TenantWorkScopeResolution.Resolved(
