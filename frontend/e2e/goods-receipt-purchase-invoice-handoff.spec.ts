@@ -100,11 +100,13 @@ const eligibleHandoffSource = {
   ],
 };
 
-function procurementHarness() {
+function procurementHarness(receiptSource = eligibleReceiptSource, handoffSource = eligibleHandoffSource) {
   let grStatus = 'Recorded';
   let grVersionNumber = 1;
   let pihStatus = 'Recorded';
   let pihVersionNumber = 1;
+  let submittedGoodsReceipt: { lines: { purchaseOrderLineId: string; receivedQuantity: number }[] } | null = null;
+  let submittedInvoiceHandoff: { sources: { goodsReceiptLineId: string; quantity: number }[] } | null = null;
 
   const grVersion = () => `GR-V${grVersionNumber}`;
   const pihVersion = () => `PIH-V${pihVersionNumber}`;
@@ -198,6 +200,8 @@ function procurementHarness() {
   });
 
   return {
+    submittedGoodsReceipt: () => submittedGoodsReceipt,
+    submittedInvoiceHandoff: () => submittedInvoiceHandoff,
     async route(route: Route): Promise<void> {
       const request = route.request();
       const url = new URL(request.url());
@@ -206,7 +210,7 @@ function procurementHarness() {
       if (!path.includes('/api/v1/procurement/')) return route.fallback();
 
       // Goods Receipt endpoints
-      if (request.method() === 'GET' && path.endsWith('/goods-receipt-sources')) return route.fulfill({ json: [eligibleReceiptSource] });
+      if (request.method() === 'GET' && path.endsWith('/goods-receipt-sources')) return route.fulfill({ json: [receiptSource] });
       if (request.method() === 'GET' && path.endsWith('/warehouses')) return route.fulfill({ json: warehouseOptions });
       if (request.method() === 'GET' && path.endsWith('/goods-receipts')) return route.fulfill({ json: [goodsReceipt()] });
       if (request.method() === 'GET' && path.endsWith(`/goods-receipts/${goodsReceiptId}`)) return route.fulfill({ json: goodsReceipt() });
@@ -214,6 +218,7 @@ function procurementHarness() {
       if (request.method() === 'GET' && path.endsWith(`/goods-receipts/${goodsReceiptId}/audit`)) return route.fulfill({ json: [] });
 
       if (request.method() === 'POST' && path.endsWith('/goods-receipts')) {
+        submittedGoodsReceipt = request.postDataJSON() as { lines: { purchaseOrderLineId: string; receivedQuantity: number }[] };
         grStatus = 'Recorded';
         grVersionNumber += 1;
         return route.fulfill({ status: 201, headers: { ETag: `"${grVersion()}"` }, json: goodsReceipt() });
@@ -225,13 +230,14 @@ function procurementHarness() {
       }
 
       // Purchase Invoice Handoff endpoints
-      if (request.method() === 'GET' && path.endsWith('/purchase-invoice-handoff-sources')) return route.fulfill({ json: [eligibleHandoffSource] });
+      if (request.method() === 'GET' && path.endsWith('/purchase-invoice-handoff-sources')) return route.fulfill({ json: [handoffSource] });
       if (request.method() === 'GET' && path.endsWith('/purchase-invoice-handoffs')) return route.fulfill({ json: [invoiceHandoff()] });
       if (request.method() === 'GET' && path.endsWith(`/purchase-invoice-handoffs/${invoiceHandoffId}`)) return route.fulfill({ json: invoiceHandoff() });
       if (request.method() === 'GET' && path.endsWith(`/purchase-invoice-handoffs/${invoiceHandoffId}/history`)) return route.fulfill({ json: [] });
       if (request.method() === 'GET' && path.endsWith(`/purchase-invoice-handoffs/${invoiceHandoffId}/audit`)) return route.fulfill({ json: [] });
 
       if (request.method() === 'POST' && path.endsWith('/purchase-invoice-handoffs')) {
+        submittedInvoiceHandoff = request.postDataJSON() as { sources: { goodsReceiptLineId: string; quantity: number }[] };
         pihStatus = 'Recorded';
         pihVersionNumber += 1;
         return route.fulfill({ status: 201, headers: { ETag: `"${pihVersion()}"` }, json: invoiceHandoff() });
@@ -301,6 +307,73 @@ test.describe('Goods Receipt and Purchase Invoice Handoff workspace', () => {
     await page.locator('.action-dialog textarea').fill('Wrong delivery');
     await page.getByRole('button', { name: 'Confirm Cancellation' }).click();
     await expect(page.getByText('This Goods Receipt has been cancelled.')).toBeVisible();
+  });
+
+  test('shows and submits every editable source line in both unpaged editors', async ({ page }) => {
+    const receiptLines = Array.from({ length: 9 }, (_, index) => {
+      const suffix = String(index + 1).padStart(3, '0');
+      return {
+        ...eligibleReceiptSource.lines[0],
+        purchaseOrderLineId: `po-line-${suffix}`,
+        productId: `prod-${suffix}`,
+        productSku: `SKU-GR-${suffix}`,
+        productName: `Receivable Widget ${index + 1}`,
+      };
+    });
+    const handoffLines = Array.from({ length: 9 }, (_, index) => {
+      const suffix = String(index + 1).padStart(3, '0');
+      return {
+        ...eligibleHandoffSource.lines[0],
+        goodsReceiptLineId: `gr-line-${suffix}`,
+        purchaseOrderLineId: `po-line-${suffix}`,
+        productId: `prod-${suffix}`,
+        productSku: `SKU-PIH-${suffix}`,
+        productName: `Handoff Widget ${index + 1}`,
+      };
+    });
+    const harness = procurementHarness(
+      { ...eligibleReceiptSource, lines: receiptLines },
+      { ...eligibleHandoffSource, lines: handoffLines },
+    );
+    await page.route('**/api/v1/procurement/**', harness.route);
+
+    await page.goto('/app/procurement/goods-receipts/new');
+    await page.getByTestId('goods-receipt-source').selectOption(purchaseOrderId);
+    const receiptRows = page.locator('app-data-grid tbody tr');
+    await expect(receiptRows).toHaveCount(9);
+    const receiptQuantities = receiptLines.map((_, index) => index % 5 + 1);
+    for (let index = 0; index < receiptQuantities.length; index += 1) {
+      const quantity = receiptRows.nth(index).locator('input[type="number"]').first();
+      await expect(quantity).toBeVisible();
+      await expect(quantity).toBeEnabled();
+      await quantity.fill(String(receiptQuantities[index]));
+    }
+    await page.getByTestId('goods-receipt-warehouse').selectOption(warehouseId);
+    await page.getByTestId('goods-receipt-reference-note').fill('DN-2026-009');
+    await page.getByTestId('submit-goods-receipt').click();
+    await expect(page).toHaveURL(new RegExp(`/app/procurement/goods-receipts/${goodsReceiptId}$`));
+    expect(harness.submittedGoodsReceipt()?.lines.map(line => [line.purchaseOrderLineId, line.receivedQuantity])).toEqual(
+      receiptLines.map((line, index) => [line.purchaseOrderLineId, receiptQuantities[index]]),
+    );
+
+    await page.goto('/app/procurement/invoice-handoffs/new');
+    await page.getByTestId('invoice-handoff-source').selectOption(purchaseOrderId);
+    const handoffRows = page.locator('app-data-grid tbody tr');
+    await expect(handoffRows).toHaveCount(9);
+    await page.getByTestId('invoice-handoff-ref').fill('INV-2026-009');
+    const handoffQuantities = handoffLines.map((_, index) => index % 4 + 1);
+    for (let index = 0; index < handoffQuantities.length; index += 1) {
+      const quantity = handoffRows.nth(index).locator('input[type="number"]').first();
+      await expect(quantity).toBeVisible();
+      await expect(quantity).toBeEnabled();
+      await quantity.fill(String(handoffQuantities[index]));
+    }
+    await expect(page.getByTestId('submit-invoice-handoff')).toBeEnabled();
+    await page.getByTestId('submit-invoice-handoff').click();
+    await expect(page).toHaveURL(new RegExp(`/app/procurement/invoice-handoffs/${invoiceHandoffId}$`));
+    expect(harness.submittedInvoiceHandoff()?.sources.map(source => [source.goodsReceiptLineId, source.quantity])).toEqual(
+      handoffLines.map((line, index) => [line.goodsReceiptLineId, handoffQuantities[index]]),
+    );
   });
 
   test('creates Purchase Invoice Handoff from accepted Goods Receipt with pro-rata tax and cancels', async ({ page }) => {
