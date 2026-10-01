@@ -1,5 +1,21 @@
 ﻿# Results
 
+## 2026-10-01 — MESP-185 (#326) PR #349 shared header controls — GPT-6 / effort not surfaced — MESP-185 (#326)
+- Status: DONE. PR #349 remains OPEN/Draft; no Ready, review, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: `feat/mesp-185-ui-consistency-primitives`; started `a9dbf49d4baaeddd85e9b6bf6157af65710582d5`; code commit `e0fd9298f7eddf1647f4f8cdce095fffe11b474b`; RESULT hand-back commit follows.
+- What changed: Root cause was MESP-190's header control rules remaining in the feature component, producing 17 feature-style guard violations; the shared primitives stylesheet was also not attached to the lazy shell. Added canonical button classes, loaded `primitives.scss` with the lazy shell, and moved the shared 40px control, context chip internals, menu item, language control, and mobile backdrop styling into primitives. Kept menu behavior and shell-only placement local. Loading canonical button styles also exposed that the base `display: inline-flex !important` overrode responsive navigation-toggle visibility; the shell's responsive display rules now use `!important`. No API, contract, guard, test, asset, or business behavior changes.
+- Gates:
+  - `node scripts/feature-control-styles.spec.mjs`: 0 violations; exit 0.
+  - `npm test -- --watch=false --no-progress`: 51 files, 350 passed, 0 failed; pretest guard 0 violations; exit 0.
+  - `npm run build`: exit 0; initial total 499.76 kB (480.28 kB JS + 19.48 kB CSS), below the 500 kB budget.
+  - `MESP_E2E_BASE_URL=http://localhost:4380 npm run test:e2e -- --project=chromium --workers=1`: final run 66 passed, 0 failed; exit 0. Release API and Angular ran on 5380 and 4380. Both task-owned servers were stopped and both ports are clear.
+  - `git diff --check`: clean; exit 0 after this entry was added.
+- Evidence: 12 captures under `.playwright-mcp/mesp-185/header-correction/`: `desktop-light-context.png`, `desktop-light-theme.png`, `desktop-light-account.png`, `desktop-dark-context.png`, `desktop-dark-theme.png`, `desktop-dark-account.png`, `390px-light-context.png`, `390px-light-theme.png`, `390px-light-account.png`, `390px-dark-context.png`, `390px-dark-theme.png`, and `390px-dark-account.png`. The 390px captures retain MESP-190's existing end-aligned menu placement, which leaves part of each menu beyond the left viewport edge. No changes were made to that placement.
+- Deviations from the prompt: None. PR #349's Draft state was verified before push and left unchanged.
+- Failures and classification: The first Chromium run passed 64/66; two existing geometry checks detected both navigation toggles visible after shared button styles loaded. The canonical base display rule had overridden the shell's responsive hides. Added the missing importance to the shell display rules; the final full 66-test run passed without changing assertions.
+- Status files updated: `RESULT.md` only; no TASK.md or tracker changes.
+- Exact next action: Opus reviews Draft PR #349; leave it Draft/Open/Unmerged. Resume MESP-188 only in a later turn.
+
 ## 2026-10-01 — MESP-185 (#326) UI consistency stage 1 — GPT-6 Luna / xhigh — MESP-185 (#326)
 - Status: DONE. Draft PR #341 remains OPEN/Draft; the requested feature-base merge resolved the RESULT.md conflict. No PR review, Ready, approval, merge, or issue-state change.
 - Branch / starting SHA / ending SHA: `feat/mesp-185-ui-consistency-primitives`; original work started at `1a12d100efbf5d6c244aff4e6c81fde3e9439b1b`; merged `origin/feat/mesp-178-shell-rail-grids` in `a65a164`; focused correction commit `77cfbd7`; budget-correction work started at `e1c4e11d1b1c5c76f41d608176a84608561c0bb7`, code commit `655ec1ed82f6e5d86e0275360900836841c6a23b`; RESULT hand-back commit follows.
