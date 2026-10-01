@@ -139,6 +139,16 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   });
 
+  test('loads every Overview module card image', async ({ page }) => {
+    await page.goto('/app');
+    const images = page.locator('.module-card img');
+    await expect(images).toHaveCount(15);
+    for (const image of await images.all()) {
+      await image.scrollIntoViewIfNeeded();
+      await expect.poll(() => image.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    }
+  });
+
   test('keeps the Overview link visible and clickable below the header in expanded navigation', async ({ page }) => {
     await page.goto('/app/procurement/purchase-orders');
     const sidebar = page.locator('#app-sidebar');
