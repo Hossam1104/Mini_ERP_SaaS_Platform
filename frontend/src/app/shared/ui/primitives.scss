@@ -41,6 +41,56 @@
 :host ::ng-deep :is(.button--danger) { border-color: var(--danger) !important; color: var(--danger) !important; background: var(--surface) !important; }
 :host ::ng-deep :is(.button--small) { height: var(--button-small-height) !important; min-height: var(--button-small-height) !important; font-size: var(--button-small-font-size) !important; }
 :host ::ng-deep :is(.icon-button) { width: var(--button-height) !important; min-width: var(--button-height) !important; padding: 0 !important; }
+
+/* Shared application-shell controls use the canonical button family at 40px. */
+:host ::ng-deep .header-control {
+  --button-height: 40px;
+  --button-padding-inline: 0px;
+  --button-gap: .25rem;
+  --button-font-size: .82rem;
+  --button-font-weight: 700;
+  box-sizing: border-box;
+  flex: none;
+  border-radius: var(--radius-control) !important;
+  color: var(--accent) !important;
+  background: var(--surface-raised) !important;
+  box-shadow: var(--shadow-soft);
+  line-height: 1 !important;
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+:host ::ng-deep .header-control .icon { width: 18px; height: 18px; }
+:host ::ng-deep .header-control:hover:not(:disabled),
+:host ::ng-deep .header-control:focus-visible { border-color: var(--accent) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent); }
+:host ::ng-deep .context-chip { --button-gap: .42rem; --button-padding-inline: .55rem; justify-content: flex-start !important; }
+:host ::ng-deep .language-button { --button-gap: .16rem; --button-font-size: .68rem; color: var(--ink) !important; }
+:host ::ng-deep .language-button__globe { width: 15px !important; height: 15px !important; color: var(--accent) !important; }
+:host ::ng-deep .header-menu__item,
+:host ::ng-deep .theme-option {
+  --button-height: 40px;
+  --button-padding-inline: .55rem;
+  --button-gap: .65rem;
+  --button-font-size: 14px;
+  --button-font-weight: 600;
+  width: 100%;
+  border-color: transparent !important;
+  border-radius: var(--radius-control) !important;
+  color: var(--ink) !important;
+  background: transparent !important;
+  justify-content: flex-start !important;
+  text-align: start;
+}
+:host ::ng-deep .header-menu__item:hover:not(:disabled),
+:host ::ng-deep .header-menu__item:focus-visible,
+:host ::ng-deep .theme-option:hover,
+:host ::ng-deep .theme-option:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 20%, var(--line)) !important;
+  background: var(--accent-soft) !important;
+  box-shadow: none;
+}
+:host ::ng-deep .theme-option { --button-gap: .75rem; --button-padding-inline: .6rem; }
+:host ::ng-deep .sign-out { justify-content: flex-start !important; color: var(--ink-muted) !important; }
+:host ::ng-deep .sign-out:disabled { cursor: wait; opacity: .65; }
+
 :host ::ng-deep :where(button:not([role='tab']):not(.mobile-nav-backdrop), a.button, input[type='button'], input[type='submit'], input[type='reset']):hover:not(:disabled) {
   border-color: var(--accent-strong) !important;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
@@ -52,6 +102,9 @@
 :host ::ng-deep .mobile-nav-backdrop { display: none; }
 @media (max-width: 760px) {
   :host ::ng-deep .mobile-nav-backdrop { position: fixed; z-index: 60; inset-block-start: var(--header-height); inset-inline: 0; inset-block-end: 0; display: block; border: 0; background: var(--overlay-scrim); backdrop-filter: blur(4px); }
+}
+@supports not (backdrop-filter: blur(4px)) {
+  @media (max-width: 760px) { :host ::ng-deep .mobile-nav-backdrop { background: rgb(9 15 26 / 58%); } }
 }
 
 /* Text-like controls use one field surface; select arrows use current text color. */
