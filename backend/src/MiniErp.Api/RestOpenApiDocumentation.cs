@@ -156,7 +156,8 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         "platform.openapi" => "Read the generated API contract",
         "platform.module-registration" => "Read registered module boundaries",
         "auth.session.read" => "Read the authenticated user's session and identity",
-        "auth.entry.read" => "Resolve the current host's entry mode and public branding",
+        "auth.contexts.read" => "List the authenticated user's authorized contexts",
+        "auth.entry.read" => "Resolve host entry mode, branding, and authorized Tenant candidates",
         "auth.development-bypass" => "Establish the configured Development QA session",
         "master-data.tax.list" => "List Tenant-owned Tax rules",
         "master-data.tax.read" => "Read one Tenant-owned Tax rule",
@@ -308,7 +309,8 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
             return "Resolves the request Host against configured common, Tenant, and platform entry hosts. "
                 + "Anonymous callers receive only the resolved entry mode and public branding; Tenant identifiers, "
                 + "membership candidates, and operational contexts are omitted. Authenticated callers receive only "
-                + "server-authorized candidates. Hostname is a candidate hint and never grants Tenant authority.";
+                + "server-authorized candidates. A configured Arabic Tenant display name is presentation-only. "
+                + "Hostname is a candidate hint and never grants Tenant authority.";
         }
 
         if (descriptor.OperationId == "auth.development-bypass")
@@ -487,7 +489,8 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
     private static string SuccessResponseFor(string operationId) => operationId switch
     {
         "auth.session.read" => "The authenticated caller's server-validated session, nullable display name, and own login identifier.",
-        "auth.entry.read" => "The host entry mode, public branding, and (only for an authenticated caller) authorized context candidates.",
+        "auth.contexts.read" => "Authorized context candidates with English names and optional configured Arabic Tenant display names.",
+        "auth.entry.read" => "The host entry mode, public branding, and (only for an authenticated caller) authorized context candidates with optional configured Arabic Tenant display names.",
         "auth.development-bypass" => "An authenticated session for the server-configured Development actor with server-derived context candidates.",
         "master-data.tax.calculate" => "A deterministic Tax amount and immutable reference snapshot for the explicit inputs.",
         "master-data.tax.reference.read" => "The active Tax rate version selected for the requested effective date, including applied reference evidence.",

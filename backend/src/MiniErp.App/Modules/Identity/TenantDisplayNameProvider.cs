@@ -12,11 +12,13 @@ namespace MiniErp.App.Modules.Identity;
 internal interface ITenantDisplayNameProvider
 {
     string GetDisplayName(TenantId tenantId);
+    string? GetArabicDisplayName(TenantId tenantId);
 }
 
 internal sealed class ConfiguredTenantDisplayNameProvider : ITenantDisplayNameProvider
 {
     private readonly IReadOnlyDictionary<Guid, string> configuredNames;
+    private readonly IReadOnlyDictionary<Guid, string> configuredArabicNames;
 
     public ConfiguredTenantDisplayNameProvider(IConfiguration configuration)
     {
@@ -30,6 +32,16 @@ internal sealed class ConfiguredTenantDisplayNameProvider : ITenantDisplayNamePr
             }
         }
 
+        var arabicNames = new Dictionary<Guid, string>();
+        foreach (var entry in configuration.GetSection("MESP_TENANT_BRANDING").GetChildren())
+        {
+            if (Guid.TryParse(entry.Key, out var tenantId)
+                && !string.IsNullOrWhiteSpace(entry["ArabicDisplayName"]))
+            {
+                arabicNames[tenantId] = entry["ArabicDisplayName"]!.Trim();
+            }
+        }
+
         var developmentName = configuration["MESP_DEV_TENANT_DISPLAY_NAME"];
         if (!string.IsNullOrWhiteSpace(developmentName))
         {
@@ -37,17 +49,25 @@ internal sealed class ConfiguredTenantDisplayNameProvider : ITenantDisplayNamePr
         }
 
         configuredNames = names;
+        configuredArabicNames = arabicNames;
     }
 
     public string GetDisplayName(TenantId tenantId) =>
         configuredNames.TryGetValue(tenantId.Value, out var displayName)
             ? displayName
             : $"Tenant {tenantId.Value:D}";
+
+    public string? GetArabicDisplayName(TenantId tenantId) =>
+        configuredArabicNames.TryGetValue(tenantId.Value, out var displayName)
+            ? displayName
+            : null;
 }
 
 internal sealed class DefaultTenantDisplayNameProvider : ITenantDisplayNameProvider
 {
     public string GetDisplayName(TenantId tenantId) => $"Tenant {tenantId.Value:D}";
+
+    public string? GetArabicDisplayName(TenantId tenantId) => null;
 }
 
 #pragma warning restore CS1591

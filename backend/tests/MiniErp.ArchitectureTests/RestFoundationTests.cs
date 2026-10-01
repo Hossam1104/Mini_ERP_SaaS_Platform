@@ -176,6 +176,41 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
     }
 
     [Fact]
+    public async Task Tenant_branding_and_context_contracts_publish_optional_arabic_display_names()
+    {
+        var contextsDescriptor = FoundationOperationCatalog.GetRequired("auth.contexts.read");
+        var entryDescriptor = FoundationOperationCatalog.GetRequired("auth.entry.read");
+        Assert.Contains("optional Arabic", contextsDescriptor.BoundaryDescription, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Arabic Tenant display names", entryDescriptor.BoundaryDescription, StringComparison.OrdinalIgnoreCase);
+
+        using var client = factory.CreateClient();
+        using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
+        var paths = document.RootElement.GetProperty("paths");
+        var contextsOperation = paths.GetProperty("/api/v1/auth/contexts").GetProperty("get");
+        var entryOperation = paths.GetProperty("/api/v1/auth/entry").GetProperty("get");
+        Assert.Contains("authorized contexts", contextsOperation.GetProperty("summary").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Arabic Tenant display name", entryOperation.GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
+
+        var components = document.RootElement.GetProperty("components").GetProperty("schemas");
+        JsonElement Resolve(JsonElement schema) => schema.TryGetProperty("$ref", out var reference)
+            ? components.GetProperty(reference.GetString()!.Split('/').Last())
+            : schema;
+
+        var contextsSchema = Resolve(contextsOperation.GetProperty("responses").GetProperty("200")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema"));
+        var contextsItems = Resolve(contextsSchema.GetProperty("properties").GetProperty("contexts").GetProperty("items"));
+        Assert.Contains("arabicDisplayName", contextsItems.GetProperty("properties").EnumerateObject().Select(item => item.Name));
+
+        var entrySchema = Resolve(entryOperation.GetProperty("responses").GetProperty("200")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema"));
+        var entryProperties = entrySchema.GetProperty("properties");
+        var brandingSchema = Resolve(entryProperties.GetProperty("branding"));
+        var tenantCandidates = Resolve(entryProperties.GetProperty("authorizedTenants").GetProperty("items"));
+        Assert.Contains("arabicDisplayName", brandingSchema.GetProperty("properties").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("arabicDisplayName", tenantCandidates.GetProperty("properties").EnumerateObject().Select(item => item.Name));
+    }
+
+    [Fact]
     public async Task Mesp169_cancellation_is_catalogued_and_published_with_a_typed_openapi_contract()
     {
         var descriptor = FoundationOperationCatalog.GetRequired("migration.run.cancel");

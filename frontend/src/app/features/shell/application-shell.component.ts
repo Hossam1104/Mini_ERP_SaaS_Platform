@@ -686,9 +686,10 @@ export class ApplicationShellComponent implements OnInit, OnDestroy {
 
   tenantDisplayName(): string | null {
     const entry = this.context.entry();
-    return entry?.candidateTenantDisplayName
-      ?? entry?.authorizedTenants.find((tenant) => tenant.tenantId === entry.candidateTenantId)?.displayName
-      ?? null;
+    const tenant = entry?.authorizedTenants.find((candidate) => candidate.tenantId === entry.candidateTenantId);
+    const arabicName = tenant?.arabicDisplayName?.trim() || entry?.branding.arabicDisplayName?.trim();
+    const englishName = entry?.candidateTenantDisplayName ?? tenant?.displayName;
+    return this.language.language() === 'ar' && arabicName ? arabicName : englishName ?? null;
   }
 
   contextChipLabel(): string {
@@ -698,7 +699,10 @@ export class ApplicationShellComponent implements OnInit, OnDestroy {
   }
 
   brandName(): string {
-    return this.context.entry()?.branding.displayName ?? this.language.text('appName');
+    const branding = this.context.entry()?.branding;
+    return (this.language.language() === 'ar' && branding?.arabicDisplayName?.trim())
+      || branding?.displayName
+      || this.language.text('appName');
   }
 
   tenantLogoUrl(): string | null {
