@@ -25,6 +25,7 @@ export interface FoundationContextCandidate {
   tenantId: string | null;
   displayName: string;
   eligibilityVersion: number;
+  arabicDisplayName?: string | null;
 }
 
 export interface FoundationContextsResponse {
@@ -42,6 +43,7 @@ export interface FoundationTenantCandidate {
   tenantId: string;
   displayName: string;
   canonicalHost: string | null;
+  arabicDisplayName?: string | null;
 }
 
 export interface FoundationOperationalContext {
@@ -58,6 +60,7 @@ export interface FoundationBranding {
   logoAltText: string;
   tenantConfigured: boolean;
   defaultTheme?: string | null;
+  arabicDisplayName?: string | null;
 }
 
 export interface FoundationCurrencyPresentation {

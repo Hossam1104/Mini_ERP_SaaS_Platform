@@ -638,6 +638,8 @@ app.MapGet("/api/v1/auth/contexts", (
         identityHost.ListContexts(httpContext.User).Select(ToContextResponse).ToArray()));
 })
     .WithName("auth.contexts.read")
+    .Produces<FoundationContextsResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
     .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("auth.contexts.read")));
 
 app.MapGet("/api/v1/auth/entry", (
@@ -1356,7 +1358,7 @@ static FoundationSessionResponse ToSessionResponse(FoundationHostSessionState st
         replayed);
 
 static FoundationContextCandidateResponse ToContextResponse(FoundationHostContextCandidate candidate) =>
-    new(candidate.ContextId, candidate.Kind.ToString(), candidate.TenantId, candidate.DisplayName, candidate.EligibilityVersion);
+    new(candidate.ContextId, candidate.Kind.ToString(), candidate.TenantId, candidate.DisplayName, candidate.EligibilityVersion, candidate.ArabicDisplayName);
 
 static NotificationDispatchResponse ToNotificationResponse(NotificationDispatchResult result) =>
     new(

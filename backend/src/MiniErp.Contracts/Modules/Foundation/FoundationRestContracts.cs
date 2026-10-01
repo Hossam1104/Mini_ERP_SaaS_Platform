@@ -197,7 +197,8 @@ public sealed record FoundationContextCandidateResponse(
     string Kind,
     Guid? TenantId,
     string DisplayName,
-    long EligibilityVersion);
+    long EligibilityVersion,
+    string? ArabicDisplayName = null);
 
 /// <summary>Authorized-context list response.</summary>
 public sealed record FoundationContextsResponse(
@@ -207,7 +208,8 @@ public sealed record FoundationContextsResponse(
 public sealed record FoundationTenantCandidateResponse(
     Guid TenantId,
     string DisplayName,
-    string? CanonicalHost);
+    string? CanonicalHost,
+    string? ArabicDisplayName = null);
 
 /// <summary>One safe Company/Branch operational context candidate.</summary>
 public sealed record FoundationOperationalContextResponse(
@@ -223,7 +225,8 @@ public sealed record FoundationBrandingResponse(
     string? LogoDarkUrl,
     string LogoAltText,
     bool TenantConfigured,
-    string? DefaultTheme = null);
+    string? DefaultTheme = null,
+    string? ArabicDisplayName = null);
 
 /// <summary>Presentation-only currency symbol configuration.</summary>
 public sealed record FoundationCurrencyPresentationResponse(
@@ -802,8 +805,14 @@ public static class FoundationOperationCatalog
         {
             BoundaryDescription = "Returns only the authenticated session owner's display name and login. No user identifier or identity value is accepted from the request; displayName is null when the identity record has no display name."
         },
-        new("auth.contexts.read", "/api/v1/auth/contexts", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session"),
-        new("auth.entry.read", "/api/v1/auth/entry", "GET", FoundationSecurityProfile.Anonymous, FoundationOperationVisibility.Public),
+        new("auth.contexts.read", "/api/v1/auth/contexts", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session")
+        {
+            BoundaryDescription = "Returns only server-authorized context candidates for the authenticated session. Each candidate includes its English displayName and, when configured, the optional Arabic arabicDisplayName; client-supplied display names are never used."
+        },
+        new("auth.entry.read", "/api/v1/auth/entry", "GET", FoundationSecurityProfile.Anonymous, FoundationOperationVisibility.Public)
+        {
+            BoundaryDescription = "Anonymous callers receive resolved entry mode and public branding. Authenticated callers receive only server-authorized Tenant and operational context candidates. Configured Arabic Tenant display names are presentation-only and do not grant or broaden authority."
+        },
         new("auth.operational-contexts.read", "/api/v1/auth/operational-contexts", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session"),
         new("auth.context-switch", "/api/v1/auth/context-switch", "POST", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "foundation.context.switch", FoundationScopePolicy.None, RequiresAntiforgery: true, RequiresMandatoryAudit: true, IsUnsafe: true),
         new("auth.operational-context-switch", "/api/v1/auth/operational-context-switch", "POST", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "foundation.context.switch", FoundationScopePolicy.None, RequiresAntiforgery: true, RequiresMandatoryAudit: true, IsUnsafe: true)

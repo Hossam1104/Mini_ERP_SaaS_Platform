@@ -21,7 +21,8 @@ public sealed record FoundationHostContextCandidate(
     FoundationHostContextKind Kind,
     Guid? TenantId,
     string DisplayName,
-    long EligibilityVersion);
+    long EligibilityVersion,
+    string? ArabicDisplayName = null);
 
 /// <summary>Safe Company/Branch context candidate exposed to the shell.</summary>
 public sealed record FoundationHostOperationalContextCandidate(
@@ -991,7 +992,8 @@ internal sealed class FoundationIdentityHost : IFoundationIdentityHost
                         FoundationHostContextKind.OrdinaryMembership,
                         membership.TenantId.Value,
                         tenantDisplayNames.GetDisplayName(membership.TenantId),
-                        membership.Version));
+                        membership.Version,
+                        tenantDisplayNames.GetArabicDisplayName(membership.TenantId)));
                 }
             }
 

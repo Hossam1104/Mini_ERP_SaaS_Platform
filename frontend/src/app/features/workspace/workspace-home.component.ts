@@ -241,9 +241,14 @@ export class WorkspaceHomeComponent implements OnInit {
   }
 
   contextHeading(): string {
-    return this.context.entry()?.candidateTenantDisplayName
-      ?? this.context.entry()?.branding.displayName
-      ?? this.language.text('tenantOverview');
+    const entry = this.context.entry();
+    const tenant = entry?.authorizedTenants.find((candidate) => candidate.tenantId === entry.candidateTenantId);
+    const arabicName = tenant?.arabicDisplayName?.trim() || entry?.branding.arabicDisplayName?.trim();
+    const englishName = entry?.candidateTenantDisplayName ?? tenant?.displayName;
+    return (this.language.language() === 'ar' && arabicName)
+      || englishName
+      || entry?.branding.displayName
+      || this.language.text('tenantOverview');
   }
 
   tenantLogoUrl(): string | null {

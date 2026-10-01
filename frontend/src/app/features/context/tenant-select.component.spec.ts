@@ -36,14 +36,14 @@ const tenantEntry: FoundationEntryResponse = {
   canonicalHost: 'tenant.localhost',
   candidateTenantId: 'tenant-a',
   candidateTenantDisplayName: 'Alpha Tenant',
-  authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
+  authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost', arabicDisplayName: 'وفرة' }],
   operationalContexts: [
     { contextId: 'company-a', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 },
     { contextId: 'branch-a', kind: 'Branch', displayName: 'Alpha Branch', eligibilityVersion: 1 },
   ],
   selectedOperationalContextId: 'company-a',
   operationalSelectionVersion: 1,
-  branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true },
+  branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true, arabicDisplayName: 'وفرة' },
   currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' },
   code: null,
   isDevelopment: true,
@@ -89,6 +89,22 @@ describe('TenantSelectComponent', () => {
     expect(element.querySelector('#workspace-select')).toBeNull();
     expect(Array.from(element.querySelectorAll('#operational-context-select option')).map((option) => option.textContent?.trim()))
       .toEqual(['Alpha Company - Company', 'Alpha Branch - Branch']);
+  });
+
+  it('uses the configured Arabic Tenant name on the workspaces page and falls back to English', () => {
+    TestBed.inject(LanguageService).setLanguage('ar');
+    fixture.detectChanges();
+
+    const tenantName = fixture.nativeElement.querySelector('.context-summary__value') as HTMLElement;
+    expect(tenantName.textContent?.trim()).toBe('وفرة');
+
+    TestBed.inject(ContextService).entry.set({
+      ...tenantEntry,
+      authorizedTenants: [{ ...tenantEntry.authorizedTenants[0]!, arabicDisplayName: null }],
+      branding: { ...tenantEntry.branding, arabicDisplayName: null },
+    });
+    fixture.detectChanges();
+    expect(tenantName.textContent?.trim()).toBe('Alpha Tenant');
   });
 
   it('shows a Tenant chooser on the common host only with multiple memberships', () => {

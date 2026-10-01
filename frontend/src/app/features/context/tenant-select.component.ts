@@ -75,8 +75,11 @@ export class TenantSelectComponent implements OnInit {
     const entry = this.context.entry();
     if (!entry?.candidateTenantId) return null;
 
-    return entry.candidateTenantDisplayName
-      ?? entry.authorizedTenants.find((tenant) => tenant.tenantId === entry.candidateTenantId)?.displayName
+    const tenant = entry.authorizedTenants.find((candidate) => candidate.tenantId === entry.candidateTenantId);
+    const arabicName = tenant?.arabicDisplayName?.trim() || entry.branding.arabicDisplayName?.trim();
+    const englishName = entry.candidateTenantDisplayName
+      ?? tenant?.displayName
       ?? (entry.entryMode === 'TenantHost' ? entry.branding.displayName : null);
+    return this.language.language() === 'ar' && arabicName ? arabicName : englishName ?? null;
   }
 }

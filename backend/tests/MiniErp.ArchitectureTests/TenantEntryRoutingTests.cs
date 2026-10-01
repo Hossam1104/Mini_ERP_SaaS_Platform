@@ -159,6 +159,7 @@ public sealed class TenantEntryRoutingTests
             {
                 [$"MESP_TENANT_DISPLAY_NAMES:{tenantId:D}"] = "Wafra",
                 [$"MESP_TENANT_BRANDING:{tenantId:D}:DisplayName"] = "Wafra ERP",
+                [$"MESP_TENANT_BRANDING:{tenantId:D}:ArabicDisplayName"] = "وفرة",
                 [$"MESP_TENANT_BRANDING:{tenantId:D}:LogoLightUrl"] = "/assets/wafra/logo-light.svg",
                 [$"MESP_TENANT_BRANDING:{tenantId:D}:LogoDarkUrl"] = "../secrets/logo.svg",
                 [$"MESP_TENANT_BRANDING:{tenantId:D}:CurrencySymbolAssetUrl"] = "//untrusted.example/riyal.svg",
@@ -172,6 +173,8 @@ public sealed class TenantEntryRoutingTests
             .Get(new TenantId(tenantId));
 
         Assert.Equal("Wafra ERP", branding.DisplayName);
+        Assert.Equal("وفرة", names.GetArabicDisplayName(new TenantId(tenantId)));
+        Assert.Equal("وفرة", branding.ArabicDisplayName);
         Assert.Equal("/assets/wafra/logo-light.svg", branding.LogoLightUrl);
         Assert.Null(branding.LogoDarkUrl);
         Assert.Null(branding.CurrencySymbolAssetUrl);

@@ -330,7 +330,11 @@ public sealed class DevelopmentBootstrapTests
             ["MESP_DEV_BOOTSTRAP_ENABLED"] = "true",
             ["MESP_DEV_AUTH_BYPASS"] = "true",
             ["MESP_DEV_ADMIN_PASSWORD"] = null,
-            ["MESP_DEV_TENANT_DISPLAY_NAME"] = "Wafra"
+            ["MESP_DEV_TENANT_DISPLAY_NAME"] = "Wafra",
+            ["MESP_TENANT_HOST_BINDINGS:0:Host"] = "wafra.localhost",
+            ["MESP_TENANT_HOST_BINDINGS:0:TenantId"] = DevelopmentBootstrap.DevTenantId.Value.ToString("D"),
+            ["MESP_TENANT_HOST_BINDINGS:0:CanonicalHost"] = "wafra.localhost",
+            [$"MESP_TENANT_BRANDING:{DevelopmentBootstrap.DevTenantId.Value:D}:ArabicDisplayName"] = "وفرة"
         };
 
         using var factory = new CustomTestWebApplicationFactory(settings);
@@ -356,6 +360,7 @@ public sealed class DevelopmentBootstrapTests
         Assert.NotNull(contexts);
         Assert.Single(contexts.Contexts);
         Assert.Equal("Wafra", contexts.Contexts[0].DisplayName);
+        Assert.Equal("وفرة", contexts.Contexts[0].ArabicDisplayName);
         Assert.DoesNotContain(DevelopmentBootstrap.DevTenantId.Value.ToString("D"), contexts.Contexts[0].DisplayName, StringComparison.Ordinal);
 
         var csrfResponse = await client.GetAsync("/api/v1/auth/antiforgery");
@@ -375,6 +380,15 @@ public sealed class DevelopmentBootstrapTests
         switchRequest.Headers.TryAddWithoutValidation("Idempotency-Key", Guid.NewGuid().ToString("N"));
         var switchResponse = await client.SendAsync(switchRequest);
         Assert.Equal(HttpStatusCode.OK, switchResponse.StatusCode);
+
+        using var entryRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/auth/entry");
+        entryRequest.Headers.Host = "wafra.localhost";
+        using var entryResponse = await client.SendAsync(entryRequest);
+        Assert.Equal(HttpStatusCode.OK, entryResponse.StatusCode);
+        var entry = await entryResponse.Content.ReadFromJsonAsync<FoundationEntryResponse>();
+        Assert.NotNull(entry);
+        Assert.Equal("وفرة", entry.Branding.ArabicDisplayName);
+        Assert.Equal("وفرة", Assert.Single(entry.AuthorizedTenants).ArabicDisplayName);
 
         var repeatedBypassResponse = await client.PostAsync("/api/v1/auth/development-bypass", content: null);
         Assert.Equal(HttpStatusCode.OK, repeatedBypassResponse.StatusCode);

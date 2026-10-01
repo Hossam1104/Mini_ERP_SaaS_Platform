@@ -384,7 +384,8 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         "platform.openapi" => "Read the generated API contract",
         "platform.module-registration" => "Read registered module boundaries",
         "auth.session.read" => "Read the authenticated user's session and identity",
-        "auth.entry.read" => "Resolve the current host's entry mode and public branding",
+        "auth.contexts.read" => "List the authenticated user's authorized contexts",
+        "auth.entry.read" => "Resolve host entry mode, branding, and authorized Tenant candidates",
         "auth.antiforgery.read" => "Read antiforgery evidence for first-party writes",
         "auth.sign-in" => "Authenticate and establish a first-party session",
         "auth.sign-out" => "Revoke the current first-party session",
@@ -963,7 +964,8 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         return operationId switch
         {
         "auth.session.read" => "The authenticated caller's server-validated session, nullable display name, and own login identifier.",
-        "auth.entry.read" => "The host entry mode, public branding, and (only for an authenticated caller) authorized context candidates.",
+        "auth.contexts.read" => "Authorized context candidates with English names and optional configured Arabic Tenant display names.",
+        "auth.entry.read" => "The host entry mode, public branding, and (only for an authenticated caller) authorized context candidates with optional configured Arabic Tenant display names.",
         "auth.development-bypass" => "An authenticated session for the server-configured Development actor with server-derived context candidates.",
         "master-data.tax.calculate" => "A deterministic Tax amount and immutable reference snapshot for the explicit inputs.",
         "master-data.tax.reference.read" => "The active Tax rate version selected for the requested effective date, including applied reference evidence.",

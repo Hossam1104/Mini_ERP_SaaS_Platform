@@ -32,6 +32,7 @@ const contextCandidate: FoundationContextCandidate = {
   kind: 'OrdinaryMembership',
   tenantId: 'tenant-a',
   displayName: 'Alpha workspace',
+  arabicDisplayName: 'وفرة',
   eligibilityVersion: 3,
 };
 
@@ -40,11 +41,11 @@ const tenantEntry: FoundationEntryResponse = {
   canonicalHost: 'tenant.localhost',
   candidateTenantId: 'tenant-a',
   candidateTenantDisplayName: 'Alpha Tenant',
-  authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
+  authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost', arabicDisplayName: 'وفرة' }],
   operationalContexts: [],
   selectedOperationalContextId: null,
   operationalSelectionVersion: 0,
-  branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true },
+  branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true, arabicDisplayName: 'وفرة' },
   currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' },
   code: null,
   isDevelopment: false,
@@ -409,5 +410,32 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     const img = element.querySelector('.topbar__brand img') as HTMLImageElement | null;
     expect(img?.getAttribute('src')).toBe('assets/Logo_16_9_BG_Removed.png');
     expect(img?.style.transform).toBe('');
+  });
+
+  it('uses the configured Arabic Tenant name in the shell and falls back to English when absent', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const component = fixture.componentInstance;
+    expect(component.tenantDisplayName()).toBe('Alpha Tenant');
+    expect(component.brandName()).toBe('Alpha Tenant');
+
+    language.setLanguage('ar');
+    fixture.detectChanges();
+    expect(component.tenantDisplayName()).toBe('وفرة');
+    expect(component.brandName()).toBe('وفرة');
+    expect(element.querySelector('.context-chip__copy strong')?.textContent?.trim()).toBe('وفرة');
+
+    (element.querySelector('#account-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(element.querySelector('.account-menu__identity')?.textContent).toContain('وفرة');
+
+    const candidate = tenantEntry.authorizedTenants[0]!;
+    context.entry.set({
+      ...tenantEntry,
+      authorizedTenants: [{ ...candidate, arabicDisplayName: null }],
+      branding: { ...tenantEntry.branding, arabicDisplayName: null },
+    });
+    fixture.detectChanges();
+    expect(component.tenantDisplayName()).toBe('Alpha Tenant');
+    expect(component.brandName()).toBe('Alpha Tenant');
   });
 });

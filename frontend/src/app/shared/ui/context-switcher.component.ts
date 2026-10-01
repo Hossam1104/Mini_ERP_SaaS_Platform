@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject } from '@angular/core';
+import { FoundationContextCandidate } from '../../core/api/foundation.models';
 import { ContextService } from '../../core/context/context.service';
 import { LanguageService } from '../../core/i18n/language.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -47,7 +48,7 @@ import { Router } from '@angular/router';
           <option value="" disabled>{{ language.text('chooseTenant') }}</option>
           @for (candidate of tenantContexts(); track candidate.contextId) {
             <option [value]="candidate.contextId">
-              {{ candidate.displayName }} · {{ kindLabel(candidate.kind) }}
+              {{ localizedDisplayName(candidate) }} · {{ kindLabel(candidate.kind) }}
             </option>
           }
         </select>
@@ -110,7 +111,7 @@ export class ContextSwitcherComponent implements OnInit {
   contextLabel(): string {
     const current = this.context.currentContext();
     if (current) {
-      return current.displayName;
+      return this.localizedDisplayName(current);
     }
 
     const entry = this.context.entry();
@@ -123,6 +124,11 @@ export class ContextSwitcherComponent implements OnInit {
     return this.auth.session()?.selectedPath === 'PlatformGovernanceContext'
       ? this.language.text('platformGovernance')
       : this.language.text('noTenantContext');
+  }
+
+  localizedDisplayName(candidate: FoundationContextCandidate): string {
+    const arabicName = candidate.arabicDisplayName?.trim();
+    return this.language.language() === 'ar' && arabicName ? arabicName : candidate.displayName;
   }
 
   pathLabel(): string {

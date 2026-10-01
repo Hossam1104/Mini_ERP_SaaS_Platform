@@ -433,7 +433,8 @@ public sealed record FoundationTenantBrandingProfile(
     string? CurrencySymbolAssetUrl,
     string CurrencySymbolTextFallback,
     string? DefaultTheme,
-    bool TenantConfigured);
+    bool TenantConfigured,
+    string? ArabicDisplayName);
 
 public interface IFoundationTenantBrandingProvider
 {
@@ -475,7 +476,8 @@ internal sealed class ConfiguredFoundationTenantBrandingProvider : IFoundationTe
             SafeAssetPath(section["CurrencySymbolAssetUrl"]),
             fallback,
             string.IsNullOrWhiteSpace(section["DefaultTheme"]) ? null : section["DefaultTheme"]!.Trim(),
-            section.Exists());
+            section.Exists(),
+            displayNames.GetArabicDisplayName(tenantId));
     }
 
     private static string? SafeAssetPath(string? raw)
@@ -659,7 +661,8 @@ internal sealed class TenantEntryAuthority : ITenantEntryAuthority
                     publicTenantBranding.LogoDarkUrl,
                     publicTenantBranding.LogoAltText,
                     true,
-                    publicTenantBranding.DefaultTheme)
+                    publicTenantBranding.DefaultTheme,
+                    publicTenantBranding.ArabicDisplayName)
                 : new FoundationBrandingResponse("MESP", null, null, "MESP", false);
             return new FoundationEntryResponse(
                 resolution.Mode.ToString(),
@@ -693,7 +696,8 @@ internal sealed class TenantEntryAuthority : ITenantEntryAuthority
                 return new FoundationTenantCandidateResponse(
                     group.Key,
                     group.First().DisplayName,
-                    hosts.GetCanonicalHost(tenantId));
+                    hosts.GetCanonicalHost(tenantId),
+                    group.First().ArabicDisplayName);
             })
             .OrderBy(item => item.DisplayName, StringComparer.Ordinal)
             .ToArray();
@@ -739,7 +743,8 @@ internal sealed class TenantEntryAuthority : ITenantEntryAuthority
                 tenantBranding.LogoDarkUrl,
                 tenantBranding.LogoAltText,
                 tenantBranding.TenantConfigured,
-                tenantBranding.DefaultTheme);
+                tenantBranding.DefaultTheme,
+                tenantBranding.ArabicDisplayName);
         var entryMode = resolution.Mode switch
         {
             TenantEntryMode.CommonHost when !authorizedTenants.Any()

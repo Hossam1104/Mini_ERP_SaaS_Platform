@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { resolve } from 'node:path';
 
 const sessionWithoutContext = {
   authenticated: true,
@@ -25,11 +26,11 @@ const tenantEntry = {
   canonicalHost: '127.0.0.1',
   candidateTenantId: 'tenant-a',
   candidateTenantDisplayName: 'Alpha Tenant',
-  authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
+  authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost', arabicDisplayName: 'وفرة' }],
   operationalContexts: [{ contextId: 'operation-a', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 }],
   selectedOperationalContextId: 'operation-a',
   operationalSelectionVersion: 1,
-  branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true },
+  branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true, arabicDisplayName: 'وفرة' },
   currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' },
   code: null,
 };
@@ -45,6 +46,7 @@ test.describe('Tenant-aware shell', () => {
           kind: 'OrdinaryMembership',
           tenantId: 'tenant-a',
           displayName: 'Alpha workspace',
+          arabicDisplayName: 'وفرة',
           eligibilityVersion: 3,
         }],
       },
@@ -75,7 +77,7 @@ test.describe('Tenant-aware shell', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
 
     await page.goto('/app/workspaces');
-    await expect(page.locator('.context-summary')).toContainText('Alpha Tenant');
+    await expect(page.locator('.context-summary')).toContainText('وفرة');
     await expect(page.locator('#workspace-select')).toHaveCount(0);
     await expect(page.getByText('No Tenant context selected')).toHaveCount(0);
   });
@@ -147,6 +149,32 @@ test.describe('Tenant-aware shell', () => {
     await expect(page.locator('.context-summary')).toContainText('Alpha Tenant');
     await expect(page.locator('#workspace-select')).toHaveCount(0);
     await expect(page.getByText('No Tenant context selected')).toHaveCount(0);
+  });
+
+  test('shows configured Arabic Tenant names in the header, Overview, account menu, and workspaces page', async ({ page }) => {
+    await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: sessionWithContext }));
+    await page.goto('/app');
+    await page.locator('.language-button').click();
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(page.locator('#tenant-overview-title')).toHaveText('وفرة');
+    await expect(page.locator('#context-trigger .context-chip__copy strong')).toHaveText('وفرة');
+
+    await page.locator('#account-trigger').click();
+    await expect(page.locator('.account-menu__identity')).toContainText('وفرة');
+    await page.screenshot({
+      path: resolve(process.cwd(), '../.playwright-mcp/mesp-202/arabic-overview-account.png'),
+      fullPage: false,
+      animations: 'disabled',
+    });
+
+    await page.goto('/app/workspaces');
+    await expect(page.locator('.context-summary__value').first()).toHaveText('وفرة');
+    await expect(page.locator('.context-summary__value').nth(1)).toContainText('Alpha Company');
+    await page.screenshot({
+      path: resolve(process.cwd(), '../.playwright-mcp/mesp-202/arabic-workspaces.png'),
+      fullPage: false,
+      animations: 'disabled',
+    });
   });
 
   test('keeps the authenticated shell and selected Tenant after an unconfirmed sign-out', async ({ page }) => {
