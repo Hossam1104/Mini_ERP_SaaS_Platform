@@ -1,9 +1,9 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { CurrencyAmountComponent } from '../../shared/ui/currency-amount.component';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { CurrencyAmountComponent } from '../../shared/ui/currency-amount.component';
 import { SafeUiError, toSafeUiError } from '../../core/api/safe-error';
 import { LanguageService } from '../../core/i18n/language.service';
 import {
@@ -12,10 +12,14 @@ import {
   PurchaseInvoiceHandoffEligibleSourceResponse,
   PurchaseInvoiceHandoffHistoryResponse,
   PurchaseInvoiceHandoffListItemResponse,
+  PurchaseInvoiceHandoffLineResponse,
   PurchaseInvoiceHandoffResponse,
+  PurchaseInvoiceHandoffSourceResponse,
   PurchaseInvoiceHandoffStatus,
 } from './purchase-invoice-handoff.model';
 import { PurchaseInvoiceHandoffService } from './purchase-invoice-handoff.service';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 
 type WorkspaceMode = 'list' | 'create' | 'detail';
 type DetailTab = 'summary' | 'lines' | 'sources' | 'history' | 'audit';
@@ -39,18 +43,18 @@ interface CreateHandoffLineDraft {
 @Component({
   selector: 'app-purchase-invoice-handoff-workspace',
   standalone: true,
-  imports: [FormsModule, RouterLink, CurrencyAmountComponent],
+  imports: [FormsModule, RouterLink, DataGridComponent, PageHeaderComponent, CurrencyAmountComponent],
   template: `
     @if (mode() === 'list') {
       <section class="ui-page invoice-handoff-page" data-testid="invoice-handoff-list">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header>
+          <div page-header-copy>
             <p class="eyebrow">{{ pihText('invoiceHandoffKicker') }}</p>
             <h1>{{ pihText('invoiceHandoffs') }}</h1>
-            <p class="lede">{{ pihText('invoiceHandoffsLead') }}</p>
+            <p>{{ pihText('invoiceHandoffsLead') }}</p>
           </div>
-          <a class="button button--primary" routerLink="/app/procurement/invoice-handoffs/new" data-testid="new-invoice-handoff">＋ {{ pihText('newInvoiceHandoff') }}</a>
-        </header>
+          <div page-header-actions><a class="button button--primary" routerLink="/app/procurement/invoice-handoffs/new" data-testid="new-invoice-handoff">＋ {{ pihText('newInvoiceHandoff') }}</a></div>
+        </app-page-header>
         <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ pihText('invoiceHandoffBoundary') }}</span></div>
 
         @if (loading()) {
@@ -67,7 +71,10 @@ interface CreateHandoffLineDraft {
             @if (filteredRecords().length === 0) {
               <div class="empty-ledger"><span aria-hidden="true">◌</span><h2>{{ pihText('noInvoiceHandoffs') }}</h2><p>{{ pihText('noInvoiceHandoffsLead') }}</p></div>
             } @else {
-              <div class="ui-grid-shell invoice-handoff-grid-shell"><table class="ui-grid invoice-handoff-grid"><caption class="sr-only">{{ pihText('invoiceHandoffs') }}</caption><thead><tr><th scope="col">{{ pihText('invoiceHandoffRefColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffSupplierColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffStatusColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffDateColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffCurrencyColumn') }}</th><th scope="col" class="numeric">{{ pihText('invoiceHandoffQtyColumn') }}</th><th scope="col" class="numeric">{{ pihText('invoiceHandoffAmountColumn') }}</th><th scope="col">{{ pihText('invoiceHandoffUpdatedColumn') }}</th></tr></thead><tbody>@for (record of filteredRecords(); track record.id) {<tr><td><a class="record-link" [routerLink]="['/app/procurement/invoice-handoffs', record.id]">{{ record.supplierInvoiceReference }}</a><small>{{ record.lineCount }} {{ pihText('invoiceHandoffLines') }}</small></td><td><strong>{{ record.supplierName }}</strong><small>{{ record.supplierCode }}</small></td><td><span class="status-badge" [class]="statusClass(record.status)"><span aria-hidden="true"></span>{{ statusLabel(record.status) }}</span></td><td>{{ formatDate(record.supplierInvoiceDate) }}</td><td><span class="currency-badge">{{ record.currencyCode }}</span></td><td class="numeric">{{ formatQuantity(record.totalHandoffQuantity) }}</td><td class="numeric money"><app-currency-amount [amount]="record.totalHandoffAmount" [currencyCode]="record.currencyCode" [locale]="language.language()" /></td><td>{{ formatDateTime(record.updatedAt) }}</td></tr>}</tbody></table></div>
+              <ng-template #handoffAmount let-row>
+                <app-currency-amount [amount]="row.totalHandoffAmount" [currencyCode]="row.currencyCode" [locale]="language.language()" />
+              </ng-template>
+              <app-data-grid [rows]="filteredRecords()" [columns]="handoffColumns(handoffAmount)" [language]="language.language()" [clientPaging]="true" [showPager]="true" [scopeLabel]="gridScopeLabel()" [caption]="pihText('invoiceHandoffs')" [countLabel]="pihText('invoiceHandoffs')" [filterInputLabel]="pihText('invoiceHandoffSearch')" [previousPageLabel]="language.text('previous')" [nextPageLabel]="language.text('next')" />
             }
           </section>
         }
@@ -76,14 +83,14 @@ interface CreateHandoffLineDraft {
 
     @if (mode() === 'create') {
       <section class="ui-page invoice-handoff-page" data-testid="invoice-handoff-create">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header>
+          <div page-header-copy>
             <p class="eyebrow">{{ pihText('invoiceHandoffKicker') }}</p>
             <h1>{{ pihText('createInvoiceHandoff') }}</h1>
-            <p class="lede">{{ pihText('invoiceHandoffCreateLead') }}</p>
+            <p>{{ pihText('invoiceHandoffCreateLead') }}</p>
           </div>
-          <a class="button button--secondary" routerLink="/app/procurement/invoice-handoffs">{{ pihText('backToInvoiceHandoffs') }}</a>
-        </header>
+          <div page-header-actions><a class="button button--secondary" routerLink="/app/procurement/invoice-handoffs">{{ pihText('backToInvoiceHandoffs') }}</a></div>
+        </app-page-header>
         <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ pihText('invoiceHandoffFinanceRule') }}</span></div>
 
         @if (loading()) {
@@ -125,43 +132,18 @@ interface CreateHandoffLineDraft {
                 <h2>{{ pihText('invoiceHandoffLineEntryTitle') }}</h2>
                 <p class="detail-copy">{{ pihText('invoiceHandoffLineEntryLead') }}</p>
 
-                <div class="ui-grid-shell">
-                  <table class="ui-grid compact-grid">
-                    <thead>
-                      <tr>
-                        <th scope="col">{{ pihText('invoiceHandoffProductColumn') }}</th>
-                        <th scope="col">{{ pihText('receiptDate') }}</th>
-                        <th scope="col" class="numeric">{{ pihText('acceptedQty') }}</th>
-                        <th scope="col" class="numeric">{{ pihText('alreadyHandedOff') }}</th>
-                        <th scope="col" class="numeric">{{ pihText('remainingHandoffQty') }}</th>
-                        <th scope="col" class="numeric">{{ pihText('unitPrice') }}</th>
-                        <th scope="col" class="numeric">{{ pihText('taxRate') }}</th>
-                        <th scope="col">{{ pihText('handoffQty') }} *</th>
-                        <th scope="col" class="numeric">{{ pihText('lineTotal') }}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (line of createLines; track line.goodsReceiptLineId) {
-                        <tr>
-                          <td>
-                            <strong>{{ line.productSku }} · {{ line.productName }}</strong>
-                            <small>{{ line.unitOfMeasureCode }} · GR {{ line.goodsReceiptId.substring(0, 8) }}</small>
-                          </td>
-                          <td>{{ formatDate(line.receivedDate) }}</td>
-                          <td class="numeric">{{ formatQuantity(line.acceptedQuantity) }}</td>
-                          <td class="numeric">{{ formatQuantity(line.alreadyHandedOffQuantity) }}</td>
-                          <td class="numeric remaining-highlight">{{ formatQuantity(line.remainingHandoffQuantity) }}</td>
-                          <td class="numeric"><app-currency-amount [amount]="line.unitPrice" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" /></td>
-                          <td class="numeric">{{ line.taxRatePercentage !== null ? line.taxRatePercentage + '%' : '—' }}</td>
-                          <td>
-                            <input class="table-input numeric" type="number" min="0" [max]="line.remainingHandoffQuantity" step="0.000001" [(ngModel)]="line.handoffQuantity" (ngModelChange)="onLineQuantityChange()" />
-                          </td>
-                          <td class="numeric money"><app-currency-amount [amount]="calculateLineTotal(line)" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" /></td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
+                <ng-template #createAmount let-line let-column="column">
+                  @if (column.key === 'unitPrice') {
+                    <app-currency-amount [amount]="line.unitPrice" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" />
+                  } @else {
+                    <app-currency-amount [amount]="calculateLineTotal(line)" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" />
+                  }
+                </ng-template>
+                <app-data-grid [rows]="createLines" [columns]="createLineColumns(createAmount)" [rowActionsTemplate]="createLineActions" rowKey="goodsReceiptLineId" [language]="language.language()" [clientPaging]="true" [showPager]="false" [caption]="pihText('invoiceHandoffLineEntryTitle')" [countLabel]="pihText('invoiceHandoffLines')" [rowActionsLabel]="pihText('handoffQty')">
+                  <ng-template #createLineActions let-line>
+                    <label class="handoff-quantity-editor"><span>{{ pihText('handoffQty') }} *</span><input class="table-input numeric" type="number" min="0" [max]="line.remainingHandoffQuantity" step="0.000001" [(ngModel)]="line.handoffQuantity" (ngModelChange)="onLineQuantityChange()" [ngModelOptions]="{standalone: true}" [attr.aria-label]="pihText('handoffQty')" /></label>
+                  </ng-template>
+                </app-data-grid>
 
                 <div class="summary-box">
                   <div class="summary-row"><span>{{ pihText('subtotal') }}:</span><strong><app-currency-amount [amount]="computedSubtotal()" [currencyCode]="selectedCurrencyCode()" [locale]="language.language()" /></strong></div>
@@ -189,23 +171,18 @@ interface CreateHandoffLineDraft {
 
     @if (mode() === 'detail' && handoff(); as currentHandoff) {
       <section class="ui-page invoice-handoff-page" data-testid="invoice-handoff-detail">
-        <header class="ui-page-header ui-page-header--compact page-header">
-          <div>
+        <app-page-header>
+          <div page-header-copy>
             <p class="eyebrow">{{ pihText('invoiceHandoffKicker') }}</p>
             <h1>{{ currentHandoff.supplierInvoiceReference }}</h1>
-            <p class="lede">{{ currentHandoff.supplierName }} ({{ currentHandoff.supplierCode }}) · {{ formatDate(currentHandoff.supplierInvoiceDate) }} · {{ currentHandoff.currencyCode }}</p>
+            <p>{{ currentHandoff.supplierName }} ({{ currentHandoff.supplierCode }}) · {{ formatDate(currentHandoff.supplierInvoiceDate) }} · {{ currentHandoff.currencyCode }}</p>
           </div>
-          <span class="status-badge status-badge--hero" [class]="statusClass(currentHandoff.status)">
-            <span aria-hidden="true"></span>{{ statusLabel(currentHandoff.status) }}
-          </span>
-        </header>
-
-        <div class="action-rail" role="toolbar" [attr.aria-label]="pihText('invoiceHandoffActions')">
-          <a class="button button--secondary" routerLink="/app/procurement/invoice-handoffs">{{ pihText('backToInvoiceHandoffs') }}</a>
-          @if (currentHandoff.canCancel) {
-            <button class="button button--danger" type="button" (click)="openCancelDialog()" data-testid="cancel-invoice-handoff">{{ pihText('cancelInvoiceHandoff') }}</button>
-          }
-        </div>
+          <div page-header-actions>
+            <span class="status-badge" [class]="statusClass(currentHandoff.status)"><span aria-hidden="true"></span>{{ statusLabel(currentHandoff.status) }}</span>
+            <a class="button button--secondary" routerLink="/app/procurement/invoice-handoffs">{{ pihText('backToInvoiceHandoffs') }}</a>
+            @if (currentHandoff.canCancel) { <button class="button button--danger" type="button" (click)="openCancelDialog()" data-testid="cancel-invoice-handoff">{{ pihText('cancelInvoiceHandoff') }}</button> }
+          </div>
+        </app-page-header>
 
         @if (currentHandoff.status === 'Cancelled') {
           <section class="boundary-note terminal-recovery-note" role="note">
@@ -249,62 +226,20 @@ interface CreateHandoffLineDraft {
           <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('lines')">
             <p class="section-kicker">{{ pihText('invoiceHandoffLines') }}</p>
             <h2>{{ pihText('invoiceHandoffLinesTitle') }}</h2>
-            <div class="ui-grid-shell">
-              <table class="ui-grid detail-grid">
-                <thead>
-                  <tr>
-                    <th scope="col">{{ pihText('invoiceHandoffProductColumn') }}</th>
-                    <th scope="col" class="numeric">{{ pihText('handoffQty') }}</th>
-                    <th scope="col" class="numeric">{{ pihText('unitPrice') }}</th>
-                    <th scope="col" class="numeric">{{ pihText('taxRate') }}</th>
-                    <th scope="col" class="numeric">{{ pihText('taxAmount') }}</th>
-                    <th scope="col" class="numeric">{{ pihText('lineTotal') }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (line of currentHandoff.lines; track line.id) {
-                    <tr>
-                      <td>
-                        <strong>{{ line.productSku }} · {{ line.productName }}</strong>
-                        <small>{{ line.unitOfMeasureCode }}</small>
-                      </td>
-                      <td class="numeric">{{ formatQuantity(line.handoffQuantity) }}</td>
-                      <td class="numeric"><app-currency-amount [amount]="line.unitPrice" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /></td>
-                      <td class="numeric">{{ line.taxRatePercentage !== null ? line.taxRatePercentage + '%' : '—' }}</td>
-                      <td class="numeric">@if (line.taxAmount !== null) { <app-currency-amount [amount]="line.taxAmount" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /> } @else { — }</td>
-                      <td class="numeric money"><app-currency-amount [amount]="line.lineAmount" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /></td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
+            <ng-template #detailAmount let-line let-column="column">
+              @switch (column.key) {
+                @case ('unitPrice') { <app-currency-amount [amount]="line.unitPrice" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /> }
+                @case ('taxAmount') { @if (line.taxAmount !== null) { <app-currency-amount [amount]="line.taxAmount" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /> } @else { — } }
+                @case ('lineAmount') { <app-currency-amount [amount]="line.lineAmount" [currencyCode]="currentHandoff.currencyCode" [locale]="language.language()" /> }
+              }
+            </ng-template>
+            <app-data-grid [rows]="currentHandoff.lines" [columns]="detailLineColumns(currentHandoff.currencyCode, detailAmount)" [language]="language.language()" [clientPaging]="true" [showPager]="true" [caption]="pihText('invoiceHandoffLinesTitle')" [countLabel]="pihText('invoiceHandoffLines')" />
           </section>
         } @else if (activeTab() === 'sources') {
           <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('sources')">
             <p class="section-kicker">{{ pihText('sourceReceipts') }}</p>
             <h2>{{ pihText('sourceReceiptLineageTitle') }}</h2>
-            <div class="ui-grid-shell">
-              <table class="ui-grid detail-grid">
-                <thead>
-                  <tr>
-                    <th scope="col">{{ pihText('goodsReceiptId') }}</th>
-                    <th scope="col">{{ pihText('goodsReceiptLineId') }}</th>
-                    <th scope="col">{{ pihText('purchaseOrderLineId') }}</th>
-                    <th scope="col" class="numeric">{{ pihText('handedOffQuantity') }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (src of currentHandoff.sources; track src.id) {
-                    <tr>
-                      <td><code>{{ src.goodsReceiptId }}</code></td>
-                      <td><code>{{ src.goodsReceiptLineId }}</code></td>
-                      <td><code>{{ src.purchaseOrderLineId }}</code></td>
-                      <td class="numeric">{{ formatQuantity(src.quantity) }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
+            <app-data-grid [rows]="currentHandoff.sources" [columns]="sourceColumns" [language]="language.language()" [clientPaging]="true" [showPager]="true" [caption]="pihText('sourceReceiptLineageTitle')" [countLabel]="pihText('invoiceHandoffLines')" />
           </section>
         } @else if (activeTab() === 'history') {
           <section class="ui-surface detail-card" role="tabpanel" [attr.aria-labelledby]="tabId('history')">
@@ -369,12 +304,10 @@ interface CreateHandoffLineDraft {
   `,
   styles: `
     :host { display: block; }
-    .page-header { align-items: center; }
-    .page-header .lede { max-width: 54rem; margin-bottom: 0; line-height: 1.55; }
     .button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.4rem; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .82rem; color: var(--ink); background: var(--surface-raised); font-size: .74rem; font-weight: 800; text-decoration: none; cursor: pointer; }
     .button:hover:not(:disabled) { transform: translateY(-1px); }
     .button:disabled { cursor: wait; opacity: .55; }
-    .button--primary { border-color: var(--accent-strong); color: var(--ink-strong); background: var(--accent); }
+    .button--primary { border-color: var(--accent-action); color: var(--action-text); background: var(--accent-action); }
     .button--secondary { border-color: var(--line-strong); }
     .button--danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }
     .boundary-note { display: flex; align-items: flex-start; gap: .6rem; border-inline-start: 3px solid var(--support); padding: .72rem .9rem; color: var(--ink-muted); background: var(--support-soft); font-size: .76rem; line-height: 1.5; }
@@ -393,16 +326,9 @@ interface CreateHandoffLineDraft {
     .filter-field { display: grid; gap: .25rem; min-width: 12rem; color: var(--ink-muted); font-size: .64rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
     .filter-field select { min-height: 2.4rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: .4rem .5rem; color: var(--ink); background: var(--surface-raised); font-size: .75rem; text-transform: none; letter-spacing: normal; }
     .filter-note { flex: 1 1 100%; margin: 0; color: var(--ink-muted); font-size: .66rem; }
-    .invoice-handoff-grid-shell { border: 0; border-radius: 0; }
-    .invoice-handoff-grid { min-width: 58rem; }
-    .invoice-handoff-grid th, .invoice-handoff-grid td { padding: .68rem .6rem; }
-    .invoice-handoff-grid td small, .detail-grid td small { display: block; margin-top: .16rem; color: var(--ink-muted); font-size: .66rem; }
-    .record-link { color: var(--ink); font-weight: 900; text-decoration: none; }
-    .record-link:hover { color: var(--accent-strong); text-decoration: underline; }
     .currency-badge { display: inline-flex; border: 1px solid color-mix(in srgb, var(--accent-strong) 28%, var(--line)); border-radius: 99px; padding: .24rem .45rem; color: var(--accent-strong); background: var(--accent-soft); font-size: .63rem; font-weight: 900; }
     .status-badge { display: inline-flex; align-items: center; gap: .35rem; border: 1px solid var(--line); border-radius: 99px; padding: .28rem .5rem; color: var(--ink-muted); background: var(--surface); font-size: .63rem; font-weight: 900; white-space: nowrap; }
     .status-badge > span { width: .4rem; height: .4rem; border-radius: 50%; background: currentColor; }
-    .status-badge--hero { align-self: center; padding: .45rem .7rem; font-size: .74rem; }
     .status-badge--recorded { color: var(--success); background: var(--accent-soft); }
     .status-badge--cancelled { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }
     .numeric { font-variant-numeric: tabular-nums; }
@@ -417,11 +343,11 @@ interface CreateHandoffLineDraft {
     .field__label { color: var(--ink-muted); font-size: .68rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
     .field input, .field select, .field textarea, .table-input { width: 100%; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: .55rem .6rem; color: var(--ink); background: var(--surface-raised); font: inherit; }
     .field textarea { resize: vertical; }
-    .form-actions, .action-rail, .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
+    .form-actions, .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
     .form-actions { justify-content: flex-end; }
-    .action-rail { margin-block: .9rem 1rem; }
     .source-lines-section { display: grid; gap: 1rem; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 1rem; background: var(--surface); }
-    .section-kicker, .eyebrow { color: var(--ink-muted); font-size: .66rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; margin: 0; }
+    .section-kicker { color: var(--ink-muted); font-size: .66rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; margin: 0; }
+    .eyebrow { color: var(--primary); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
     .fact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .8rem; margin: 0; }
     .fact-grid div { display: grid; gap: .2rem; }
     .fact-grid dt { color: var(--ink-muted); font-size: .66rem; font-weight: 800; }
@@ -429,10 +355,8 @@ interface CreateHandoffLineDraft {
     .detail-tabs { display: flex; gap: .3rem; overflow-x: auto; margin-block: 0 1rem; border-bottom: 1px solid var(--line); }
     .detail-tabs button { border: 0; border-bottom: 2px solid transparent; padding: .65rem .8rem; color: var(--ink-muted); background: transparent; font: 800 .72rem var(--font-sans); cursor: pointer; white-space: nowrap; }
     .detail-tabs button.is-active { border-color: var(--accent-strong); color: var(--ink-strong); }
-    .ui-grid-shell { overflow-x: auto; }
-    .compact-grid, .detail-grid { min-width: 52rem; }
-    .compact-grid th, .compact-grid td, .detail-grid th, .detail-grid td { padding: .65rem .55rem; }
     .table-input { min-width: 6rem; padding: .42rem .45rem; font-size: .72rem; }
+    .handoff-quantity-editor { display: grid; min-width: 8rem; gap: .2rem; color: var(--ink-muted); font-size: .62rem; font-weight: 800; }
     .remaining-highlight { color: var(--accent-strong); font-weight: 800; }
     .summary-box { display: grid; justify-content: end; gap: .4rem; border-top: 1px solid var(--line); padding-top: .8rem; }
     .summary-row { display: flex; justify-content: space-between; gap: 2rem; font-size: .8rem; }
@@ -492,6 +416,54 @@ export class PurchaseInvoiceHandoffWorkspaceComponent implements OnInit {
       return matchStatus && matchQuery;
     });
   });
+  handoffColumns(amountCell: DataGridColumn<PurchaseInvoiceHandoffListItemResponse>['cellTemplate']): DataGridColumn<PurchaseInvoiceHandoffListItemResponse>[] {
+    return [
+    { key: 'supplierInvoiceReference', label: this.pihText('invoiceHandoffRefColumn'), value: row => row.supplierInvoiceReference, link: row => `/app/procurement/invoice-handoffs/${row.id}`, secondaryText: row => `${row.lineCount} ${this.pihText('invoiceHandoffLines')}`, filter: 'text' },
+    { key: 'supplierName', label: this.pihText('invoiceHandoffSupplierColumn'), value: row => row.supplierName, secondaryText: row => row.supplierCode, filter: 'text' },
+    { key: 'status', label: this.pihText('invoiceHandoffStatusColumn'), value: row => this.statusLabel(row.status), badge: true, filter: 'select' },
+    { key: 'supplierInvoiceDate', label: this.pihText('invoiceHandoffDateColumn'), value: row => row.supplierInvoiceDate, display: row => this.formatDate(row.supplierInvoiceDate), filter: 'date-range' },
+    { key: 'currencyCode', label: this.pihText('invoiceHandoffCurrencyColumn'), value: row => row.currencyCode, filter: 'select' },
+    { key: 'totalHandoffQuantity', label: this.pihText('invoiceHandoffQtyColumn'), value: row => row.totalHandoffQuantity, display: row => this.formatQuantity(row.totalHandoffQuantity), filter: 'number-range', align: 'end' },
+    { key: 'totalHandoffAmount', label: this.pihText('invoiceHandoffAmountColumn'), value: row => row.totalHandoffAmount, display: row => this.formatMoney(row.totalHandoffAmount, row.currencyCode), cellTemplate: amountCell, filter: 'number-range', align: 'end' },
+    { key: 'updatedAt', label: this.pihText('invoiceHandoffUpdatedColumn'), value: row => row.updatedAt, display: row => this.formatDateTime(row.updatedAt), filter: 'date-range' },
+    ];
+  }
+  createLineColumns(amountCell: DataGridColumn<CreateHandoffLineDraft>['cellTemplate']): DataGridColumn<CreateHandoffLineDraft>[] {
+    return [
+    { key: 'productSku', label: this.pihText('invoiceHandoffProductColumn'), value: row => row.productSku, secondaryText: row => `${row.productName} · ${row.unitOfMeasureCode} · GR ${row.goodsReceiptId.substring(0, 8)}`, filter: 'text' },
+    { key: 'receivedDate', label: this.pihText('receiptDate'), value: row => row.receivedDate, display: row => this.formatDate(row.receivedDate), filter: 'date-range' },
+    { key: 'acceptedQuantity', label: this.pihText('acceptedQty'), value: row => row.acceptedQuantity, display: row => this.formatQuantity(row.acceptedQuantity), filter: 'number-range', align: 'end' },
+    { key: 'alreadyHandedOffQuantity', label: this.pihText('alreadyHandedOff'), value: row => row.alreadyHandedOffQuantity, display: row => this.formatQuantity(row.alreadyHandedOffQuantity), filter: 'number-range', align: 'end' },
+    { key: 'remainingHandoffQuantity', label: this.pihText('remainingHandoffQty'), value: row => row.remainingHandoffQuantity, display: row => this.formatQuantity(row.remainingHandoffQuantity), filter: 'number-range', align: 'end' },
+    { key: 'unitPrice', label: this.pihText('unitPrice'), value: row => row.unitPrice, display: row => this.formatMoney(row.unitPrice, this.selectedCurrencyCode()), cellTemplate: amountCell, filter: 'number-range', align: 'end' },
+    { key: 'taxRatePercentage', label: this.pihText('taxRate'), value: row => row.taxRatePercentage, display: row => row.taxRatePercentage !== null ? `${row.taxRatePercentage}%` : '—', filter: 'number-range', align: 'end' },
+    { key: 'handoffQuantity', label: this.pihText('handoffQty'), value: row => row.handoffQuantity, display: row => this.formatQuantity(row.handoffQuantity), filter: 'number-range', align: 'end' },
+    { key: 'lineTotal', label: this.pihText('lineTotal'), value: row => this.calculateLineTotal(row), display: row => this.formatMoney(this.calculateLineTotal(row), this.selectedCurrencyCode()), cellTemplate: amountCell, filter: 'number-range', align: 'end' },
+    ];
+  }
+  get sourceColumns(): DataGridColumn<PurchaseInvoiceHandoffSourceResponse>[] {
+    return [
+    { key: 'goodsReceiptId', label: this.pihText('goodsReceiptId'), value: row => row.goodsReceiptId, filter: 'text' },
+    { key: 'goodsReceiptLineId', label: this.pihText('goodsReceiptLineId'), value: row => row.goodsReceiptLineId, filter: 'text' },
+    { key: 'purchaseOrderLineId', label: this.pihText('purchaseOrderLineId'), value: row => row.purchaseOrderLineId, filter: 'text' },
+    { key: 'quantity', label: this.pihText('handedOffQuantity'), value: row => row.quantity, display: row => this.formatQuantity(row.quantity), filter: 'number-range', align: 'end' },
+    ];
+  }
+
+  detailLineColumns(currencyCode: string, amountCell: DataGridColumn<PurchaseInvoiceHandoffLineResponse>['cellTemplate']): DataGridColumn<PurchaseInvoiceHandoffLineResponse>[] {
+    return [
+      { key: 'productSku', label: this.pihText('invoiceHandoffProductColumn'), value: row => row.productSku, secondaryText: row => `${row.productName} · ${row.unitOfMeasureCode}`, filter: 'text' },
+      { key: 'handoffQuantity', label: this.pihText('handoffQty'), value: row => row.handoffQuantity, display: row => this.formatQuantity(row.handoffQuantity), filter: 'number-range', align: 'end' },
+      { key: 'unitPrice', label: this.pihText('unitPrice'), value: row => row.unitPrice, display: row => this.formatMoney(row.unitPrice, currencyCode), cellTemplate: amountCell, filter: 'number-range', align: 'end' },
+      { key: 'taxRatePercentage', label: this.pihText('taxRate'), value: row => row.taxRatePercentage, display: row => row.taxRatePercentage !== null ? `${row.taxRatePercentage}%` : '—', filter: 'number-range', align: 'end' },
+      { key: 'taxAmount', label: this.pihText('taxAmount'), value: row => row.taxAmount, display: row => row.taxAmount !== null ? this.formatMoney(row.taxAmount, currencyCode) : '—', cellTemplate: amountCell, filter: 'number-range', align: 'end' },
+      { key: 'lineAmount', label: this.pihText('lineTotal'), value: row => row.lineAmount, display: row => this.formatMoney(row.lineAmount, currencyCode), cellTemplate: amountCell, filter: 'number-range', align: 'end' },
+    ];
+  }
+
+  gridScopeLabel(): string {
+    return this.language.language() === 'ar' ? 'تطبق تصفية الشبكة وترتيبها على الإحالات المحملة فقط' : 'Grid filters and sorting apply to loaded handoffs only';
+  }
 
   readonly selectedCurrencyCode = computed(() => {
     const source = this.eligibleSources().find(s => s.purchaseOrderId === this.selectedSourceId());

@@ -1,11 +1,14 @@
+import { PageHeaderComponent } from '../../shared/ui/page-header.component';
+import { DataGridColumn, DataGridComponent } from '../../shared/ui/data-grid.component';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { CurrencyAmountComponent } from '../../shared/ui/currency-amount.component';
 import { firstValueFrom } from 'rxjs';
 import { SafeUiError, toSafeUiError } from '../../core/api/safe-error';
 import { LanguageService, TranslationKey } from '../../core/i18n/language.service';
+import { CurrencyPresentationService } from '../../core/presentation/currency-presentation.service';
+import { CurrencyAmountComponent } from '../../shared/ui/currency-amount.component';
 import { MasterDataService } from '../master-data/master-data.service';
 import { CurrencyRecord, MasterDataRecord, PaymentTermRecord, SupplierRecord, TaxRecord } from '../master-data/master-data.models';
 import { PurchaseRequestLineResponse, PurchaseRequestListItemResponse, PurchaseRequestOrganizationScopeResponse, PurchaseRequestResponse } from './purchase-request.model';
@@ -84,18 +87,26 @@ interface QuotationDraft {
 @Component({
   selector: 'app-supplier-quotation-workspace',
   standalone: true,
-  imports: [FormsModule, RouterLink, CurrencyAmountComponent],
+  imports: [PageHeaderComponent, DataGridComponent, FormsModule, RouterLink, CurrencyAmountComponent],
   template: `
+    <ng-template #quotationAmountCell let-row>
+      <app-currency-amount [amount]="row.commercialTotal" [currencyCode]="row.currency.code" [locale]="language.language()" />
+    </ng-template>
+    <ng-template #quotationLineAmountCell let-line>
+      <app-currency-amount [amount]="line.unitPrice" [currencyCode]="detail()?.currency?.code ?? ''" [locale]="language.language()" />
+    </ng-template>
     @if (mode() === 'list') {
       <section class="ui-page quotation-page" data-testid="supplier-quotation-list">
-        <header class="ui-page-header ui-page-header--compact quotation-header">
-          <div>
+        <app-page-header class="page-header">
+          <div page-header-copy>
             <p class="eyebrow">{{ language.text('supplierQuotationListKicker') }}</p>
             <h1>{{ language.text('supplierQuotations') }}</h1>
             <p class="lede">{{ language.text('supplierQuotationsLead') }}</p>
           </div>
+          <div page-header-actions>
           <a class="button button--primary" routerLink="/app/procurement/supplier-quotations/new" data-testid="new-supplier-quotation">＋ {{ language.text('newSupplierQuotation') }}</a>
-        </header>
+          </div>
+        </app-page-header>
         <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ language.text('supplierQuotationBoundary') }}</span></div>
 
         @if (loading()) {
@@ -113,28 +124,17 @@ interface QuotationDraft {
             @if (filteredRecords().length === 0) {
               <div class="empty-ledger"><span aria-hidden="true">◌</span><h2>{{ language.text('supplierQuotationNoRecords') }}</h2><p>{{ language.text('supplierQuotationNoRecordsLead') }}</p></div>
             } @else {
-              <div class="ui-grid-shell quotation-grid-shell">
-                <table class="ui-grid quotation-grid">
-                  <caption class="sr-only">{{ language.text('supplierQuotations') }}</caption>
-                  <thead><tr><th>{{ language.text('supplierQuotationReferenceColumn') }}</th><th>{{ language.text('supplierQuotationSupplierColumn') }}</th><th>{{ language.text('supplierQuotationPurchaseRequestColumn') }}</th><th>{{ language.text('supplierQuotationOrganizationColumn') }}</th><th>{{ language.text('supplierQuotationCurrencyColumn') }}</th><th class="numeric">{{ language.text('supplierQuotationAmountColumn') }}</th><th>{{ language.text('supplierQuotationCoverageColumn') }}</th><th>{{ language.text('supplierQuotationStatusColumn') }}</th><th>{{ language.text('supplierQuotationOfferDateColumn') }}</th><th>{{ language.text('supplierQuotationEvidenceColumn') }}</th><th>{{ language.text('supplierQuotationSelectedColumn') }}</th><th>{{ language.text('supplierQuotationActionsColumn') }}</th></tr></thead>
-                  <tbody>
-                    @for (row of filteredRecords(); track row.id) {
-                      <tr [class.is-selected]="row.isSelected">
-                        <td><a class="record-link" [routerLink]="detailLink(row.id)">{{ row.supplierQuotationReference || language.text('supplierQuotationUntitled') }}</a><small class="mono-ref">{{ formatReference(row.id, 'SQ') }}</small></td>
-                        <td><strong>{{ row.supplier.code }}</strong><small>{{ row.supplier.name }}</small></td><td class="mono-ref">{{ row.purchaseRequestReference }}</td><td>{{ row.organization }}</td><td><span class="currency-badge">{{ row.currency.code }}</span></td><td class="numeric money"><app-currency-amount [amount]="row.commercialTotal" [currencyCode]="row.currency.code" [locale]="language.language()" /></td><td class="numeric">{{ row.coveredLineCount }}/{{ row.requestedLineCount }}</td><td><span class="status-badge" [class]="statusClass(row.status)"><span aria-hidden="true"></span>{{ statusLabel(row.status) }}</span></td><td class="numeric">{{ formatDate(row.offerDate) }}</td><td class="centered">{{ row.hasEvidence ? '✓' : '—' }}</td><td class="centered">{{ row.isSelected ? '●' : '—' }}</td>
-                        <td class="row-actions"><a class="button button--quiet" [routerLink]="detailLink(row.id)">{{ language.text('supplierQuotationDetail') }}</a>@if (row.status === 'Draft') {<a class="button button--quiet" [routerLink]="editLink(row.id)">{{ language.text('supplierQuotationEdit') }}</a>}</td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
+              <app-data-grid [caption]="language.text('supplierQuotations')" [rows]="filteredRecords()" [columns]="gridColumns(quotationAmountCell)" [language]="language.language()" [pageSize]="filteredRecords().length || 1" [showPager]="false" [rowActions]="gridActions()" [countLabel]="language.text('recordCount')" [rowActionsLabel]="language.text('supplierQuotationActionsColumn')" (rowAction)="onGridAction($event)" />
             }
           </section>
         }
       </section>
     } @else if (mode() === 'create' || mode() === 'edit') {
       <section class="ui-page quotation-page" data-testid="supplier-quotation-form">
-        <header class="ui-page-header ui-page-header--compact quotation-header"><div><p class="eyebrow">{{ language.text('supplierQuotationListKicker') }}</p><h1>{{ mode() === 'create' ? language.text('newSupplierQuotation') : language.text('supplierQuotationDetail') }}</h1><p class="lede">{{ mode() === 'create' ? language.text('supplierQuotationCreateLead') : language.text('supplierQuotationEditLead') }}</p></div><a class="button button--secondary" routerLink="/app/procurement/supplier-quotations">{{ language.text('supplierQuotationBack') }}</a></header>
+        <app-page-header class="page-header"><div page-header-copy><p class="eyebrow">{{ language.text('supplierQuotationListKicker') }}</p><h1>{{ mode() === 'create' ? language.text('newSupplierQuotation') : language.text('supplierQuotationDetail') }}</h1><p class="lede">{{ mode() === 'create' ? language.text('supplierQuotationCreateLead') : language.text('supplierQuotationEditLead') }}</p></div>
+          <div page-header-actions><a class="button button--secondary" routerLink="/app/procurement/supplier-quotations">{{ language.text('supplierQuotationBack') }}</a>
+          </div>
+        </app-page-header>
         @if (formLoading()) {
           <section class="ui-surface state-card"><span class="spinner" aria-hidden="true"></span><h2>{{ language.text('loadingSupplierQuotations') }}</h2></section>
         } @else if (formErrorState(); as error) {
@@ -157,7 +157,10 @@ interface QuotationDraft {
         <section class="ui-page quotation-page"><section class="ui-surface state-card state-card--error" role="alert"><strong>{{ language.text('supplierQuotationDetail') }}</strong><p>{{ errorText(error) }}</p><button class="button button--secondary" type="button" (click)="reloadDetail()">{{ language.text('retry') }}</button></section></section>
       } @else if (detail(); as quotation) {
         <section class="ui-page quotation-page" data-testid="supplier-quotation-detail">
-          <header class="ui-page-header ui-page-header--compact quotation-header"><div><p class="eyebrow">{{ language.text('supplierQuotationListKicker') }} · {{ formatReference(quotation.id, 'SQ') }}</p><div class="detail-title"><h1>{{ quotation.supplierQuotationReference || language.text('supplierQuotationUntitled') }}</h1><span class="status-badge" [class]="statusClass(quotation.status)"><span aria-hidden="true"></span>{{ statusLabel(quotation.status) }}</span></div><p class="lede">{{ quotation.supplier.name }} · {{ formatReference(quotation.purchaseRequestId, 'PR') }} · {{ quotation.currency.code }}</p></div><div class="header-actions"><a class="button button--secondary" routerLink="/app/procurement/supplier-quotations">{{ language.text('supplierQuotationBack') }}</a>@if (quotation.canEdit) {<a class="button button--secondary" [routerLink]="editLink(quotation.id)">{{ language.text('supplierQuotationEdit') }}</a>}@if (quotation.canSubmit) {<button class="button button--primary" type="button" (click)="openAction('submit')">{{ language.text('supplierQuotationSubmit') }}</button>}@if (quotation.canWithdraw) {<button class="button button--secondary" type="button" (click)="openAction('withdraw')">{{ language.text('supplierQuotationWithdraw') }}</button>}@if (quotation.canDisqualify) {<button class="button button--danger" type="button" (click)="openAction('disqualify')">{{ language.text('supplierQuotationDisqualify') }}</button>}</div></header>
+          <app-page-header class="page-header"><div page-header-copy><p class="eyebrow">{{ language.text('supplierQuotationListKicker') }} · {{ formatReference(quotation.id, 'SQ') }}</p><div class="detail-title"><h1>{{ quotation.supplierQuotationReference || language.text('supplierQuotationUntitled') }}</h1><span class="status-badge" [class]="statusClass(quotation.status)"><span aria-hidden="true"></span>{{ statusLabel(quotation.status) }}</span></div><p class="lede">{{ quotation.supplier.name }} · {{ formatReference(quotation.purchaseRequestId, 'PR') }} · {{ quotation.currency.code }}</p></div>
+          <div page-header-actions><div class="header-actions"><a class="button button--secondary" routerLink="/app/procurement/supplier-quotations">{{ language.text('supplierQuotationBack') }}</a>@if (quotation.canEdit) {<a class="button button--secondary" [routerLink]="editLink(quotation.id)">{{ language.text('supplierQuotationEdit') }}</a>}@if (quotation.canSubmit) {<button class="button button--primary" type="button" (click)="openAction('submit')">{{ language.text('supplierQuotationSubmit') }}</button>}@if (quotation.canWithdraw) {<button class="button button--secondary" type="button" (click)="openAction('withdraw')">{{ language.text('supplierQuotationWithdraw') }}</button>}@if (quotation.canDisqualify) {<button class="button button--danger" type="button" (click)="openAction('disqualify')">{{ language.text('supplierQuotationDisqualify') }}</button>}</div>
+          </div>
+        </app-page-header>
           <div class="boundary-note" role="note"><span aria-hidden="true">◇</span><span>{{ language.text('supplierQuotationBoundary') }}</span></div>
           @if (mutationError(); as error) {<div class="inline-alert inline-alert--error" role="alert">{{ errorText(error) }} @if (error.code === 'concurrency_conflict') {<button class="button button--quiet" type="button" (click)="reloadDetail()">{{ language.text('reloadLatestVersion') }}</button>}</div>}@if (successNotice()) {<div class="inline-alert inline-alert--success" role="status">{{ successNotice() }}</div>}
           <nav class="detail-tabs" role="tablist" [attr.aria-label]="language.text('supplierQuotationDetail')">@for (tab of detailTabs; track tab.key) {<button type="button" role="tab" [attr.aria-selected]="activeTab() === tab.key" [class.is-active]="activeTab() === tab.key" (click)="setTab(tab.key)">{{ language.text(tab.label) }}</button>}</nav>
@@ -166,7 +169,7 @@ interface QuotationDraft {
             <section class="detail-layout" role="tabpanel"><section class="ui-surface detail-card detail-card--accent"><p class="section-kicker">{{ language.text('supplierQuotationCurrentSelection') }}</p><h2>{{ quotation.isSelected ? language.text('supplierQuotationCurrentBadge') : language.text('supplierQuotationNoCurrentSelection') }}</h2><p>{{ quotation.isSelected ? language.text('supplierQuotationDecisionLead') : language.text('supplierQuotationNoCurrentSelection') }}</p></section><section class="ui-surface detail-card"><p class="section-kicker">{{ language.text('supplierQuotationContextSection') }}</p><h2>{{ language.text('supplierQuotationContextSection') }}</h2><div class="fact-grid"><div><span>{{ language.text('supplierQuotationPurchaseRequestColumn') }}</span><strong class="mono-ref">{{ formatReference(quotation.purchaseRequestId, 'PR') }}</strong></div><div><span>{{ language.text('supplierQuotationOrganizationColumn') }}</span><strong>{{ organizationForRequest(selectedRequest()) }}</strong></div><div><span>{{ language.text('supplierQuotationSupplierColumn') }}</span><strong>{{ quotation.supplier.code }} · {{ quotation.supplier.name }}</strong></div><div><span>{{ language.text('supplierQuotationCurrencyColumn') }}</span><strong>{{ quotation.currency.code }} · {{ quotation.currency.name }}</strong></div><div><span>{{ language.text('supplierQuotationOfferDateColumn') }}</span><strong>{{ formatDate(quotation.offerDate) }}</strong></div><div><span>{{ language.text('supplierQuotationValidUntilField') }}</span><strong>{{ quotation.validUntil ? formatDate(quotation.validUntil) : '—' }}</strong></div></div><p class="detail-copy">{{ selectedRequest()?.purpose || '—' }}</p></section><section class="ui-surface detail-card"><p class="section-kicker">{{ language.text('supplierQuotationServerTotal') }}</p><h2 class="hero-number"><app-currency-amount [amount]="serverTotal(quotation)" [currencyCode]="quotation.currency.code" [locale]="language.language()" /></h2><div class="fact-grid"><div><span>{{ language.text('supplierQuotationCoverageColumn') }}</span><strong>{{ quotation.lines.length }}/{{ quotation.lines.length }}</strong></div><div><span>{{ language.text('supplierQuotationEvidenceColumn') }}</span><strong>{{ quotation.evidence.length }}</strong></div><div><span>{{ language.text('supplierQuotationCreatedAt') }}</span><strong>{{ formatDateTime(quotation.createdAt) }}</strong></div><div><span>{{ language.text('supplierQuotationUpdatedAt') }}</span><strong>{{ formatDateTime(quotation.updatedAt) }}</strong></div></div></section></section>
           }
           @if (activeTab() === 'lines') {
-            <section class="ui-surface detail-card" role="tabpanel"><p class="section-kicker">{{ language.text('supplierQuotationTabsLines') }}</p><h2>{{ language.text('supplierQuotationTabsLines') }}</h2><div class="ui-grid-shell"><table class="ui-grid detail-grid"><thead><tr><th>{{ language.text('supplierQuotationPurchaseRequestColumn') }}</th><th>{{ language.text('supplierQuotationQuotedQuantity') }}</th><th>{{ language.text('supplierQuotationUnitPrice') }}</th><th>{{ language.text('supplierQuotationTax') }}</th><th>{{ language.text('supplierQuotationRequestNeedBy') }}</th><th>{{ language.text('supplierQuotationLineDeliveryDate') }}</th></tr></thead><tbody>@for (line of quotation.lines; track line.id) {<tr><td><strong>{{ line.productSku }} · {{ line.productName }}</strong><small>{{ line.unitOfMeasureCode }} · {{ formatQuantity(line.requestedQuantity) }}</small></td><td class="numeric">{{ formatQuantity(line.quotedQuantity) }}</td><td class="numeric money"><app-currency-amount [amount]="line.unitPrice" [currencyCode]="quotation.currency.code" [locale]="language.language()" /></td><td>{{ line.taxCode || '—' }}<small>{{ line.taxRatePercentage === null ? '—' : formatQuantity(line.taxRatePercentage) + '%' }}</small></td><td class="numeric">{{ formatDate(line.requestedNeedByDate) }}</td><td class="numeric">{{ line.offeredDeliveryDate ? formatDate(line.offeredDeliveryDate) : '—' }}</td></tr>}</tbody></table></div></section>
+            <section class="ui-surface detail-card" role="tabpanel"><p class="section-kicker">{{ language.text('supplierQuotationTabsLines') }}</p><h2>{{ language.text('supplierQuotationTabsLines') }}</h2><app-data-grid [rows]="quotation.lines" [columns]="detailLineColumns(quotation.currency.code, quotationLineAmountCell)" [clientPaging]="false" [showPager]="false" [language]="language.language()" [scopeLabel]="gridScopeLabel()" caption="{{ language.text('supplierQuotationTabsLines') }}" /></section>
           }
           @if (activeTab() === 'commercial') {
             <section class="detail-layout" role="tabpanel"><section class="ui-surface detail-card"><p class="section-kicker">{{ language.text('supplierQuotationTabsCommercial') }}</p><h2>{{ language.text('supplierQuotationTabsCommercial') }}</h2><div class="fact-grid"><div><span>{{ language.text('supplierQuotationPaymentTermField') }}</span><strong>{{ quotation.paymentTerm ? quotation.paymentTerm.code + ' · ' + quotation.paymentTerm.name : '—' }}</strong></div><div><span>{{ language.text('supplierQuotationDeliveryTermsField') }}</span><strong>{{ quotation.deliveryTerms || '—' }}</strong></div><div><span>{{ language.text('supplierQuotationOfferedDeliveryDateField') }}</span><strong>{{ quotation.offeredDeliveryDate ? formatDate(quotation.offeredDeliveryDate) : '—' }}</strong></div><div><span>{{ language.text('supplierQuotationOfferedLeadTimeField') }}</span><strong>{{ quotation.offeredDeliveryLeadTime || '—' }}</strong></div></div><p class="detail-copy">{{ quotation.notes || '—' }}</p></section><section class="ui-surface detail-card"><p class="section-kicker">{{ language.text('supplierQuotationServerTotal') }}</p><h2 class="hero-number"><app-currency-amount [amount]="serverTotal(quotation)" [currencyCode]="quotation.currency.code" [locale]="language.language()" /></h2><p>{{ language.text('supplierQuotationTechnicalHint') }}</p></section></section>
@@ -183,7 +186,8 @@ interface QuotationDraft {
                   @for (group of comparisonValue.currencyGroups; track group.currencyId) {
                     <section class="comparison-group"><header><div><span class="section-kicker">{{ group.currencyCode }}</span><h3>{{ group.supplierQuotationIds.length }} {{ language.text('supplierQuotations') }}</h3></div><span class="comparison-group__state">{{ group.directlyComparableWithinGroup ? language.text('supplierQuotationDirectlyComparable') : language.text('supplierQuotationNotComparable') }}</span></header><div class="comparison-candidates">
                       @for (item of itemsForGroup(group.supplierQuotationIds, comparisonValue); track item.supplierQuotationId) {
-                        <article class="comparison-candidate" [class.is-current]="currentDecisionId() === item.supplierQuotationId"><div class="candidate-heading"><div><strong>{{ item.supplier.name }}</strong><small>{{ item.supplierQuotationReference }} · {{ statusLabel(item.status) }}</small></div>@if (currentDecisionId() === item.supplierQuotationId) {<span class="selection-mark">● {{ language.text('supplierQuotationCurrentBadge') }}</span>}</div><div class="candidate-metrics"><span><small>{{ language.text('supplierQuotationServerTotal') }}</small><b><app-currency-amount [amount]="item.commercialTotal" [currencyCode]="item.currency.code" [locale]="language.language()" /></b></span><span><small>{{ language.text('supplierQuotationCoverageColumn') }}</small><b>{{ item.coveredLineCount }}/{{ item.requestedLineCount }}</b></span><span><small>{{ language.text('supplierQuotationEvidenceColumn') }}</small><b>{{ item.hasEvidence ? '✓' : '—' }}</b></span></div><div class="qualification"><strong>{{ language.text('supplierQuotationQualification') }}</strong>@if (item.qualificationIssues.length === 0) {<span>{{ language.text('supplierQuotationNoQualificationIssues') }}</span>} @else {<ul>@for (issue of item.qualificationIssues; track issue) {<li>{{ issue }}</li>}</ul>}</div><details><summary>{{ language.text('supplierQuotationTabsLines') }}</summary><div class="ui-grid-shell"><table class="ui-grid compact-grid"><thead><tr><th>{{ language.text('supplierQuotationPurchaseRequestColumn') }}</th><th>{{ language.text('supplierQuotationQuotedQuantity') }}</th><th>{{ language.text('supplierQuotationUnitPrice') }}</th></tr></thead><tbody>@for (line of item.lines; track line.purchaseRequestLineId) {<tr><td>{{ line.productSku }} · {{ line.productName }}</td><td class="numeric">{{ line.quotedQuantity === null ? '—' : formatQuantity(line.quotedQuantity) }}</td><td class="numeric">@if (line.unitPrice !== null) { <app-currency-amount [amount]="line.unitPrice" [currencyCode]="item.currency.code" [locale]="language.language()" /> } @else { — }</td></tr>}</tbody></table></div></details></article>
+                        <ng-template #comparisonLineAmountCell let-line>@if (line.unitPrice !== null) {<app-currency-amount [amount]="line.unitPrice" [currencyCode]="item.currency.code" [locale]="language.language()" />} @else { — }</ng-template>
+                        <article class="comparison-candidate" [class.is-current]="currentDecisionId() === item.supplierQuotationId"><div class="candidate-heading"><div><strong>{{ item.supplier.name }}</strong><small>{{ item.supplierQuotationReference }} · {{ statusLabel(item.status) }}</small></div>@if (currentDecisionId() === item.supplierQuotationId) {<span class="selection-mark">● {{ language.text('supplierQuotationCurrentBadge') }}</span>}</div><div class="candidate-metrics"><span><small>{{ language.text('supplierQuotationServerTotal') }}</small><b><app-currency-amount [amount]="item.commercialTotal" [currencyCode]="item.currency.code" [locale]="language.language()" /></b></span><span><small>{{ language.text('supplierQuotationCoverageColumn') }}</small><b>{{ item.coveredLineCount }}/{{ item.requestedLineCount }}</b></span><span><small>{{ language.text('supplierQuotationEvidenceColumn') }}</small><b>{{ item.hasEvidence ? '✓' : '—'}}</b></span></div><div class="qualification"><strong>{{ language.text('supplierQuotationQualification') }}</strong>@if (item.qualificationIssues.length === 0) {<span>{{ language.text('supplierQuotationNoQualificationIssues') }}</span>} @else {<ul>@for (issue of item.qualificationIssues; track issue) {<li>{{ issue }}</li>}</ul>}</div><details><summary>{{ language.text('supplierQuotationTabsLines') }}</summary><app-data-grid [rows]="item.lines" [columns]="comparisonLineColumns(item.currency.code, comparisonLineAmountCell)" [rowIdFor]="comparisonLineId" [clientPaging]="false" [showPager]="false" [language]="language.language()" [scopeLabel]="gridScopeLabel()" caption="{{ language.text('supplierQuotationTabsLines') }}" /></details></article>
                       }
                     </div></section>
                   }
@@ -214,12 +218,10 @@ interface QuotationDraft {
   styles: `
     :host { display: block; }
     .quotation-page { --quotation-soft: color-mix(in srgb, var(--accent-soft) 70%, var(--surface-raised)); }
-    .quotation-header { align-items: center; }
-    .quotation-header .lede { max-width: 52rem; margin-bottom: 0; line-height: 1.55; }
     .button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.4rem; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .82rem; color: var(--ink); background: var(--surface-raised); font-size: .74rem; font-weight: 800; text-decoration: none; cursor: pointer; }
     .button:hover:not(:disabled) { transform: translateY(-1px); }
     .button:disabled { cursor: wait; opacity: .55; }
-    .button--primary { border-color: var(--accent-strong); color: var(--ink-strong); background: var(--accent); }
+    .button--primary { border-color: var(--accent-action); color: var(--action-text); background: var(--accent-action); }
     .button--secondary { border-color: var(--line-strong); }
     .button--quiet { min-height: 1.9rem; border-color: transparent; padding: .3rem .45rem; color: var(--accent-strong); background: transparent; }
     .button--danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }
@@ -380,7 +382,7 @@ interface QuotationDraft {
     .field-error { color: var(--danger); font-size: .7rem; font-weight: 800; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
     @media (max-width: 980px) { .field-grid, .field-grid--context { grid-template-columns: repeat(2, minmax(0, 1fr)); } .line-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); } .detail-layout, .decision-rail { grid-template-columns: 1fr; } .decision-current { border-inline-start: 0; border-block-start: 1px solid var(--line-strong); padding-block-start: .7rem; padding-inline-start: 0; } .decision-history { grid-column: auto; } }
-    @media (max-width: 620px) { .quotation-header, .section-heading { align-items: flex-start; flex-direction: column; } .field-grid, .field-grid--context, .line-inputs, .fact-grid, .technical-list { grid-template-columns: 1fr; } .field--wide { grid-column: auto; } .form-actions, .header-actions { justify-content: stretch; } .form-actions .button, .header-actions .button { flex: 1 1 100%; } .evidence-read-list article, .audit-list article { grid-template-columns: 1fr; gap: .35rem; } .candidate-metrics { flex-wrap: wrap; } .candidate-metrics span { flex: 1 1 40%; } .decision-history li { grid-template-columns: 1fr; } }
+    @media (max-width: 620px) { .section-heading { align-items: flex-start; flex-direction: column; } .field-grid, .field-grid--context, .line-inputs, .fact-grid, .technical-list { grid-template-columns: 1fr; } .field--wide { grid-column: auto; } .form-actions, .header-actions { justify-content: stretch; } .form-actions .button, .header-actions .button { flex: 1 1 100%; } .evidence-read-list article, .audit-list article { grid-template-columns: 1fr; gap: .35rem; } .candidate-metrics { flex-wrap: wrap; } .candidate-metrics span { flex: 1 1 40%; } .decision-history li { grid-template-columns: 1fr; } }
     @media (prefers-reduced-motion: reduce) { .button, .spinner { animation: none; transition: none; } }
   `,
 })
@@ -392,6 +394,7 @@ export class SupplierQuotationWorkspaceComponent implements OnInit {
   private readonly quotations = inject(SupplierQuotationService);
   private readonly purchaseRequests = inject(PurchaseRequestService);
   private readonly masterData = inject(MasterDataService);
+  private readonly currencyPresentation = inject(CurrencyPresentationService);
 
   readonly mode = signal<WorkspaceMode>('list');
   readonly loading = signal(false);
@@ -405,6 +408,46 @@ export class SupplierQuotationWorkspaceComponent implements OnInit {
     return this.records().filter((row) => (!this.statusFilter() || row.status === this.statusFilter()) && (!this.currencyFilter() || row.currency.code === this.currencyFilter()) && (!query || [row.supplierQuotationReference, row.supplier.code, row.supplier.name, row.purchaseRequestReference, row.organization].some((value) => value.toLocaleLowerCase().includes(query))));
   });
   readonly listCurrencies = computed(() => [...new Set(this.records().map((row) => row.currency.code))].sort());
+
+  gridColumns(amountCell: DataGridColumn<QuotationListRow>['cellTemplate']): DataGridColumn<QuotationListRow>[] { return [
+    { key: 'reference', label: this.language.text('supplierQuotationReferenceColumn'), value: (row) => row.supplierQuotationReference || this.language.text('supplierQuotationUntitled'), secondaryText: (row) => this.formatReference(row.id, 'SQ'), link: (row) => this.detailLink(row.id).join('/'), filter: 'text' },
+    { key: 'supplier', label: this.language.text('supplierQuotationSupplierColumn'), value: (row) => row.supplier.code, secondaryText: (row) => row.supplier.name, filter: 'text' },
+    { key: 'request', label: this.language.text('supplierQuotationPurchaseRequestColumn'), value: (row) => row.purchaseRequestReference, filter: 'text' },
+    { key: 'organization', label: this.language.text('supplierQuotationOrganizationColumn'), value: (row) => row.organization, filter: 'text' },
+    { key: 'currency', label: this.language.text('supplierQuotationCurrencyColumn'), value: (row) => row.currency.code, filter: 'text' },
+    { key: 'amount', label: this.language.text('supplierQuotationAmountColumn'), value: (row) => row.commercialTotal, display: (row) => this.formatMoneyValue(row.commercialTotal, row.currency.code), currencySymbol: (row) => this.currencySymbol(row.currency.code), cellTemplate: amountCell, filter: 'number-range', align: 'end' },
+    { key: 'coverage', label: this.language.text('supplierQuotationCoverageColumn'), value: (row) => `${row.coveredLineCount}/${row.requestedLineCount}`, filter: 'text', align: 'end' },
+    { key: 'status', label: this.language.text('supplierQuotationStatusColumn'), value: (row) => row.status, display: (row) => this.statusLabel(row.status), badge: true, filter: 'select', filterOptions: ['Draft', 'Submitted', 'Withdrawn', 'Disqualified', 'Superseded'].map((status) => ({ value: status, label: this.statusLabel(status as SupplierQuotationStatus) })) },
+    { key: 'offerDate', label: this.language.text('supplierQuotationOfferDateColumn'), value: (row) => row.offerDate, display: (row) => this.formatDate(row.offerDate), filter: 'date-range' },
+    { key: 'evidence', label: this.language.text('supplierQuotationEvidenceColumn'), value: (row) => row.hasEvidence ? 'Yes' : 'No', filter: 'select', filterOptions: [{ value: 'Yes', label: this.language.language() === 'ar' ? 'نعم' : 'Yes' }, { value: 'No', label: this.language.language() === 'ar' ? 'لا' : 'No' }] },
+    { key: 'selected', label: this.language.text('supplierQuotationSelectedColumn'), value: (row) => row.isSelected ? 'Selected' : 'Not selected', filter: 'select', filterOptions: [{ value: 'Selected', label: this.language.text('supplierQuotationCurrentBadge') }, { value: 'Not selected', label: this.language.language() === 'ar' ? 'غير محدد' : 'Not selected' }] },
+  ]; }
+
+  detailLineColumns(currencyCode: string, currencyCell: DataGridColumn<SupplierQuotationResponse['lines'][number]>['cellTemplate']): DataGridColumn<SupplierQuotationResponse['lines'][number]>[] { return [
+    { key: 'productSku', label: this.language.text('supplierQuotationPurchaseRequestColumn'), value: line => line.productSku, secondaryText: line => `${line.productName} · ${line.unitOfMeasureCode} · ${this.formatQuantity(line.requestedQuantity)}`, filter: 'text' },
+    { key: 'quotedQuantity', label: this.language.text('supplierQuotationQuotedQuantity'), value: line => line.quotedQuantity, display: line => this.formatQuantity(line.quotedQuantity), filter: 'number-range', align: 'end' },
+    { key: 'unitPrice', label: this.language.text('supplierQuotationUnitPrice'), value: line => line.unitPrice, display: line => this.formatMoneyValue(line.unitPrice, currencyCode), currencySymbol: () => this.currencySymbol(currencyCode), cellTemplate: currencyCell, filter: 'number-range', align: 'end' },
+    { key: 'taxCode', label: this.language.text('supplierQuotationTax'), value: line => line.taxCode, display: line => `${line.taxCode || '—'} · ${line.taxRatePercentage === null ? '—' : this.formatQuantity(line.taxRatePercentage) + '%'}`, filter: 'text' },
+    { key: 'requestedNeedByDate', label: this.language.text('supplierQuotationRequestNeedBy'), value: line => line.requestedNeedByDate, display: line => this.formatDate(line.requestedNeedByDate), filter: 'date-range' },
+    { key: 'offeredDeliveryDate', label: this.language.text('supplierQuotationLineDeliveryDate'), value: line => line.offeredDeliveryDate, display: line => line.offeredDeliveryDate ? this.formatDate(line.offeredDeliveryDate) : '—', filter: 'date-range' },
+  ]; }
+
+  comparisonLineColumns(currencyCode: string, currencyCell: DataGridColumn<SupplierQuotationComparisonItemResponse['lines'][number]>['cellTemplate']): DataGridColumn<SupplierQuotationComparisonItemResponse['lines'][number]>[] { return [
+    { key: 'productSku', label: this.language.text('supplierQuotationPurchaseRequestColumn'), value: line => line.productSku, secondaryText: line => line.productName, filter: 'text' },
+    { key: 'quotedQuantity', label: this.language.text('supplierQuotationQuotedQuantity'), value: line => line.quotedQuantity, display: line => line.quotedQuantity === null ? '—' : this.formatQuantity(line.quotedQuantity), filter: 'number-range', align: 'end' },
+    { key: 'unitPrice', label: this.language.text('supplierQuotationUnitPrice'), value: line => line.unitPrice, display: line => line.unitPrice === null ? '—' : this.formatMoneyValue(line.unitPrice, currencyCode), currencySymbol: line => line.unitPrice === null ? { url: null, text: '' } : this.currencySymbol(currencyCode), cellTemplate: currencyCell, filter: 'number-range', align: 'end' },
+  ]; }
+
+  comparisonLineId(line: SupplierQuotationComparisonItemResponse['lines'][number]): string { return line.purchaseRequestLineId; }
+  gridScopeLabel(): string { return this.language.language() === 'ar' ? 'تُطبّق التصفية والترتيب على البنود المحمّلة فقط.' : 'Filtering and sorting apply only to the loaded lines.'; }
+
+  gridActions(): readonly { key: string; label: string; visible?: (row: QuotationListRow) => boolean }[] { return [
+    { key: 'view', label: this.language.text('supplierQuotationDetail') },
+    { key: 'edit', label: this.language.text('supplierQuotationEdit'), visible: (row) => row.status === 'Draft' },
+  ]; }
+  onGridAction(event: { action: string; row: QuotationListRow }): void {
+    void this.router.navigate(event.action === 'edit' ? this.editLink(event.row.id) : this.detailLink(event.row.id));
+  }
 
   readonly formLoading = signal(false);
   readonly formErrorState = signal<SafeUiError | null>(null);
@@ -601,6 +644,15 @@ export class SupplierQuotationWorkspaceComponent implements OnInit {
       minimumFractionDigits: 2,
     }).format(value);
     return safeCurrency ? `${formatted} ${safeCurrency}` : formatted;
+  }
+  private formatMoneyValue(value: number, currencyCode: string): string {
+    return this.currencyPresentation.formatMoneyParts(value, currencyCode, this.language.language() === 'ar' ? 'ar-SA' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .filter(part => part.type !== 'currency')
+      .map(part => part.value)
+      .join('');
+  }
+  private currencySymbol(currencyCode: string): { url: string | null; text: string } {
+    return { url: this.currencyPresentation.symbolAssetUrl(currencyCode), text: this.currencyPresentation.symbolText(currencyCode) };
   }
   formatQuantity(value: number): string { return new Intl.NumberFormat(this.language.language(), { maximumFractionDigits: 3 }).format(value); }
   numberValue(event: Event): number { const value = Number((event.target as HTMLInputElement).value); return Number.isFinite(value) ? value : 0; }

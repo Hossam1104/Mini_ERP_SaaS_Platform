@@ -91,7 +91,9 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('.module-card').first().locator('strong')).toHaveText('Master Data');
 
     const sidebar = page.locator('#app-sidebar');
-    await expect(sidebar.locator('.nav-link').first()).toHaveAttribute('title', 'Overview');
+    const overviewTile = sidebar.getByRole('button', { name: 'Overview' });
+    await expect(overviewTile).toHaveClass(/is-active/);
+    await expect(overviewTile).toHaveAttribute('aria-current', 'page');
     await page.getByRole('button', { name: 'Expand navigation' }).click();
     await expect(sidebar).toHaveClass(/sidebar--expanded/);
     await expect(sidebar.locator('.nav-group__title').first()).toBeVisible();
@@ -137,6 +139,26 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   });
 
+  test('keeps the Overview link visible and clickable below the header in expanded navigation', async ({ page }) => {
+    await page.goto('/app/procurement/purchase-orders');
+    const sidebar = page.locator('#app-sidebar');
+    await page.getByRole('button', { name: 'Expand navigation' }).click();
+
+    const overviewLink = sidebar.getByRole('link', { name: 'Overview' });
+    await expect(overviewLink).toBeVisible();
+    const [headerBox, overviewBox] = await Promise.all([
+      page.locator('.topbar').boundingBox(),
+      overviewLink.boundingBox(),
+    ]);
+    expect(headerBox).not.toBeNull();
+    expect(overviewBox).not.toBeNull();
+    expect(overviewBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height);
+
+    await overviewLink.click();
+    await expect(page).toHaveURL(/\/app$/);
+    await expect(page.locator('#tenant-overview-title')).toBeVisible();
+  });
+
   test('uses the Tenant branding theme when there is no saved user choice', async ({ page }) => {
     await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: entryResponse('forest') }));
     await page.goto('/app');
@@ -176,7 +198,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await page.getByRole('link', { name: 'QT-001' }).click();
     await expect(page).toHaveURL(/purchase-orders\/po-1$/);
     await page.getByRole('tab').nth(1).click();
-    const sarDetailSymbol = page.locator('.detail-grid [role=\"img\"]');
+    const sarDetailSymbol = page.locator('app-data-grid [role=\"img\"]');
     await assertMaskedSymbol(sarDetailSymbol);
     await page.locator('.scheme-toggle').click();
     await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'light');
@@ -283,7 +305,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('.filter-search input')).toHaveAttribute('aria-label', 'Search supplier or quotation reference');
     await expect(page.locator('.filter-search input')).toHaveCSS('height', '44px');
     await expect(page.locator('.filter-search input')).toHaveCSS('border-top-width', '1px');
-    await expect(grid.locator('.data-grid-total')).toContainText('8');
+    await expect(grid.locator('.pager-summary')).toHaveText('1–7 / 8');
     await expect(grid.locator('.data-grid-pager')).toBeVisible();
     await expect(grid.locator('.data-grid-badge--issued').first()).toHaveText('Issued');
     await expect(grid.locator('.data-grid-money').first()).toContainText('SAR');

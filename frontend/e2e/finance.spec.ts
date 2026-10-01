@@ -196,7 +196,9 @@ test('AP workspace executes the bounded source-ready recognition journey', async
 
   const payable = page.locator('[data-testid="finance-settlement-workspace"]');
   await expect(payable.locator('[data-testid="ap-source-ready"]')).toContainText('PI-READY-1');
-  await payable.getByRole('button', { name: 'Recognize payable' }).click();
+  const sourceReadyGrid = payable.locator('[data-testid="ap-source-ready"] app-data-grid');
+  await sourceReadyGrid.locator('.grid-row-menu-trigger').click();
+  await sourceReadyGrid.getByRole('menuitem', { name: 'Recognize payable', exact: true }).click();
   await expect(payable).toContainText('PI-READY-1');
 });
 
@@ -253,9 +255,11 @@ test('Tax workspace previews, posts, and reverses with source and reason evidenc
   await workspace.locator('input[name="base"]').fill('1000');
   await workspace.getByRole('button', { name: 'Calculate preview' }).click();
   await expect(workspace).toContainText('40 USD');
-  await workspace.getByRole('button', { name: 'Post' }).click();
+  await workspace.getByRole('button', { name: 'Post', exact: true }).click();
   await workspace.locator('input[name="taxReverseReason"]').fill('Corrected declared tax evidence');
-  await workspace.getByRole('button', { name: 'Reverse' }).click();
+  const taxEffectsGrid = workspace.locator('app-data-grid').last();
+  await taxEffectsGrid.locator('.grid-row-menu-trigger').click();
+  await taxEffectsGrid.getByRole('menuitem', { name: 'Reverse', exact: true }).click();
   await expect.poll(() => requests.taxPreview).toMatchObject({ companyId: 'company-a', openItemId: 'open-item-a', taxId: 'tax-a', taxableBase: 1000, sourceLineage: 'finance-tax-workspace' });
   expect(requests.taxPost).toMatchObject({ companyId: 'company-a', openItemId: 'open-item-a', taxId: 'tax-a', taxableBase: 1000, sourceLineage: 'finance-tax-workspace' });
   expect(requests.taxReverse).toEqual({ reason: 'Corrected declared tax evidence' });
@@ -285,10 +289,10 @@ test('Revaluation workspace runs the controlled draft, calculate, post, and reve
   await expect.poll(() => requests.revaluationCreate).toEqual({ companyId: 'company-a', asOfDate: '2026-08-25', scope: 'AP_AR_AND_UNALLOCATED_SETTLEMENTS' });
   await workspace.getByRole('button', { name: 'Calculate' }).click();
   await expect.poll(() => requests.revaluationCalculate).toEqual({});
-  await workspace.getByRole('button', { name: 'Post' }).click();
+  await workspace.getByRole('button', { name: 'Post', exact: true }).click();
   await expect.poll(() => requests.revaluationPost).toEqual({});
   await workspace.locator('input[name="revaluationReverseReason"]').fill('Re-run after source correction');
-  await workspace.getByRole('button', { name: 'Reverse' }).click();
+  await workspace.getByRole('button', { name: 'Reverse', exact: true }).click();
   await expect.poll(() => requests.revaluationReverse).toEqual({ reason: 'Re-run after source correction' });
 });
 

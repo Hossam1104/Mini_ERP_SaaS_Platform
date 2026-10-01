@@ -72,6 +72,27 @@ describe('DataGridComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.pager-controls span')?.textContent).toContain('1 / 1');
   });
 
+  it('renders every client-paged row when the pager is hidden', () => {
+    const manyRows = Array.from({ length: 12 }, (_, index) => ({ ...rows[0], id: `po-${index + 1}`, name: `Row ${index + 1}` }));
+    fixture.componentRef.setInput('rows', manyRows);
+    fixture.detectChanges();
+    expect(grid.pageRows()).toHaveLength(7);
+
+    fixture.componentRef.setInput('showPager', false);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(grid.pageRows()).toHaveLength(12);
+    expect(element.querySelectorAll('tbody tr')).toHaveLength(12);
+    expect(element.querySelector('.data-grid-pager')).toBeNull();
+  });
+
+  it('does not render an unhandled default View action', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.grid-row-menu-trigger')).toBeNull();
+    expect(element.querySelector('th.action-cell')).toBeNull();
+  });
+
   it('resizes with mouse and keyboard within the configured bounds', () => {
     grid.startResize(new MouseEvent('mousedown', { clientX: 100 }), columns[0]);
     grid.resizeWithMouse(new MouseEvent('mousemove', { clientX: 150 }));
