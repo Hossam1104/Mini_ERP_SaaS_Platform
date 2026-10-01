@@ -65,4 +65,13 @@ describe('WorkspaceHomeComponent', () => {
       expect(image?.getAttribute('alt')).toBe('');
     }
   });
+
+  it('matches the card code and description in Overview search', () => {
+    const fixture: ComponentFixture<WorkspaceHomeComponent> = TestBed.createComponent(WorkspaceHomeComponent);
+    const home = fixture.componentInstance;
+    home.searchQuery.set('journals');
+    expect(home.visibleModules().map((module) => module.code)).toContain('FIN');
+    home.searchQuery.set('sq');
+    expect(home.visibleModules().map((module) => module.code)).toContain('SQ');
+  });
 });

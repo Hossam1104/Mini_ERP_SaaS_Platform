@@ -232,7 +232,7 @@ export class WorkspaceHomeComponent implements OnInit {
     const group = this.selectedGroup();
     return this.moduleDestinations.filter((module) =>
       (group === 'all' || module.groupId === group)
-      && (!query || `${module.labelEn} ${module.labelAr} ${module.groupLabelEn} ${module.groupLabelAr} ${module.path}`.toLocaleLowerCase().includes(query)),
+      && (!query || `${module.code} ${module.labelEn} ${module.labelAr} ${module.descriptionEn} ${module.descriptionAr} ${module.groupLabelEn} ${module.groupLabelAr} ${module.path}`.toLocaleLowerCase().includes(query)),
     );
   });
 
