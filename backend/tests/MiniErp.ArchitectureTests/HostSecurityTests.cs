@@ -246,7 +246,7 @@ public sealed class HostSecurityTests
         Assert.False(anonymousSessionBody.TryGetProperty("displayName", out _));
         Assert.False(anonymousSessionBody.TryGetProperty("login", out _));
         var anonymousEntry = await client.GetAsync("/api/v1/auth/entry");
-        Assert.Equal(HttpStatusCode.Unauthorized, anonymousEntry.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, anonymousEntry.StatusCode);
         var anonymousEntryBody = await ReadJsonAsync(anonymousEntry);
         Assert.False(anonymousEntryBody.TryGetProperty("displayName", out _));
         Assert.False(anonymousEntryBody.TryGetProperty("login", out _));

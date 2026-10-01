@@ -259,6 +259,7 @@ export function accountInitials(value: string): string {
       .topbar__actions { min-height: 40px; justify-content: flex-end; gap: .35rem; }
       .topbar__brand { width: 4.8rem; }
       .topbar__mesp-logo { width: 4.3rem; }
+      .account-trigger__name { display: none; }
       .breadcrumbs { margin-inline-start: auto; font-size: .8rem; }
       .desktop-toggle { display: none !important; }
       .icon-button.mobile-toggle { display: inline-flex !important; }
