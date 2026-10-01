@@ -215,16 +215,8 @@ interface QuotationDraft {
       <div class="dialog-backdrop" role="presentation" (click)="closeAction()"><section class="action-dialog" role="dialog" aria-modal="true" aria-labelledby="quotation-action-title" (click)="$event.stopPropagation()"><p class="section-kicker">{{ language.text('supplierQuotationListKicker') }}</p><h2 id="quotation-action-title">{{ actionTitle(action) }}</h2><p>{{ actionLead(action) }}</p>@if (action !== 'submit') {<label class="field"><span class="field__label">{{ language.text('supplierQuotationReason') }} @if (action === 'disqualify') { * }</span><textarea [value]="actionReason" (input)="actionReason = $any($event.target).value" rows="4" [placeholder]="language.text('supplierQuotationReasonHint')"></textarea></label>}@if (actionError()) {<div class="field-error" role="alert">{{ language.text('validationError') }}</div>}<div class="dialog-actions"><button class="button button--secondary" type="button" (click)="closeAction()">{{ language.text('cancel') }}</button><button class="button" [class.button--danger]="action === 'disqualify'" [class.button--primary]="action === 'submit'" type="button" [disabled]="savingAction()" (click)="confirmAction()">{{ savingAction() ? language.text('loading') : actionLabel(action) }}</button></div></section></div>
     }
   `,
-  styles: `
-    :host { display: block; }
+  styles: `:host { display: block; }
     .quotation-page { --quotation-soft: color-mix(in srgb, var(--accent-soft) 70%, var(--surface-raised)); }
-    .button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 2.4rem; border: 1px solid transparent; border-radius: var(--radius-sm); padding: .52rem .82rem; color: var(--ink); background: var(--surface-raised); font-size: .74rem; font-weight: 800; text-decoration: none; cursor: pointer; }
-    .button:hover:not(:disabled) { transform: translateY(-1px); }
-    .button:disabled { cursor: wait; opacity: .55; }
-    .button--primary { border-color: var(--accent-action); color: var(--action-text); background: var(--accent-action); }
-    .button--secondary { border-color: var(--line-strong); }
-    .button--quiet { min-height: 1.9rem; border-color: transparent; padding: .3rem .45rem; color: var(--accent-strong); background: transparent; }
-    .button--danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }
     .boundary-note { display: flex; align-items: flex-start; gap: .6rem; border-inline-start: 3px solid var(--support); padding: .72rem .9rem; color: var(--ink-muted); background: var(--support-soft); font-size: .76rem; line-height: 1.5; }
     .boundary-note > span:first-child { color: var(--support); font-size: 1rem; }
     .state-card { display: grid; justify-items: start; align-content: center; gap: .55rem; min-height: 12rem; }
@@ -235,10 +227,8 @@ interface QuotationDraft {
     @keyframes quotation-spin { to { transform: rotate(360deg); } }
     .ledger-panel { padding: 0; overflow: hidden; }
     .filter-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: .7rem; padding: .85rem 1rem; border-bottom: 1px solid var(--line); background: var(--quotation-soft); }
-    .filter-search { display: flex; align-items: center; gap: .4rem; min-width: min(100%, 18rem); flex: 1 1 16rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding-inline: .6rem; background: var(--surface-raised); color: var(--ink-muted); }
-    .filter-search input { width: 100%; min-height: 2.25rem; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: .76rem; }
     .filter-field { display: grid; gap: .25rem; min-width: 9rem; color: var(--ink-muted); font-size: .64rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
-    .filter-field select { min-height: 2.4rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: .4rem .5rem; color: var(--ink); background: var(--surface-raised); font-size: .75rem; text-transform: none; letter-spacing: normal; }
+    .filter-field select { text-transform: none; letter-spacing: normal; }
     .filter-note { flex: 1 1 100%; margin: 0; color: var(--ink-muted); font-size: .66rem; line-height: 1.4; }
     .quotation-grid-shell { border: 0; border-radius: 0; }
     .quotation-grid { min-width: 70rem; }
@@ -274,8 +264,8 @@ interface QuotationDraft {
     .field--wide { grid-column: 1 / -1; }
     .field__label { color: var(--ink-muted); font-size: .7rem; font-weight: 900; }
     .field__hint { color: var(--ink-muted); font-size: .66rem; }
-    .field input, .field select, .field textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: .58rem .62rem; color: var(--ink); background: var(--surface); font-size: .76rem; }
-    .field textarea { min-height: 4.6rem; resize: vertical; line-height: 1.45; }
+    .field input, .field select, .field textarea { width: 100%; }
+    .field textarea { resize: vertical; }
     .readonly-control { display: flex; align-items: center; justify-content: space-between; gap: .5rem; min-height: 2.45rem; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); padding: .5rem .6rem; background: var(--surface-tint); font-size: .74rem; }
     .readonly-control small { color: var(--ink-muted); font-size: .62rem; text-align: end; }
     .lineage-strip { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; border-top: 1px solid var(--line); padding-top: .75rem; color: var(--ink-muted); font-size: .7rem; }
@@ -309,9 +299,6 @@ interface QuotationDraft {
     .fact-grid strong { overflow-wrap: anywhere; font-size: .76rem; }
     .detail-copy { margin: .9rem 0 0; white-space: pre-wrap; }
     .hero-number { color: var(--ink-strong); font: 800 clamp(1.7rem, 4vw, 2.4rem)/1 var(--font-display) !important; letter-spacing: -.06em; }
-    .detail-tabs { display: flex; gap: .12rem; overflow-x: auto; border-bottom: 1px solid var(--line); }
-    .detail-tabs button { border: 0; border-bottom: 2px solid transparent; padding: .75rem .65rem; color: var(--ink-muted); background: transparent; font-size: .7rem; font-weight: 900; white-space: nowrap; cursor: pointer; }
-    .detail-tabs button.is-active { border-bottom-color: var(--accent-strong); color: var(--ink); }
     .evidence-read-list, .audit-list { display: grid; gap: .5rem; }
     .evidence-read-list article, .audit-list article { display: grid; grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 2fr) minmax(7rem, .7fr); gap: .8rem; align-items: center; border-bottom: 1px solid var(--line); padding: .65rem 0; }
     .evidence-read-list article:last-child, .audit-list article:last-child { border-bottom: 0; }
@@ -383,7 +370,7 @@ interface QuotationDraft {
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
     @media (max-width: 980px) { .field-grid, .field-grid--context { grid-template-columns: repeat(2, minmax(0, 1fr)); } .line-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); } .detail-layout, .decision-rail { grid-template-columns: 1fr; } .decision-current { border-inline-start: 0; border-block-start: 1px solid var(--line-strong); padding-block-start: .7rem; padding-inline-start: 0; } .decision-history { grid-column: auto; } }
     @media (max-width: 620px) { .section-heading { align-items: flex-start; flex-direction: column; } .field-grid, .field-grid--context, .line-inputs, .fact-grid, .technical-list { grid-template-columns: 1fr; } .field--wide { grid-column: auto; } .form-actions, .header-actions { justify-content: stretch; } .form-actions .button, .header-actions .button { flex: 1 1 100%; } .evidence-read-list article, .audit-list article { grid-template-columns: 1fr; gap: .35rem; } .candidate-metrics { flex-wrap: wrap; } .candidate-metrics span { flex: 1 1 40%; } .decision-history li { grid-template-columns: 1fr; } }
-    @media (prefers-reduced-motion: reduce) { .button, .spinner { animation: none; transition: none; } }
+    @media (prefers-reduced-motion: reduce) { .button, .spinner { animation: none; } }
   `,
 })
 export class SupplierQuotationWorkspaceComponent implements OnInit {

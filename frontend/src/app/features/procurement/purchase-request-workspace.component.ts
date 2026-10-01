@@ -61,7 +61,7 @@ interface RequestDraft {
             <button class="button button--quiet" type="button" (click)="loadList()" [disabled]="loading()" [attr.aria-label]="language.text('refresh')">↻ <span>{{ language.text('refresh') }}</span></button>
             <button class="button button--primary" type="button" (click)="startCreate()" [disabled]="!canMutate()" [title]="canMutate() ? '' : language.text('accessUnavailable')">＋ {{ language.text('newPurchaseRequest') }}</button>
           } @else {
-            <button class="back-link" type="button" (click)="backToList()">← {{ language.text('purchaseRequests') }}</button>
+            <button class="button button--quiet" type="button" (click)="backToList()">← {{ language.text('purchaseRequests') }}</button>
             @if (mode() === 'view' && selectedRecord(); as record) {
               <span class="status-pill ui-status-chip" [class]="'status-pill ui-status-chip status-pill--' + statusTone(record.status)"><i aria-hidden="true">{{ statusIcon(record.status) }}</i>{{ statusLabel(record.status) }}</span>
               @if (record.canEdit) { <button class="button button--quiet" type="button" (click)="startEdit()">{{ language.text('editRecord') }}</button> }
@@ -112,7 +112,7 @@ interface RequestDraft {
         @if (loading()) {
           <div class="state-card state-card--loading" role="status" aria-live="polite"><span class="loader" aria-hidden="true"></span><div><b>{{ language.text('loadingPurchaseRequests') }}</b><p>{{ language.text('serverAuthority') }}</p></div></div>
         } @else if (listError()) {
-          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(listError()) }}</b><p>{{ language.text('purchaseRequestListLoadFailed') }}</p><button class="text-button" type="button" (click)="loadList()">{{ language.text('retry') }} ↗</button></div></div>
+          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(listError()) }}</b><p>{{ language.text('purchaseRequestListLoadFailed') }}</p><button class="button button--quiet button--small" type="button" (click)="loadList()">{{ language.text('retry') }} ↗</button></div></div>
         } @else if (filteredRecords().length === 0) {
           <div class="state-card state-card--empty"><span class="state-icon" aria-hidden="true">∅</span><div><b>{{ language.text('noPurchaseRequests') }}</b><p>{{ language.text('noPurchaseRequestsLead') }}</p></div></div>
         } @else { <app-data-grid [rows]="filteredRecords()" [columns]="listColumns" [rowActions]="rowActions" (rowAction)="onRowAction($event)" [clientPaging]="true" [showPager]="true" [language]="language.language()" [scopeLabel]="gridScopeLabel()" [caption]="language.text('purchaseRequests')" [countLabel]="language.text('recordCount')" [filterInputLabel]="language.text('clientSideSearch')" [previousPageLabel]="language.text('previous')" [nextPageLabel]="language.text('next')" /> }
@@ -124,14 +124,14 @@ interface RequestDraft {
         @if (detailLoading()) {
           <div class="state-card state-card--loading" role="status"><span class="loader" aria-hidden="true"></span><b>{{ language.text('loadingRecord') }}</b></div>
         } @else if (detailError()) {
-          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(detailError()) }}</b><p>{{ language.text('detailLoadFailed') }}</p><button class="text-button" type="button" (click)="reloadDetail()">{{ language.text('retryLoad') }} ↗</button></div></div>
+          <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(detailError()) }}</b><p>{{ language.text('detailLoadFailed') }}</p><button class="button button--quiet button--small" type="button" (click)="reloadDetail()">{{ language.text('retryLoad') }} ↗</button></div></div>
         } @else {
           @if (mutationError()) {
             <div class="inline-alert" role="alert">
               <b>{{ errorMessage(mutationError()) }}</b>
               @if (mutationError()?.code === 'concurrency_conflict') {
                 <span>{{ language.text('prConcurrencyConflictError') }}</span>
-                <button class="text-button" type="button" (click)="reloadDetail()">{{ language.text('reloadLatestVersion') }}</button>
+                <button class="button button--quiet button--small" type="button" (click)="reloadDetail()">{{ language.text('reloadLatestVersion') }}</button>
               }
             </div>
           }
@@ -213,7 +213,7 @@ interface RequestDraft {
       @if (historyLoading()) {
         <div class="state-card state-card--loading" role="status"><span class="loader" aria-hidden="true"></span><b>{{ language.text('loading') }}…</b></div>
       } @else if (historyError()) {
-        <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(historyError()) }}</b><button class="text-button" type="button" (click)="setTab('history', true)">{{ language.text('retry') }} ↗</button></div></div>
+        <div class="state-card state-card--error" role="alert"><span class="state-icon" aria-hidden="true">!</span><div><b>{{ errorMessage(historyError()) }}</b><button class="button button--quiet button--small" type="button" (click)="setTab('history', true)">{{ language.text('retry') }} ↗</button></div></div>
       } @else if (historyEntries().length === 0) {
         <p class="muted-line">{{ language.text('noRecords') }}</p>
       } @else {
@@ -288,7 +288,7 @@ interface RequestDraft {
                   <label class="form-field" [class.has-error]="lineInvalid(i, 'needByDate')"><span>{{ language.text('needByDate') }} <em>*</em></span><input type="date" [ngModel]="line.needByDate" (ngModelChange)="setLineField(i, 'needByDate', $event)" [name]="'lineNeedByDate' + i" /><small>{{ lineInvalid(i, 'needByDate') ? language.text('lineNeedByDateRequired') : '' }}</small></label>
                   <label class="form-field" [class.has-error]="lineInvalid(i, 'purpose')"><span>{{ language.text('purpose') }} <em>*</em></span><input [ngModel]="line.purpose" (ngModelChange)="setLineField(i, 'purpose', $event)" [name]="'linePurpose' + i" /><small>{{ lineInvalid(i, 'purpose') ? language.text('linePurposeRequired') : '' }}</small></label>
                 </div>
-                <div class="line-row__remove"><button class="text-button" type="button" (click)="removeLine(i)" [disabled]="draft.lines.length === 1">✕ {{ language.text('removeLine') }}</button></div>
+                <div class="line-row__remove"><button class="button button--quiet button--small" type="button" (click)="removeLine(i)" [disabled]="draft.lines.length === 1">✕ {{ language.text('removeLine') }}</button></div>
               </div>
             }
           </div>
@@ -312,7 +312,7 @@ interface RequestDraft {
           @if (mutationError()) {
             <div class="inline-alert" role="alert">
               <b>{{ errorMessage(mutationError()) }}</b>
-              @if (mutationError()?.code === 'concurrency_conflict') { <button class="text-button" type="button" (click)="reloadAndCloseLifecycle()">{{ language.text('reloadLatestVersion') }}</button> }
+              @if (mutationError()?.code === 'concurrency_conflict') { <button class="button button--quiet button--small" type="button" (click)="reloadAndCloseLifecycle()">{{ language.text('reloadLatestVersion') }}</button> }
             </div>
           }
           <div class="form-actions">
@@ -323,8 +323,7 @@ interface RequestDraft {
       </div>
     }
   `,
-  styles: `
-    :host { display: block; }
+  styles: `:host { display: block; }
     .pr-workspace { display: grid; gap: 1.35rem; }
     .eyebrow { margin: 0 0 .55rem; color: #bee5d0; font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
     .eyebrow--soft { color: var(--accent-strong); }
@@ -332,20 +331,9 @@ interface RequestDraft {
     .workspace-panel { min-width: 0; border: 1px solid var(--line); border-radius: 1.15rem; background: var(--surface-raised); box-shadow: var(--shadow-soft); }
     .list-view, .detail-view { padding: clamp(1rem, 2.5vw, 1.65rem); }
     .toolbar, .form-section__heading, .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-    .button { min-height: 2.35rem; border: 1px solid transparent; border-radius: .55rem; padding: .58rem .82rem; font-size: .76rem; font-weight: 800; cursor: pointer; }
-    .button:disabled { cursor: not-allowed; opacity: .45; }
-    .button--primary { color: var(--action-text); background: var(--accent-action); }
-    .button--primary:hover:not(:disabled) { background: var(--accent-action); }
-    .button--quiet { border-color: var(--line); color: var(--ink-muted); background: transparent; }
-    .button--quiet:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); background: var(--canvas); }
-    .button--danger { color: #fff; background: var(--danger); }
     .toolbar { align-items: stretch; flex-wrap: wrap; margin-block-end: .5rem; border-block: 1px solid var(--line); padding-block: .75rem; }
     .toolbar__status { flex: 0 0 auto; min-width: 12rem; }
-    .toolbar__status select { min-height: 2.35rem; border: 1px solid var(--line); border-radius: .5rem; padding-inline: .6rem; background: var(--canvas); font-size: .78rem; }
-    .search-field { display: flex; align-items: center; flex: 1 1 16rem; gap: .5rem; border: 1px solid var(--line); border-radius: .55rem; padding-inline: .7rem; background: var(--canvas); }
-    .search-field:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px rgb(13 138 131 / 12%); }
     .search-field__icon { color: var(--accent-strong); font-size: 1.3rem; }
-    .search-field input { min-width: 0; width: 100%; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: .8rem; }
     .toolbar__count { align-self: center; margin-inline-start: auto; color: var(--ink-muted); font: 700 .68rem/1 ui-monospace, monospace; white-space: nowrap; }
     .term-hint { margin: 0 0 1rem; color: var(--ink-muted); font-size: .72rem; line-height: 1.45; }
     .status-pill { display: inline-flex; align-items: center; gap: .35rem; border-radius: 99px; padding: .3rem .55rem; font-size: .66rem; font-weight: 800; white-space: nowrap; }
@@ -364,16 +352,9 @@ interface RequestDraft {
     .state-icon { display: grid; flex: 0 0 1.8rem; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: .5rem; color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface-raised)); font-weight: 900; }
     .state-card--empty .state-icon { color: var(--accent-strong); background: var(--accent-soft); }
     .loader { width: 1.2rem; height: 1.2rem; border: 2px solid var(--line); border-top-color: var(--accent-strong); border-radius: 50%; animation: spin .8s linear infinite; }
-    .text-button, .back-link { border: 0; padding: 0; color: var(--accent-strong); background: transparent; font-size: .74rem; font-weight: 800; cursor: pointer; }
     .text-button:disabled { color: var(--ink-muted); cursor: not-allowed; opacity: .5; }
-    .text-button { display: block; margin-block-start: .7rem; }
-    .back-link { color: var(--ink-muted); }
+    .text-button { margin-block-start: .7rem; }
     .back-link:hover { color: var(--accent-strong); }
-    .tabs { display: flex; gap: .2rem; margin-block-end: 1.1rem; border-block-end: 1px solid var(--line); overflow-x: auto; }
-    .tabs button { border: 0; border-block-end: 2px solid transparent; padding: .65rem .2rem; margin-inline-end: 1.2rem; color: var(--ink-muted); background: transparent; font: 800 .78rem/1 var(--font-sans); cursor: pointer; white-space: nowrap; }
-    .tabs button:hover { color: var(--ink); }
-    .tabs button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-    .tabs button.is-active { color: var(--accent-strong); border-block-end-color: var(--accent-strong); }
     .field-read-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem 1.2rem; }
     .field-read-grid > div { min-width: 0; border-block-start: 2px solid var(--line); padding-block-start: .5rem; }
     .field-read-grid span { display: block; color: var(--ink-muted); font-size: .67rem; font-weight: 700; }
@@ -392,10 +373,8 @@ interface RequestDraft {
     .form-field { display: grid; gap: .35rem; min-width: 0; }
     .form-field > span { color: var(--ink-muted); font-size: .7rem; font-weight: 800; }
     .form-field em { color: var(--danger); font-style: normal; }
-    .form-field input, .form-field select, .form-field textarea { width: 100%; border: 1px solid var(--line); border-radius: .45rem; padding: .6rem .65rem; color: var(--ink); background: var(--surface-raised); font-size: .78rem; font-family: inherit; }
+    .form-field input, .form-field select, .form-field textarea { width: 100%; }
     .form-field textarea { resize: vertical; }
-    .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--focus); outline: 0; box-shadow: 0 0 0 3px rgb(13 138 131 / 10%); }
-    .form-field.has-error input, .form-field.has-error select, .form-field.has-error textarea { border-color: var(--danger); }
     .form-field small { min-height: 1rem; color: var(--danger); font-size: .62rem; line-height: 1.35; }
     .form-field:not(.has-error) small { color: var(--ink-muted); }
     .form-field--full { grid-column: 1 / -1; }
