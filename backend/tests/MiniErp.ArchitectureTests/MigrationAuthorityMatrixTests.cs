@@ -382,7 +382,7 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
     }
 
     [Fact]
-    public void Completed_reconciliation_report_populates_every_contract_field_with_utc_freshness_and_approval_ownership()
+    public void Reconciliation_response_mapper_preserves_contract_fields_with_realistic_readiness_flags()
     {
         var requestTime = DateTimeOffset.UtcNow;
         var createdAt = requestTime.AddMinutes(-1);
@@ -408,7 +408,7 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
             actorId, MigrationApprovalDecision.Approved, "reviewed", calculatedAt, [1], EvidenceConfirmed: true);
         var readiness = new MigrationHandoverReadinessSnapshot(
             Guid.NewGuid(), tenantId, runId, reconciliationId, 1, attemptId, "evidence-fingerprint", "readiness-key",
-            calculatedAt, true, true, true, true, true, "migration_handover_ready", [1]);
+            calculatedAt, true, false, false, false, false, "ready_for_handover", [1]);
         var reconciliation = new MigrationReconciliationRecord(
             reconciliationId, tenantId, runId, attemptId, 1, "evidence-fingerprint", "reconciliation-key",
             MigrationReconciliationStatus.Reconciled, createdAt, calculatedAt, 6, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -435,8 +435,15 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         var reportedApproval = Assert.Single(report.GetProperty("approvals").EnumerateArray());
         Assert.Equal(actorId, reportedApproval.GetProperty("actorId").GetGuid());
         Assert.Equal("opening", reportedApproval.GetProperty("requirementKey").GetString());
+        var reportedReadiness = report.GetProperty("readiness");
+        Assert.True(reportedReadiness.GetProperty("businessReady").GetBoolean());
+        Assert.False(reportedReadiness.GetProperty("productionReady").GetBoolean());
+        Assert.False(reportedReadiness.GetProperty("mesp48Complete").GetBoolean());
+        Assert.False(reportedReadiness.GetProperty("mesp50Complete").GetBoolean());
+        Assert.False(reportedReadiness.GetProperty("tenantActivationPerformed").GetBoolean());
+        Assert.Equal("ready_for_handover", reportedReadiness.GetProperty("resultCode").GetString());
 
-        // No exclusions: a completed reconciliation report must populate every declared response field.
+        // No exclusions: this mapper input populates every response field and uses a producible readiness snapshot.
         var excludedProperties = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var property in typeof(MigrationReconciliationResponse).GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {

@@ -510,6 +510,112 @@ public sealed class MigrationReconciliationSqlServerSafetyTests(SqlServerSafetyF
     }
 
     [Fact]
+    public async Task Sql_server_mesp171_completed_reconciliation_report_uses_real_readiness_and_api_read_path()
+    {
+        await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
+        var scenario = await ExecuteMixedAsync(fixture, "S11-MESP171-REPORT");
+        var reviewer = Guid.NewGuid();
+        var service = Service(fixture, new TestApprovalPolicy(ApprovalPolicy(fixture.Request.ActorId!.Value, reviewer)));
+        var reconciliation = await ReconcileAsync(fixture, service, scenario.RunId, "s11-mesp171-report-reconcile");
+        Assert.True(reconciliation.Succeeded, reconciliation.Code);
+        Assert.Equal(MigrationReconciliationStatus.Reconciled, reconciliation.Value!.Status);
+
+        var runBeforeApproval = await fixture.Migration.FindRunAsync(fixture.Tenant, scenario.RunId);
+        Assert.NotNull(runBeforeApproval);
+        Assert.Equal(MigrationRunStatus.Reconciled, runBeforeApproval.Status);
+        Assert.Equal(fixture.Request.ActorId!.Value, runBeforeApproval.ActorId);
+        var intake = await fixture.Migration.FindIntakeAsync(fixture.Tenant, scenario.RunId);
+        Assert.NotNull(intake);
+        Assert.Equal(fixture.Tenant.TenantId, intake.Source.TenantId);
+        Assert.Equal(scenario.Staged[0].SourceObjectId, intake.Source.ObjectId);
+        Assert.Null(intake.Source.CompanyId);
+        Assert.Null(intake.Source.BranchId);
+        Assert.Null(intake.Source.WarehouseId);
+
+        var approval = await service.ApproveAsync(RequestForActor(fixture, reviewer),
+            ApprovalRequest(reconciliation.Value, "s11-mesp171-report-approve"));
+        Assert.True(approval.Succeeded, approval.Code);
+        Assert.Equal(reviewer, approval.Value!.ActorId);
+        Assert.True(approval.Value.EvidenceConfirmed);
+        var readiness = await service.CreateReadinessAsync(fixture.Request,
+            new MigrationHandoverRequest(scenario.RunId, reconciliation.Value.Id, reconciliation.Value.Version, "s11-mesp171-report-ready"));
+        Assert.True(readiness.Succeeded, readiness.Code);
+        Assert.True(readiness.Value!.BusinessReady);
+        Assert.False(readiness.Value.ProductionReady);
+        Assert.False(readiness.Value.Mesp48Complete);
+        Assert.False(readiness.Value.Mesp50Complete);
+        Assert.False(readiness.Value.TenantActivationPerformed);
+
+        var requestTime = DateTimeOffset.UtcNow;
+        var resolver = new RestFoundationTests.TestResolver { Context = fixture.Request };
+        var (statusCode, body) = await ExecuteHandlerAsync(
+            "ExecuteReconciliationReadAsync",
+            [scenario.RunId, null, resolver, ValidationService(fixture), service],
+            1);
+        Assert.Equal(StatusCodes.Status200OK, statusCode);
+        var report = JsonSerializer.Deserialize<MigrationReconciliationResponse>(body,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.NotNull(report);
+
+        var persistedRun = await fixture.Migration.FindRunAsync(fixture.Tenant, scenario.RunId);
+        Assert.NotNull(persistedRun);
+        Assert.Equal(MigrationRunStatus.ReadyForHandover, persistedRun.Status);
+        Assert.Equal(fixture.Request.ActorId!.Value, persistedRun.ActorId);
+        Assert.Equal(fixture.Tenant.TenantId.Value, report.TenantId);
+        Assert.Equal(scenario.RunId, report.RunId);
+        Assert.Equal(reconciliation.Value.Id, report.Id);
+        Assert.Equal(MigrationReconciliationStatus.Reconciled, report.Status);
+        Assert.Equal(scenario.Staged.Count, report.SubmittedCount);
+        Assert.Equal(scenario.Staged.Count, report.AcceptedCount);
+        Assert.Equal(0, report.RejectedCount + report.DuplicateCount + report.SkippedCount
+            + report.QuarantinedCount + report.UnresolvedCount);
+        Assert.Equal(1, report.RequiredApprovalCount);
+        Assert.Equal(1, report.ObtainedApprovalCount);
+        Assert.True(report.IsCurrent);
+
+        Assert.Equal(TimeSpan.Zero, report.CreatedAt.Offset);
+        Assert.Equal(TimeSpan.Zero, report.CalculatedAt.Offset);
+        Assert.True(report.CreatedAt <= requestTime);
+        Assert.True(report.CalculatedAt <= requestTime);
+        var reportedRequirement = Assert.Single(report.Requirements);
+        Assert.Equal("handover", reportedRequirement.RequirementKey);
+        Assert.Equal(1, reportedRequirement.RequiredCount);
+        Assert.Contains(reviewer, reportedRequirement.EligibleActorIds);
+        var reportedApproval = Assert.Single(report.Approvals);
+        Assert.Equal(reviewer, reportedApproval.ActorId);
+        Assert.Equal(report.Id, reportedApproval.ReconciliationId);
+        Assert.Equal("handover", reportedApproval.RequirementKey);
+        Assert.True(reportedApproval.EvidenceConfirmed);
+        Assert.Equal(TimeSpan.Zero, reportedApproval.DecidedAt.Offset);
+        Assert.True(reportedApproval.DecidedAt <= requestTime);
+
+        var reportedReadiness = Assert.IsType<MigrationHandoverReadinessResponse>(report.Readiness);
+        Assert.Equal(report.RunId, reportedReadiness.RunId);
+        Assert.True(reportedReadiness.BusinessReady);
+        Assert.False(reportedReadiness.ProductionReady);
+        Assert.False(reportedReadiness.Mesp48Complete);
+        Assert.False(reportedReadiness.Mesp50Complete);
+        Assert.False(reportedReadiness.TenantActivationPerformed);
+        Assert.Equal("ready_for_handover", reportedReadiness.ResultCode);
+        Assert.Equal(TimeSpan.Zero, reportedReadiness.CreatedAt.Offset);
+        Assert.True(reportedReadiness.CreatedAt <= requestTime);
+
+        Assert.Equal(5, report.Details.Select(item => item.Domain).Distinct().Count());
+        Assert.Contains(report.Details, item => item.Domain == MigrationReconciliationDomain.Inventory);
+        Assert.Contains(report.Details, item => item.Domain == MigrationReconciliationDomain.Ar);
+        Assert.Contains(report.Details, item => item.Domain == MigrationReconciliationDomain.Ap);
+        Assert.Contains(report.Details, item => item.Domain == MigrationReconciliationDomain.CashBank);
+        Assert.Contains(report.Details, item => item.Domain == MigrationReconciliationDomain.Gl);
+        Assert.All(report.Details, item =>
+        {
+            Assert.NotEqual(Guid.Empty, item.Id);
+            Assert.Equal(fixture.CompanyId, item.CompanyId);
+            Assert.False(string.IsNullOrWhiteSpace(item.ScopeKey));
+            Assert.False(item.IsBlocking);
+        });
+    }
+
+    [Fact]
     public async Task Sql_server_s11_r12_reconciliation_details_are_unique_and_prior_rows_are_unchanged()
     {
         await using var fixture = await MigrationEconomicOpeningRemediationSqlServerSafetyTests.ArSqlFixture.CreateAsync(safety);
