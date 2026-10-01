@@ -1,5 +1,20 @@
 # Results
 
+## 2026-10-01 — MESP-190 (#332) Header bar redesign — GPT-6 / effort not surfaced — MESP-190 (#332)
+- Status: DONE. Draft PR creation is the final authorized delivery action; no Ready, review request, or merge.
+- Branch / starting SHA / ending SHA: `feat/mesp-190-header-bar`; started at `1a12d100efbf5d6c244aff4e6c81fde3e9439b1b`; implementation commit `54697c6`; merged `origin/main` at `aef54f2`; RESULT hand-back commit follows.
+- What changed: Rebuilt the shell header as a 40px context chip, icon tool group, and generic Account menu. The context chip reuses `ContextService` and `app-operational-context-switcher`; Themes and dark/light use `ThemeService`; Language uses `LanguageService`; Sign out still calls `AuthService.signOut`; Notifications remains a presentation-only button with no service action; sidebar state uses `localStorage` key `mesp.ui.rail`, and brand/breadcrumb navigation uses Angular `RouterLink`. Changed `application-shell.component.ts`, its unit spec, and the three header-adapted e2e specs. Merged `origin/main`, retaining its changes; kept both colliding `ui-modernization.spec.ts` tests as separate tests with all assertions intact.
+- Gates:
+  - `npm test -- --watch=false --no-progress`: 50 files passed, 346 tests passed, 0 failed; exit 0.
+  - `npm run build`: passed; initial total 499.09 kB (479.18 kB JavaScript + 19.91 kB CSS); exit 0.
+  - `dotnet build backend/src/MiniErp.Api/MiniErp.Api.csproj --configuration Release`: succeeded, 0 warnings, 0 errors; exit 0.
+  - `MESP_E2E_BASE_URL=http://localhost:4335 npm run test:e2e -- --project=chromium --workers=1`: 64 passed, 0 failed, 1.5m; Angular on 4335 proxied only to the task-local API on 5335; exit 0.
+  - `git diff --check`: clean; exit 0, including after this RESULT entry.
+- Evidence: Before screenshots are in `.playwright-mcp/mesp-190/before/` and refreshed screenshots are in `.playwright-mcp/mesp-190/after-final/`: `light-1440.png`, `light-1200.png`, `light-900.png`, `light-800.png`, and matching `dark-*.png` files (plus 1024px captures). Menus: `menu-context.png`, `menu-themes.png`, `menu-account.png`; Arabic: `arabic-1440.png`. Both task-owned servers were stopped; ports 4335 and 5335 are clear.
+- Deviations from the prompt: The first `ng serve` attempt failed before E2E because Windows PowerShell wrote a BOM to the ignored temporary proxy JSON. Rewrote that file without a BOM and started a fresh server; no file was edited during the E2E run. Merge conflict in `ui-modernization.spec.ts` was resolved by retaining both sides' test intent.
+- Failures and classification: Initial temporary-proxy parse error was a configuration/setup failure, corrected before E2E. Final required gates all passed.
+- Status files updated: `RESULT.md` only; `TASK.md` was not edited.
+- Exact next action: Push `feat/mesp-190-header-bar` and open a Draft PR to `main` titled `[MESP-190] Header bar redesign`, referencing #332; leave it Draft/Open/Unmerged.
 ## 2026-10-01 — MESP-191 (#333) Overview module card photography — GPT-6 / default — MESP-191 (#333)
 - Status: DONE; implementation and required gates passed for the 15 live Overview cards confirmed by the owner.
 - Branch / starting SHA / ending SHA: `feat/mesp-191-module-card-photos`; started `fdb94c466cef84696cd5d653e802b79880202a7b`; implementation commit `3c4ef0b840023b205c4936ae1a31995ab503282a`; RESULT handoff commit follows.

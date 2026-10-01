@@ -185,7 +185,7 @@ test.describe('Supplier Quotation workspace', () => {
     await procurementTile.click();
     await expect(page.getByRole('link', { name: 'Supplier Quotations' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText('Supplier One')).toBeVisible();
-    await expect(page.getByText('Acme Trading Co.')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Acme Trading Co.' })).toBeVisible();
     await expect(page.getByText(companyId)).toHaveCount(0);
 
     await page.getByTestId('new-supplier-quotation').click();

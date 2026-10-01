@@ -42,14 +42,14 @@ const orderDetail = (id: string) => {
   };
 };
 
-const entryResponse = (defaultTheme: string | null = null, symbolAssetUrl: string | null = null) => ({
+const entryResponse = (defaultTheme: string | null = null, symbolAssetUrl: string | null = null, selectedOperationalContextId = 'operation-ui') => ({
   entryMode: 'TenantHost',
   canonicalHost: '127.0.0.1',
   candidateTenantId: tenantId,
   candidateTenantDisplayName: 'Alpha Tenant',
   authorizedTenants: [{ tenantId, displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
   operationalContexts,
-  selectedOperationalContextId: 'operation-ui',
+  selectedOperationalContextId,
   operationalSelectionVersion: 1,
   branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true, defaultTheme },
   currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl, symbolTextFallback: 'SAR' },
@@ -149,6 +149,52 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   });
 
+  test('opens the context and account menus with current context and restores focus on Escape', async ({ page }) => {
+    await page.unroute('**/api/v1/auth/entry');
+    await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: entryResponse(null, null, 'operation-branch-ui') }));
+    await page.goto('/app');
+    const contextTrigger = page.locator('#context-trigger');
+    await expect(contextTrigger).toHaveAttribute('aria-haspopup', 'menu');
+    await expect(contextTrigger).toContainText('Alpha Tenant');
+    await expect(contextTrigger).toContainText('Alpha Branch');
+    await contextTrigger.click();
+    const contextMenu = page.getByRole('menu', { name: 'Access contexts' });
+    await expect(contextMenu).toBeVisible();
+    await expect(contextMenu.locator('.operational-switcher__select option')).toHaveCount(3);
+    await expect(contextMenu.locator('.operational-switcher__select')).toHaveValue('operation-branch-ui');
+    await expect(contextMenu.getByRole('menuitem', { name: 'Manage access contexts' })).toHaveAttribute('href', '/app/workspaces');
+    await page.keyboard.press('Escape');
+    await expect(contextMenu).toHaveCount(0);
+    await expect(contextTrigger).toBeFocused();
+
+    await contextTrigger.click();
+    await expect(contextMenu).toBeVisible();
+    await page.locator('.shell__content').click({ position: { x: 5, y: 5 } });
+    await expect(contextMenu).toHaveCount(0);
+
+    await contextTrigger.click();
+    const accountTrigger = page.getByRole('button', { name: 'Account' });
+    await accountTrigger.click();
+    await expect(contextMenu).toHaveCount(0);
+    const accountMenu = page.getByRole('menu', { name: 'Account menu' });
+    await expect(accountMenu).toBeVisible();
+    await expect(accountMenu).toContainText('Signed in');
+    await expect(accountMenu).toContainText('Alpha Tenant');
+    await expect(accountMenu).toContainText('Alpha Branch');
+    await expect(accountMenu.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
+    await expect(accountTrigger).toHaveAttribute('aria-expanded', 'true');
+
+    await page.keyboard.press('Escape');
+    await expect(accountMenu).toHaveCount(0);
+    await expect(accountTrigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(accountTrigger).toBeFocused();
+
+    for (const control of ['#theme-trigger', '.scheme-toggle', '.notification-button', '.language-button']) {
+      await expect(page.locator(control)).toHaveAttribute('title', /.+/);
+      await expect(page.locator(control)).toHaveAttribute('aria-label', /.+/);
+    }
+  });
+
   test('loads every Overview module card image', async ({ page }) => {
     await page.goto('/app');
     const images = page.locator('.module-card img');
@@ -229,34 +275,94 @@ test.describe('MESP-153 Slice A UI', () => {
     await page.setViewportSize({ width: 360, height: 800 });
     await page.goto('/app');
 
+    const contextTrigger = page.locator('#context-trigger');
+    await contextTrigger.click();
     const contextSelect = page.locator('.operational-switcher__select');
     await expect(contextSelect).toBeVisible();
     await expect(contextSelect.locator('option')).toHaveCount(3);
+    await page.keyboard.press('Escape');
+    await expect(contextTrigger).toBeFocused();
     const controls = [
-      contextSelect,
+      contextTrigger,
       page.getByRole('button', { name: 'Themes' }),
       page.getByRole('button', { name: 'Switch to dark mode' }),
+      page.getByRole('button', { name: 'Notifications' }),
       page.locator('.language-button'),
-      page.locator('.user-pill .sign-out'),
+      page.getByRole('button', { name: 'Account' }),
     ];
     for (const control of controls) await expect(control).toBeVisible();
 
     const bounds = await page.evaluate(() => ({
       documentWidth: document.documentElement.scrollWidth,
       viewportWidth: window.innerWidth,
-      controls: [...document.querySelectorAll<HTMLElement>('.operational-switcher__select, #theme-trigger, .scheme-toggle, .language-button, .user-pill .sign-out')]
+      controls: [...document.querySelectorAll<HTMLElement>('.topbar .header-control')].filter((element) => getComputedStyle(element).display !== 'none')
         .map((element) => { const rect = element.getBoundingClientRect(); return { left: rect.left, right: rect.right }; }),
     }));
     expect(bounds.documentWidth).toBeLessThanOrEqual(bounds.viewportWidth);
-    expect(bounds.controls).toHaveLength(5);
+    expect(bounds.controls).toHaveLength(7);
     for (const control of bounds.controls) {
       expect(control.left).toBeGreaterThanOrEqual(0);
       expect(control.right).toBeLessThanOrEqual(bounds.viewportWidth);
     }
 
     await page.getByRole('button', { name: 'Themes' }).click();
-    await expect(page.getByRole('menu', { name: 'Choose a theme' })).toBeVisible();
+    const themeMenu = page.getByRole('menu', { name: 'Choose a theme' });
+    await expect(themeMenu).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(themeMenu).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Themes' })).toBeFocused();
+  });
+
+  test('keeps the desktop header controls 40px high without wrapping or overflow', async ({ page }) => {
+    await page.goto('/app');
+    await expect(page.locator('.topbar__actions')).toBeVisible();
+    await expect(page.locator('.context-chip__company')).toHaveCount(1);
+    for (const width of [800, 900, 1024, 1200, 1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const layout = await page.evaluate(() => {
+        const actions = document.querySelector<HTMLElement>('.topbar__actions')!;
+        const start = document.querySelector<HTMLElement>('.topbar__start')!;
+        const chip = document.querySelector<HTMLElement>('.context-chip')!;
+        const companyLine = document.querySelector<HTMLElement>('.context-chip__company')!;
+        const visibleControls = [...document.querySelectorAll<HTMLElement>('.topbar .header-control')]
+          .filter((element) => getComputedStyle(element).display !== 'none')
+          .map((element) => {
+            const rect = element.getBoundingClientRect();
+            return { height: rect.height, left: rect.left, right: rect.right, top: rect.top };
+          });
+        const clusterControlTops = [...document.querySelectorAll<HTMLElement>('.topbar__actions .header-control')]
+          .map((element) => element.getBoundingClientRect().top);
+        const actionsRect = actions.getBoundingClientRect();
+        const startRect = start.getBoundingClientRect();
+        return {
+          documentWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+          actionScrollWidth: actions.scrollWidth,
+          actionClientWidth: actions.clientWidth,
+          actionFlexWrap: getComputedStyle(actions).flexWrap,
+          actionsTop: actionsRect.top,
+          startRight: startRect.right,
+          actionsLeft: actionsRect.left,
+          chipWidth: chip.getBoundingClientRect().width,
+          companyLineDisplay: getComputedStyle(companyLine).display,
+          visibleControls,
+          clusterControlTops,
+        };
+      });
+      expect(layout.documentWidth, `document overflow at ${width}px`).toBeLessThanOrEqual(width);
+      expect(layout.actionScrollWidth, `toolbar overflow at ${width}px`).toBeLessThanOrEqual(layout.actionClientWidth);
+      expect(layout.actionFlexWrap).toBe('nowrap');
+      expect(layout.startRight).toBeLessThanOrEqual(layout.actionsLeft);
+      expect(layout.companyLineDisplay).toBe(width <= 1200 ? 'none' : 'block');
+      if (width <= 900) expect(layout.chipWidth).toBeLessThanOrEqual(160);
+      expect(new Set(layout.clusterControlTops).size, `right cluster alignment at ${width}px`).toBe(1);
+      expect(layout.visibleControls).toHaveLength(7);
+      for (const control of layout.visibleControls) {
+        expect(control.height, `header control height at ${width}px`).toBe(40);
+        expect(control.left, `control left edge at ${width}px`).toBeGreaterThanOrEqual(0);
+        expect(control.right, `control right edge at ${width}px`).toBeLessThanOrEqual(width);
+      }
+    }
   });
 
   test('keeps the full-height sticky rail in LTR and RTL while scrolling', async ({ page }) => {

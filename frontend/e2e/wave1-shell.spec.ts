@@ -94,14 +94,15 @@ test.describe('Tenant-aware shell', () => {
 
     await page.goto('/app');
     await expect(page.locator('#tenant-overview-title')).toHaveText('Alpha Tenant');
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('button', { name: 'Account' }).click();
+    await page.getByRole('menu', { name: 'Account menu' }).getByRole('menuitem', { name: 'Sign out' }).click();
 
     await expect(page.getByRole('alert')).toHaveText(
       'Sign-out could not be confirmed. Your session may still be active. Please try again.',
     );
     await expect(page).toHaveURL(/\/app$/);
     await expect(page.locator('#tenant-overview-title')).toHaveText('Alpha Tenant');
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeEnabled();
+    await expect(page.getByRole('menu', { name: 'Account menu' }).getByRole('menuitem', { name: 'Sign out' })).toBeEnabled();
     expect(signOutAttempts).toBe(1);
     expect(await page.evaluate(() => ({
       localStorage: localStorage.length,
@@ -126,9 +127,10 @@ test.describe('Tenant-aware shell', () => {
     });
 
     await page.goto('/app');
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('button', { name: 'Account' }).click();
+    await page.getByRole('menu', { name: 'Account menu' }).getByRole('menuitem', { name: 'Sign out' }).click();
     await expect(page.getByRole('alert')).toBeVisible();
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('menu', { name: 'Account menu' }).getByRole('menuitem', { name: 'Sign out' }).click();
 
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole('heading', { name: 'Sign in to MESP' })).toBeVisible();
@@ -145,7 +147,8 @@ test.describe('Tenant-aware shell', () => {
     }));
 
     await page.goto('/app');
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('button', { name: 'Account' }).click();
+    await page.getByRole('menu', { name: 'Account menu' }).getByRole('menuitem', { name: 'Sign out' }).click();
 
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole('heading', { name: 'Sign in to MESP' })).toBeVisible();
