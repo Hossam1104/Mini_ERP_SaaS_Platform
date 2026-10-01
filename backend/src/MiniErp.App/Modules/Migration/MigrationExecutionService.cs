@@ -190,7 +190,9 @@ public sealed class MigrationExecutionService
         {
             var attempts = await foundationPersistence.ListAttemptsAsync(tenant, runId, cancellationToken);
             if (attempts.Any(item => item.Operation == MigrationOperationKind.Execution
-                    && item.Outcome == MigrationAttemptOutcome.Pending
+                    && (item.Outcome is MigrationAttemptOutcome.Pending
+                        or MigrationAttemptOutcome.Succeeded
+                        or MigrationAttemptOutcome.KnownFailure)
                     && !string.Equals(item.IdempotencyKey, idempotencyKey, StringComparison.Ordinal)))
                 return MigrationOperationResult<MigrationExecutionResult>.Rejected("migration_execution_attempt_claim_conflict");
 

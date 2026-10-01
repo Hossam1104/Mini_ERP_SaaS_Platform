@@ -3549,6 +3549,56 @@ public sealed class SqlServerSafetyTests
     }
 
     [Fact]
+    public async Task MESP166_sql_server_known_execution_outcome_during_audit_append_is_a_claim_conflict()
+    {
+        var (foundation, _, options) = await CreateMigrationServiceAsync();
+        var persistence = new MigrationPersistence(options);
+        var tenant = MigrationTenant("sql-execution-audit-claim");
+        var request = MigrationRequest(tenant, "tenant.migration.execute");
+        var run = await PrepareExecutionRunAsync(foundation, persistence, tenant, request);
+        var owner = new SqlClaimOwnerGateway();
+        var audit = new SqlBlockingMigrationAuditSink();
+        var winningKey = $"sql-execution-audit-winner-{Guid.NewGuid():N}";
+        var losingKey = $"sql-execution-audit-loser-{Guid.NewGuid():N}";
+        var winnerTask = CreateExecutionService(options, owner, audit)
+            .ExecuteAsync(request, run.RunId, winningKey, run.Version);
+
+        MigrationOperationResult<MigrationExecutionResult> loser;
+        try
+        {
+            await audit.WaitAsync();
+            var savedRun = await persistence.FindRunAsync(tenant, run.RunId);
+            var savedAttempt = Assert.Single(
+                await persistence.ListAttemptsAsync(tenant, run.RunId),
+                item => item.Operation == MigrationOperationKind.Execution);
+            Assert.False(savedRun!.EvidenceConfirmed);
+            Assert.Equal(MigrationAttemptOutcome.Succeeded, savedAttempt.Outcome);
+            Assert.False(savedAttempt.EvidenceConfirmed);
+
+            loser = await CreateExecutionService(options, owner)
+                .ExecuteAsync(request, run.RunId, losingKey, run.Version);
+        }
+        finally
+        {
+            audit.Release();
+        }
+
+        var winner = await winnerTask.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.True(winner.Succeeded, winner.Code);
+        var confirmedRun = await persistence.FindRunAsync(tenant, run.RunId);
+        var confirmedAttempt = Assert.Single(await persistence.ListAttemptsAsync(tenant, run.RunId), item => item.Operation == MigrationOperationKind.Execution);
+        Assert.True(confirmedRun!.EvidenceConfirmed);
+        Assert.True(confirmedAttempt.EvidenceConfirmed);
+        Assert.Equal("migration_execution_attempt_claim_conflict", loser.Code);
+        Assert.Equal(1, owner.CreateCalls);
+        Assert.Equal(1, owner.ExecuteCalls);
+
+        await using var db = new MigrationDbContext(options, tenant);
+        Assert.Single(await db.ExecutionBatches.Where(item => item.RunId == run.RunId).ToListAsync());
+        Assert.Equal(MigrationExecutionBatchState.Completed, await db.ExecutionBatches.Where(item => item.RunId == run.RunId).Select(item => item.State).SingleAsync());
+    }
+
+    [Fact]
     public async Task MESP141_sql_server_concurrent_identical_intake_converges_to_one_run_and_replay()
     {
         var options = SqlServerMigrationConfiguration.Configure(
@@ -3873,12 +3923,13 @@ public sealed class SqlServerSafetyTests
 
     private static MigrationExecutionService CreateExecutionService(
         DbContextOptions options,
-        IOwnerExecutionGateway owner)
+        IOwnerExecutionGateway owner,
+        MiniErp.App.Modules.Audit.IFoundationAuditEvidenceSink? auditSink = null)
     {
         var persistence = new MigrationPersistence(options);
         var scope = new SqlMigrationExecutionScopeResolver();
         return new MigrationExecutionService(
-            new MigrationFoundationService(persistence, new SqlMigrationAuditSink([])),
+            new MigrationFoundationService(persistence, auditSink ?? new SqlMigrationAuditSink([])),
             persistence,
             persistence,
             persistence,
@@ -4051,6 +4102,27 @@ public sealed class SqlServerSafetyTests
             }
 
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class SqlBlockingMigrationAuditSink : MiniErp.App.Modules.Audit.IFoundationAuditEvidenceSink
+    {
+        private readonly TaskCompletionSource<bool> entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        internal Task WaitAsync() => entered.Task.WaitAsync(TimeSpan.FromSeconds(15));
+
+        internal void Release() => release.TrySetResult(true);
+
+        public async ValueTask AppendAsync(
+            FoundationAuditEvidence evidence,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.Equals(evidence.OperationId, "migration.attempt.outcome", StringComparison.Ordinal))
+            {
+                entered.TrySetResult(true);
+                await release.Task.WaitAsync(TimeSpan.FromSeconds(15), cancellationToken);
+            }
         }
     }
 
