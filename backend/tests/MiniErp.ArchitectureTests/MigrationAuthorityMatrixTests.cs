@@ -273,6 +273,18 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
         using var intakeDocument = JsonDocument.Parse(intakeBody);
         var runId = intakeDocument.RootElement.GetProperty("runId").GetGuid();
 
+        var executionRead = GetMigrationOperation("migration.execution.read");
+        var executionReaderPrincipal = CreateTenantPrincipal(identity, identityHost, tenantId, [executionRead.ExactPermissionCode!]);
+        isolatedFactory.ScopeResolver.CurrentScope = TenantWorkScopeRequest.ForCompany(sourceCompanyId);
+        isolatedFactory.Resolver.Context = identityHost.ResolveContext(executionReaderPrincipal, "mesp171-company-scope-execution-reader", executionRead);
+        using (var inScopeMissingExecution = await SendAsync(client, executionRead, runId))
+        {
+            var inScopeMissingExecutionBody = await inScopeMissingExecution.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.NotFound, inScopeMissingExecution.StatusCode);
+            using var inScopeMissingExecutionDocument = JsonDocument.Parse(inScopeMissingExecutionBody);
+            Assert.Equal("migration_execution_not_found", inScopeMissingExecutionDocument.RootElement.GetProperty("code").GetString());
+        }
+
         var previewRead = GetMigrationOperation("migration.preview.read");
         isolatedFactory.ScopeResolver.CurrentScope = TenantWorkScopeRequest.ForCompany(sourceCompanyId);
         isolatedFactory.Resolver.Context = identityHost.ResolveContext(ownerPrincipal, "mesp171-company-scope-owner", previewRead);
@@ -324,19 +336,8 @@ public sealed class MigrationAuthorityMatrixTests : IClassFixture<RestFoundation
                 operation.OperationId == "migration.intake.create" ? sourceObjectId : null);
             var deniedBody = await denied.Content.ReadAsStringAsync();
             using var deniedDocument = JsonDocument.Parse(deniedBody);
-            if (operation.OperationId == "migration.execution.read")
-            {
-                Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
-                Assert.Equal("migration_execution_not_found", deniedDocument.RootElement.GetProperty("code").GetString());
-                foreach (var property in typeof(MigrationExecutionResponse).GetProperties(BindingFlags.Public | BindingFlags.Instance))
-                    Assert.False(deniedDocument.RootElement.TryGetProperty(JsonNamingPolicy.CamelCase.ConvertName(property.Name), out _),
-                        $"{operation.OperationId} response field '{property.Name}' was disclosed.");
-            }
-            else
-            {
-                Assert.True(denied.StatusCode == HttpStatusCode.Forbidden, operation.OperationId);
-                Assert.Equal("migration_source_scope_denied", deniedDocument.RootElement.GetProperty("code").GetString());
-            }
+            Assert.True(denied.StatusCode == HttpStatusCode.Forbidden, operation.OperationId);
+            Assert.Equal("migration_source_scope_denied", deniedDocument.RootElement.GetProperty("code").GetString());
             Assert.DoesNotContain(SourceRowSentinel, deniedBody, StringComparison.Ordinal);
             Assert.DoesNotContain(sourceCompanyId.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(sourceObjectId.ToString("D"), deniedBody, StringComparison.OrdinalIgnoreCase);
