@@ -79,8 +79,9 @@ Inventory and residual GL openings are functional-currency only; the execution f
 
 ## 4. Tenant isolation and security
 
-- Tenant is resolved and authorized server-side. A hostname is a **candidate** only
-  (`Host → candidate Tenant → authentication → exact membership → server-owned context → Overview`).
+- Tenant is resolved and authorized server-side from the authenticated account's single membership;
+  a hostname grants nothing (`Sign-in → membership → server-owned context → Overview`; Q-W). The one
+  configured emergency super-administrator selects among all Tenants and stays audited under its own identity.
 - Client-supplied identifiers may select among already-authorized scopes; they never widen scope.
   Frontend guards and hidden controls are not authorization.
 - Tenant-owned rows carry immutable Tenant ownership; EF global query filters and stored-owner

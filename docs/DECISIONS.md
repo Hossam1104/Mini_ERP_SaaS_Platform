@@ -1207,6 +1207,7 @@ report is a foundation checkpoint, not a production-readiness approval.
 **Date:** 17 August 2026\
 **Decision owner:** Product Owner / Mini ERP SaaS Platform\
 **Primary Jira:** MESP-143\
+**Partly superseded (2026-10-01):** owner decision Q-W (§1.2) replaces the host-resolved candidate Tenant, Tenant-host bindings and multiple-membership selection below. Overview-first, operational context, configured branding and SAR presentation-only remain in force.\
 **Related Jira:** MESP-2, MESP-4, MESP-12, MESP-67, MESP-77, MESP-123
 
 #### Implementation note — 17 August 2026

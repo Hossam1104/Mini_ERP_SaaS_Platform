@@ -59,13 +59,11 @@ Company/Branch scope:
 - Several contexts use the header switcher.
 - Users never type raw GUIDs.
 
-**Entry flow.** A Tenant host only *suggests* a candidate Tenant. The full flow is:
-`Host → candidate Tenant → authentication → exact-Tenant membership → Tenant Overview → optional context switch`.
-
-**Common host.** A common host shows:
-- automatic selection of the only membership, landing on its Overview on the common host;
-- a chooser limited to active memberships when there are several, then the chosen Tenant's Overview on the common host (no redirect to the Tenant host; owner decision 2026-10-01, DECISIONS §2.3);
-- a safe no-access page when there are none.
+**Entry flow (Q-W, owner decision 2026-10-01).** One sign-in page for everyone; the hostname grants nothing. The full flow is:
+`Sign-in → server resolves the account's single Tenant membership → Tenant branding → Tenant Overview → optional Company/Branch switch`.
+- An account with no active membership gets a safe no-access page.
+- The one configured emergency super-administrator gets a dropdown of all Tenants after sign-in, then the chosen Tenant's Overview with full access, audited under its own identity.
+- Tenant host domains are removed for now (MESP-204 (#364)); per-Tenant URLs may return later as optional branding only.
 
 **Platform administration.** It is a separate control plane.
 
