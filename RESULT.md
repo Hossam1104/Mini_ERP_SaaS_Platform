@@ -8,7 +8,7 @@
   - `npm test -- --watch=false --no-progress`: 50 files passed, 341 tests passed, 0 failed.
   - `npm run build`: passed with no warnings; initial bundle total 499.89 kB.
   - `MESP_E2E_BASE_URL=http://localhost:4345 npm run test:e2e -- --project=chromium --workers=1`: 62 passed. Worktree Angular ran on 4345 and proxied to the worktree API on 5345.
-  - `git diff --check`: clean before the RESULT update; rerun for the hand-back commit.
+  - `git diff --check`: clean after the RESULT update and before the hand-back commit, exit 0.
   - Runtime prerequisite `dotnet build backend/MiniErp.sln --configuration Release`: succeeded, 0 warnings/errors. `GET http://localhost:4345/api/v1/module-registration` returned HTTP 200. Worktree API/frontend processes were stopped after E2E.
 - Evidence: Threads PRRT_kwDOTplnks6nwIgg, PRRT_kwDOTplnks6nwIgi, PRRT_kwDOTplnks6nwIgn, and PRRT_kwDOTplnks6nwIgp each received a fix reply and were resolved through `resolveReviewThread`. No merge was performed.
 - Deviations from the prompt: Serena initialization hung; used targeted read-only `rg` navigation. Five additional in-scope row-identity diffs appeared after the initial status capture (Finance reports, settlement, tax/FX, general ledger, and Import mapping); reviewed, included, and reran the final unit/build/E2E gates on the complete source state. The API Release executable was absent, so the unchanged backend solution was built to run the requested preview.
