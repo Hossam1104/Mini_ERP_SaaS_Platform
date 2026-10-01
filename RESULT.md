@@ -1,5 +1,24 @@
 ﻿# Results
 
+## 2026-10-01 — MESP-201 (#357) Tenant-host workspace context — GPT-6 / effort not surfaced — MESP-201 (#357)
+- Status: DONE. Draft PR #360 remains OPEN/Draft; no Ready, review request, approval, merge, or issue-state change.
+- Branch / starting SHA / ending SHA: `fix/mesp-201-tenant-host-context`; branched from `origin/main` at `0ab72c511bb3a11e9c86fb9fc7b39701862d289e`, fast-forwarded to current `origin/main` `131826b4be6b69a9b3133549ab1cac11c826b6ab` before implementation; code commit `83079cd76219b13a5fa048d005661abdbb95e903`; RESULT hand-back commit follows.
+- What changed: Root cause was `/app/workspaces` rendering `ContextSwitcherComponent`, which reads `/auth/contexts` and the session's selected membership instead of the active Tenant and Company/Branch returned by `/auth/entry`. Tenant-host entry can have an empty membership list while its server-selected Tenant and operational context are active. The page now shows the fixed Tenant, active Company/Branch, and only Company/Branch choices on Tenant hosts. It shows a membership chooser only for multiple common-host Tenants; one common-host membership is fixed. The shared chooser falls back to the active Tenant from entry data so it cannot report no Tenant context while entry has an active Tenant. Added unit and host-specific Chromium E2E coverage. Changed `frontend/src/app/features/context/tenant-select.component.ts`, its spec, `frontend/src/app/shared/ui/context-switcher.component.ts`, and `frontend/e2e/wave1-shell.spec.ts`; screenshot evidence is under `.playwright-mcp/mesp-201/`.
+- Gates:
+  - `npm ci`: exit 0; 288 packages installed, 0 vulnerabilities. Four package install scripts remained blocked by the repository's npm policy; no lockfile change.
+  - `npm test -- --watch=false --no-progress`: exit 0; style guard 0 violations; 51 files and 356/356 tests passed.
+  - `npm run build`: exit 0; initial bundle 317.99 kB.
+  - `npm run test:e2e -- --project=chromium`: exit 1; 66/69 passed, 3 failed with default workers (Inventory action timeout; `ERR_NO_BUFFER_SPACE` on an Overview navigation; existing Arabic hero language-button timeout).
+  - `npm run test:e2e -- --project=chromium --workers=1`: exit 1; 65/69 passed, 4 failed (existing Inventory valuation metric assertion, two existing UI-modernization selectors, and `ERR_NO_BUFFER_SPACE` on a shell navigation).
+  - `npx playwright test e2e/wave1-shell.spec.ts --project=chromium --workers=1`: exit 0; 7/7 passed, including all MESP-201 host cases.
+  - `git diff --check`: clean before and after this RESULT entry.
+  - Backend gate: not run; no backend files changed.
+- Evidence: Draft PR #360: https://github.com/Hossam1104/Mini_ERP_SaaS_Platform/pull/360; code commit `83079cd76219b13a5fa048d005661abdbb95e903`, base `main`; the RESULT hand-back commit updates the PR head. Screenshots: `.playwright-mcp/mesp-201/tenant-host-workspaces.png` and `.playwright-mcp/mesp-201/common-host-workspaces.png`. They were captured from the Angular dev server on port 4370 with host-aware mocked auth/entry responses; no API runtime was started. Runtime listeners on ports 4370 and 5370 are stopped/clear.
+- Deviations from the prompt: The full Chromium suite did not pass; the focused shell E2E suite passed. The unrelated full-suite failures are classified as environment for `ERR_NO_BUFFER_SPACE` and inconclusive/out-of-scope for the missing-element or metric assertions; no unrelated tests or assertions were changed.
+- Failures and classification: The first unit attempt found an implementation compile error (duplicate localization keys and missing `ContextService` import); corrected before the final 356/356 run. Full-suite E2E failures are listed above; no MESP-201 E2E failed.
+- Status files updated: `RESULT.md` only; `TASK.md` untouched.
+- Exact next action: Start MESP-202 (#358) in its own worktree from current `origin/main`; leave PR #360 Draft/Open/Unmerged.
+
 ## 2026-10-01 — MESP-200 (#356) restore navigation rail tile styling — Claude Opus 5.5 / medium — MESP-200 (#356)
 - Status: DONE. Opus merge-integration fix for a regression introduced by its own #349 merge resolution.
 - Branch: `fix/mesp-200-rail-tile-styling` from `origin/main` `0ab72c5`.
