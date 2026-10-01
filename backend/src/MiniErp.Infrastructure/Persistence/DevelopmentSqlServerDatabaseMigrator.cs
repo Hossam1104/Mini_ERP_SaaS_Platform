@@ -6,6 +6,7 @@ using MiniErp.Infrastructure.Persistence.Modules.Procurement;
 using MiniErp.Infrastructure.Persistence.Modules.Inventory;
 using MiniErp.Infrastructure.Persistence.Modules.Finance;
 using MiniErp.Infrastructure.Persistence.Modules.Migration;
+using MiniErp.Infrastructure.Persistence.Modules.Sales;
 
 namespace MiniErp.Infrastructure.Persistence;
 
@@ -87,6 +88,15 @@ public static class DevelopmentSqlServerDatabaseMigrator
                    SqlServerDesignTimeDbContextConfiguration.CreateTenantContext()))
         {
             MigrateWithDatabaseCreationRaceRetry(finance);
+        }
+
+        using (var sales = new SalesDbContext(
+                   SqlServerMigrationConfiguration.Configure(
+                       connectionString,
+                       SqlServerMigrationConfiguration.SalesHistoryTable),
+                   SqlServerDesignTimeDbContextConfiguration.CreateTenantContext()))
+        {
+            MigrateWithDatabaseCreationRaceRetry(sales);
         }
     }
 
