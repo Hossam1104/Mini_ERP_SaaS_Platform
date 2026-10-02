@@ -813,11 +813,11 @@ public static class FoundationOperationCatalog
         },
         new("auth.contexts.read", "/api/v1/auth/contexts", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session")
         {
-            BoundaryDescription = "Returns only the authenticated user's one active Tenant membership and separately authorized support or governance contexts. Multiple active Tenant memberships fail closed. It never lists the Tenant directory; only the configured emergency super-administrator may use the separate emergency-tenants endpoint."
+            BoundaryDescription = "Returns only the authenticated user's one active Tenant membership and separately authorized support or governance contexts, with optional Arabic Tenant display names. Multiple active Tenant memberships fail closed. It never lists the Tenant directory; only the configured emergency super-administrator may use the separate emergency-tenants endpoint."
         },
         new("auth.emergency-tenants.read", "/api/v1/auth/emergency-tenants", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "server.configured-emergency-super-administrator", FoundationScopePolicy.None, RequiresMandatoryAudit: true)
         {
-            BoundaryDescription = "Returns the Tenant directory only when the authenticated account exactly matches the server-configured emergency super-administrator. Anonymous callers receive 401 and every other account receives 403. The directory is derived from Tenant memberships and contains display names, never host bindings."
+            BoundaryDescription = "Returns the Tenant directory only when the authenticated account exactly matches the server-configured emergency super-administrator. Anonymous callers receive 401 and every other account receives 403. The directory is derived from Tenant memberships and includes localized display names."
         },
         new("auth.emergency-tenant-switch", "/api/v1/auth/emergency-tenant-switch", "POST", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "server.configured-emergency-super-administrator", FoundationScopePolicy.None, RequiresAntiforgery: true, RequiresMandatoryAudit: true, IsUnsafe: true)
         {

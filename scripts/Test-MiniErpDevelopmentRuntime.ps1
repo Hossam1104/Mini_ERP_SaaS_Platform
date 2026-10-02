@@ -36,7 +36,7 @@ $trackedProxy = Get-Content -LiteralPath $trackedProxyPath -Raw | ConvertFrom-Js
 $trackedTarget = $trackedProxy.PSObject.Properties['/api'].Value.target
 Assert-Equal -Actual $trackedTarget -Expected 'http://localhost:5000' -Message 'Tracked proxy default changed unexpectedly'
 if ($trackedProxy.PSObject.Properties['/api'].Value.PSObject.Properties['changeOrigin']) {
-    throw 'Tracked proxy must not configure host rewriting for Tenant entry routing.'
+    throw 'Tracked proxy must not configure host rewriting for account-resolved Tenant entry.'
 }
 
 $listener = New-Object System.Net.Sockets.TcpListener -ArgumentList @([System.Net.IPAddress]::Loopback, 0)
@@ -75,7 +75,7 @@ $generatedProxy = Get-Content -LiteralPath $generatedProxyPath -Raw | ConvertFro
 $generatedTarget = $generatedProxy.PSObject.Properties['/api'].Value.target
 Assert-Equal -Actual $generatedTarget -Expected "http://localhost:$customPort" -Message 'Generated proxy did not follow MESP_DEV_API_URL'
 if ($generatedProxy.PSObject.Properties['/api'].Value.PSObject.Properties['changeOrigin']) {
-    throw 'Generated proxy must not configure host rewriting for Tenant entry routing.'
+    throw 'Generated proxy must not configure host rewriting for account-resolved Tenant entry.'
 }
 $proxyBytes = [System.IO.File]::ReadAllBytes($generatedProxyPath)
 if ($proxyBytes.Length -ge 3 -and $proxyBytes[0] -eq 0xEF -and $proxyBytes[1] -eq 0xBB -and $proxyBytes[2] -eq 0xBF) {

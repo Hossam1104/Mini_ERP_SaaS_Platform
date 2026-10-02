@@ -220,8 +220,8 @@ $env:ASPNETCORE_ENVIRONMENT = 'Development'
 $env:Scalar__Enabled = 'true'
 $env:MESP_DEV_BOOTSTRAP_ENABLED = 'true'
 $env:MESP_DEV_AUTH_BYPASS = 'false'
-$env:MESP_DEV_ADMIN_LOGIN = 'admin@minierp.local'
-$env:MESP_DEV_ADMIN_PASSWORD = '<YOUR-LOCAL-PASSWORD>'
+$env:MESP_DEV_ADMIN_LOGIN = 'admin@mesp.com'
+$env:MESP_DEV_ADMIN_PASSWORD = '123'
 dotnet run --project '.\src\MiniErp.Api\MiniErp.Api.csproj' --configuration Release --no-build --urls 'http://localhost:5300'
 ```
 
@@ -232,9 +232,11 @@ cd '.\frontend'
 npm start -- --port 4300 --proxy-config '..\.runtime\proxy.conf.json'
 ```
 
-The placeholder above is not a password. Set the exact password you will type
-in the browser as `MESP_DEV_ADMIN_PASSWORD` before starting the backend. Never
-commit or put that value in `RUN.md`, a tracked configuration file, or the tracker.
+The Development bootstrap account uses `admin@mesp.com` / `123` unless the
+Development login or password is explicitly overridden in the process
+environment. The launcher uses that password by default and ignores an ambient
+`MESP_DEV_AUTH_BYPASS`; pass `-DevAuthBypass` only when you intend to use the
+Development shortcut.
 
 ## Development authentication and stale cookies
 
@@ -249,9 +251,9 @@ the normal credential request:
 1. `POST http://localhost:4300/api/v1/auth/sign-in` (or the Development
    bypass above);
 2. `GET http://localhost:4300/api/v1/auth/session`;
-3. `GET http://localhost:4300/api/v1/auth/entry` for the server-resolved entry
-   mode, Tenant identity, authorized choices, branding, SAR presentation, and
-   operational-context state;
+3. `GET http://localhost:4300/api/v1/auth/entry` for the account-resolved entry
+   mode, selected Tenant branding or safe no-access state, SAR presentation,
+   and operational-context state. It never lists Tenants;
 4. `GET http://localhost:4300/api/v1/auth/antiforgery` when a write is needed;
 5. `POST http://localhost:4300/api/v1/auth/operational-context-switch` only
    when the Overview header presents multiple authorized Company/Branch

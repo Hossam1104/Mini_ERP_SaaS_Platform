@@ -379,8 +379,7 @@ app.SeedDevelopmentBootstrap();
 
 if (trustedProxyIps.Count > 0)
 {
-    // Only configured known proxies may influence Request.Host. Without this
-    // middleware, forwarded-host headers remain untrusted and are ignored.
+    // Only configured known proxies may supply the forwarded request scheme.
     app.UseForwardedHeaders();
 }
 

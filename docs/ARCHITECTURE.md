@@ -57,7 +57,7 @@ plus `TenantPersistenceDbContext`, which physically owns `tenancy.TenantOwnedRec
 | Module | Owns | Does not own |
 |---|---|---|
 | Platform | Platform administration, Tenant lifecycle (M27 activation) | Tenant ERP business data |
-| Identity | Authentication/session, membership, permissions, server-side Tenant/organization context, host-aware entry | — |
+| Identity | Authentication/session, membership, permissions, server-side Tenant/organization context, account-resolved entry | — |
 | MasterData | Category, UOM, Product, Price List, Tax, Currency, Exchange Rate, Payment Term, import | Party identity |
 | BusinessParties | Supplier and Business Customer identity | Purchasing/commercial process roles |
 | Procurement | PR, Supplier Quotation/comparison, PO, Supplier Confirmation, Goods Receipt evidence, Purchase Invoice handoff/matching, Supplier Return | Stock truth, accounting truth |

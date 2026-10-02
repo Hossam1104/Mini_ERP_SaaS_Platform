@@ -99,9 +99,9 @@ async function setupLoginFlow(page: Page) {
   await page.route('**/api/v1/auth/sign-in', async (route) => {
     const body = route.request().postDataJSON() as { login?: string };
     kind = body.login === 'admin@mesp.com' ? 'emergency' : 'ordinary';
-    selectedTenant = null;
+    selectedTenant = kind === 'ordinary' ? 'tenant-a' : null;
     authenticated = true;
-    return route.fulfill({ json: sessionFor(kind, null) });
+    return route.fulfill({ json: sessionFor(kind, selectedTenant) });
   });
   await page.route('**/api/v1/auth/emergency-tenants', (route) => {
     listRequests += 1;
@@ -138,8 +138,8 @@ async function setupLoginFlow(page: Page) {
 }
 
 async function signIn(page: Page, login = 'amina@example.com', password = 'Example-Password-1!'): Promise<void> {
-  await page.getByLabel('Login').fill(login);
-  await page.getByLabel('Password').fill(password);
+  await page.locator('#username').fill(login);
+  await page.locator('#password').fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
 }
 
@@ -161,6 +161,7 @@ test.describe('account-resolved entry and shell', () => {
     await expect(page.locator('#emergency-tenant-select')).toHaveCount(0);
     await expect(page.locator('#context-trigger')).toHaveCount(0);
     await expect(page.locator('.context-chip--static')).toContainText('Alpha ERP');
+    await expect(page.locator('.context-chip--static')).toContainText('Alpha Company');
     await page.screenshot({ path: resolve(screenshotDir, 'ordinary-overview-en.png'), animations: 'disabled' });
     await page.screenshot({ path: resolve(screenshotDir, 'ordinary-header-en.png'), animations: 'disabled' });
 
@@ -176,15 +177,15 @@ test.describe('account-resolved entry and shell', () => {
     await page.goto('/login');
     await signIn(page, 'admin@mesp.com', '123');
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole('heading', { name: 'Select a Tenant' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Choose a Tenant' })).toBeVisible();
     const tenantSelect = page.locator('#tenant-context');
-    await expect(tenantSelect.locator('option')).toHaveText(['Choose a Tenant', 'Alpha ERP', 'Beta ERP']);
+    await expect(tenantSelect.locator('option')).toHaveText(['Select a Tenant', 'Alpha ERP', 'Beta ERP']);
     expect(state.listRequests()).toBe(1);
     await page.screenshot({ path: resolve(screenshotDir, 'super-admin-login-step2-en.png'), animations: 'disabled' });
 
     await page.locator('.language-button').click();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-    await expect(tenantSelect.locator('option')).toHaveText(['Ø§Ø®ØªØ± Ø¹Ù…ÙŠÙ„Ø§Ù‹', '\u0623\u0644\u0641\u0627 ERP', '\u0628\u064a\u062a\u0627 ERP']);
+    await expect(tenantSelect.locator('option')).toHaveText(['\u0627\u062e\u062a\u0631 \u0639\u0645\u064a\u0644\u0627\u064b', '\u0623\u0644\u0641\u0627 ERP', '\u0628\u064a\u062a\u0627 ERP']);
     await page.screenshot({ path: resolve(screenshotDir, 'super-admin-login-step2-ar.png'), animations: 'disabled' });
     await page.locator('.language-button').click();
 
@@ -196,18 +197,21 @@ test.describe('account-resolved entry and shell', () => {
     await expect(page.locator('#context-trigger')).toBeVisible();
     await expect(page.locator('#emergency-tenant-select')).toHaveCount(0);
     await page.screenshot({ path: resolve(screenshotDir, 'super-admin-overview-en.png'), animations: 'disabled' });
+    await page.locator('#context-trigger').click();
+    const headerTenantSelect = page.locator('#emergency-tenant-select');
+    await expect(headerTenantSelect.locator('option')).toHaveText(['Alpha ERP', 'Beta ERP']);
     await page.screenshot({ path: resolve(screenshotDir, 'super-admin-header-en.png'), animations: 'disabled' });
+    await page.keyboard.press('Escape');
 
     await page.locator('button.language-button.header-control').click();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.locator('#tenant-overview-title')).toHaveText('\u0623\u0644\u0641\u0627 ERP');
+    await page.locator('#context-trigger').click();
+    await expect(headerTenantSelect.locator('option')).toHaveText(['\u0623\u0644\u0641\u0627 ERP', '\u0628\u064a\u062a\u0627 ERP']);
     await page.screenshot({ path: resolve(screenshotDir, 'super-admin-header-ar.png'), animations: 'disabled' });
 
-    await page.locator('#context-trigger').click();
-    const headerTenantSelect = page.locator('#emergency-tenant-select');
-    await expect(headerTenantSelect.locator('option')).toHaveText(['Alpha ERP', 'Beta ERP']);
     await headerTenantSelect.selectOption('tenant-b');
-    await expect(page.locator('#tenant-overview-title')).toHaveText('Beta ERP');
+    await expect(page.locator('#tenant-overview-title')).toHaveText('\u0628\u064a\u062a\u0627 ERP');
     await expect(page.locator('.topbar__tenant-logo')).toHaveAttribute('alt', 'Beta ERP');
     await expect(page).toHaveURL(/\/app$/);
     expect(state.listRequests()).toBe(1);

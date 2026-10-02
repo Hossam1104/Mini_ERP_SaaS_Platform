@@ -51,7 +51,7 @@ public sealed class HostSecurityTests
     [Fact]
     public async Task Sign_in_resolves_only_the_account_membership_and_rejects_another_accounts_Tenant_context()
     {
-        using var factory = new HostFactory { RequestHost = "wafra.localhost" };
+        using var factory = new HostFactory { RequestHost = "unrelated.invalid" };
         using var ownerClient = factory.CreateClient();
         factory.SeedCore();
 
@@ -103,8 +103,8 @@ public sealed class HostSecurityTests
         Assert.Equal(HttpStatusCode.OK, (await SignInAsync(client, "owner@example.com", factory.Password)).StatusCode);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/auth/entry");
-        request.Headers.Host = "wafra.localhost";
-        request.Headers.TryAddWithoutValidation("X-Forwarded-Host", "wafra.example.com");
+        request.Headers.Host = "unrelated.invalid";
+        request.Headers.TryAddWithoutValidation("X-Forwarded-Host", "other.invalid");
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -146,9 +146,9 @@ public sealed class HostSecurityTests
         var tenants = tenantDirectory.GetProperty("tenants").EnumerateArray().ToArray();
         Assert.Equal(2, tenants.Length);
         Assert.Contains(tenants, item => item.GetProperty("displayName").GetString() == "Alpha ERP"
-            && item.GetProperty("arabicDisplayName").GetString() == "ألفا");
+            && item.GetProperty("arabicDisplayName").GetString() == "\u0623\u0644\u0641\u0627");
         Assert.Contains(tenants, item => item.GetProperty("displayName").GetString() == "Beta ERP"
-            && item.GetProperty("arabicDisplayName").GetString() == "بيتا");
+            && item.GetProperty("arabicDisplayName").GetString() == "\u0628\u064a\u062a\u0627");
         Assert.DoesNotContain(tenants, item => item.GetProperty("displayName").GetString() == item.GetProperty("tenantId").GetGuid().ToString("D"));
 
         var token = await GetAntiforgeryTokenAsync(admin);
@@ -184,10 +184,19 @@ public sealed class HostSecurityTests
             new CorrelationId("emergency-audit-read"),
             adminId.Value);
         var audit = await factory.Services.GetRequiredService<LocalImmutableAuditEvidenceStore>().ReadForTenantAsync(auditContext);
+        var tenantSwitchEvidence = Assert.Single(audit, item => item.OperationId == "auth.emergency-tenant-switch");
+        Assert.Equal(adminId.Value, tenantSwitchEvidence.ActorId);
+        Assert.Equal(FoundationAuditAuthorizationPath.EmergencySuperAdministrator, tenantSwitchEvidence.AuthorizationPath);
+        Assert.Equal("EmergencySuperAdministrator", tenantSwitchEvidence.Purpose);
         var probeEvidence = Assert.Single(audit, item => item.OperationId == "foundation.probe.write");
         Assert.Equal(adminId.Value, probeEvidence.ActorId);
         Assert.Equal(FoundationAuditAuthorizationPath.EmergencySuperAdministrator, probeEvidence.AuthorizationPath);
         Assert.Equal("EmergencySuperAdministrator", probeEvidence.Purpose);
+        var sessionAudit = factory.Services.GetRequiredService<LocalFoundationAuditTelemetrySink>().Events;
+        Assert.Contains(sessionAudit, item => item.OperationId == "auth.sign-in"
+            && item.AuthorizationPath == FoundationAuditAuthorizationPath.EmergencySuperAdministrator);
+        Assert.Contains(sessionAudit, item => item.OperationId == "auth.emergency-tenants.read"
+            && item.AuthorizationPath == FoundationAuditAuthorizationPath.EmergencySuperAdministrator);
     }
 
     [Fact]

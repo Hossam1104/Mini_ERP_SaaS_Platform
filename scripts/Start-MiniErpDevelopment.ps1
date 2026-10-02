@@ -333,10 +333,6 @@ function Write-GeneratedProxy {
         '/api' = [ordered]@{
             target       = $TargetUrl
             secure       = $false
-            # Preserve the browser Host so the API can resolve the configured
-            # common, Tenant, or platform entry mode. The target remains a
-            # loopback transport detail, not the Tenant routing authority.
-            changeOrigin = $false
             logLevel     = 'debug'
         }
     }

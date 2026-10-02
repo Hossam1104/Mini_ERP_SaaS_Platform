@@ -27,7 +27,7 @@ namespace MiniErp.ArchitectureTests;
 public sealed class DevelopmentBootstrapTests
 {
     [Fact]
-    public void TenantDisplayNames_AreServerConfiguredAndKeepGenericFallbacks()
+    public void TenantDisplayNames_AreServerConfiguredAndUseMespFallbacks()
     {
         var configuredTenantId = Guid.Parse("22222222-2222-2222-2222-222222222222");
         var configuration = new ConfigurationBuilder()
@@ -40,7 +40,7 @@ public sealed class DevelopmentBootstrapTests
 
         Assert.Equal("North Star", provider.GetDisplayName(new TenantId(configuredTenantId)));
         Assert.Equal(
-            $"Tenant {DevelopmentBootstrap.DevTenantId.Value:D}",
+            "MESP",
             provider.GetDisplayName(DevelopmentBootstrap.DevTenantId));
     }
 
@@ -98,7 +98,7 @@ public sealed class DevelopmentBootstrapTests
         using var scope = factory.Services.CreateScope();
         var identity = scope.ServiceProvider.GetRequiredService<IdentityAuthorizationService>();
 
-        var result = identity.Authenticate("admin@minierp.local", "SomePassword123!");
+        var result = identity.Authenticate(DevelopmentBootstrap.DefaultAdminLogin, DevelopmentBootstrap.DefaultAdminPassword);
         Assert.False(result.Succeeded);
         Assert.Equal("authentication_failed", result.PublicCode);
     }
@@ -136,7 +136,7 @@ public sealed class DevelopmentBootstrapTests
     }
 
     [Fact]
-    public void Bootstrap_DefaultDummyAccountAuthenticatesWithItsTenantMembership()
+    public void Bootstrap_DefaultDummyAccountUsesTheConfiguredEmergencyAdministratorPath()
     {
         using var factory = new CustomTestWebApplicationFactory(new Dictionary<string, string?>
         {
@@ -152,8 +152,19 @@ public sealed class DevelopmentBootstrapTests
 
         Assert.True(signIn.Succeeded);
         Assert.NotNull(signIn.Principal);
-        Assert.Single(identity.ListContexts(signIn.Principal));
-        Assert.Equal(DevelopmentBootstrap.DevTenantId.Value, identity.ListContexts(signIn.Principal)[0].TenantId);
+        Assert.True(signIn.State!.IsEmergencySuperAdministrator);
+        Assert.Null(signIn.State.SelectedContext);
+        var tenants = identity.ListEmergencyTenants(signIn.Principal);
+        var tenant = Assert.Single(tenants);
+        Assert.Equal(DevelopmentBootstrap.DevTenantId.Value, tenant.TenantId);
+
+        var switched = identity.SwitchEmergencyTenant(
+            signIn.Principal,
+            tenant.TenantId,
+            signIn.State.SelectionVersion);
+        Assert.True(switched.Succeeded);
+        var selectedContext = Assert.Single(identity.ListContexts(signIn.Principal));
+        Assert.Equal(DevelopmentBootstrap.DevTenantId.Value, selectedContext.TenantId);
     }
 
     [Fact]
@@ -285,39 +296,24 @@ public sealed class DevelopmentBootstrapTests
         var signInResponse = await client.PostAsJsonAsync("/api/v1/auth/sign-in", new FoundationSignInRequest("admin@minierp.local", "LocalDevSecret123!"));
         Assert.Equal(HttpStatusCode.OK, signInResponse.StatusCode);
 
-        // 2. Fetch Antiforgery token
-        var antiforgeryMessage = await client.GetAsync("/api/v1/auth/antiforgery");
-        Assert.Equal(HttpStatusCode.OK, antiforgeryMessage.StatusCode);
-        var csrfToken = antiforgeryMessage.Headers.GetValues("X-CSRF-TOKEN").Single();
-
-        // 3. Read session
+        // 2. Read session
         var sessionResponse = await client.GetFromJsonAsync<FoundationSessionResponse>("/api/v1/auth/session");
         Assert.NotNull(sessionResponse);
         Assert.True(sessionResponse.Authenticated);
 
-        // 4. List contexts
+        // 3. The account's single active membership is selected at sign-in.
+        Assert.Equal(DevelopmentBootstrap.DevTenantId.Value, sessionResponse.SelectedTenantId);
+        Assert.NotNull(sessionResponse.SelectedContextId);
+        // 4. List only the caller's own authorized context.
         var contextsResponse = await client.GetFromJsonAsync<FoundationContextsResponse>("/api/v1/auth/contexts");
         Assert.NotNull(contextsResponse);
         Assert.Single(contextsResponse.Contexts);
 
         var targetContext = contextsResponse.Contexts[0];
         Assert.Equal(DevelopmentBootstrap.DevTenantId.Value, targetContext.TenantId);
+        Assert.Equal(sessionResponse.SelectedContextId, targetContext.ContextId);
 
-        // 5. Switch context with CSRF and Idempotency headers
-        using var switchRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/context-switch")
-        {
-            Content = JsonContent.Create(new FoundationContextSwitchRequest(
-                targetContext.ContextId,
-                sessionResponse.SelectionVersion,
-                targetContext.EligibilityVersion))
-        };
-        switchRequest.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", csrfToken);
-        switchRequest.Headers.TryAddWithoutValidation("Idempotency-Key", Guid.NewGuid().ToString("N"));
-
-        var switchResponse = await client.SendAsync(switchRequest);
-        Assert.Equal(HttpStatusCode.OK, switchResponse.StatusCode);
-
-        // 6. Access Price List list endpoint as authenticated Tenant user
+        // 5. Access Price List list endpoint as authenticated Tenant user
         var priceListResponse = await client.GetAsync("/api/v1/master-data/price-lists");
         Assert.Equal(HttpStatusCode.OK, priceListResponse.StatusCode);
     }
@@ -331,7 +327,7 @@ public sealed class DevelopmentBootstrapTests
             ["MESP_DEV_AUTH_BYPASS"] = "true",
             ["MESP_DEV_ADMIN_PASSWORD"] = null,
             ["MESP_DEV_TENANT_DISPLAY_NAME"] = "Wafra",
-            [$"MESP_TENANT_BRANDING:{DevelopmentBootstrap.DevTenantId.Value:D}:ArabicDisplayName"] = "ÙˆÙØ±Ø©"
+            [$"MESP_TENANT_BRANDING:{DevelopmentBootstrap.DevTenantId.Value:D}:ArabicDisplayName"] = "\u0648\u0641\u0631\u0629"
         };
 
         using var factory = new CustomTestWebApplicationFactory(settings);
@@ -352,13 +348,19 @@ public sealed class DevelopmentBootstrapTests
         var session = await bypassResponse.Content.ReadFromJsonAsync<FoundationSessionResponse>();
         Assert.NotNull(session);
         Assert.True(session.Authenticated);
+        Assert.True(session.IsEmergencySuperAdministrator);
+        Assert.Null(session.SelectedTenantId);
 
         var contexts = await client.GetFromJsonAsync<FoundationContextsResponse>("/api/v1/auth/contexts");
         Assert.NotNull(contexts);
-        Assert.Single(contexts.Contexts);
-        Assert.Equal("Wafra", contexts.Contexts[0].DisplayName);
-        Assert.Equal("ÙˆÙØ±Ø©", contexts.Contexts[0].ArabicDisplayName);
-        Assert.DoesNotContain(DevelopmentBootstrap.DevTenantId.Value.ToString("D"), contexts.Contexts[0].DisplayName, StringComparison.Ordinal);
+        Assert.Empty(contexts.Contexts);
+        var tenants = await client.GetFromJsonAsync<FoundationEmergencyTenantsResponse>("/api/v1/auth/emergency-tenants");
+        Assert.NotNull(tenants);
+        var tenant = Assert.Single(tenants.Tenants);
+        Assert.Equal(DevelopmentBootstrap.DevTenantId.Value, tenant.TenantId);
+        Assert.Equal("Wafra", tenant.DisplayName);
+        Assert.Equal("\u0648\u0641\u0631\u0629", tenant.ArabicDisplayName);
+        Assert.DoesNotContain(DevelopmentBootstrap.DevTenantId.Value.ToString("D"), tenant.DisplayName, StringComparison.Ordinal);
 
         var csrfResponse = await client.GetAsync("/api/v1/auth/antiforgery");
         Assert.Equal(HttpStatusCode.OK, csrfResponse.StatusCode);
@@ -366,12 +368,11 @@ public sealed class DevelopmentBootstrapTests
         var initialSession = await client.GetFromJsonAsync<FoundationSessionResponse>("/api/v1/auth/session");
         Assert.NotNull(initialSession);
 
-        using var switchRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/context-switch")
+        using var switchRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/emergency-tenant-switch")
         {
-            Content = JsonContent.Create(new FoundationContextSwitchRequest(
-                contexts.Contexts[0].ContextId,
-                initialSession.SelectionVersion,
-                contexts.Contexts[0].EligibilityVersion))
+            Content = JsonContent.Create(new FoundationEmergencyTenantSwitchRequest(
+                tenant.TenantId,
+                initialSession.SelectionVersion))
         };
         switchRequest.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", csrfToken);
         switchRequest.Headers.TryAddWithoutValidation("Idempotency-Key", Guid.NewGuid().ToString("N"));
@@ -384,15 +385,15 @@ public sealed class DevelopmentBootstrapTests
         Assert.Equal(HttpStatusCode.OK, entryResponse.StatusCode);
         var entry = await entryResponse.Content.ReadFromJsonAsync<FoundationEntryResponse>();
         Assert.NotNull(entry);
-        Assert.Equal("ÙˆÙØ±Ø©", entry.Branding.ArabicDisplayName);
+        Assert.Equal("\u0648\u0641\u0631\u0629", entry.Branding.ArabicDisplayName);
         Assert.Equal("Tenant", entry.EntryMode);
 
         var repeatedBypassResponse = await client.PostAsync("/api/v1/auth/development-bypass", content: null);
         Assert.Equal(HttpStatusCode.OK, repeatedBypassResponse.StatusCode);
         var repeatedSession = await repeatedBypassResponse.Content.ReadFromJsonAsync<FoundationSessionResponse>();
         Assert.NotNull(repeatedSession);
-        Assert.Equal(contexts.Contexts[0].ContextId, repeatedSession.SelectedContextId);
-        Assert.Equal("OrdinaryMembership", repeatedSession.SelectedPath);
+        Assert.Equal(DevelopmentBootstrap.DevTenantId.Value, repeatedSession.SelectedTenantId);
+        Assert.True(repeatedSession.IsEmergencySuperAdministrator);
     }
 
     private sealed class CustomTestWebApplicationFactory : WebApplicationFactory<Program>

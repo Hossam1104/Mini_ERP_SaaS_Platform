@@ -141,7 +141,7 @@ type SignInStep = 'credentials' | 'chooseTenant' | 'empty';
                 <p class="auth-error-message" role="alert" aria-live="assertive">{{ selectionError() }}</p>
               }
 
-              <form class="tenant-form" (ngSubmit)="chooseTenant()">
+              <form class="tenant-form" (submit)="$event.preventDefault(); chooseTenant()">
                 <label for="tenant-context">{{ language.text('availableTenants') }}</label>
                 <select
                   id="tenant-context"
@@ -269,6 +269,7 @@ export class SignInComponent implements OnInit {
   readonly busy = signal(false);
   readonly step = signal<SignInStep>('credentials');
   readonly loginEntryMode = signal('NoAccess');
+  private readonly devAccountHint = signal<string | null>(null);
   readonly passwordVisible = signal(false);
   readonly capsLockOn = signal(false);
   readonly selectedContextId = signal('');
@@ -290,7 +291,10 @@ export class SignInComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    void this.context.loadEntry().then((entry) => this.loginEntryMode.set(entry?.entryMode ?? 'NoAccess'));
+    void this.context.loadEntry().then((entry) => {
+      this.loginEntryMode.set(entry?.entryMode ?? 'NoAccess');
+      this.devAccountHint.set(entry?.isDevelopment ? entry.developmentAccountHint : null);
+    });
     if (this.clientDevelopment) {
       void this.devApi.check();
     }
@@ -307,14 +311,13 @@ export class SignInComponent implements OnInit {
   }
 
   showDevPasswordHint(): boolean {
-    return this.context.entry()?.isDevelopment === true
+    return this.devAccountHint() !== null
       && this.authService.status() !== 'expired'
       && this.authService.lastError()?.code === 'authentication_failed';
   }
 
   developmentAccountHint(): string | null {
-    const entry = this.context.entry();
-    return entry?.isDevelopment ? entry.developmentAccountHint : null;
+    return this.devAccountHint();
   }
 
   brandName(): string {

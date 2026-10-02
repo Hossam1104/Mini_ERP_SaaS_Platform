@@ -291,7 +291,7 @@ describe('SignInComponent', () => {
     fixture.detectChanges();
 
     expect(component.step()).toBe('empty');
-    expect(fixture.nativeElement.textContent).toContain('This account has no active Tenant membership available here.');
+    expect(fixture.nativeElement.textContent).toContain('No Tenants are available for this account.');
     expect(fixture.nativeElement.querySelector('button')?.textContent).toContain('Sign out');
     http.expectNone('/api/v1/auth/emergency-tenants');
   });

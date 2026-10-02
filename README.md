@@ -106,8 +106,9 @@ Production startup does not auto-migrate.
 ### Boundaries that hold across modules
 
 - **Tenant is the hard security boundary.** Company, Branch and Warehouse are
-  operational scopes *inside* an already authorized Tenant. A hostname supplies
-  candidate routing only, never authorization.
+  operational scopes *inside* an already authorized Tenant. Sign-in resolves
+  that Tenant from the account's single active membership; the hostname has no
+  Tenant authority.
 - **Module ownership is exclusive.** Sales owns the commercial chain, Inventory
   owns physical stock truth, Finance owns GL, AP, AR, credit notes and tax
   effects. Operational modules never fabricate accounting entries outside the

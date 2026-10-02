@@ -261,7 +261,7 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
         var contextsDescriptor = FoundationOperationCatalog.GetRequired("auth.contexts.read");
         var entryDescriptor = FoundationOperationCatalog.GetRequired("auth.entry.read");
         Assert.Contains("optional Arabic", contextsDescriptor.BoundaryDescription, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Arabic Tenant display names", entryDescriptor.BoundaryDescription, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Configured Arabic display names", entryDescriptor.BoundaryDescription, StringComparison.OrdinalIgnoreCase);
 
         using var client = factory.CreateClient();
         using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
@@ -269,7 +269,7 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
         var contextsOperation = paths.GetProperty("/api/v1/auth/contexts").GetProperty("get");
         var entryOperation = paths.GetProperty("/api/v1/auth/entry").GetProperty("get");
         Assert.Contains("authorized contexts", contextsOperation.GetProperty("summary").GetString(), StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Arabic Tenant display name", entryOperation.GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Configured Arabic display names are presentation-only", entryOperation.GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
 
         var components = document.RootElement.GetProperty("components").GetProperty("schemas");
         JsonElement Resolve(JsonElement schema) => schema.TryGetProperty("$ref", out var reference)
@@ -287,9 +287,67 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
             .GetProperty("content").GetProperty("application/json").GetProperty("schema"));
         var entryProperties = entrySchema.GetProperty("properties");
         var brandingSchema = Resolve(entryProperties.GetProperty("branding"));
-        var tenantCandidates = Resolve(entryProperties.GetProperty("authorizedTenants").GetProperty("items"));
         Assert.Contains("arabicDisplayName", brandingSchema.GetProperty("properties").EnumerateObject().Select(item => item.Name));
-        Assert.Contains("arabicDisplayName", tenantCandidates.GetProperty("properties").EnumerateObject().Select(item => item.Name));
+        var publicEntryProperties = entryProperties.EnumerateObject().Select(item => item.Name).ToHashSet(StringComparer.Ordinal);
+        Assert.DoesNotContain("authorizedTenants", publicEntryProperties);
+        Assert.DoesNotContain("candidateTenantId", publicEntryProperties);
+        Assert.DoesNotContain("tenantId", publicEntryProperties);
+    }
+
+    [Fact]
+    public async Task Emergency_tenant_operations_publish_their_server_only_authorization_contracts()
+    {
+        var list = FoundationOperationCatalog.GetRequired("auth.emergency-tenants.read");
+        Assert.Equal("GET", list.HttpMethod);
+        Assert.Equal("/api/v1/auth/emergency-tenants", list.Route);
+        Assert.Equal("server.configured-emergency-super-administrator", list.ExactPermissionCode);
+        Assert.Equal(FoundationScopePolicy.None, list.ScopePolicy);
+        Assert.False(list.RequiresAntiforgery);
+        Assert.True(list.RequiresMandatoryAudit);
+        Assert.False(list.IsUnsafe);
+
+        var select = FoundationOperationCatalog.GetRequired("auth.emergency-tenant-switch");
+        Assert.Equal("POST", select.HttpMethod);
+        Assert.Equal("/api/v1/auth/emergency-tenant-switch", select.Route);
+        Assert.Equal("server.configured-emergency-super-administrator", select.ExactPermissionCode);
+        Assert.Equal(FoundationScopePolicy.None, select.ScopePolicy);
+        Assert.True(select.RequiresAntiforgery);
+        Assert.True(select.RequiresMandatoryAudit);
+        Assert.True(select.IsUnsafe);
+
+        using var client = factory.CreateClient();
+        using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
+        var paths = document.RootElement.GetProperty("paths");
+        var listOperation = paths.GetProperty(list.Route).GetProperty("get");
+        Assert.Equal(list.OperationId, listOperation.GetProperty("operationId").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(listOperation.GetProperty("summary").GetString()));
+        Assert.Contains("configured emergency super-administrator", listOperation.GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("200", listOperation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("401", listOperation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("403", listOperation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("503", listOperation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+        JsonElement Resolve(JsonElement schema) => schema.TryGetProperty("$ref", out var reference)
+            ? schemas.GetProperty(reference.GetString()!.Split('/').Last())
+            : schema.TryGetProperty("allOf", out var allOf) && allOf.GetArrayLength() == 1
+                ? Resolve(allOf[0])
+                : schema;
+        var listSchema = Resolve(listOperation.GetProperty("responses").GetProperty("200")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema"));
+        var tenantSchema = Resolve(listSchema.GetProperty("properties").GetProperty("tenants").GetProperty("items"));
+        Assert.Contains("arabicDisplayName", tenantSchema.GetProperty("properties").EnumerateObject().Select(item => item.Name));
+
+        var selectOperation = paths.GetProperty(select.Route).GetProperty("post");
+        Assert.Equal(select.OperationId, selectOperation.GetProperty("operationId").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(selectOperation.GetProperty("summary").GetString()));
+        Assert.Contains("authenticated actor identity is preserved", selectOperation.GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("200", selectOperation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("400", selectOperation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("401", selectOperation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("403", selectOperation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("409", selectOperation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("503", selectOperation.GetProperty("responses").EnumerateObject().Select(item => item.Name));
+        Assert.Contains("X-CSRF-TOKEN", selectOperation.GetProperty("parameters").EnumerateArray().Select(item => item.GetProperty("name").GetString()));
     }
 
     [Fact]
@@ -513,7 +571,7 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
     }
 
     [Fact]
-    public void Public_endpoint_metadata_matches_the_approved_catalog_and_unsafe_operations_are_audited()
+    public void Public_endpoint_metadata_matches_the_catalog_and_audited_safe_reads_are_explicit()
     {
         var endpoints = factory.Services
             .GetRequiredService<EndpointDataSource>()
@@ -543,9 +601,10 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
             Assert.Equal(descriptor.IsUnsafe, metadata.IsUnsafe);
         }
 
-        Assert.All(
-            FoundationOperationCatalog.PublicOperations.Where(operation => operation.RequiresMandatoryAudit),
-            operation => Assert.True(operation.IsUnsafe));
+        var auditedSafeReads = FoundationOperationCatalog.PublicOperations
+            .Where(operation => operation.RequiresMandatoryAudit && !operation.IsUnsafe)
+            .Select(operation => operation.OperationId);
+        Assert.Equal(["auth.emergency-tenants.read"], auditedSafeReads);
         Assert.False(FoundationOperationCatalog.GetRequired("auth.sign-out").RequiresMandatoryAudit);
         Assert.DoesNotContain(
             FoundationOperationCatalog.PublicOperations,
