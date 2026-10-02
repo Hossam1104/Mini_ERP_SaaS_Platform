@@ -154,8 +154,7 @@ async function installAuth(page: Page): Promise<void> {
   await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: session }));
   await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [{ contextId: 'context-a', kind: 'OrdinaryMembership', tenantId, displayName: 'Alpha workspace', eligibilityVersion: 3 }] } }));
   await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: {
-    entryMode: 'TenantHost', canonicalHost: '127.0.0.1', candidateTenantId: tenantId,
-    candidateTenantDisplayName: 'Alpha Tenant', authorizedTenants: [{ tenantId, displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
+    entryMode: 'Tenant',
     operationalContexts: [{ contextId: 'operation-a', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 }],
     selectedOperationalContextId: 'operation-a', operationalSelectionVersion: 1,
     branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true },

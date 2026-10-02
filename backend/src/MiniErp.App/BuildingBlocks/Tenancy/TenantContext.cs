@@ -117,7 +117,8 @@ public sealed class TenantContext
         SupportGrantReference? supportGrant,
         ScopeReference? scope,
         CorrelationId? correlationId,
-        Guid? actorId)
+        Guid? actorId,
+        bool isEmergencySuperAdministrator)
     {
         if (tenantId == default)
         {
@@ -126,11 +127,11 @@ public sealed class TenantContext
 
         var hasMembership = membership.HasValue;
         var hasSupportGrant = supportGrant.HasValue;
-        if (hasMembership == hasSupportGrant)
+        if (isEmergencySuperAdministrator
+            ? authorizationPath != TenantAuthorizationPath.OrdinaryMembership || hasMembership || hasSupportGrant
+            : hasMembership == hasSupportGrant)
         {
-            throw new ArgumentException(
-                "TenantContext requires exactly one authorization path.",
-                nameof(authorizationPath));
+            throw new ArgumentException("TenantContext requires exactly one authorization path or the server-created emergency super-administrator marker.", nameof(authorizationPath));
         }
 
         if (authorizationPath is not TenantAuthorizationPath.OrdinaryMembership
@@ -139,7 +140,7 @@ public sealed class TenantContext
             throw new ArgumentOutOfRangeException(nameof(authorizationPath));
         }
 
-        if (authorizationPath == TenantAuthorizationPath.OrdinaryMembership && !hasMembership)
+        if (authorizationPath == TenantAuthorizationPath.OrdinaryMembership && !hasMembership && !isEmergencySuperAdministrator)
         {
             throw new ArgumentException("OrdinaryMembership requires a membership reference.", nameof(membership));
         }
@@ -166,6 +167,7 @@ public sealed class TenantContext
         Scope = scope;
         CorrelationId = correlationId;
         ActorId = actorId;
+        IsEmergencySuperAdministrator = isEmergencySuperAdministrator;
     }
 
     /// <summary>The one trusted Tenant boundary.</summary>
@@ -189,6 +191,9 @@ public sealed class TenantContext
     /// <summary>The optional actor identity resolved by the server.</summary>
     public Guid? ActorId { get; }
 
+    /// <summary>True only for the server-configured emergency super-administrator path.</summary>
+    public bool IsEmergencySuperAdministrator { get; }
+
     /// <summary>
     /// Creates the ordinary membership path from server-resolved membership facts.
     /// </summary>
@@ -206,7 +211,8 @@ public sealed class TenantContext
             supportGrant: null,
             scope,
             correlationId,
-            actorId);
+            actorId,
+            isEmergencySuperAdministrator: false);
     }
 
     /// <summary>
@@ -226,8 +232,24 @@ public sealed class TenantContext
             supportGrant,
             scope,
             correlationId,
-            actorId);
+            actorId,
+            isEmergencySuperAdministrator: false);
     }
+
+    /// <summary>Creates the exceptional Tenant path only after server configuration validation.</summary>
+    internal static TenantContext ForEmergencySuperAdministrator(
+        TenantId tenantId,
+        ScopeReference? scope,
+        CorrelationId correlationId,
+        Guid actorId) => new(
+            tenantId,
+            TenantAuthorizationPath.OrdinaryMembership,
+            membership: null,
+            supportGrant: null,
+            scope,
+            correlationId,
+            actorId,
+            isEmergencySuperAdministrator: true);
 
     /// <summary>
     /// Internal validation seam used by architecture tests and the server resolver.
@@ -248,6 +270,7 @@ public sealed class TenantContext
             supportGrant,
             scope,
             correlationId,
-            actorId);
+            actorId,
+            isEmergencySuperAdministrator: false);
     }
 }

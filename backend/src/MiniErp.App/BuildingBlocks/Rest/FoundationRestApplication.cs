@@ -24,11 +24,12 @@ public sealed class FoundationRequestContext
         TenantContext? tenantContext,
         PlatformGovernanceContext? platformGovernanceContext,
         string permission,
-        string lifecycleState)
+        string lifecycleState,
+        bool isEmergencySuperAdministrator)
     {
         if (securityProfile is FoundationSecurityProfile.Anonymous)
         {
-            if (actorId.HasValue || sessionId.HasValue || tenantContext is not null || platformGovernanceContext is not null)
+            if (actorId.HasValue || sessionId.HasValue || tenantContext is not null || platformGovernanceContext is not null || isEmergencySuperAdministrator)
             {
                 throw new ArgumentException("Anonymous context cannot contain server authorization facts.", nameof(securityProfile));
             }
@@ -64,6 +65,14 @@ public sealed class FoundationRequestContext
             {
                 throw new ArgumentException("Tenant profile requires TenantContext.", nameof(tenantContext));
             }
+
+            if (tenantContext is not null
+                    && tenantContext.IsEmergencySuperAdministrator != isEmergencySuperAdministrator
+                || isEmergencySuperAdministrator
+                    && securityProfile is not (FoundationSecurityProfile.AuthenticatedSession or FoundationSecurityProfile.OrdinaryMembership))
+            {
+                throw new ArgumentException("The emergency super-administrator marker must match its server-derived context.", nameof(isEmergencySuperAdministrator));
+            }
         }
 
         if (securityProfile is not FoundationSecurityProfile.Anonymous && string.IsNullOrWhiteSpace(permission))
@@ -83,6 +92,7 @@ public sealed class FoundationRequestContext
         PlatformGovernanceContext = platformGovernanceContext;
         Permission = permission.Trim();
         LifecycleState = lifecycleState.Trim();
+        IsEmergencySuperAdministrator = isEmergencySuperAdministrator;
     }
 
     public FoundationSecurityProfile SecurityProfile { get; }
@@ -99,6 +109,9 @@ public sealed class FoundationRequestContext
 
     public string LifecycleState { get; }
 
+    /// <summary>Marks the server-configured emergency super-administrator actor without changing its identity.</summary>
+    public bool IsEmergencySuperAdministrator { get; }
+
     internal static FoundationRequestContext Unauthenticated() => new(
         FoundationSecurityProfile.Anonymous,
         actorId: null,
@@ -106,16 +119,18 @@ public sealed class FoundationRequestContext
         tenantContext: null,
         platformGovernanceContext: null,
         permission: string.Empty,
-        lifecycleState: "Unauthenticated");
+        lifecycleState: "Unauthenticated",
+        isEmergencySuperAdministrator: false);
 
-    internal static FoundationRequestContext ForAuthenticatedSession(Guid actorId, Guid sessionId, string permission = "authenticated.session", string lifecycleState = "Active") => new(
+    internal static FoundationRequestContext ForAuthenticatedSession(Guid actorId, Guid sessionId, string permission = "authenticated.session", string lifecycleState = "Active", bool isEmergencySuperAdministrator = false) => new(
         FoundationSecurityProfile.AuthenticatedSession,
         actorId,
         sessionId,
         tenantContext: null,
         platformGovernanceContext: null,
         permission,
-        lifecycleState);
+        lifecycleState,
+        isEmergencySuperAdministrator);
 
     internal static FoundationRequestContext ForTenant(
         Guid actorId,
@@ -139,7 +154,8 @@ public sealed class FoundationRequestContext
             tenantContext,
             platformGovernanceContext: null,
             permission,
-            lifecycleState);
+            lifecycleState,
+            tenantContext.IsEmergencySuperAdministrator);
     }
 
     internal static FoundationRequestContext ForPlatform(
@@ -157,7 +173,8 @@ public sealed class FoundationRequestContext
             tenantContext: null,
             governanceContext,
             permission,
-            lifecycleState);
+            lifecycleState,
+            isEmergencySuperAdministrator: false);
     }
 }
 
@@ -179,14 +196,10 @@ public interface ITrustedRequestContextResolver
 public sealed class DefaultTrustedRequestContextResolver : ITrustedRequestContextResolver
 {
     private readonly IFoundationIdentityHost identityHost;
-    private readonly ITenantEntryAuthority? tenantEntryAuthority;
 
-    public DefaultTrustedRequestContextResolver(
-        IFoundationIdentityHost identityHost,
-        ITenantEntryAuthority? tenantEntryAuthority = null)
+    public DefaultTrustedRequestContextResolver(IFoundationIdentityHost identityHost)
     {
         this.identityHost = identityHost ?? throw new ArgumentNullException(nameof(identityHost));
-        this.tenantEntryAuthority = tenantEntryAuthority;
     }
 
     public ValueTask<FoundationRequestContext> ResolveAsync(HttpContext httpContext, CancellationToken cancellationToken = default)
@@ -206,15 +219,6 @@ public sealed class DefaultTrustedRequestContextResolver : ITrustedRequestContex
             return ValueTask.FromResult(FoundationRequestContext.Unauthenticated());
         }
 
-        // Host routing is a candidate hint only. The entry authority can select
-        // an exact server-side membership/platform path, but it never accepts
-        // Tenant headers or request payloads as authorization.
-        // A common host is a routing entry point. Do not silently activate its
-        // single Tenant membership merely because a legacy business endpoint
-        // was called; the explicit entry response owns that transition. A
-        // Tenant-specific host still enforces its exact candidate on every
-        // protected request.
-        tenantEntryAuthority?.Prepare(httpContext.User, httpContext.Request.Host.Value, activateCommonHost: false);
         return ValueTask.FromResult(identityHost.ResolveContext(httpContext.User, correlationId, descriptor));
     }
 }

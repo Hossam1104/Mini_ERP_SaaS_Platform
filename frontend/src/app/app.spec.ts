@@ -16,7 +16,9 @@ describe('App foundation navigation', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('keeps only the approved Wave 1 routes in the shell baseline', () => {
-    expect(routes.map((route) => route.path)).toEqual(['', 'login', 'app', 'tenant/select', '**']);
+  it('keeps only the approved entry routes and removes access-context selection', () => {
+    expect(routes.map((route) => route.path)).toEqual(['', 'login', 'app', '**']);
+    const appRoute = routes.find((route) => route.path === 'app');
+    expect(appRoute?.children?.some((route) => route.path === 'workspaces' || route.path === 'access-contexts')).toBe(false);
   });
 });

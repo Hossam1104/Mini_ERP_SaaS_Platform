@@ -39,11 +39,7 @@ export class OperationalContextSwitcherComponent implements OnInit {
   readonly language = inject(LanguageService);
 
   ngOnInit(): void {
-    if (!this.context.entry()
-      && this.context.contexts().length === 0
-      && this.context.operationalContexts().length === 0) {
-      void this.context.loadEntry();
-    }
+    if (!this.context.entry()) void this.context.loadEntry();
   }
 
   async switchFromEvent(event: Event): Promise<void> {

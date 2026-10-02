@@ -9,9 +9,6 @@ import { WorkspaceHomeComponent } from './workspace-home.component';
 describe('WorkspaceHomeComponent', () => {
   const tenantEntry = (logoLightUrl: string | null, arabicDisplayName: string | null = 'وفرة') => ({
     entryMode: 'Tenant',
-    candidateTenantId: 'tenant-a',
-    candidateTenantDisplayName: 'Example Tenant',
-    authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Example Tenant', arabicDisplayName, canonicalHost: 'tenant.localhost' }],
     branding: {
       displayName: 'Example Tenant',
       arabicDisplayName,

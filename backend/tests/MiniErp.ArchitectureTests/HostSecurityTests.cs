@@ -21,7 +21,7 @@ using Xunit;
 namespace MiniErp.ArchitectureTests;
 
 /// <summary>
-/// Direct host security tests use the production Program graph. The only
+/// Direct authentication security tests use the production Program graph. The only
 /// substitution is a bounded in-memory identity/assurance provider so the
 /// host adapter is exercised without a database or an external MFA service.
 /// The trusted resolver itself is never replaced.
@@ -29,7 +29,7 @@ namespace MiniErp.ArchitectureTests;
 public sealed class HostSecurityTests
 {
     [Fact]
-    public async Task Anonymous_entry_read_returns_host_branding_without_tenant_identifiers_or_contexts()
+    public async Task Anonymous_entry_returns_only_MESP_sign_in_branding_and_Tenant_list_is_unauthorized()
     {
         using var factory = new HostFactory { RequestHost = "tenant-a.example.com" };
         using var client = factory.CreateClient();
@@ -38,20 +38,20 @@ public sealed class HostSecurityTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await ReadJsonAsync(response);
-        Assert.Equal("TenantHost", body.GetProperty("entryMode").GetString());
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("candidateTenantId").ValueKind);
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("candidateTenantDisplayName").ValueKind);
-        Assert.Empty(body.GetProperty("authorizedTenants").EnumerateArray());
+        Assert.Equal("SignIn", body.GetProperty("entryMode").GetString());
+        Assert.False(body.TryGetProperty("candidateTenantId", out _));
+        Assert.False(body.TryGetProperty("authorizedTenants", out _));
         Assert.Empty(body.GetProperty("operationalContexts").EnumerateArray());
         Assert.Equal("MESP", body.GetProperty("branding").GetProperty("displayName").GetString());
         Assert.False(body.GetProperty("isDevelopment").GetBoolean());
         Assert.Equal(JsonValueKind.Null, body.GetProperty("developmentAccountHint").ValueKind);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/auth/emergency-tenants")).StatusCode);
     }
 
     [Fact]
-    public async Task Tenant_host_selects_only_exact_membership_and_denies_Tenant_B_only_user()
+    public async Task Sign_in_resolves_only_the_account_membership_and_rejects_another_accounts_Tenant_context()
     {
-        using var factory = new HostFactory { RequestHost = "tenant-a.example.com" };
+        using var factory = new HostFactory { RequestHost = "wafra.localhost" };
         using var ownerClient = factory.CreateClient();
         factory.SeedCore();
 
@@ -59,30 +59,43 @@ public sealed class HostSecurityTests
         var ownerEntry = await ownerClient.GetAsync("/api/v1/auth/entry");
         Assert.Equal(HttpStatusCode.OK, ownerEntry.StatusCode);
         var ownerBody = await ReadJsonAsync(ownerEntry);
-        Assert.Equal("TenantHost", ownerBody.GetProperty("entryMode").GetString());
-        Assert.Equal(factory.TenantA.Value.ToString("D"), ownerBody.GetProperty("candidateTenantId").GetString());
-        Assert.Equal("MESP", ownerBody.GetProperty("branding").GetProperty("displayName").GetString());
-        Assert.False(ownerBody.GetProperty("branding").GetProperty("tenantConfigured").GetBoolean());
-        var authorizedOwnerTenant = Assert.Single(ownerBody.GetProperty("authorizedTenants").EnumerateArray());
-        Assert.Equal(factory.TenantA.Value.ToString("D"), authorizedOwnerTenant.GetProperty("tenantId").GetString());
+        Assert.Equal("Tenant", ownerBody.GetProperty("entryMode").GetString());
+        Assert.Equal(factory.TenantA.Value, (await ReadJsonAsync(await ownerClient.GetAsync("/api/v1/auth/session"))).GetProperty("selectedTenantId").GetGuid());
+        Assert.Equal("Alpha ERP", ownerBody.GetProperty("branding").GetProperty("displayName").GetString());
+        Assert.True(ownerBody.GetProperty("branding").GetProperty("tenantConfigured").GetBoolean());
 
         using var foreignClient = factory.CreateClient();
         Assert.Equal(HttpStatusCode.OK, (await SignInAsync(foreignClient, "foreign@example.com", factory.Password)).StatusCode);
         var foreignEntry = await foreignClient.GetAsync("/api/v1/auth/entry");
         Assert.Equal(HttpStatusCode.OK, foreignEntry.StatusCode);
         var foreignBody = await ReadJsonAsync(foreignEntry);
-        Assert.Equal("NoAccess", foreignBody.GetProperty("entryMode").GetString());
-        Assert.Equal(JsonValueKind.Null, foreignBody.GetProperty("candidateTenantId").ValueKind);
-        Assert.Empty(foreignBody.GetProperty("authorizedTenants").EnumerateArray());
+        Assert.Equal("Tenant", foreignBody.GetProperty("entryMode").GetString());
         var foreignSession = await ReadJsonAsync(await foreignClient.GetAsync("/api/v1/auth/session"));
-        Assert.Equal(JsonValueKind.Null, foreignSession.GetProperty("selectedContextId").ValueKind);
+        Assert.Equal(factory.TenantB.Value, foreignSession.GetProperty("selectedTenantId").GetGuid());
 
-        var deniedBusinessRead = await foreignClient.GetAsync("/api/v1/foundation/tenant-context");
-        Assert.Equal(HttpStatusCode.Forbidden, deniedBusinessRead.StatusCode);
+        var token = await GetAntiforgeryTokenAsync(foreignClient);
+        using var crossTenantSwitch = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/context-switch")
+        {
+            Content = JsonContent.Create(new FoundationContextSwitchRequest(
+                factory.MembershipA.Value,
+                foreignSession.GetProperty("selectionVersion").GetInt64(),
+                1))
+        };
+        crossTenantSwitch.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", token);
+        crossTenantSwitch.Headers.TryAddWithoutValidation("Idempotency-Key", "cross-tenant-membership-switch");
+        Assert.Equal(HttpStatusCode.Forbidden, (await foreignClient.SendAsync(crossTenantSwitch)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await foreignClient.GetAsync("/api/v1/auth/emergency-tenants")).StatusCode);
+
+        using var noMembershipClient = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await SignInAsync(noMembershipClient, "no-membership@example.com", factory.Password)).StatusCode);
+        var noMembershipEntry = await ReadJsonAsync(await noMembershipClient.GetAsync("/api/v1/auth/entry"));
+        Assert.Equal("NoAccess", noMembershipEntry.GetProperty("entryMode").GetString());
+        Assert.Equal("MESP", noMembershipEntry.GetProperty("branding").GetProperty("displayName").GetString());
+        Assert.Equal(JsonValueKind.Null, (await ReadJsonAsync(await noMembershipClient.GetAsync("/api/v1/auth/session"))).GetProperty("selectedTenantId").ValueKind);
     }
 
     [Fact]
-    public async Task Untrusted_forwarded_host_cannot_change_common_entry_resolution()
+    public async Task Host_and_forwarded_host_cannot_change_account_resolved_Tenant()
     {
         using var factory = new HostFactory();
         using var client = factory.CreateClient();
@@ -90,13 +103,91 @@ public sealed class HostSecurityTests
         Assert.Equal(HttpStatusCode.OK, (await SignInAsync(client, "owner@example.com", factory.Password)).StatusCode);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/auth/entry");
+        request.Headers.Host = "wafra.localhost";
         request.Headers.TryAddWithoutValidation("X-Forwarded-Host", "wafra.example.com");
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await ReadJsonAsync(response);
-        Assert.Equal("CommonHost", body.GetProperty("entryMode").GetString());
-        Assert.NotEqual(0, body.GetProperty("authorizedTenants").GetArrayLength());
+        Assert.Equal("Tenant", body.GetProperty("entryMode").GetString());
+        Assert.Equal("Alpha ERP", body.GetProperty("branding").GetProperty("displayName").GetString());
+        Assert.Equal(factory.TenantA.Value, (await ReadJsonAsync(await client.GetAsync("/api/v1/auth/session"))).GetProperty("selectedTenantId").GetGuid());
+    }
+
+    [Fact]
+    public async Task Emergency_super_administrator_alone_lists_and_enters_Tenants_with_own_audit_identity()
+    {
+        using var factory = new HostFactory { EmergencyAdminLogin = "admin@mesp.com" };
+        factory.SeedCore();
+        var adminId = factory.Identity.CreateUser("admin@mesp.com", factory.Password);
+        using var anonymous = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/v1/auth/emergency-tenants")).StatusCode);
+
+        using var ordinary = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await SignInAsync(ordinary, "owner@example.com", factory.Password)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await ordinary.GetAsync("/api/v1/auth/emergency-tenants")).StatusCode);
+        var ordinaryToken = await GetAntiforgeryTokenAsync(ordinary);
+        using var forbiddenSwitch = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/emergency-tenant-switch")
+        {
+            Content = JsonContent.Create(new FoundationEmergencyTenantSwitchRequest(factory.TenantB.Value, 1))
+        };
+        forbiddenSwitch.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", ordinaryToken);
+        forbiddenSwitch.Headers.TryAddWithoutValidation("Idempotency-Key", "ordinary-emergency-switch");
+        Assert.Equal(HttpStatusCode.Forbidden, (await ordinary.SendAsync(forbiddenSwitch)).StatusCode);
+
+        using var admin = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await SignInAsync(admin, "admin@mesp.com", factory.Password)).StatusCode);
+        var initialSession = await ReadJsonAsync(await admin.GetAsync("/api/v1/auth/session"));
+        Assert.True(initialSession.GetProperty("isEmergencySuperAdministrator").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, initialSession.GetProperty("selectedTenantId").ValueKind);
+        var tenantsResponse = await admin.GetAsync("/api/v1/auth/emergency-tenants");
+        Assert.Equal(HttpStatusCode.OK, tenantsResponse.StatusCode);
+        var tenantDirectory = await ReadJsonAsync(tenantsResponse);
+        var tenants = tenantDirectory.GetProperty("tenants").EnumerateArray().ToArray();
+        Assert.Equal(2, tenants.Length);
+        Assert.Contains(tenants, item => item.GetProperty("displayName").GetString() == "Alpha ERP"
+            && item.GetProperty("arabicDisplayName").GetString() == "ألفا");
+        Assert.Contains(tenants, item => item.GetProperty("displayName").GetString() == "Beta ERP"
+            && item.GetProperty("arabicDisplayName").GetString() == "بيتا");
+        Assert.DoesNotContain(tenants, item => item.GetProperty("displayName").GetString() == item.GetProperty("tenantId").GetGuid().ToString("D"));
+
+        var token = await GetAntiforgeryTokenAsync(admin);
+        using var enter = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/emergency-tenant-switch")
+        {
+            Content = JsonContent.Create(new FoundationEmergencyTenantSwitchRequest(
+                factory.TenantA.Value,
+                initialSession.GetProperty("selectionVersion").GetInt64()))
+        };
+        enter.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", token);
+        enter.Headers.TryAddWithoutValidation("Idempotency-Key", "emergency-enter-alpha");
+        var entered = await admin.SendAsync(enter);
+        Assert.Equal(HttpStatusCode.OK, entered.StatusCode);
+        var selected = await ReadJsonAsync(entered);
+        Assert.Equal(adminId.Value, selected.GetProperty("actorId").GetGuid());
+        Assert.Equal(factory.TenantA.Value, selected.GetProperty("selectedTenantId").GetGuid());
+        Assert.True(selected.GetProperty("isEmergencySuperAdministrator").GetBoolean());
+
+        var tenantContext = await admin.GetAsync("/api/v1/foundation/tenant-context");
+        Assert.Equal(HttpStatusCode.OK, tenantContext.StatusCode);
+        using var fullAccessProbe = new HttpRequestMessage(HttpMethod.Post, "/api/v1/foundation/probe")
+        {
+            Content = JsonContent.Create(new FoundationWriteRequest("emergency-admin"))
+        };
+        fullAccessProbe.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", token);
+        fullAccessProbe.Headers.TryAddWithoutValidation("Idempotency-Key", "emergency-full-access-probe");
+        fullAccessProbe.Headers.TryAddWithoutValidation("If-Match", "\"1\"");
+        Assert.Equal(HttpStatusCode.OK, (await admin.SendAsync(fullAccessProbe)).StatusCode);
+
+        var auditContext = TenantContext.ForEmergencySuperAdministrator(
+            factory.TenantA,
+            new ScopeReference($"Tenant:{factory.TenantA.Value:D}"),
+            new CorrelationId("emergency-audit-read"),
+            adminId.Value);
+        var audit = await factory.Services.GetRequiredService<LocalImmutableAuditEvidenceStore>().ReadForTenantAsync(auditContext);
+        var probeEvidence = Assert.Single(audit, item => item.OperationId == "foundation.probe.write");
+        Assert.Equal(adminId.Value, probeEvidence.ActorId);
+        Assert.Equal(FoundationAuditAuthorizationPath.EmergencySuperAdministrator, probeEvidence.AuthorizationPath);
+        Assert.Equal("EmergencySuperAdministrator", probeEvidence.Purpose);
     }
 
     [Fact]
@@ -108,16 +199,7 @@ public sealed class HostSecurityTests
         Assert.Equal(HttpStatusCode.OK, (await SignInAsync(client, "probe@example.com", factory.Password)).StatusCode);
         var token = await GetAntiforgeryTokenAsync(client);
 
-        // Establish a valid selected context before exercising the protected
-        // write.  Evidence failure must be the failing condition, not the
-        // absence of a selected context.
         factory.FailingAuditSink!.Failing = false;
-        var eligibilityVersion = (await ReadJsonAsync(await client.GetAsync("/api/v1/auth/contexts")))
-            .GetProperty("contexts").EnumerateArray()
-            .Single(item => item.GetProperty("contextId").GetGuid() == factory.ProbeMembershipA.Value)
-            .GetProperty("eligibilityVersion").GetInt64();
-        Assert.Equal(HttpStatusCode.OK,
-            (await SwitchAsync(client, factory.ProbeMembershipA.Value, 0, eligibilityVersion, "seed-probe-context", token)).StatusCode);
         factory.FailingAuditSink.Failing = true;
 
         var failed = await PostProbeAsync(client, "audit-failure-probe", "blocked", "1", token);
@@ -144,15 +226,16 @@ public sealed class HostSecurityTests
             .Single(item => item.GetProperty("contextId").GetGuid() == factory.ProbeMembershipA.Value)
             .GetProperty("eligibilityVersion").GetInt64();
 
-        var failedSwitch = await SwitchAsync(client, factory.ProbeMembershipA.Value, 0, eligibilityVersion, "audit-failure-switch", token);
+        var initialVersion = (await ReadJsonAsync(await client.GetAsync("/api/v1/auth/session"))).GetProperty("selectionVersion").GetInt64();
+        var failedSwitch = await SwitchAsync(client, factory.ProbeMembershipA.Value, initialVersion, eligibilityVersion, "audit-failure-switch", token);
         Assert.Equal(HttpStatusCode.Conflict, failedSwitch.StatusCode);
         var before = await ReadJsonAsync(await client.GetAsync("/api/v1/auth/session"));
-        Assert.Equal(0, before.GetProperty("selectionVersion").GetInt64());
+        Assert.Equal(initialVersion, before.GetProperty("selectionVersion").GetInt64());
 
         factory.FailingAuditSink!.Failing = false;
-        var switched = await SwitchAsync(client, factory.ProbeMembershipA.Value, 0, eligibilityVersion, "audit-failure-switch", token);
+        var switched = await SwitchAsync(client, factory.ProbeMembershipA.Value, initialVersion, eligibilityVersion, "audit-failure-switch", token);
         Assert.Equal(HttpStatusCode.OK, switched.StatusCode);
-        Assert.Equal(1, (await ReadJsonAsync(switched)).GetProperty("selectionVersion").GetInt64());
+        Assert.Equal(initialVersion + 1, (await ReadJsonAsync(switched)).GetProperty("selectionVersion").GetInt64());
 
         factory.FailingAuditSink.Failing = true;
         using var signOut = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/sign-out");
@@ -161,7 +244,7 @@ public sealed class HostSecurityTests
         Assert.Equal(HttpStatusCode.ServiceUnavailable, failedSignOut.StatusCode);
         var stillSelected = await client.GetAsync("/api/v1/auth/session");
         Assert.Equal(HttpStatusCode.OK, stillSelected.StatusCode);
-        Assert.Equal(1, (await ReadJsonAsync(stillSelected)).GetProperty("selectionVersion").GetInt64());
+        Assert.Equal(initialVersion + 1, (await ReadJsonAsync(stillSelected)).GetProperty("selectionVersion").GetInt64());
     }
 
     [Fact]
@@ -172,8 +255,9 @@ public sealed class HostSecurityTests
         factory.SeedCore();
 
         Assert.Equal(HttpStatusCode.OK, (await SignInAsync(client, "owner@example.com", factory.Password)).StatusCode);
-        var readOnlyResponse = await client.GetAsync("/api/v1/foundation/tenant-context");
-        Assert.Equal(HttpStatusCode.Forbidden, readOnlyResponse.StatusCode);
+        var authorizedRead = await client.GetAsync("/api/v1/foundation/tenant-context");
+        Assert.Equal(HttpStatusCode.OK, authorizedRead.StatusCode);
+        Assert.Equal(factory.TenantA.Value.ToString("D"), (await ReadJsonAsync(authorizedRead)).GetProperty("tenantId").GetString());
 
         using var ownerProbe = new HttpRequestMessage(HttpMethod.Post, "/api/v1/foundation/probe")
         {
@@ -183,25 +267,6 @@ public sealed class HostSecurityTests
         ownerProbe.Headers.TryAddWithoutValidation("If-Match", "\"1\"");
         ownerProbe.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", await GetAntiforgeryTokenAsync(client));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(ownerProbe)).StatusCode);
-
-        // Establish the server-selected context with a temporary technical
-        // context-switch grant, then remove that grant before the read.  The
-        // read request itself is authorized only by ContextRead.
-        var ownerRoleAssignment = factory.Identity.Store.RoleAssignments[factory.MembershipA].Single();
-        var ownerRole = factory.Identity.Store.Roles[ownerRoleAssignment.RoleId];
-        ownerRole.Permissions.Add(IdentityPermissions.ContextSwitch);
-        var ownerToken = await GetAntiforgeryTokenAsync(client);
-        var ownerEligibilityVersion = (await ReadJsonAsync(await client.GetAsync("/api/v1/auth/contexts")))
-            .GetProperty("contexts").EnumerateArray()
-            .Single(item => item.GetProperty("contextId").GetGuid() == factory.MembershipA.Value)
-            .GetProperty("eligibilityVersion").GetInt64();
-        Assert.Equal(HttpStatusCode.OK,
-            (await SwitchAsync(client, factory.MembershipA.Value, 0, ownerEligibilityVersion, "owner-read-context", ownerToken)).StatusCode);
-        ownerRole.Permissions.Remove(IdentityPermissions.ContextSwitch);
-
-        var authorizedRead = await client.GetAsync("/api/v1/foundation/tenant-context");
-        Assert.Equal(HttpStatusCode.OK, authorizedRead.StatusCode);
-        Assert.Equal(factory.TenantA.Value.ToString("D"), (await ReadJsonAsync(authorizedRead)).GetProperty("tenantId").GetString());
 
         using var otherClient = factory.CreateClient();
         Assert.Equal(HttpStatusCode.OK, (await SignInAsync(otherClient, "other-write@example.com", factory.Password)).StatusCode);
@@ -218,12 +283,6 @@ public sealed class HostSecurityTests
         using var probeClient = factory.CreateClient();
         Assert.Equal(HttpStatusCode.OK, (await SignInAsync(probeClient, "probe@example.com", factory.Password)).StatusCode);
         var probeToken = await GetAntiforgeryTokenAsync(probeClient);
-        var probeEligibilityVersion = (await ReadJsonAsync(await probeClient.GetAsync("/api/v1/auth/contexts")))
-            .GetProperty("contexts").EnumerateArray()
-            .Single(item => item.GetProperty("contextId").GetGuid() == factory.ProbeMembershipA.Value)
-            .GetProperty("eligibilityVersion").GetInt64();
-        Assert.Equal(HttpStatusCode.OK,
-            (await SwitchAsync(probeClient, factory.ProbeMembershipA.Value, 0, probeEligibilityVersion, "exact-probe-context", probeToken)).StatusCode);
         using var exactProbe = new HttpRequestMessage(HttpMethod.Post, "/api/v1/foundation/probe")
         {
             Content = JsonContent.Create(new FoundationWriteRequest("exact"))
@@ -288,6 +347,8 @@ public sealed class HostSecurityTests
         Assert.Equal(HttpStatusCode.OK, (await SignInAsync(adminClient, "ADMIN@MESP.COM", factory.Password)).StatusCode);
         var adminSession = await ReadJsonAsync(await adminClient.GetAsync("/api/v1/auth/session"));
         Assert.Equal("admin@mesp.com", adminSession.GetProperty("login").GetString());
+        Assert.False(adminSession.GetProperty("isEmergencySuperAdministrator").GetBoolean());
+        Assert.Equal(HttpStatusCode.Forbidden, (await adminClient.GetAsync("/api/v1/auth/emergency-tenants")).StatusCode);
     }
 
     [Fact]
@@ -333,7 +394,8 @@ public sealed class HostSecurityTests
         spoofed.Headers.TryAddWithoutValidation("X-Role", "tenant-admin");
         spoofed.Headers.TryAddWithoutValidation("X-Session-Id", Guid.NewGuid().ToString("D"));
         var spoofedResponse = await client.SendAsync(spoofed);
-        Assert.Equal(HttpStatusCode.Forbidden, spoofedResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, spoofedResponse.StatusCode);
+        Assert.Equal(factory.TenantA.Value.ToString("D"), (await ReadJsonAsync(spoofedResponse)).GetProperty("tenantId").GetString());
 
         var antiToken = await GetAntiforgeryTokenAsync(client);
         var foreign = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/context-switch")
@@ -363,23 +425,24 @@ public sealed class HostSecurityTests
             .GetProperty("contexts").EnumerateArray()
             .Single(item => item.GetProperty("contextId").GetGuid() == factory.ProbeMembershipA.Value)
             .GetProperty("eligibilityVersion").GetInt64();
-        var missingAnti = await SwitchAsync(client, factory.ProbeMembershipA.Value, 0, eligibilityVersion, "context-no-anti-001", token: null);
+        var initialSelectionVersion = (await ReadJsonAsync(await client.GetAsync("/api/v1/auth/session"))).GetProperty("selectionVersion").GetInt64();
+        var missingAnti = await SwitchAsync(client, factory.ProbeMembershipA.Value, initialSelectionVersion, eligibilityVersion, "context-no-anti-001", token: null);
         Assert.Equal(HttpStatusCode.Forbidden, missingAnti.StatusCode);
         Assert.Equal("antiforgery_failed", (await ReadJsonAsync(missingAnti)).GetProperty("code").GetString());
 
-        var wrongAnti = await SwitchAsync(client, factory.ProbeMembershipA.Value, 0, eligibilityVersion, "context-wrong-anti-001", "fixed-token");
+        var wrongAnti = await SwitchAsync(client, factory.ProbeMembershipA.Value, initialSelectionVersion, eligibilityVersion, "context-wrong-anti-001", "fixed-token");
         Assert.Equal(HttpStatusCode.Forbidden, wrongAnti.StatusCode);
 
-        var switched = await SwitchAsync(client, factory.ProbeMembershipA.Value, 0, eligibilityVersion, "context-switch-001", antiToken);
+        var switched = await SwitchAsync(client, factory.ProbeMembershipA.Value, initialSelectionVersion, eligibilityVersion, "context-switch-001", antiToken);
         Assert.Equal(HttpStatusCode.OK, switched.StatusCode);
         var switchedBody = await ReadJsonAsync(switched);
         Assert.Equal(factory.TenantA.Value, Guid.Parse(switchedBody.GetProperty("selectedTenantId").GetString()!));
 
-        var replay = await SwitchAsync(client, factory.ProbeMembershipA.Value, 0, eligibilityVersion, "context-switch-001", antiToken);
+        var replay = await SwitchAsync(client, factory.ProbeMembershipA.Value, initialSelectionVersion, eligibilityVersion, "context-switch-001", antiToken);
         Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
-        Assert.Equal(1, (await ReadJsonAsync(replay)).GetProperty("selectionVersion").GetInt64());
+        Assert.Equal(initialSelectionVersion + 1, (await ReadJsonAsync(replay)).GetProperty("selectionVersion").GetInt64());
 
-        var stale = await SwitchAsync(client, factory.ProbeMembershipA.Value, 0, eligibilityVersion, "context-stale-001", antiToken);
+        var stale = await SwitchAsync(client, factory.ProbeMembershipA.Value, initialSelectionVersion, eligibilityVersion, "context-stale-001", antiToken);
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
         Assert.Equal("context_version_conflict", (await ReadJsonAsync(stale)).GetProperty("code").GetString());
 
@@ -408,7 +471,7 @@ public sealed class HostSecurityTests
     }
 
     [Fact]
-    public async Task Context_switch_replay_returns_original_selection_after_a_later_switch()
+    public async Task Context_switch_replay_returns_original_selection_after_a_later_selection()
     {
         using var factory = new HostFactory();
         using var client = factory.CreateClient();
@@ -418,28 +481,29 @@ public sealed class HostSecurityTests
         var contexts = (await ReadJsonAsync(await client.GetAsync("/api/v1/auth/contexts")))
             .GetProperty("contexts").EnumerateArray().ToArray();
         var candidateA = contexts.Single(item => item.GetProperty("contextId").GetGuid() == factory.ProbeMembershipA.Value);
-        var candidateB = contexts.Single(item => item.GetProperty("contextId").GetGuid() == factory.ProbeMembershipB.Value);
+        var eligibilityVersion = candidateA.GetProperty("eligibilityVersion").GetInt64();
+        var initialVersion = (await ReadJsonAsync(await client.GetAsync("/api/v1/auth/session"))).GetProperty("selectionVersion").GetInt64();
 
-        var first = await SwitchAsync(client, factory.ProbeMembershipA.Value, 0, candidateA.GetProperty("eligibilityVersion").GetInt64(), "original-selection", token);
+        var first = await SwitchAsync(client, factory.ProbeMembershipA.Value, initialVersion, eligibilityVersion, "original-selection", token);
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         var firstBody = await ReadJsonAsync(first);
         Assert.Equal(factory.ProbeMembershipA.Value, firstBody.GetProperty("selectedContextId").GetGuid());
-        Assert.Equal(1, firstBody.GetProperty("selectionVersion").GetInt64());
+        Assert.Equal(initialVersion + 1, firstBody.GetProperty("selectionVersion").GetInt64());
 
-        var later = await SwitchAsync(client, factory.ProbeMembershipB.Value, 1, candidateB.GetProperty("eligibilityVersion").GetInt64(), "later-selection", token);
+        var later = await SwitchAsync(client, factory.ProbeMembershipA.Value, initialVersion + 1, eligibilityVersion, "later-selection", token);
         Assert.Equal(HttpStatusCode.OK, later.StatusCode);
-        Assert.Equal(factory.ProbeMembershipB.Value, (await ReadJsonAsync(later)).GetProperty("selectedContextId").GetGuid());
+        Assert.Equal(factory.ProbeMembershipA.Value, (await ReadJsonAsync(later)).GetProperty("selectedContextId").GetGuid());
 
-        var replay = await SwitchAsync(client, factory.ProbeMembershipA.Value, 0, candidateA.GetProperty("eligibilityVersion").GetInt64(), "original-selection", token);
+        var replay = await SwitchAsync(client, factory.ProbeMembershipA.Value, initialVersion, eligibilityVersion, "original-selection", token);
         Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
         var replayBody = await ReadJsonAsync(replay);
         Assert.True(replayBody.GetProperty("replayed").GetBoolean());
         Assert.Equal(factory.ProbeMembershipA.Value, replayBody.GetProperty("selectedContextId").GetGuid());
-        Assert.Equal(1, replayBody.GetProperty("selectionVersion").GetInt64());
+        Assert.Equal(initialVersion + 1, replayBody.GetProperty("selectionVersion").GetInt64());
 
         var current = await ReadJsonAsync(await client.GetAsync("/api/v1/auth/session"));
-        Assert.Equal(factory.ProbeMembershipB.Value, current.GetProperty("selectedContextId").GetGuid());
-        Assert.Equal(2, current.GetProperty("selectionVersion").GetInt64());
+        Assert.Equal(factory.ProbeMembershipA.Value, current.GetProperty("selectedContextId").GetGuid());
+        Assert.Equal(initialVersion + 2, current.GetProperty("selectionVersion").GetInt64());
     }
 
     [Fact]
@@ -451,19 +515,19 @@ public sealed class HostSecurityTests
         var signIn = host.SignIn("probe@example.com", factory.Password);
         Assert.True(signIn.Succeeded);
         var candidateA = host.ListContexts(signIn.Principal!).Single(item => item.ContextId == factory.ProbeMembershipA.Value);
-        var candidateB = host.ListContexts(signIn.Principal!).Single(item => item.ContextId == factory.ProbeMembershipB.Value);
+        var initialVersion = host.GetSession(signIn.Principal!).SelectionVersion;
 
         factory.Identity.Store.Memberships[factory.ProbeMembershipA].Version++;
-        var stale = host.SwitchContext(signIn.Principal!, factory.ProbeMembershipA.Value, 0, candidateA.EligibilityVersion);
+        var stale = host.SwitchContext(signIn.Principal!, factory.ProbeMembershipA.Value, initialVersion, candidateA.EligibilityVersion);
         Assert.False(stale.Succeeded);
         Assert.Equal("context_version_conflict", stale.Code);
 
         var results = await Task.WhenAll(
-            Task.Run(() => host.SwitchContext(signIn.Principal!, factory.ProbeMembershipA.Value, 0, factory.Identity.Store.Memberships[factory.ProbeMembershipA].Version)),
-            Task.Run(() => host.SwitchContext(signIn.Principal!, factory.ProbeMembershipB.Value, 0, candidateB.EligibilityVersion)));
+            Task.Run(() => host.SwitchContext(signIn.Principal!, factory.ProbeMembershipA.Value, initialVersion, factory.Identity.Store.Memberships[factory.ProbeMembershipA].Version)),
+            Task.Run(() => host.SwitchContext(signIn.Principal!, factory.ProbeMembershipA.Value, initialVersion, factory.Identity.Store.Memberships[factory.ProbeMembershipA].Version)));
         Assert.Single(results, result => result.Succeeded);
         Assert.Single(results, result => !result.Succeeded && result.Code == "context_version_conflict");
-        Assert.Equal(1, host.GetSession(signIn.Principal!).SelectionVersion);
+        Assert.Equal(initialVersion + 1, host.GetSession(signIn.Principal!).SelectionVersion);
     }
 
     [Fact]
@@ -480,7 +544,9 @@ public sealed class HostSecurityTests
             .GetProperty("contexts").EnumerateArray()
             .Single(item => item.GetProperty("contextId").GetGuid() == factory.ProbeMembershipA.Value)
             .GetProperty("eligibilityVersion").GetInt64();
-        var selected = await SwitchAsync(client, factory.ProbeMembershipA.Value, 0, eligibilityVersion, "signout-context-001", token);
+        var selected = await SwitchAsync(client, factory.ProbeMembershipA.Value,
+            (await ReadJsonAsync(await client.GetAsync("/api/v1/auth/session"))).GetProperty("selectionVersion").GetInt64(),
+            eligibilityVersion, "signout-context-001", token);
         Assert.Equal(HttpStatusCode.OK, selected.StatusCode);
         using var signOut = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/sign-out");
         signOut.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", token);
@@ -510,10 +576,11 @@ public sealed class HostSecurityTests
         Assert.NotNull(signIn.Principal);
 
         var initial = Resolve(resolver, signIn.Principal!, FoundationOperationCatalog.GetRequired("foundation.tenant-context.read"), factory.TenantA.Value.ToString("D"));
-        Assert.Equal(FoundationSecurityProfile.AuthenticatedSession, initial.SecurityProfile);
+        Assert.Equal(FoundationSecurityProfile.OrdinaryMembership, initial.SecurityProfile);
+        Assert.Equal(factory.TenantA, initial.TenantContext!.TenantId);
 
         var candidate = host.ListContexts(signIn.Principal!).Single(item => item.ContextId == factory.ProbeMembershipA.Value);
-        var selected = host.SwitchContext(signIn.Principal!, factory.ProbeMembershipA.Value, 0, candidate.EligibilityVersion);
+        var selected = host.SwitchContext(signIn.Principal!, factory.ProbeMembershipA.Value, host.GetSession(signIn.Principal!).SelectionVersion, candidate.EligibilityVersion);
         Assert.True(selected.Succeeded);
         var ordinary = Resolve(resolver, signIn.Principal!, FoundationOperationCatalog.GetRequired("foundation.tenant-context.read"), factory.TenantB.Value.ToString("D"));
         Assert.Equal(FoundationSecurityProfile.OrdinaryMembership, ordinary.SecurityProfile);
@@ -562,7 +629,7 @@ public sealed class HostSecurityTests
         Assert.Equal(FoundationSecurityProfile.Anonymous,
             Resolve(resolver, new ClaimsPrincipal(malformedIdentity), ordinary, factory.TenantB.Value.ToString("D")).SecurityProfile);
 
-        var signIn = factory.IdentityHost.SignIn("probe@example.com", factory.Password);
+        var signIn = factory.IdentityHost.SignIn("no-membership@example.com", factory.Password);
         Assert.True(signIn.Succeeded);
         Assert.NotNull(signIn.Principal);
 
@@ -578,9 +645,8 @@ public sealed class HostSecurityTests
         Assert.Equal(FoundationSecurityProfile.Anonymous,
             Resolve(resolver, signIn.Principal!, operationTextCannotGrant, factory.TenantA.Value.ToString("D")).SecurityProfile);
 
-        // A valid session without a selected business path remains a session
-        // context; no request path, query, body or header can manufacture a
-        // Tenant authorization path.
+        // A valid session without a membership remains session-scoped; no
+        // request path, query, body or header can manufacture Tenant access.
         var sessionOnly = Resolve(
             resolver,
             signIn.Principal!,
@@ -606,7 +672,7 @@ public sealed class HostSecurityTests
 
         var candidate = host.ListContexts(signIn.Principal!).Single(item => item.ContextId == factory.ProbeMembershipA.Value);
         Assert.Equal(1, candidate.EligibilityVersion);
-        Assert.True(host.SwitchContext(signIn.Principal!, factory.ProbeMembershipA.Value, 0, candidate.EligibilityVersion).Succeeded);
+        Assert.Equal(factory.TenantA.Value, host.GetSession(signIn.Principal!).SelectedContext!.TenantId);
 
         var read = Resolve(resolver, signIn.Principal!, FoundationOperationCatalog.GetRequired("foundation.tenant-context.read"), factory.TenantB.Value.ToString("D"));
         Assert.Equal(FoundationSecurityProfile.OrdinaryMembership, read.SecurityProfile);
@@ -870,6 +936,7 @@ public sealed class HostSecurityTests
         internal readonly ManualTimeProvider Clock = new();
         internal readonly TestAuthenticationAssuranceEvidenceSource Assurance = new();
         internal bool FailAuditEvidence { get; set; }
+        internal string? EmergencyAdminLogin { get; set; }
         internal FailingEvidenceSink? FailingAuditSink { get; private set; }
         internal readonly TenantId TenantA = new(Guid.Parse("11111111-1111-1111-1111-111111111111"));
         internal readonly TenantId TenantB = new(Guid.Parse("22222222-2222-2222-2222-222222222222"));
@@ -877,6 +944,7 @@ public sealed class HostSecurityTests
         internal IdentityAuthorizationService Identity { get; private set; } = null!;
         internal IFoundationIdentityHost IdentityHost { get; private set; } = null!;
         internal UserId Owner { get; private set; }
+        internal UserId NoMembershipUser { get; private set; }
         internal UserId ProbeUser { get; private set; }
         internal UserId OtherWriteUser { get; private set; }
         internal UserId Approver { get; private set; }
@@ -885,7 +953,6 @@ public sealed class HostSecurityTests
         internal MembershipId MembershipA { get; private set; }
         internal MembershipId MembershipB { get; private set; }
         internal MembershipId ProbeMembershipA { get; private set; }
-        internal MembershipId ProbeMembershipB { get; private set; }
         internal MembershipId OtherWriteMembershipA { get; private set; }
         internal SupportGrantId SupportGrant { get; private set; }
         internal string RequestHost { get; set; } = "localhost";
@@ -902,15 +969,14 @@ public sealed class HostSecurityTests
             Identity = Services.GetRequiredService<IdentityAuthorizationService>();
             Approver = Identity.CreateUser("approver@example.com", Password);
             Owner = Identity.CreateUser("owner@example.com", Password);
+            NoMembershipUser = Identity.CreateUser("no-membership@example.com", Password);
             ProbeUser = Identity.CreateUser("probe@example.com", Password);
             OtherWriteUser = Identity.CreateUser("other-write@example.com", Password);
             var foreign = Identity.CreateUser("foreign@example.com", Password);
             MembershipA = Identity.AddMembership(Owner, TenantA);
-            MembershipB = Identity.AddMembership(Owner, TenantB);
             ProbeMembershipA = Identity.AddMembership(ProbeUser, TenantA);
-            ProbeMembershipB = Identity.AddMembership(ProbeUser, TenantB);
             OtherWriteMembershipA = Identity.AddMembership(OtherWriteUser, TenantA);
-            Identity.AddMembership(foreign, TenantB);
+            MembershipB = Identity.AddMembership(foreign, TenantB);
 
             var role = Identity.CreateRole("tenant-read-only", TenantA, false, [IdentityPermissions.ContextRead]);
             Identity.Store.RoleAssignments[MembershipA].Add(new RoleAssignment(role, MembershipA, Owner, TenantA, Approver));
@@ -923,12 +989,6 @@ public sealed class HostSecurityTests
             var probeScope = new ScopeGrantId(Guid.NewGuid());
             Identity.Store.ScopeGrants.Add(probeScope, new AccessScopeGrant(probeScope, ProbeMembershipA, ProbeUser, OrganizationScope.ForTenant(TenantA), Approver));
             Identity.Store.ScopeGrantsByMembership[ProbeMembershipA].Add(probeScope);
-
-            var probeRoleB = Identity.CreateRole("foundation-probe-b", TenantB, false, [IdentityPermissions.ContextRead, IdentityPermissions.ContextSwitch, IdentityPermissions.ProbeWrite]);
-            Identity.Store.RoleAssignments[ProbeMembershipB].Add(new RoleAssignment(probeRoleB, ProbeMembershipB, ProbeUser, TenantB, Approver));
-            var probeScopeB = new ScopeGrantId(Guid.NewGuid());
-            Identity.Store.ScopeGrants.Add(probeScopeB, new AccessScopeGrant(probeScopeB, ProbeMembershipB, ProbeUser, OrganizationScope.ForTenant(TenantB), Approver));
-            Identity.Store.ScopeGrantsByMembership[ProbeMembershipB].Add(probeScopeB);
 
             var otherWriteRole = Identity.CreateRole("foundation-other-write", TenantA, false, [IdentityPermissions.ContextRead, IdentityPermissions.ContextSwitch, IdentityPermissions.AssignRole]);
             Identity.Store.RoleAssignments[OtherWriteMembershipA].Add(new RoleAssignment(otherWriteRole, OtherWriteMembershipA, OtherWriteUser, TenantA, Approver));
@@ -969,22 +1029,18 @@ public sealed class HostSecurityTests
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            // These host security assertions exercise the production cookie
+            // These account security assertions exercise the production cookie
             // contract. Development HTTP compatibility is covered by the
             // Development bootstrap/runtime smoke path instead.
             builder.UseEnvironment("Production");
-            builder.ConfigureAppConfiguration((_, config) =>
+            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                if (!string.Equals(RequestHost, "localhost", StringComparison.OrdinalIgnoreCase))
-                {
-                    config.AddInMemoryCollection(new Dictionary<string, string?>
-                    {
-                        ["MESP_TENANT_HOST_BINDINGS:0:Host"] = RequestHost,
-                        ["MESP_TENANT_HOST_BINDINGS:0:TenantId"] = TenantA.Value.ToString("D"),
-                        ["MESP_TENANT_HOST_BINDINGS:0:CanonicalHost"] = RequestHost,
-                    });
-                }
-            });
+                ["MESP_EMERGENCY_SUPER_ADMIN:Login"] = EmergencyAdminLogin,
+                [$"MESP_TENANT_DISPLAY_NAMES:{TenantA.Value:D}"] = "Alpha ERP",
+                [$"MESP_TENANT_DISPLAY_NAMES:{TenantB.Value:D}"] = "Beta ERP",
+                [$"MESP_TENANT_BRANDING:{TenantA.Value:D}:ArabicDisplayName"] = "ألفا",
+                [$"MESP_TENANT_BRANDING:{TenantB.Value:D}:ArabicDisplayName"] = "بيتا",
+            }));
             builder.ConfigureTestServices(services =>
             {
                 if (FailAuditEvidence)
@@ -1009,7 +1065,14 @@ public sealed class HostSecurityTests
                 services.AddSingleton<IdentityAuthorizationService>(_ =>
                     new IdentityAuthorizationService(timeProvider: Clock, assuranceEvidenceSource: Assurance));
                 services.AddSingleton<IFoundationIdentityHost>(serviceProvider =>
-                    new FoundationIdentityHost(serviceProvider.GetRequiredService<IdentityAuthorizationService>()));
+                {
+                    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+                    return new FoundationIdentityHost(
+                        serviceProvider.GetRequiredService<IdentityAuthorizationService>(),
+                        new ConfiguredTenantDisplayNameProvider(configuration),
+                        serviceProvider.GetRequiredService<IFoundationOperationalContextProvider>(),
+                        configuration["MESP_EMERGENCY_SUPER_ADMIN:Login"]);
+                });
             });
         }
 

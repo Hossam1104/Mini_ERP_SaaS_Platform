@@ -16,11 +16,7 @@ const moduleRegistration = {
 };
 
 const commonEntry: FoundationEntryResponse = {
-  entryMode: 'CommonHost',
-  canonicalHost: 'mesp.localhost',
-  candidateTenantId: null,
-  candidateTenantDisplayName: null,
-  authorizedTenants: [],
+  entryMode: 'SignIn',
   operationalContexts: [],
   selectedOperationalContextId: null,
   operationalSelectionVersion: 0,
@@ -37,21 +33,21 @@ const authenticatedSession: FoundationSessionResponse = {
   sessionId: 'session-1',
   lifecycleState: 'Active',
   absoluteExpiresAt: null,
-  selectedPath: null,
-  selectedTenantId: null,
-  selectedContextId: null,
+  selectedPath: 'OrdinaryMembership',
+  selectedTenantId: 'tenant-a',
+  selectedContextId: 'context-a',
   selectionVersion: 1,
   displayName: 'Amina Hassan',
   login: 'amina@example.com',
 };
 
-const ordinaryTenantContext = (contextId: string, tenantId: string, displayName: string) => ({
-  contextId,
-  kind: 'OrdinaryMembership',
-  tenantId,
-  displayName,
-  eligibilityVersion: 1,
-});
+const emergencySession: FoundationSessionResponse = {
+  ...authenticatedSession,
+  selectedPath: null,
+  selectedTenantId: null,
+  selectedContextId: null,
+  isEmergencySuperAdministrator: true,
+};
 
 describe('SignInComponent', () => {
   let fixture: ComponentFixture<SignInComponent>;
@@ -118,7 +114,7 @@ describe('SignInComponent', () => {
     expect(password.value).toBe('');
     expect(submit.type).toBe('submit');
     expect(fixture.nativeElement.querySelector('.dev-account')?.textContent).toContain('admin@mesp.com / 123');
-    http.expectNone('/api/v1/auth/contexts');
+    http.expectNone('/api/v1/auth/emergency-tenants');
   });
 
   it('routes from the post-sign-in entry while the initial entry request is still pending', async () => {
@@ -134,79 +130,65 @@ describe('SignInComponent', () => {
     await tick();
     http.expectOne('/api/v1/auth/entry').flush(commonEntry);
     await tick();
-    http.expectOne('/api/v1/auth/session').flush({ ...authenticatedSession, selectedContextId: 'context-a' });
-    await tick();
-    http.expectOne('/api/v1/auth/contexts').flush({
-      contexts: [ordinaryTenantContext('context-a', 'tenant-a', 'Alpha ERP')],
-    });
+    http.expectOne('/api/v1/auth/session').flush(authenticatedSession);
     await submit;
 
     expect(router.navigate).toHaveBeenCalledWith(['/app']);
-    initialEntry.flush({ ...commonEntry, entryMode: 'NoAccess', canonicalHost: null, code: 'access_denied' });
+    initialEntry.flush(commonEntry);
     await tick();
   });
 
-  it('shows the Wafra host branding and auto-selects its one server-authorized context', async () => {
+  it('uses MESP before sign-in, then applies account Tenant branding and enters Overview directly', async () => {
     const tenantEntry: FoundationEntryResponse = {
       ...commonEntry,
-      entryMode: 'TenantHost',
-      canonicalHost: 'wafra.localhost',
+      entryMode: 'Tenant',
       branding: {
-        displayName: 'Wafra ERP',
-        logoLightUrl: '/assets/wafra-logo.jpeg',
+        displayName: 'Alpha ERP',
+        logoLightUrl: '/assets/example-tenant-logo.png',
         logoDarkUrl: null,
-        logoAltText: 'Wafra',
+        logoAltText: 'Alpha ERP',
         tenantConfigured: true,
-        defaultTheme: 'meadow',
+        defaultTheme: 'brown',
       },
     };
-    await initialize(tenantEntry);
-    expect(component.brandName()).toBe('Wafra ERP');
-    expect(component.brandLogoUrl()).toBe('/assets/wafra-logo.jpeg');
-    expect(document.documentElement.dataset['theme']).toBe('meadow');
+    await initialize();
+    expect(component.brandName()).toBe('MESP');
     component.form.controls.login.setValue('admin@mesp.com');
     component.form.controls.password.setValue('123');
 
     const submit = component.submit();
     http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
     await tick();
-    const signedInEntry = { ...tenantEntry, candidateTenantId: 'tenant-a' };
-    await flushSignInEntry(signedInEntry, { ...authenticatedSession, selectedContextId: 'context-a', selectedTenantId: 'tenant-a' });
+    await flushSignInEntry(tenantEntry, authenticatedSession);
     await submit;
     fixture.detectChanges();
 
     expect(component.step()).toBe('credentials');
+    expect(component.brandName()).toBe('Alpha ERP');
+    expect(component.brandLogoUrl()).toBe('/assets/example-tenant-logo.png');
+    expect(document.documentElement.dataset['theme']).toBe('brown');
     expect(component.auth.session()?.selectedContextId).toBe('context-a');
     expect(router.navigate).toHaveBeenCalledWith(['/app']);
     expect(fixture.nativeElement.querySelector('#tenant-context')).toBeNull();
   });
 
-  it('loads Tenant choices only after authentication and offers a labelled, keyboard-focusable native select', async () => {
+  it('loads the super-administrator Tenant dropdown only after credentials are verified', async () => {
     await initialize();
-    http.expectNone('/api/v1/auth/contexts');
+    http.expectNone('/api/v1/auth/emergency-tenants');
     component.form.controls.login.setValue('admin@mesp.com');
     component.form.controls.password.setValue('123');
 
     const submit = component.submit();
-    http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
+    http.expectOne('/api/v1/auth/sign-in').flush(emergencySession);
     await tick();
-    const signedInEntry: FoundationEntryResponse = {
-      ...commonEntry,
-      authorizedTenants: [
-        { tenantId: 'tenant-a', displayName: 'Alpha ERP', canonicalHost: 'alpha.localhost' },
-        { tenantId: 'tenant-b', displayName: 'Beta ERP', canonicalHost: 'beta.localhost' },
-      ],
-    };
-    http.expectOne('/api/v1/auth/entry').flush(signedInEntry);
+    http.expectOne('/api/v1/auth/entry').flush({ ...commonEntry, entryMode: 'EmergencySuperAdministrator' });
     await tick();
-    http.expectOne('/api/v1/auth/session').flush(authenticatedSession);
+    http.expectOne('/api/v1/auth/session').flush(emergencySession);
     await tick();
-    http.expectOne('/api/v1/auth/contexts').flush({
-      contexts: [
-        { ...ordinaryTenantContext('context-a', 'tenant-a', 'Alpha ERP'), arabicDisplayName: 'ألفا' },
-        ordinaryTenantContext('context-b', 'tenant-b', 'Beta ERP'),
-      ],
-    });
+    http.expectOne('/api/v1/auth/emergency-tenants').flush({ tenants: [
+      { tenantId: 'tenant-a', displayName: 'Alpha ERP', arabicDisplayName: '\u0623\u0644\u0641\u0627' },
+      { tenantId: 'tenant-b', displayName: 'Beta ERP', arabicDisplayName: '\u0628\u064a\u062a\u0627' },
+    ] });
     await submit;
     fixture.detectChanges();
 
@@ -222,74 +204,74 @@ describe('SignInComponent', () => {
     expect(select.options[2].textContent).toBe('Beta ERP');
     select.focus();
     expect(document.activeElement).toBe(select);
-    expect(fixture.nativeElement.querySelector('.tenant-form button[type="submit"]')).toBeTruthy();
 
     component.language.toggle();
     fixture.detectChanges();
-    expect(select.options[1].textContent).toBe('ألفا');
-    expect(select.options[2].textContent).toBe('Beta ERP');
+    expect(select.options[1].textContent).toBe('\u0623\u0644\u0641\u0627');
+    expect(select.options[2].textContent).toBe('\u0628\u064a\u062a\u0627');
     component.language.toggle();
   });
 
-  it('switches the selected Tenant through the existing antiforgery-protected context operation', async () => {
+  it('enters the chosen Tenant with an antiforgery-protected emergency switch', async () => {
     await initialize();
     component.form.controls.login.setValue('admin@mesp.com');
     component.form.controls.password.setValue('123');
     const submit = component.submit();
-    http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
+    http.expectOne('/api/v1/auth/sign-in').flush(emergencySession);
     await tick();
-    http.expectOne('/api/v1/auth/entry').flush({ ...commonEntry, authorizedTenants: [
-      { tenantId: 'tenant-a', displayName: 'Alpha ERP', canonicalHost: 'alpha.localhost' },
-      { tenantId: 'tenant-b', displayName: 'Beta ERP', canonicalHost: 'beta.localhost' },
-    ] });
+    http.expectOne('/api/v1/auth/entry').flush({ ...commonEntry, entryMode: 'EmergencySuperAdministrator' });
     await tick();
-    http.expectOne('/api/v1/auth/session').flush(authenticatedSession);
+    http.expectOne('/api/v1/auth/session').flush(emergencySession);
     await tick();
-    http.expectOne('/api/v1/auth/contexts').flush({ contexts: [
-      ordinaryTenantContext('context-a', 'tenant-a', 'Alpha ERP'),
-      ordinaryTenantContext('context-b', 'tenant-b', 'Beta ERP'),
+    http.expectOne('/api/v1/auth/emergency-tenants').flush({ tenants: [
+      { tenantId: 'tenant-a', displayName: 'Alpha ERP' },
+      { tenantId: 'tenant-b', displayName: 'Beta ERP' },
     ] });
     await submit;
     fixture.detectChanges();
 
     const select = fixture.nativeElement.querySelector('#tenant-context') as HTMLSelectElement;
-    select.value = 'context-b';
+    select.value = 'tenant-b';
     select.dispatchEvent(new Event('change', { bubbles: true }));
     fixture.detectChanges();
-    const chooserForm = fixture.nativeElement.querySelector('.tenant-form') as HTMLFormElement;
     const choose = component.chooseTenant();
     http.expectOne('/api/v1/auth/antiforgery').flush({ status: 'ok' }, {
       headers: new HttpHeaders({ 'X-CSRF-TOKEN': 'csrf-token' }),
     });
     await tick();
-    const switchRequest = http.expectOne('/api/v1/auth/context-switch');
-    expect(switchRequest.request.body.contextId).toBe('context-b');
+    const switchRequest = http.expectOne('/api/v1/auth/emergency-tenant-switch');
+    expect(switchRequest.request.body).toEqual({ tenantId: 'tenant-b', expectedSelectionVersion: emergencySession.selectionVersion });
     expect(switchRequest.request.headers.get('X-CSRF-TOKEN')).toBe('csrf-token');
-    switchRequest.flush({ ...authenticatedSession, selectedContextId: 'context-b', selectedTenantId: 'tenant-b' });
+    switchRequest.flush({ ...emergencySession, selectedContextId: 'context-b', selectedTenantId: 'tenant-b' });
+    await tick();
+    http.expectOne('/api/v1/auth/entry').flush({
+      ...commonEntry,
+      entryMode: 'Tenant',
+      branding: { ...commonEntry.branding, displayName: 'Beta ERP', logoLightUrl: '/assets/beta-logo.png', tenantConfigured: true },
+    });
     await choose;
 
-    expect(chooserForm.tagName).toBe('FORM');
     expect(router.navigate).toHaveBeenCalledWith(['/app']);
+    expect(component.brandName()).toBe('Beta ERP');
   });
 
-  it('skips the chooser and reaches Overview when the server auto-selects one context', async () => {
+  it('does not list Tenants for an ordinary account and enters its single active membership', async () => {
     await initialize();
     component.form.controls.login.setValue('admin@mesp.com');
     component.form.controls.password.setValue('123');
     const submit = component.submit();
     http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
     await tick();
-    http.expectOne('/api/v1/auth/entry').flush({ ...commonEntry, candidateTenantId: 'tenant-a' });
+    http.expectOne('/api/v1/auth/entry').flush({ ...commonEntry, entryMode: 'Tenant' });
     await tick();
-    http.expectOne('/api/v1/auth/session').flush({ ...authenticatedSession, selectedContextId: 'context-a' });
-    await tick();
-    http.expectOne('/api/v1/auth/contexts').flush({ contexts: [ordinaryTenantContext('context-a', 'tenant-a', 'Alpha ERP')] });
+    http.expectOne('/api/v1/auth/session').flush(authenticatedSession);
     await submit;
 
     expect(component.step()).toBe('credentials');
     expect(router.navigate).toHaveBeenCalledWith(['/app']);
+    expect(fixture.nativeElement.querySelector('#tenant-context')).toBeNull();
+    http.expectNone('/api/v1/auth/emergency-tenants');
   });
-
   it('shows a clear empty-context message and keeps sign-out available', async () => {
     await initialize();
     component.form.controls.login.setValue('admin@mesp.com');
@@ -297,17 +279,21 @@ describe('SignInComponent', () => {
     const submit = component.submit();
     http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
     await tick();
-    http.expectOne('/api/v1/auth/entry').flush(commonEntry);
+    http.expectOne('/api/v1/auth/entry').flush({ ...commonEntry, entryMode: 'NoAccess', code: 'access_denied' });
     await tick();
-    http.expectOne('/api/v1/auth/session').flush(authenticatedSession);
-    await tick();
-    http.expectOne('/api/v1/auth/contexts').flush({ contexts: [] });
+    http.expectOne('/api/v1/auth/session').flush({
+      ...authenticatedSession,
+      selectedPath: null,
+      selectedTenantId: null,
+      selectedContextId: null,
+    });
     await submit;
     fixture.detectChanges();
 
     expect(component.step()).toBe('empty');
     expect(fixture.nativeElement.textContent).toContain('This account has no active Tenant membership available here.');
     expect(fixture.nativeElement.querySelector('button')?.textContent).toContain('Sign out');
+    http.expectNone('/api/v1/auth/emergency-tenants');
   });
 
   it('shows safe sign-in errors and its credential hint only when the server identifies Development', async () => {

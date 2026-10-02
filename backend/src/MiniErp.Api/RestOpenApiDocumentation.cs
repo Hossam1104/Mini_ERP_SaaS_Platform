@@ -385,7 +385,9 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         "platform.module-registration" => "Read registered module boundaries",
         "auth.session.read" => "Read the authenticated user's session and identity",
         "auth.contexts.read" => "List the authenticated user's authorized contexts",
-        "auth.entry.read" => "Resolve host entry mode, branding, and authorized Tenant candidates",
+        "auth.entry.read" => "Resolve account entry state and selected Tenant branding",
+        "auth.emergency-tenants.read" => "List Tenant choices for the configured emergency super-administrator",
+        "auth.emergency-tenant-switch" => "Select a Tenant for the configured emergency super-administrator",
         "auth.antiforgery.read" => "Read antiforgery evidence for first-party writes",
         "auth.sign-in" => "Authenticate and establish a first-party session",
         "auth.sign-out" => "Revoke the current first-party session",
@@ -665,7 +667,9 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
     {
         if (!descriptor.IsUnsafe)
         {
-            return "The input and any effective-date selectors must be valid, and the server-derived caller context must be authorized. This operation reads or calculates and does not transition business state.";
+            return descriptor.RequiresMandatoryAudit
+                ? "The authenticated caller must match the server-configured emergency super-administrator account. The Tenant list is read-only and an immutable audit record is required before it is returned."
+                : "The input and any effective-date selectors must be valid, and the server-derived caller context must be authorized. This operation reads or calculates and does not transition business state.";
         }
 
         var requirements = new List<string>
@@ -696,7 +700,9 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
     {
         if (!descriptor.IsUnsafe)
         {
-            return "No business state is changed by this read or calculation. A denial may still produce security evidence when the endpoint's audit policy requires it.";
+            return descriptor.RequiresMandatoryAudit
+                ? "No business state is changed. Immutable audit evidence is recorded before the protected Tenant list is returned; the operation fails closed if evidence is unavailable."
+                : "No business state is changed by this read or calculation. A denial may still produce security evidence when the endpoint's audit policy requires it.";
         }
 
         var owner = OwnerFor(descriptor.OperationId);
@@ -729,7 +735,9 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
             FoundationScopePolicy.PlatformGovernance => "a purpose-bound Platform governance context",
             _ => "no Tenant or Platform business scope"
         };
-        var permission = descriptor.ExactPermissionCode is null
+        var permission = descriptor.ExactPermissionCode == "server.configured-emergency-super-administrator"
+            ? "the matching server-configured emergency super-administrator account (not a grantable role permission)"
+            : descriptor.ExactPermissionCode is null
             ? "no exact permission is declared"
             : $"the exact permission `{descriptor.ExactPermissionCode}`";
         return $"The catalogue security profile is `{descriptor.SecurityProfile}` and the required scope is {scope}; the caller must also hold {permission}. Client-supplied Tenant, role, permission, or scope values do not create authority.";
@@ -787,7 +795,7 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
 
         if (descriptor.OperationId == "auth.entry.read")
         {
-            return contextRules + "Resolves the request Host against configured common, Tenant, and Platform entry hosts. Anonymous callers receive only resolved entry mode and public branding; Tenant identifiers and operational-context details are not exposed. Hostname is a candidate hint and never grants Tenant authority.";
+            return contextRules + "The hostname grants no Tenant authority. After sign-in, branding is resolved only for the Tenant selected from the user's membership or by the configured emergency super-administrator; Tenant lists are served separately behind the emergency account check.";
         }
 
         if (descriptor.OperationId == "auth.development-bypass")
@@ -963,9 +971,11 @@ public sealed class MiniErpOpenApiOperationTransformer : IOpenApiOperationTransf
         var operationId = descriptor.OperationId;
         return operationId switch
         {
-        "auth.session.read" => "The authenticated caller's server-validated session, nullable display name, and own login identifier.",
-        "auth.contexts.read" => "Authorized context candidates with English names and optional configured Arabic Tenant display names.",
-        "auth.entry.read" => "The host entry mode, public branding, and (only for an authenticated caller) authorized context candidates with optional configured Arabic Tenant display names.",
+            "auth.session.read" => "The authenticated caller's server-validated session, nullable display name, and own login identifier.",
+            "auth.contexts.read" => "Authorized context candidates with English names and optional configured Arabic Tenant display names.",
+            "auth.emergency-tenants.read" => "The configured emergency super-administrator's Tenant choices with English and optional Arabic display names.",
+            "auth.emergency-tenant-switch" => "The authenticated emergency super-administrator's session with the newly selected Tenant.",
+            "auth.entry.read" => "The account entry mode and branding for its selected Tenant, or a safe no-access state; no Tenant list is returned.",
         "auth.development-bypass" => "An authenticated session for the server-configured Development actor with server-derived context candidates.",
         "master-data.tax.calculate" => "A deterministic Tax amount and immutable reference snapshot for the explicit inputs.",
         "master-data.tax.reference.read" => "The active Tax rate version selected for the requested effective date, including applied reference evidence.",

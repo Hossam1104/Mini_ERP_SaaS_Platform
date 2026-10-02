@@ -25,27 +25,15 @@ Invoke-RestMethod http://localhost:5000/api/v1/module-registration
 The port may be selected by the local ASP.NET Core launch environment; use the
 URL printed by `dotnet run` when it differs from port 5000.
 
-## MESP-143 entry boundary
+## Account-resolved sign-in
 
-The API resolves entry mode from a normalized `TenantHostBinding` registry and
-then combines that candidate with the authenticated server-side Identity
-membership. Hostname is never authorization. `MESP_ENTRY_COMMON_HOSTS` and
-`MESP_ENTRY_PLATFORM_HOSTS` configure common/platform hosts; indexed
-`MESP_TENANT_HOST_BINDINGS` entries configure active Tenant bindings with
-`Host`, `TenantId`, optional `CanonicalHost`, and optional `Active=false`.
-
-Forwarded host/proto headers are ignored unless the request came through a
-proxy IP listed in `MESP_TRUSTED_PROXY_IPS`. No client Tenant header is read.
-`GET /api/v1/auth/entry` returns the bounded entry contract, including only
-authorized ordinary Tenant choices, Tenant-host identity, safe platform/no-
-access states, configured branding, SAR presentation metadata, and the
-post-Overview Company/Branch context list. `POST
-/api/v1/auth/operational-context-switch` uses the existing organization-scope
-authority and optimistic eligibility/selection versions.
-
-This seam does not create a second Tenant persistence model or migration. DNS,
-TLS, full Platform Administration, external providers, and downstream ERP
-effects remain outside MESP-143.
+`GET /api/v1/auth/entry` returns MESP branding before sign-in and resolves an
+ordinary account's single active membership after authentication. The hostname
+does not select, suggest, or brand a Tenant. The configured emergency
+super-administrator can read and select a Tenant only after sign-in; that path
+uses the administrator's own audit identity. Company/Branch context remains
+inside the selected Tenant and uses the existing organization-scope authority
+and optimistic eligibility/selection versions.
 
 ## MESP-124 Procurement persistence and API
 

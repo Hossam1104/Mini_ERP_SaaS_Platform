@@ -243,6 +243,11 @@ internal sealed class IdentityAuthorizationService :
             return false;
         }
 
+        if (currentTenantContext.IsEmergencySuperAdministrator)
+        {
+            return true;
+        }
+
         switch (currentTenantContext.AuthorizationPath)
         {
             case TenantAuthorizationPath.OrdinaryMembership:
@@ -1960,6 +1965,12 @@ internal sealed class IdentityAuthorizationService :
         if (tenantContext.TenantId != requestedScope.TenantId)
         {
             return false;
+        }
+
+        if (tenantContext.IsEmergencySuperAdministrator)
+        {
+            return TryResolveContextScopeUnsafe(tenantContext, out var emergencyScope)
+                && ScopeContainsUnsafe(emergencyScope, requestedScope);
         }
 
         if (tenantContext.AuthorizationPath == TenantAuthorizationPath.OrdinaryMembership

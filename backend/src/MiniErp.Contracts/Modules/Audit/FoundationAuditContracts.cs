@@ -9,7 +9,8 @@ public enum FoundationAuditAuthorizationPath
 {
     OrdinaryMembership = 1,
     SupportGrant = 2,
-    PlatformGovernanceContext = 3
+    PlatformGovernanceContext = 3,
+    EmergencySuperAdministrator = 4
 }
 
 /// <summary>

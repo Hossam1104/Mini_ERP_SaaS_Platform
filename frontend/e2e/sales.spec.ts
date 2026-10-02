@@ -18,9 +18,7 @@ async function setupSalesRoutes(page: Page): Promise<void> {
   await page.route('**/api/v1/auth/session', route => route.fulfill({ json: session }));
   await page.route('**/api/v1/auth/contexts', route => route.fulfill({ json: { contexts: [] } }));
   await page.route('**/api/v1/auth/entry', route => route.fulfill({ json: {
-    entryMode: 'TenantHost', canonicalHost: '127.0.0.1', candidateTenantId: 'tenant-sales-a', candidateTenantDisplayName: 'Sales Tenant',
-    authorizedTenants: [{ tenantId: 'tenant-sales-a', displayName: 'Sales Tenant', canonicalHost: 'sales.localhost' }],
-    operationalContexts: [{ contextId: 'context-sales-a', kind: 'Company', displayName: 'Sales Company', eligibilityVersion: 1 }],
+    entryMode: 'Tenant',
     selectedOperationalContextId: 'context-sales-a', operationalSelectionVersion: 1,
     branding: { displayName: 'Sales Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Sales Tenant', tenantConfigured: true },
     currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null,

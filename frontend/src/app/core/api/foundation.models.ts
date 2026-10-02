@@ -17,32 +17,18 @@ export interface FoundationSessionResponse {
   displayName: string | null;
   login: string | null;
   replayed?: boolean;
+  isEmergencySuperAdministrator?: boolean;
 }
 
-export interface FoundationContextCandidate {
-  contextId: string;
-  kind: FoundationPath;
-  tenantId: string | null;
-  displayName: string;
-  eligibilityVersion: number;
-  arabicDisplayName?: string | null;
+export interface FoundationEmergencyTenantsResponse {
+  tenants: FoundationTenantCandidate[];
 }
 
-export interface FoundationContextsResponse {
-  contexts: FoundationContextCandidate[];
-}
-
-export type FoundationEntryMode =
-  | 'TenantHost'
-  | 'CommonHost'
-  | 'PlatformAdminHost'
-  | 'NoAccess'
-  | string;
+export type FoundationEntryMode = 'SignIn' | 'Tenant' | 'EmergencySuperAdministrator' | 'NoAccess';
 
 export interface FoundationTenantCandidate {
   tenantId: string;
   displayName: string;
-  canonicalHost: string | null;
   arabicDisplayName?: string | null;
 }
 
@@ -71,10 +57,6 @@ export interface FoundationCurrencyPresentation {
 
 export interface FoundationEntryResponse {
   entryMode: FoundationEntryMode;
-  canonicalHost: string | null;
-  candidateTenantId: string | null;
-  candidateTenantDisplayName: string | null;
-  authorizedTenants: FoundationTenantCandidate[];
   operationalContexts: FoundationOperationalContext[];
   selectedOperationalContextId: string | null;
   operationalSelectionVersion: number;
@@ -91,10 +73,9 @@ export interface FoundationOperationalContextsResponse {
   selectionVersion: number;
 }
 
-export interface FoundationContextSwitchRequest {
-  contextId: string;
+export interface FoundationEmergencyTenantSwitchRequest {
+  tenantId: string;
   expectedSelectionVersion: number;
-  expectedEligibilityVersion: number;
 }
 
 export interface FoundationOperationalContextSwitchRequest {

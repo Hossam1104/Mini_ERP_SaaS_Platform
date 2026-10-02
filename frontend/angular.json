@@ -74,7 +74,7 @@
             },
             "development": {
               "buildTarget": "minierp-shell:build:development",
-              "allowedHosts": ["localhost", ".localhost", "127.0.0.1", "::1"]
+              "allowedHosts": ["localhost", "127.0.0.1", "::1"]
             }
           },
           "defaultConfiguration": "development"
