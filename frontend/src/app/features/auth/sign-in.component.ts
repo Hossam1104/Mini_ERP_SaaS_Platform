@@ -1,7 +1,7 @@
-import { Component, OnInit, computed, inject, isDevMode, signal } from '@angular/core';
+import { Component, OnInit, inject, isDevMode, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { FoundationContextCandidate } from '../../core/api/foundation.models';
+import { FoundationTenantCandidate } from '../../core/api/foundation.models';
 import { AuthService } from '../../core/auth/auth.service';
 import { ContextService } from '../../core/context/context.service';
 import { DevelopmentApiIdentityService } from '../../core/dev/development-api-identity.service';
@@ -141,7 +141,7 @@ type SignInStep = 'credentials' | 'chooseTenant' | 'empty';
                 <p class="auth-error-message" role="alert" aria-live="assertive">{{ selectionError() }}</p>
               }
 
-              <form class="tenant-form" (ngSubmit)="chooseTenant()">
+              <form class="tenant-form" (submit)="$event.preventDefault(); chooseTenant()">
                 <label for="tenant-context">{{ language.text('availableTenants') }}</label>
                 <select
                   id="tenant-context"
@@ -152,8 +152,8 @@ type SignInStep = 'credentials' | 'chooseTenant' | 'empty';
                   required
                 >
                   <option value="">{{ language.text('chooseTenant') }}</option>
-                  @for (candidate of tenantContexts(); track candidate.contextId) {
-                    <option [value]="candidate.contextId">{{ localizedDisplayName(candidate) }}</option>
+                  @for (candidate of context.emergencyTenants(); track candidate.tenantId) {
+                    <option [value]="candidate.tenantId">{{ localizedDisplayName(candidate) }}</option>
                   }
                 </select>
                 <button class="button primary-button" type="submit" [disabled]="busy() || !selectedContextId()" [attr.aria-busy]="busy()">
@@ -269,14 +269,14 @@ export class SignInComponent implements OnInit {
   readonly busy = signal(false);
   readonly step = signal<SignInStep>('credentials');
   readonly loginEntryMode = signal('NoAccess');
+  private readonly devAccountHint = signal<string | null>(null);
   readonly passwordVisible = signal(false);
   readonly capsLockOn = signal(false);
   readonly selectedContextId = signal('');
   readonly selectionError = signal('');
   readonly devApiStatus = this.devApi.status;
-  readonly tenantContexts = computed(() => this.context.contexts().filter((candidate) => candidate.kind === 'OrdinaryMembership'));
 
-  localizedDisplayName(candidate: FoundationContextCandidate): string {
+  localizedDisplayName(candidate: FoundationTenantCandidate): string {
     const arabicName = candidate.arabicDisplayName?.trim();
     return this.language.language() === 'ar' && arabicName ? arabicName : candidate.displayName;
   }
@@ -291,7 +291,10 @@ export class SignInComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    void this.context.loadEntry().then((entry) => this.loginEntryMode.set(entry?.entryMode ?? 'NoAccess'));
+    void this.context.loadEntry().then((entry) => {
+      this.loginEntryMode.set(entry?.entryMode ?? 'NoAccess');
+      this.devAccountHint.set(entry?.isDevelopment ? entry.developmentAccountHint : null);
+    });
     if (this.clientDevelopment) {
       void this.devApi.check();
     }
@@ -308,14 +311,13 @@ export class SignInComponent implements OnInit {
   }
 
   showDevPasswordHint(): boolean {
-    return this.context.entry()?.isDevelopment === true
+    return this.devAccountHint() !== null
       && this.authService.status() !== 'expired'
       && this.authService.lastError()?.code === 'authentication_failed';
   }
 
   developmentAccountHint(): string | null {
-    const entry = this.context.entry();
-    return entry?.isDevelopment ? entry.developmentAccountHint : null;
+    return this.devAccountHint();
   }
 
   brandName(): string {
@@ -372,8 +374,8 @@ export class SignInComponent implements OnInit {
   }
 
   async chooseTenant(): Promise<void> {
-    const contextId = this.selectedContextId();
-    if (!contextId || !this.tenantContexts().some((candidate) => candidate.contextId === contextId)) {
+    const tenantId = this.selectedContextId();
+    if (!tenantId || !this.context.emergencyTenants().some((candidate) => candidate.tenantId === tenantId)) {
       this.selectionError.set(this.language.text('selectTenantFirst'));
       return;
     }
@@ -381,7 +383,8 @@ export class SignInComponent implements OnInit {
     this.selectionError.set('');
     this.busy.set(true);
     try {
-      if (await this.context.switchContext(contextId)) {
+      if (await this.context.switchEmergencyTenant(tenantId)) {
+        await this.context.loadEntry();
         await this.router.navigate(['/app']);
       } else {
         this.selectionError.set(this.language.text('accessDenied'));
@@ -415,26 +418,14 @@ export class SignInComponent implements OnInit {
       return;
     }
 
-    if (entry.entryMode === 'CommonHost') {
-      await this.chooseCommonHostContext();
+    if (entry.entryMode === 'EmergencySuperAdministrator') {
+      const tenants = await this.context.loadEmergencyTenants();
+      this.step.set(tenants.length ? 'chooseTenant' : 'empty');
+      this.selectionError.set(tenants.length ? '' : this.language.text('noTenantsForAccount'));
       return;
     }
 
-    if (entry.entryMode === 'TenantHost') {
-      const selected = this.authService.session()?.selectedContextId;
-      if (selected) {
-        await this.router.navigate(['/app']);
-        return;
-      }
-      const contexts = await this.context.load();
-      const exactTenantContext = contexts.find((candidate) =>
-        candidate.kind === 'OrdinaryMembership' && candidate.tenantId === entry.candidateTenantId);
-      if (exactTenantContext && await this.context.switchContext(exactTenantContext.contextId)) {
-        await this.router.navigate(['/app']);
-        return;
-      }
-    } else if (entry.entryMode === 'PlatformAdminHost'
-      && this.authService.session()?.selectedContextId) {
+    if (this.authService.session()?.selectedContextId) {
       await this.router.navigate(['/app']);
       return;
     }
@@ -443,31 +434,4 @@ export class SignInComponent implements OnInit {
     this.selectionError.set(this.language.text('noTenantsForAccount'));
   }
 
-  private async chooseCommonHostContext(): Promise<void> {
-    const contexts = await this.context.load();
-    const tenants = this.tenantContexts();
-    if (tenants.length === 0) {
-      this.step.set('empty');
-      this.selectionError.set('');
-      return;
-    }
-    if (tenants.length > 1) {
-      this.step.set('chooseTenant');
-      this.selectedContextId.set('');
-      return;
-    }
-
-    const onlyContext = tenants[0];
-    if (!contexts.some((candidate) => candidate.contextId === onlyContext.contextId)) {
-      this.step.set('empty');
-      return;
-    }
-    if (this.authService.session()?.selectedContextId !== onlyContext.contextId
-      && !(await this.context.switchContext(onlyContext.contextId))) {
-      this.step.set('empty');
-      this.selectionError.set(this.language.text('accessDenied'));
-      return;
-    }
-    await this.router.navigate(['/app']);
-  }
 }

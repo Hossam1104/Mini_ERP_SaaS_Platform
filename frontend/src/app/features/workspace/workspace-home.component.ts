@@ -112,16 +112,12 @@ interface OverviewModule {
       @if (isNoAccess()) {
         <header class="overview-hero"><p class="eyebrow">{{ language.text('tenantOverview') }}</p><h1 id="tenant-overview-title">{{ contextHeading() }}</h1></header>
         <app-status-card [title]="language.text('noAccessTitle')" [message]="language.text('noAccessMessage')" state="denied" tone="danger" />
-      } @else if (isPlatformControlPlane()) {
-        <header class="overview-hero"><p class="eyebrow">{{ language.text('tenantOverview') }}</p><h1 id="tenant-overview-title">{{ contextHeading() }}</h1></header>
-        <app-status-card [title]="language.text('platformControlPlaneTitle')" [message]="language.text('platformControlPlaneMessage')" state="unknown" tone="neutral" />
       } @else {
         <header class="overview-hero" aria-labelledby="tenant-overview-title">
           <div class="overview-hero__content">
             <p class="eyebrow">{{ language.text('tenantOverview') }}</p>
             <h1 id="tenant-overview-title">{{ contextHeading() }}</h1>
             <p class="overview-hero__lead">{{ language.text('tenantOverviewLead') }}</p>
-            <a class="overview-manage" routerLink="/app/workspaces"><svg class="icon" aria-hidden="true"><use href="#icon-sliders" /></svg>{{ language.text('manageContexts') }}</a>
           </div>
           <div class="overview-hero__art" aria-hidden="true"><span class="hero-orbit hero-orbit--one"></span><span class="hero-orbit hero-orbit--two"></span><span class="hero-orbit hero-orbit--three"></span>@if (!tenantLogoUrl()) { <span class="hero-mark">M</span> }</div>
           @if (tenantLogoUrl()) { <span class="overview-hero__tenant-logo"><svg class="tenant-logo-filter" aria-hidden="true" focusable="false" width="0" height="0"><filter id="tenant-logo-tint" x="0" y="0" width="1" height="1" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB"><feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -0.53 -1.79 -0.18 0 2.4" result="mask"/><feComposite in="mask" in2="SourceAlpha" operator="in" result="maskA"/><feFlood class="tenant-logo-flood" result="tint"/><feComposite in="tint" in2="maskA" operator="in"/></filter></svg><img [class.tenant-logo-tinted]="tenantLogoUsesTint()" [src]="tenantLogoUrl()" [alt]="context.entry()?.branding?.logoAltText" /></span> } <label class="overview-search"><svg class="icon" aria-hidden="true"><use href="#icon-search" /></svg><input type="search" [value]="searchQuery()" (input)="searchQuery.set($any($event.target).value)" [placeholder]="label('Search modules and destinations', 'ابحث في الوحدات والصفحات')" [attr.aria-label]="label('Search modules and destinations', 'ابحث في الوحدات والصفحات')" /></label>
@@ -152,7 +148,7 @@ interface OverviewModule {
           </div>
         </section>
 
-        @if (!hasOperationalContext() && context.entry()?.entryMode === 'TenantHost') {
+        @if (!hasOperationalContext() && context.entry()?.entryMode === 'Tenant') {
           <app-status-card [title]="language.text('operationalContextPending')" [message]="language.text('operationalContextPendingMessage')" state="pending" tone="neutral" />
         }
       }
@@ -242,11 +238,9 @@ export class WorkspaceHomeComponent implements OnInit {
 
   contextHeading(): string {
     const entry = this.context.entry();
-    const tenant = entry?.authorizedTenants.find((candidate) => candidate.tenantId === entry.candidateTenantId);
-    const arabicName = tenant?.arabicDisplayName?.trim() || entry?.branding.arabicDisplayName?.trim();
-    const englishName = entry?.candidateTenantDisplayName ?? tenant?.displayName;
+    const arabicName = entry?.branding.arabicDisplayName?.trim();
     return (this.language.language() === 'ar' && arabicName)
-      || englishName
+      || entry?.branding.displayName
       || entry?.branding.displayName
       || this.language.text('tenantOverview');
   }
@@ -264,7 +258,6 @@ export class WorkspaceHomeComponent implements OnInit {
   }
 
   isNoAccess(): boolean { return this.context.entry()?.entryMode === 'NoAccess'; }
-  isPlatformControlPlane(): boolean { return this.context.entry()?.entryMode === 'PlatformAdminHost'; }
   hasOperationalContext(): boolean { return this.context.selectedOperationalContextId() !== null || this.context.operationalContexts().length === 0; }
 
   label(english: string, arabic: string): string {

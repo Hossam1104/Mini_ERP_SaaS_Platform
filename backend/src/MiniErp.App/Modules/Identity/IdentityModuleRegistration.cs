@@ -1,6 +1,7 @@
 #pragma warning disable CS1591
 
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using MiniErp.App.BuildingBlocks.Work;
@@ -39,8 +40,8 @@ public static class IdentityModuleRegistration
             new FoundationIdentityHost(
                 serviceProvider.GetRequiredService<IdentityAuthorizationService>(),
                 serviceProvider.GetRequiredService<ITenantDisplayNameProvider>(),
-                serviceProvider.GetRequiredService<IFoundationOperationalContextProvider>()));
-        services.AddSingleton<TenantHostRegistry>();
+                serviceProvider.GetRequiredService<IFoundationOperationalContextProvider>(),
+                serviceProvider.GetRequiredService<IConfiguration>()["MESP_EMERGENCY_SUPER_ADMIN:Login"]));
         services.AddSingleton<ITenantEntryAuthority, TenantEntryAuthority>();
         return services;
     }

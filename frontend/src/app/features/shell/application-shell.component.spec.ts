@@ -5,7 +5,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { authInterceptor } from '../../core/api/auth.interceptor';
-import { FoundationContextCandidate, FoundationEntryResponse, FoundationSessionResponse } from '../../core/api/foundation.models';
+import { FoundationEntryResponse, FoundationOperationalContext, FoundationSessionResponse } from '../../core/api/foundation.models';
 import { ContextService } from '../../core/context/context.service';
 import { LanguageService } from '../../core/i18n/language.service';
 import { accountInitials, ApplicationShellComponent } from './application-shell.component';
@@ -27,21 +27,15 @@ const authenticatedSession: FoundationSessionResponse = {
   login: 'admin@mesp.com',
 };
 
-const contextCandidate: FoundationContextCandidate = {
+const contextCandidate: FoundationOperationalContext = {
   contextId: 'context-a',
-  kind: 'OrdinaryMembership',
-  tenantId: 'tenant-a',
-  displayName: 'Alpha workspace',
-  arabicDisplayName: 'وفرة',
+  kind: 'Company',
+  displayName: 'Alpha Company',
   eligibilityVersion: 3,
 };
 
 const tenantEntry: FoundationEntryResponse = {
-  entryMode: 'TenantHost',
-  canonicalHost: 'tenant.localhost',
-  candidateTenantId: 'tenant-a',
-  candidateTenantDisplayName: 'Alpha Tenant',
-  authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost', arabicDisplayName: 'وفرة' }],
+  entryMode: 'Tenant',
   operationalContexts: [],
   selectedOperationalContextId: null,
   operationalSelectionVersion: 0,
@@ -51,7 +45,6 @@ const tenantEntry: FoundationEntryResponse = {
   isDevelopment: false,
   developmentAccountHint: null,
 };
-
 async function flushAsyncWork(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -86,7 +79,8 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
     auth.acceptServerSession(authenticatedSession);
-    context.contexts.set([contextCandidate]);
+    context.operationalContexts.set([contextCandidate]);
+    context.selectedOperationalContextId.set('context-a');
     context.entry.set(tenantEntry);
     fixture = TestBed.createComponent(ApplicationShellComponent);
     fixture.detectChanges();
@@ -94,11 +88,12 @@ describe('ApplicationShellComponent sign-out behavior', () => {
 
   afterEach(() => http.verify());
 
-  it('renders one canonical workspace route and keeps the context selector out of the shell rail', () => {
+  it('shows a plain single-context label and removes the Manage access contexts route', () => {
     const element = fixture.nativeElement as HTMLElement;
-    (element.querySelector('#context-trigger') as HTMLButtonElement).click();
-    fixture.detectChanges();
-    expect(element.querySelector('a[href="/app/workspaces"]')).not.toBeNull();
+    expect(element.querySelector('#context-trigger')).toBeNull();
+    expect(element.querySelector('.context-chip--static')?.textContent).toContain('Alpha Tenant');
+    expect(element.querySelector('.context-chip--static')?.textContent).toContain('Alpha Company');
+    expect(element.querySelector('a[href="/app/workspaces"]')).toBeNull();
     expect(element.querySelector('.context-rail')).toBeNull();
     const masterData = element.querySelector('.rail-tile[aria-label="Master data"]') as HTMLButtonElement;
     const procurement = element.querySelector('.rail-tile[aria-label="Procurement"]') as HTMLButtonElement;
@@ -111,7 +106,6 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     fixture.detectChanges();
     expect(element.querySelector('.nav-flyout__link[href="/app/procurement/purchase-requests"]')?.textContent).toContain('Purchase Requests');
   });
-
   it('uses the longest route prefix for the breadcrumb and a single current navigation item', async () => {
     router.resetConfig([{ path: 'app/inventory/valuation', component: NavigationTestRouteComponent }]);
     await router.navigateByUrl('/app/inventory/valuation');
@@ -241,6 +235,8 @@ describe('ApplicationShellComponent sign-out behavior', () => {
 
   it('opens one header menu at a time and closes it on an outside click', () => {
     const element = fixture.nativeElement as HTMLElement;
+    context.operationalContexts.set([contextCandidate, { contextId: 'branch-b', kind: 'Branch', displayName: 'Beta Branch', eligibilityVersion: 1 }]);
+    fixture.detectChanges();
     const contextTrigger = element.querySelector('#context-trigger') as HTMLButtonElement;
     const themeTrigger = element.querySelector('#theme-trigger') as HTMLButtonElement;
     contextTrigger.click();
@@ -261,6 +257,23 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     expect(element.querySelector('#theme-menu')).toBeNull();
   });
 
+  it('shows a Tenant switch only for the configured emergency super-administrator', () => {
+    context.emergencyTenants.set([
+      { tenantId: 'tenant-a', displayName: 'Alpha Tenant' },
+      { tenantId: 'tenant-b', displayName: 'Beta Tenant' },
+    ]);
+    auth.acceptServerSession({ ...authenticatedSession, isEmergencySuperAdministrator: true });
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const trigger = element.querySelector('#context-trigger') as HTMLButtonElement;
+    expect(trigger).not.toBeNull();
+    trigger.click();
+    fixture.detectChanges();
+    expect(element.querySelectorAll('#emergency-tenant-select option')).toHaveLength(2);
+    expect(element.querySelector('#emergency-tenant-select')?.textContent).toContain('Alpha Tenant');
+    expect(element.querySelector('#emergency-tenant-select')?.textContent).toContain('Beta Tenant');
+  });
   it('opens the Account menu with existing context and calls the sign-out handler', async () => {
     const handler = vi.spyOn(fixture.componentInstance, 'signOut').mockResolvedValue();
     context.operationalContexts.set([{ contextId: 'branch-a', kind: 'Branch', displayName: 'Alpha Branch', eligibilityVersion: 1 }]);
@@ -428,10 +441,8 @@ describe('ApplicationShellComponent sign-out behavior', () => {
     fixture.detectChanges();
     expect(element.querySelector('.account-menu__identity')?.textContent).toContain('وفرة');
 
-    const candidate = tenantEntry.authorizedTenants[0]!;
     context.entry.set({
       ...tenantEntry,
-      authorizedTenants: [{ ...candidate, arabicDisplayName: null }],
       branding: { ...tenantEntry.branding, arabicDisplayName: null },
     });
     fixture.detectChanges();

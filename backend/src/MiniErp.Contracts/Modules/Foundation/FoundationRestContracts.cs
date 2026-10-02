@@ -176,7 +176,7 @@ public sealed class FoundationOperationMetadata
 /// <summary>Safe first-party authentication request.</summary>
 public sealed record FoundationSignInRequest(string? Login, string? Password);
 
-/// <summary>Safe session summary returned to the first-party shell.</summary>
+/// <summary>Safe session summary returned to the first-party shell, including server-derived emergency-administrator status.</summary>
 public sealed record FoundationSessionResponse(
     bool Authenticated,
     Guid? ActorId,
@@ -189,7 +189,8 @@ public sealed record FoundationSessionResponse(
     long SelectionVersion,
     string? DisplayName,
     string? Login,
-    bool Replayed = false);
+    bool Replayed = false,
+    bool IsEmergencySuperAdministrator = false);
 
 /// <summary>One safe server-derived context candidate.</summary>
 public sealed record FoundationContextCandidateResponse(
@@ -204,11 +205,20 @@ public sealed record FoundationContextCandidateResponse(
 public sealed record FoundationContextsResponse(
     IReadOnlyList<FoundationContextCandidateResponse> Contexts);
 
+/// <summary>Tenant choices visible only to the configured emergency super-administrator.</summary>
+/// <param name="Tenants">The server-owned list of Tenant choices, with localized display names and no host authority.</param>
+public sealed record FoundationEmergencyTenantsResponse(
+    IReadOnlyList<FoundationTenantCandidateResponse> Tenants);
+
+/// <summary>Server-validated emergency Tenant selection.</summary>
+/// <param name="TenantId">The requested Tenant; authorization comes only from server configuration.</param>
+/// <param name="ExpectedSelectionVersion">The session selection version observed by the caller.</param>
+public sealed record FoundationEmergencyTenantSwitchRequest(Guid TenantId, long ExpectedSelectionVersion);
+
 /// <summary>One safe Tenant candidate returned by the entry-routing seam.</summary>
 public sealed record FoundationTenantCandidateResponse(
     Guid TenantId,
     string DisplayName,
-    string? CanonicalHost,
     string? ArabicDisplayName = null);
 
 /// <summary>One safe Company/Branch operational context candidate.</summary>
@@ -235,16 +245,12 @@ public sealed record FoundationCurrencyPresentationResponse(
     string SymbolTextFallback);
 
 /// <summary>
-/// Server-owned entry resolution. Anonymous responses contain only the host
-/// mode and public branding; authenticated responses may include authorized
-/// candidates. It never grants authority to a client-supplied Tenant identifier.
+/// Server-owned account entry resolution. Anonymous responses contain only
+/// the sign-in mode and MESP branding; authenticated responses expose only the
+/// active Tenant branding and operational contexts for that account.
 /// </summary>
 public sealed record FoundationEntryResponse(
     string EntryMode,
-    string? CanonicalHost,
-    Guid? CandidateTenantId,
-    string? CandidateTenantDisplayName,
-    IReadOnlyList<FoundationTenantCandidateResponse> AuthorizedTenants,
     IReadOnlyList<FoundationOperationalContextResponse> OperationalContexts,
     Guid? SelectedOperationalContextId,
     long OperationalSelectionVersion,
@@ -807,11 +813,19 @@ public static class FoundationOperationCatalog
         },
         new("auth.contexts.read", "/api/v1/auth/contexts", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session")
         {
-            BoundaryDescription = "Returns only server-authorized context candidates for the authenticated session. Each candidate includes its English displayName and, when configured, the optional Arabic arabicDisplayName; client-supplied display names are never used."
+            BoundaryDescription = "Returns only the authenticated user's one active Tenant membership and separately authorized support or governance contexts, with optional Arabic Tenant display names. Multiple active Tenant memberships fail closed. It never lists the Tenant directory; only the configured emergency super-administrator may use the separate emergency-tenants endpoint."
+        },
+        new("auth.emergency-tenants.read", "/api/v1/auth/emergency-tenants", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "server.configured-emergency-super-administrator", FoundationScopePolicy.None, RequiresMandatoryAudit: true)
+        {
+            BoundaryDescription = "Returns the Tenant directory only when the authenticated account exactly matches the server-configured emergency super-administrator. Anonymous callers receive 401 and every other account receives 403. The directory is derived from Tenant memberships and includes localized display names."
+        },
+        new("auth.emergency-tenant-switch", "/api/v1/auth/emergency-tenant-switch", "POST", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "server.configured-emergency-super-administrator", FoundationScopePolicy.None, RequiresAntiforgery: true, RequiresMandatoryAudit: true, IsUnsafe: true)
+        {
+            BoundaryDescription = "Changes only the configured emergency super-administrator's server-side selected Tenant. The target must exist in the server-owned Tenant directory; the authenticated actor identity is preserved and the selection is audited. Anonymous callers receive 401 and every other account receives 403."
         },
         new("auth.entry.read", "/api/v1/auth/entry", "GET", FoundationSecurityProfile.Anonymous, FoundationOperationVisibility.Public)
         {
-            BoundaryDescription = "Anonymous callers receive resolved entry mode and public branding. Authenticated callers receive only server-authorized Tenant and operational context candidates. Configured Arabic Tenant display names are presentation-only and do not grant or broaden authority."
+            BoundaryDescription = "The hostname grants no Tenant authority. After sign-in, the response contains branding only for the Tenant selected by the account's single active membership or by the configured emergency super-administrator. It never lists Tenants. Configured Arabic display names are presentation-only."
         },
         new("auth.operational-contexts.read", "/api/v1/auth/operational-contexts", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session"),
         new("auth.context-switch", "/api/v1/auth/context-switch", "POST", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "foundation.context.switch", FoundationScopePolicy.None, RequiresAntiforgery: true, RequiresMandatoryAudit: true, IsUnsafe: true),

@@ -5,9 +5,8 @@ import postcss from 'postcss';
 
 const featureRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../src/app/features');
 const allowed = new Set([
-  // MESP-186 owns these feature styles in parallel; remove each exception once that work is integrated.
+  // MESP-186 owns the authentication styles in parallel; remove the exception once that work is integrated.
   'auth',
-  'context/tenant-select.component.ts',
 ]);
 const blockedProperties = /^(?:border-radius|height|min-height|font-family|font-size|font-weight|background(?:-.+)?)$/i;
 const hardCodedColor = /(?:#[\da-f]{3,8}\b|rgba?\s*\()/i;
@@ -91,5 +90,5 @@ if (violations.length) {
   for (const violation of violations) console.error(violation);
   process.exitCode = 1;
 } else {
-  console.log('Feature control style guard: 0 violations; MESP-186-owned auth and tenant-select files remain allowlisted.');
+  console.log('Feature control style guard: 0 violations; MESP-186-owned authentication styles remain allowlisted.');
 }

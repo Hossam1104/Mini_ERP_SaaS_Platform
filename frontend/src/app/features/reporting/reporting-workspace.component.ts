@@ -211,7 +211,7 @@ export class ReportingWorkspaceComponent implements OnInit {
     return this.text(key);
   }
   definitionsByDomain(domain: string): ReportingDefinition[] { return this.definitions().filter(item => item.domain === domain); }
-  operationalContextLabel(): string { return this.context.currentOperationalContext()?.displayName ?? this.context.entry()?.candidateTenantDisplayName ?? 'Server-selected Tenant context'; }
+  operationalContextLabel(): string { return this.context.currentOperationalContext()?.displayName ?? this.context.entry()?.branding.displayName ?? 'Server-selected Tenant context'; }
   select(definition: ReportingDefinition): void { this.selectedCode.set(definition.code); this.result.set(null); this.focusedRow.set(null); this.page.set(1); this.error.set(null); }
   loadCatalogue(): void { this.service.catalogue().subscribe({ next: items => this.definitions.set(items), error: () => this.error.set(this.text('error')) }); }
   loadSchedules(): void { this.service.schedules().subscribe({ next: items => this.schedules.set(items), error: () => undefined }); }

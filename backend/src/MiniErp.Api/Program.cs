@@ -42,32 +42,6 @@ using MiniErp.Api;
 var builder = WebApplication.CreateBuilder(args);
 DevelopmentAuthBypassPolicy.ValidateStartup(builder.Environment, builder.Configuration);
 
-if (builder.Environment.IsDevelopment()
-    && string.Equals(builder.Configuration["MESP_DEV_BOOTSTRAP_ENABLED"], "true", StringComparison.OrdinalIgnoreCase)
-    && !builder.Configuration.GetSection("MESP_TENANT_HOST_BINDINGS").GetChildren().Any())
-{
-    // Development-only generic fixture binding. The host is configuration,
-    // not a customer or brand branch, and production requires explicit
-    // tenant-host configuration.
-    var tenantHost = builder.Configuration["MESP_DEV_TENANT_HOST"] ?? "wafra.localhost";
-    var bindings = new Dictionary<string, string?>
-    {
-        ["MESP_TENANT_HOST_BINDINGS:0:Host"] = tenantHost,
-        ["MESP_TENANT_HOST_BINDINGS:0:TenantId"] = DevelopmentBootstrap.DevTenantId.Value.ToString("D"),
-        ["MESP_TENANT_HOST_BINDINGS:0:Active"] = "true",
-        ["MESP_TENANT_HOST_BINDINGS:0:CanonicalHost"] = tenantHost
-    };
-    if (!string.Equals(tenantHost, "tenant.localhost", StringComparison.OrdinalIgnoreCase))
-    {
-        bindings["MESP_TENANT_HOST_BINDINGS:1:Host"] = "tenant.localhost";
-        bindings["MESP_TENANT_HOST_BINDINGS:1:TenantId"] = DevelopmentBootstrap.DevTenantId.Value.ToString("D");
-        bindings["MESP_TENANT_HOST_BINDINGS:1:Active"] = "true";
-        bindings["MESP_TENANT_HOST_BINDINGS:1:CanonicalHost"] = tenantHost;
-    }
-
-    builder.Configuration.AddInMemoryCollection(bindings);
-}
-
 var trustedProxyIps = new List<IPAddress>();
 var trustedProxyValues = new List<string>();
 if (!string.IsNullOrWhiteSpace(builder.Configuration["MESP_TRUSTED_PROXY_IPS"]))
@@ -93,7 +67,7 @@ if (trustedProxyIps.Count > 0)
 {
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
-        options.ForwardedHeaders = ForwardedHeaders.XForwardedHost | ForwardedHeaders.XForwardedProto;
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
         foreach (var address in trustedProxyIps)
         {
             options.KnownProxies.Add(address);
@@ -405,8 +379,7 @@ app.SeedDevelopmentBootstrap();
 
 if (trustedProxyIps.Count > 0)
 {
-    // Only configured known proxies may influence Request.Host. Without this
-    // middleware, forwarded-host headers remain untrusted and are ignored.
+    // Only configured known proxies may supply the forwarded request scheme.
     app.UseForwardedHeaders();
 }
 
@@ -424,6 +397,45 @@ app.Use(async (httpContext, next) =>
 
     try
     {
+        var operation = httpContext.GetEndpoint()?.Metadata.GetMetadata<FoundationOperationMetadata>()?.Descriptor;
+        var identityHost = httpContext.RequestServices.GetRequiredService<IFoundationIdentityHost>();
+        if (operation is not null
+            && !operation.RequiresMandatoryAudit
+            && operation.OperationId is not ("auth.sign-in" or "auth.sign-out")
+            && identityHost.IsEmergencySuperAdministrator(httpContext.User))
+        {
+            var context = await httpContext.RequestServices
+                .GetRequiredService<ITrustedRequestContextResolver>()
+                .ResolveAsync(httpContext, httpContext.RequestAborted);
+            var authorizedPath = operation.SecurityProfile == FoundationSecurityProfile.Anonymous
+                || operation.SecurityProfile == context.SecurityProfile;
+            var audit = await httpContext.RequestServices
+                .GetRequiredService<FoundationAuditCoordinator>()
+                .RecordAsync(
+                    context,
+                    operation.OperationId,
+                    correlationId,
+                    authorizedPath ? FoundationAuditDecision.Allowed : FoundationAuditDecision.Denied,
+                    authorizedPath ? FoundationAuditReason.Allowed : FoundationAuditReason.AuthorizationDenied,
+                    cancellationToken: httpContext.RequestAborted,
+                    source: "FoundationRest",
+                    targetType: "operation",
+                    targetReference: operation.OperationId,
+                    changeSummary: "EmergencySuperAdministrator request");
+            if (!audit.Succeeded)
+            {
+                var problem = await WriteProblemAsync(
+                    httpContext,
+                    StatusCodes.Status503ServiceUnavailable,
+                    "audit_unavailable",
+                    "Operation unavailable",
+                    "The request could not be evidenced.",
+                    operation.OperationId);
+                await problem.ExecuteAsync(httpContext);
+                return;
+            }
+        }
+
         await next();
     }
     catch (Exception exception)
@@ -493,7 +505,8 @@ app.MapGet("/api/v1/auth/antiforgery", async (HttpContext httpContext, IAntiforg
 app.MapPost("/api/v1/auth/sign-in", async (
     FoundationSignInRequest? request,
     HttpContext httpContext,
-    IFoundationIdentityHost identityHost) =>
+    IFoundationIdentityHost identityHost,
+    FoundationAuditCoordinator auditCoordinator) =>
 {
     var result = identityHost.SignIn(request?.Login ?? string.Empty, request?.Password ?? string.Empty);
     if (!result.Succeeded || result.Principal is null)
@@ -505,6 +518,26 @@ app.MapPost("/api/v1/auth/sign-in", async (
             "Authentication failed",
             "The supplied credentials could not be authenticated.",
             "auth.sign-in");
+    }
+
+    if (identityHost.IsEmergencySuperAdministrator(result.Principal))
+    {
+        var context = identityHost.ResolveContext(
+            result.Principal,
+            GetCorrelation(httpContext),
+            FoundationOperationCatalog.GetRequired("auth.sign-in"));
+        var audit = await auditCoordinator.ExecuteProtectedAsync(
+            context,
+            "auth.sign-in",
+            GetCorrelation(httpContext),
+            FoundationAuditReason.Allowed,
+            () => Task.FromResult(true),
+            cancellationToken: httpContext.RequestAborted);
+        if (!audit.Succeeded)
+        {
+            identityHost.Revoke(result.Principal, "sign-in-audit-unavailable");
+            return await WriteProblemAsync(httpContext, StatusCodes.Status503ServiceUnavailable, "audit_unavailable", "Operation unavailable", "The sign-in could not be evidenced.", "auth.sign-in");
+        }
     }
 
     await httpContext.SignInAsync(FirstPartyCookieConfiguration.Scheme, result.Principal);
@@ -581,7 +614,8 @@ app.MapPost("/api/v1/auth/sign-out", async (
         return await WriteProblemAsync(httpContext, StatusCodes.Status401Unauthorized, "authentication_failed", "Authentication required", "Authentication is required.", "auth.sign-out");
     }
 
-    if (context.SecurityProfile is FoundationSecurityProfile.OrdinaryMembership
+    if (context.IsEmergencySuperAdministrator
+        || context.SecurityProfile is FoundationSecurityProfile.OrdinaryMembership
         or FoundationSecurityProfile.SupportGrant
         or FoundationSecurityProfile.PlatformGovernanceContext)
     {
@@ -642,6 +676,115 @@ app.MapGet("/api/v1/auth/contexts", (
     .ProducesProblem(StatusCodes.Status401Unauthorized)
     .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("auth.contexts.read")));
 
+app.MapGet("/api/v1/auth/emergency-tenants", async (
+    HttpContext httpContext,
+    ITrustedRequestContextResolver resolver,
+    IFoundationIdentityHost identityHost,
+    FoundationAuditCoordinator auditCoordinator) =>
+{
+    const string operationId = "auth.emergency-tenants.read";
+    var state = identityHost.GetSession(httpContext.User);
+    if (!state.Authenticated)
+    {
+        return await WriteProblemAsync(httpContext, StatusCodes.Status401Unauthorized, "authentication_failed", "Authentication required", "Authentication is required.", operationId);
+    }
+
+    if (!identityHost.IsEmergencySuperAdministrator(httpContext.User))
+    {
+        return await WriteProblemAsync(httpContext, StatusCodes.Status403Forbidden, "access_denied", "Access denied", "The requested Tenant directory is not available.", operationId);
+    }
+
+    var context = await resolver.ResolveAsync(httpContext, httpContext.RequestAborted);
+    var execution = await auditCoordinator.ExecuteProtectedAsync(
+        context,
+        operationId,
+        GetCorrelation(httpContext),
+        FoundationAuditReason.Allowed,
+        () => Task.FromResult(new FoundationEmergencyTenantsResponse(identityHost.ListEmergencyTenants(httpContext.User))),
+        cancellationToken: httpContext.RequestAborted);
+    return execution.Succeeded && execution.Value is { } response
+        ? Results.Json(response)
+        : await WriteProblemAsync(httpContext, StatusCodes.Status503ServiceUnavailable, "audit_unavailable", "Operation unavailable", "The requested Tenant directory could not be read.", operationId);
+})
+    .WithName("auth.emergency-tenants.read")
+    .Produces<FoundationEmergencyTenantsResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status403Forbidden)
+    .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+    .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("auth.emergency-tenants.read")));
+
+app.MapPost("/api/v1/auth/emergency-tenant-switch", async (
+    FoundationEmergencyTenantSwitchRequest? request,
+    HttpContext httpContext,
+    IFoundationIdentityHost identityHost,
+    FoundationAuditCoordinator auditCoordinator) =>
+{
+    const string operationId = "auth.emergency-tenant-switch";
+    if (!await EnsureAntiforgeryAsync(httpContext))
+    {
+        return await WriteProblemAsync(httpContext, StatusCodes.Status403Forbidden, "antiforgery_failed", "Antiforgery validation failed", "The request could not be validated.", operationId);
+    }
+
+    var state = identityHost.GetSession(httpContext.User);
+    if (!state.Authenticated)
+    {
+        return await WriteProblemAsync(httpContext, StatusCodes.Status401Unauthorized, "authentication_failed", "Authentication required", "Authentication is required.", operationId);
+    }
+
+    if (!identityHost.IsEmergencySuperAdministrator(httpContext.User))
+    {
+        return await WriteProblemAsync(httpContext, StatusCodes.Status403Forbidden, "access_denied", "Access denied", "The requested Tenant is not available.", operationId);
+    }
+
+    if (request is null || request.TenantId == Guid.Empty || request.ExpectedSelectionVersion < 0)
+    {
+        return await WriteProblemAsync(httpContext, StatusCodes.Status400BadRequest, "validation_failed", "Validation failed", "The request is invalid.", operationId);
+    }
+
+    var descriptor = FoundationOperationCatalog.GetRequired(operationId);
+    var context = identityHost.ResolveEmergencyTenantContext(
+        httpContext.User,
+        request.TenantId,
+        descriptor,
+        GetCorrelation(httpContext));
+    if (context is null)
+    {
+        return await WriteProblemAsync(httpContext, StatusCodes.Status403Forbidden, "access_denied", "Access denied", "The requested Tenant is not available.", operationId);
+    }
+
+    var execution = await auditCoordinator.ExecuteProtectedAsync(
+        context,
+        operationId,
+        GetCorrelation(httpContext),
+        FoundationAuditReason.Allowed,
+        () => Task.FromResult(identityHost.SwitchEmergencyTenant(
+            httpContext.User,
+            request.TenantId,
+            request.ExpectedSelectionVersion)),
+        operationVersion: request.ExpectedSelectionVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        cancellationToken: httpContext.RequestAborted);
+    if (!execution.Succeeded || execution.Value is not { Succeeded: true, State: { } switched })
+    {
+        var conflict = execution.Value?.Code == "context_version_conflict";
+        return await WriteProblemAsync(
+            httpContext,
+            conflict ? StatusCodes.Status409Conflict : StatusCodes.Status403Forbidden,
+            conflict ? "context_version_conflict" : "access_denied",
+            conflict ? "Tenant selection conflict" : "Access denied",
+            conflict ? "The Tenant selection is stale." : "The requested Tenant is not available.",
+            operationId);
+    }
+
+    return Results.Json(ToSessionResponse(switched));
+})
+    .WithName("auth.emergency-tenant-switch")
+    .Produces<FoundationSessionResponse>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status400BadRequest)
+    .ProducesProblem(StatusCodes.Status401Unauthorized)
+    .ProducesProblem(StatusCodes.Status403Forbidden)
+    .ProducesProblem(StatusCodes.Status409Conflict)
+    .WithMetadata(new FoundationOperationMetadata(FoundationOperationCatalog.GetRequired("auth.emergency-tenant-switch")));
+
 app.MapGet("/api/v1/auth/entry", (
     HttpContext httpContext,
     ITenantEntryAuthority entryAuthority) =>
@@ -649,7 +792,6 @@ app.MapGet("/api/v1/auth/entry", (
     var developmentHint = DevelopmentBootstrap.GetPublicDefaultAccountHint(app.Environment, app.Configuration);
     return Results.Json(entryAuthority.BuildResponse(
         httpContext.User,
-        httpContext.Request.Host.Value,
         app.Environment.IsDevelopment(),
         developmentHint));
 })
@@ -659,10 +801,8 @@ app.MapGet("/api/v1/auth/entry", (
 
 app.MapGet("/api/v1/auth/operational-contexts", (
     HttpContext httpContext,
-    IFoundationIdentityHost identityHost,
-    ITenantEntryAuthority entryAuthority) =>
+    IFoundationIdentityHost identityHost) =>
 {
-    entryAuthority.Prepare(httpContext.User, httpContext.Request.Host.Value);
     if (!identityHost.GetSession(httpContext.User).Authenticated)
     {
         return Results.Problem(
@@ -684,7 +824,6 @@ app.MapPost("/api/v1/auth/operational-context-switch", async (
     FoundationOperationalContextSwitchRequest? request,
     HttpContext httpContext,
     IFoundationIdentityHost identityHost,
-    ITenantEntryAuthority entryAuthority,
     FoundationAuditCoordinator auditCoordinator) =>
 {
     const string operationId = "auth.operational-context-switch";
@@ -693,7 +832,6 @@ app.MapPost("/api/v1/auth/operational-context-switch", async (
         return await WriteProblemAsync(httpContext, StatusCodes.Status403Forbidden, "antiforgery_failed", "Antiforgery validation failed", "The request could not be validated.", operationId);
     }
 
-    entryAuthority.Prepare(httpContext.User, httpContext.Request.Host.Value);
     var state = identityHost.GetSession(httpContext.User);
     if (!state.Authenticated || state.ActorId is null || state.SessionId is null)
     {
@@ -1355,7 +1493,8 @@ static FoundationSessionResponse ToSessionResponse(FoundationHostSessionState st
         state.SelectionVersion,
         state.DisplayName,
         state.Login,
-        replayed);
+        replayed,
+        state.IsEmergencySuperAdministrator);
 
 static FoundationContextCandidateResponse ToContextResponse(FoundationHostContextCandidate candidate) =>
     new(candidate.ContextId, candidate.Kind.ToString(), candidate.TenantId, candidate.DisplayName, candidate.EligibilityVersion, candidate.ArabicDisplayName);

@@ -140,13 +140,33 @@ public static class FoundationAuditEvidenceFactory
                 correlation,
                 actorId,
                 sessionId,
-                FoundationAuditAuthorizationPath.OrdinaryMembership,
+                context.IsEmergencySuperAdministrator
+                    ? FoundationAuditAuthorizationPath.EmergencySuperAdministrator
+                    : FoundationAuditAuthorizationPath.OrdinaryMembership,
                 decision,
                 reason,
                 idempotency,
                 version,
                 supportPurpose: null,
                 supportGrantExpiresAt: null,
+                retryOfEvidenceId,
+                attempt,
+                occurredAt,
+                evidenceSource,
+                safeTargetType,
+                safeTargetReference,
+                safeChangeSummary,
+                clock),
+            FoundationSecurityProfile.AuthenticatedSession when context.IsEmergencySuperAdministrator => CreateEmergencySessionEvidence(
+                context,
+                operation,
+                correlation,
+                actorId,
+                sessionId,
+                decision,
+                reason,
+                idempotency,
+                version,
                 retryOfEvidenceId,
                 attempt,
                 occurredAt,
@@ -225,10 +245,12 @@ public static class FoundationAuditEvidenceFactory
         var tenant = context.TenantContext
             ?? throw new ArgumentException("Tenant evidence requires a trusted Tenant context.", nameof(context));
 
-        var expectedPath = path == FoundationAuditAuthorizationPath.OrdinaryMembership
-            ? TenantAuthorizationPath.OrdinaryMembership
-            : TenantAuthorizationPath.SupportGrant;
-        if (tenant.AuthorizationPath != expectedPath || context.PlatformGovernanceContext is not null)
+        var expectedPath = path == FoundationAuditAuthorizationPath.SupportGrant
+            ? TenantAuthorizationPath.SupportGrant
+            : TenantAuthorizationPath.OrdinaryMembership;
+        var emergencyMarkerMatches = (path == FoundationAuditAuthorizationPath.EmergencySuperAdministrator)
+            == tenant.IsEmergencySuperAdministrator;
+        if (tenant.AuthorizationPath != expectedPath || !emergencyMarkerMatches || context.PlatformGovernanceContext is not null)
         {
             throw new ArgumentException("The evidence path does not match the trusted Tenant context.", nameof(context));
         }
@@ -242,7 +264,7 @@ public static class FoundationAuditEvidenceFactory
             throw new ArgumentException("Support evidence requires a trusted grant and case.", nameof(context));
         }
 
-        if (path == FoundationAuditAuthorizationPath.OrdinaryMembership
+        if (path is FoundationAuditAuthorizationPath.OrdinaryMembership or FoundationAuditAuthorizationPath.EmergencySuperAdministrator
             && (supportPurpose is not null || supportGrantExpiresAt is not null))
         {
             throw new ArgumentException("Ordinary evidence cannot contain support facts.", nameof(supportPurpose));
@@ -258,11 +280,64 @@ public static class FoundationAuditEvidenceFactory
             path,
             tenant.TenantId.Value,
             tenant.Scope?.Value,
-            supportPurpose,
+            tenant.IsEmergencySuperAdministrator ? "EmergencySuperAdministrator" : supportPurpose,
             supportUserId,
             supportGrantId,
             supportCaseId,
             supportGrantExpiresAt,
+            decision,
+            reason,
+            idempotency,
+            version,
+            retryOfEvidenceId,
+            attempt,
+            source,
+            targetType,
+            targetReference,
+            changeSummary);
+    }
+
+    private static FoundationAuditEvidence CreateEmergencySessionEvidence(
+        FoundationRequestContext context,
+        string operation,
+        string correlation,
+        Guid actorId,
+        Guid sessionId,
+        FoundationAuditDecision decision,
+        FoundationAuditReason reason,
+        string? idempotency,
+        string? version,
+        Guid? retryOfEvidenceId,
+        int attempt,
+        DateTimeOffset? occurredAt,
+        string source,
+        string? targetType,
+        string? targetReference,
+        string? changeSummary,
+        TimeProvider timeProvider)
+    {
+        if (!context.IsEmergencySuperAdministrator
+            || context.TenantContext is not null
+            || context.PlatformGovernanceContext is not null)
+        {
+            throw new ArgumentException("Emergency session evidence requires only its server marker.", nameof(context));
+        }
+
+        return new FoundationAuditEvidence(
+            Guid.NewGuid(),
+            occurredAt ?? timeProvider.GetUtcNow(),
+            operation,
+            correlation,
+            actorId,
+            sessionId,
+            FoundationAuditAuthorizationPath.EmergencySuperAdministrator,
+            tenantId: null,
+            organizationScope: null,
+            purpose: "EmergencySuperAdministrator",
+            supportUserId: null,
+            supportGrantId: null,
+            supportCaseId: null,
+            supportGrantExpiresAt: null,
             decision,
             reason,
             idempotency,
@@ -356,7 +431,8 @@ internal static class FoundationAuditEvidenceMapping
         }
 
         var tenantPath = evidence.AuthorizationPath is
-            FoundationAuditAuthorizationPath.OrdinaryMembership or FoundationAuditAuthorizationPath.SupportGrant;
+            FoundationAuditAuthorizationPath.OrdinaryMembership or FoundationAuditAuthorizationPath.SupportGrant
+            || evidence.AuthorizationPath == FoundationAuditAuthorizationPath.EmergencySuperAdministrator && evidence.TenantId.HasValue;
         if (tenantPath != (evidence.TenantId.HasValue && evidence.TenantId.Value != Guid.Empty))
         {
             throw new FoundationAuditAppendException("tenant_path_invalid");
@@ -366,6 +442,16 @@ internal static class FoundationAuditEvidenceMapping
             && string.IsNullOrWhiteSpace(evidence.Purpose))
         {
             throw new FoundationAuditAppendException("platform_purpose_missing");
+        }
+
+        if (evidence.AuthorizationPath == FoundationAuditAuthorizationPath.EmergencySuperAdministrator
+            && (evidence.Purpose != "EmergencySuperAdministrator"
+                || evidence.SupportUserId is not null
+                || evidence.SupportGrantId is not null
+                || evidence.SupportCaseId is not null
+                || evidence.SupportGrantExpiresAt is not null))
+        {
+            throw new FoundationAuditAppendException("emergency_super_administrator_marker_invalid");
         }
 
         if (evidence.AuthorizationPath == FoundationAuditAuthorizationPath.OrdinaryMembership
@@ -602,7 +688,9 @@ public sealed class LocalImmutableAuditEvidenceStore : IFoundationAuditEvidenceS
         ArgumentNullException.ThrowIfNull(tenantContext);
         cancellationToken.ThrowIfCancellationRequested();
         var tenantId = tenantContext.TenantId.Value;
-        var expectedPath = tenantContext.AuthorizationPath switch
+        var expectedPath = tenantContext.IsEmergencySuperAdministrator
+            ? FoundationAuditAuthorizationPath.EmergencySuperAdministrator
+            : tenantContext.AuthorizationPath switch
         {
             TenantAuthorizationPath.OrdinaryMembership => FoundationAuditAuthorizationPath.OrdinaryMembership,
             TenantAuthorizationPath.SupportGrant => FoundationAuditAuthorizationPath.SupportGrant,
@@ -630,7 +718,9 @@ public sealed class LocalImmutableAuditEvidenceStore : IFoundationAuditEvidenceS
         ArgumentNullException.ThrowIfNull(scope);
         cancellationToken.ThrowIfCancellationRequested();
         var tenantId = tenantContext.TenantId.Value;
-        var expectedPath = tenantContext.AuthorizationPath switch
+        var expectedPath = tenantContext.IsEmergencySuperAdministrator
+            ? FoundationAuditAuthorizationPath.EmergencySuperAdministrator
+            : tenantContext.AuthorizationPath switch
         {
             TenantAuthorizationPath.OrdinaryMembership => FoundationAuditAuthorizationPath.OrdinaryMembership,
             TenantAuthorizationPath.SupportGrant => FoundationAuditAuthorizationPath.SupportGrant,
@@ -662,7 +752,9 @@ public sealed class LocalImmutableAuditEvidenceStore : IFoundationAuditEvidenceS
         ArgumentNullException.ThrowIfNull(search);
         cancellationToken.ThrowIfCancellationRequested();
         var tenantId = tenantContext.TenantId.Value;
-        var expectedPath = tenantContext.AuthorizationPath switch
+        var expectedPath = tenantContext.IsEmergencySuperAdministrator
+            ? FoundationAuditAuthorizationPath.EmergencySuperAdministrator
+            : tenantContext.AuthorizationPath switch
         {
             TenantAuthorizationPath.OrdinaryMembership => FoundationAuditAuthorizationPath.OrdinaryMembership,
             TenantAuthorizationPath.SupportGrant => FoundationAuditAuthorizationPath.SupportGrant,

@@ -17,32 +17,17 @@ dotnet build .\backend\MiniErp.sln --configuration Release
 The launcher starts the built Release executable so the process it records is
 the real MiniERP API listener. Rebuild after source changes before restarting.
 
-By default the launcher prompts for `MESP_DEV_ADMIN_PASSWORD` without
-displaying or persisting it. The Development login remains
-`admin@minierp.local`; the password is exactly the value supplied to
-`MESP_DEV_ADMIN_PASSWORD` for the currently running backend process.
-
-For a persistent local QA loop, explicitly enable the Development-only,
-loopback-only auth shortcut once in the user environment. It authenticates
-only the server-configured Development actor and never accepts a browser
-supplied identity, password, Tenant, role, or permission:
+The Development login is `admin@mesp.com` with password `123`. The launcher
+ignores an inherited `MESP_DEV_AUTH_BYPASS` value and leaves bypass disabled.
+To explicitly test the Development-only, loopback-only shortcut, pass the
+launcher switch:
 
 ```powershell
-[Environment]::SetEnvironmentVariable('MESP_DEV_AUTH_BYPASS', 'true', 'User')
-[Environment]::SetEnvironmentVariable('MESP_DEV_TENANT_DISPLAY_NAME', 'Wafra', 'User')
+..\scripts\Start-MiniErpDevelopment.ps1 -DevAuthBypass
 ```
 
-With that setting, the normal launcher does not prompt for a password and the
-Angular guard establishes the session through the server-side Development
-shortcut. Disable it when normal credential testing or any non-local
-environment is required:
-
-```powershell
-[Environment]::SetEnvironmentVariable('MESP_DEV_AUTH_BYPASS', $null, 'User')
-```
-
-The committed/default setting remains disabled. The API also fails closed
-outside the exact `Development` environment and for non-loopback callers.
+The API also fails closed outside the exact `Development` environment and for
+non-loopback callers.
 
 The generic default API target is `http://localhost:5000`. If that port is
 already occupied by another local service, the launcher leaves that process
@@ -60,18 +45,11 @@ target is therefore normally:
 - Backend: `http://localhost:5300`
 - Frontend: `http://localhost:4300`
 
-MESP-143 entry routing is host-aware in Development. Use the same Angular
-port with loopback hostnames to exercise the three boundaries:
-
-- `http://localhost:4300` — common MESP entry host;
-- `http://tenant.localhost:4300` — generic configured Tenant host;
-- `http://admin.localhost:4300` — separate platform-administration host.
-
-The launcher adds the generic Development Tenant binding only when explicit
-Tenant host bindings are absent. The generated proxy preserves the browser
-`Host` header (`changeOrigin: false`), so the API—not Angular—resolves the
-entry mode. Production hostnames, DNS, and TLS are infrastructure concerns and
-are not configured by this launcher.
+Open the plain application URL. Enter credentials on `/login`; the server
+resolves an ordinary account's Tenant from its single active membership. The
+configured emergency super-administrator receives a Tenant selector on that
+same page only after successful sign-in. The hostname never selects or brands
+a Tenant.
 
 The launcher writes `.runtime\proxy.conf.json` (ignored by Git) with the
 selected backend URL and starts Angular with that generated file. The tracked
@@ -242,8 +220,8 @@ $env:ASPNETCORE_ENVIRONMENT = 'Development'
 $env:Scalar__Enabled = 'true'
 $env:MESP_DEV_BOOTSTRAP_ENABLED = 'true'
 $env:MESP_DEV_AUTH_BYPASS = 'false'
-$env:MESP_DEV_ADMIN_LOGIN = 'admin@minierp.local'
-$env:MESP_DEV_ADMIN_PASSWORD = '<YOUR-LOCAL-PASSWORD>'
+$env:MESP_DEV_ADMIN_LOGIN = 'admin@mesp.com'
+$env:MESP_DEV_ADMIN_PASSWORD = '123'
 dotnet run --project '.\src\MiniErp.Api\MiniErp.Api.csproj' --configuration Release --no-build --urls 'http://localhost:5300'
 ```
 
@@ -254,9 +232,11 @@ cd '.\frontend'
 npm start -- --port 4300 --proxy-config '..\.runtime\proxy.conf.json'
 ```
 
-The placeholder above is not a password. Set the exact password you will type
-in the browser as `MESP_DEV_ADMIN_PASSWORD` before starting the backend. Never
-commit or put that value in `RUN.md`, a tracked configuration file, or the tracker.
+The Development bootstrap account uses `admin@mesp.com` / `123` unless the
+Development login or password is explicitly overridden in the process
+environment. The launcher uses that password by default and ignores an ambient
+`MESP_DEV_AUTH_BYPASS`; pass `-DevAuthBypass` only when you intend to use the
+Development shortcut.
 
 ## Development authentication and stale cookies
 
@@ -271,9 +251,9 @@ the normal credential request:
 1. `POST http://localhost:4300/api/v1/auth/sign-in` (or the Development
    bypass above);
 2. `GET http://localhost:4300/api/v1/auth/session`;
-3. `GET http://localhost:4300/api/v1/auth/entry` for the server-resolved entry
-   mode, Tenant identity, authorized choices, branding, SAR presentation, and
-   operational-context state;
+3. `GET http://localhost:4300/api/v1/auth/entry` for the account-resolved entry
+   mode, selected Tenant branding or safe no-access state, SAR presentation,
+   and operational-context state. It never lists Tenants;
 4. `GET http://localhost:4300/api/v1/auth/antiforgery` when a write is needed;
 5. `POST http://localhost:4300/api/v1/auth/operational-context-switch` only
    when the Overview header presents multiple authorized Company/Branch

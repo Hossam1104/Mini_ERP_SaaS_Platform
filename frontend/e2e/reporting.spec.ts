@@ -18,12 +18,7 @@ async function setupReportingRoutes(page: Page): Promise<void> {
   await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: session }));
   await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [] } }));
   await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: {
-    entryMode: 'TenantHost',
-    canonicalHost: '127.0.0.1',
-    candidateTenantId: 'tenant-a',
-    candidateTenantDisplayName: 'Alpha Tenant',
-    authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
-    operationalContexts: [{ contextId: 'context-a', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 }],
+    entryMode: 'Tenant',
     selectedOperationalContextId: 'context-a',
     operationalSelectionVersion: 1,
     branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true },

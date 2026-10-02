@@ -140,9 +140,7 @@ test.describe('Supplier Quotation workspace', () => {
     await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: session }));
     await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [{ contextId: 'context-a', kind: 'OrdinaryMembership', tenantId: 'tenant-a', displayName: 'Alpha workspace', eligibilityVersion: 3 }] } }));
     await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: {
-      entryMode: 'TenantHost', canonicalHost: '127.0.0.1', candidateTenantId: 'tenant-a', candidateTenantDisplayName: 'Alpha Tenant',
-      authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
-      operationalContexts: [{ contextId: 'operation-a', kind: 'Company', displayName: 'Acme Trading Co.', eligibilityVersion: 1 }],
+      entryMode: 'Tenant',
       selectedOperationalContextId: 'operation-a', operationalSelectionVersion: 1,
       branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true },
       currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null,

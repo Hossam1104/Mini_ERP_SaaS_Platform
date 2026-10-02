@@ -2,16 +2,15 @@ import { routes } from './app.routes';
 import { NAVIGATION_GROUPS } from './features/shell/navigation.config';
 
 describe('Application route contract', () => {
-  it('keeps workspace selection inside the authenticated shell', () => {
+  it('has no in-app Tenant selection route', () => {
     const appRoute = routes.find((route) => route.path === 'app');
-    const workspaceRoute = appRoute?.children?.find((route) => route.path === 'workspaces');
-    const compatibilityRoute = routes.find((route) => route.path === 'tenant/select');
+    const childPaths = (appRoute?.children ?? []).map((route) => route.path);
 
     expect(appRoute?.component).toBeUndefined();
     expect(appRoute?.loadComponent).toBeDefined();
-    expect(workspaceRoute?.loadComponent).toBeDefined();
-    expect(compatibilityRoute?.redirectTo).toBe('app/workspaces');
-    expect(compatibilityRoute?.canActivate).toBeUndefined();
+    expect(childPaths).not.toContain('workspaces');
+    expect(routes.some((route) => route.path === 'tenant/select')).toBe(false);
+    expect(routes.some((route) => route.path === 'access-contexts')).toBe(false);
   });
 
   it('exposes the bounded procurement and Finance foundation navigation surfaces', () => {
@@ -19,7 +18,6 @@ describe('Application route contract', () => {
     const childPaths = (appRoute?.children ?? []).map((route) => route.path);
 
     expect(childPaths).toContain('');
-    expect(childPaths).toContain('workspaces');
     expect(childPaths).toContain('master-data/imports');
     expect(childPaths).toContain('price-lists');
     expect(childPaths).toContain('procurement/purchase-requests');

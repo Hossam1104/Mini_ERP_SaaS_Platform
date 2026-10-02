@@ -1048,9 +1048,11 @@ public sealed class ReportingService : IReportingService
                 : scope.CompanyId is { } company
                     ? $"Company:{company:D}"
                     : $"Tenant:{context.TenantId.Value:D}";
-        var tenantContext = context.TenantContext.AuthorizationPath == TenantAuthorizationPath.OrdinaryMembership
-            ? TenantContext.ForOrdinaryMembership(context.TenantId, context.TenantContext.Membership!.Value, new ScopeReference(canonical), context.TenantContext.CorrelationId, context.ActorId)
-            : TenantContext.ForSupportGrant(context.TenantId, context.TenantContext.SupportGrant!.Value, new ScopeReference(canonical), context.TenantContext.CorrelationId, context.ActorId);
+        var tenantContext = context.TenantContext.IsEmergencySuperAdministrator
+            ? TenantContext.ForEmergencySuperAdministrator(context.TenantId, new ScopeReference(canonical), context.TenantContext.CorrelationId!.Value, context.ActorId)
+            : context.TenantContext.AuthorizationPath == TenantAuthorizationPath.OrdinaryMembership
+                ? TenantContext.ForOrdinaryMembership(context.TenantId, context.TenantContext.Membership!.Value, new ScopeReference(canonical), context.TenantContext.CorrelationId, context.ActorId)
+                : TenantContext.ForSupportGrant(context.TenantId, context.TenantContext.SupportGrant!.Value, new ScopeReference(canonical), context.TenantContext.CorrelationId, context.ActorId);
         scopedContext = context.WithTenantContext(tenantContext);
         code = "scope_verified";
         return true;
@@ -1082,9 +1084,11 @@ public sealed class ReportingService : IReportingService
             if (!resolution.Allowed || resolution.Scope is null) return null;
             var scope = resolution.Scope;
             var canonical = scope.WarehouseId is { } warehouse ? $"Warehouse:{warehouse:D}" : scope.BranchId is { } branch ? $"Branch:{branch:D}" : scope.CompanyId is { } company ? $"Company:{company:D}" : $"Tenant:{context.TenantId.Value:D}";
-            var tenantContext = context.TenantContext.AuthorizationPath == TenantAuthorizationPath.OrdinaryMembership
-                ? TenantContext.ForOrdinaryMembership(context.TenantId, context.TenantContext.Membership!.Value, new ScopeReference(canonical), context.TenantContext.CorrelationId, context.ActorId)
-                : TenantContext.ForSupportGrant(context.TenantId, context.TenantContext.SupportGrant!.Value, new ScopeReference(canonical), context.TenantContext.CorrelationId, context.ActorId);
+            var tenantContext = context.TenantContext.IsEmergencySuperAdministrator
+                ? TenantContext.ForEmergencySuperAdministrator(context.TenantId, new ScopeReference(canonical), context.TenantContext.CorrelationId!.Value, context.ActorId)
+                : context.TenantContext.AuthorizationPath == TenantAuthorizationPath.OrdinaryMembership
+                    ? TenantContext.ForOrdinaryMembership(context.TenantId, context.TenantContext.Membership!.Value, new ScopeReference(canonical), context.TenantContext.CorrelationId, context.ActorId)
+                    : TenantContext.ForSupportGrant(context.TenantId, context.TenantContext.SupportGrant!.Value, new ScopeReference(canonical), context.TenantContext.CorrelationId, context.ActorId);
             return context.WithTenantContext(tenantContext);
         }
         catch (ArgumentException)

@@ -43,11 +43,7 @@ const orderDetail = (id: string) => {
 };
 
 const entryResponse = (defaultTheme: string | null = null, symbolAssetUrl: string | null = null, selectedOperationalContextId = 'operation-ui') => ({
-  entryMode: 'TenantHost',
-  canonicalHost: '127.0.0.1',
-  candidateTenantId: tenantId,
-  candidateTenantDisplayName: 'Alpha Tenant',
-  authorizedTenants: [{ tenantId, displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
+  entryMode: 'Tenant',
   operationalContexts,
   selectedOperationalContextId,
   operationalSelectionVersion: 1,
@@ -162,7 +158,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(contextMenu).toBeVisible();
     await expect(contextMenu.locator('.operational-switcher__select option')).toHaveCount(3);
     await expect(contextMenu.locator('.operational-switcher__select')).toHaveValue('operation-branch-ui');
-    await expect(contextMenu.getByRole('menuitem', { name: 'Manage access contexts' })).toHaveAttribute('href', '/app/workspaces');
+    await expect(page.locator('a[href="/app/workspaces"]')).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(contextMenu).toHaveCount(0);
     await expect(contextTrigger).toBeFocused();

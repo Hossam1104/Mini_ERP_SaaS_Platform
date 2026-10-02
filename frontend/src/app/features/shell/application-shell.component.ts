@@ -102,6 +102,7 @@ export function accountInitials(value: string): string {
 
           <div class="topbar__actions">
             <div class="header-menu-control context-control">
+              @if (hasContextMenu()) {
               <button #contextTrigger id="context-trigger" class="button button--secondary header-control context-chip" type="button" (click)="toggleHeaderMenu('context')" [attr.aria-label]="contextChipLabel()" [title]="contextChipLabel()" aria-haspopup="menu" [attr.aria-controls]="contextMenuOpen() ? 'context-menu' : null" [attr.aria-expanded]="contextMenuOpen()">
                 <svg class="icon context-chip__building" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V3h14v18M8 7h2m4 0h2M8 11h2m4 0h2M10 21v-5h4v5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" /></svg>
                 <span class="context-chip__copy">
@@ -110,10 +111,28 @@ export function accountInitials(value: string): string {
                 </span>
                 <svg class="icon chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
               </button>
+              } @else {
+              <div class="button button--secondary header-control context-chip context-chip--static" [attr.aria-label]="contextChipLabel()" [title]="contextChipLabel()">
+                <svg class="icon context-chip__building" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V3h14v18M8 7h2m4 0h2M8 11h2m4 0h2M10 21v-5h4v5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" /></svg>
+                <span class="context-chip__copy">
+                  @if (tenantDisplayName(); as tenantName) { <strong>{{ tenantName }}</strong> }
+                  @if (context.currentOperationalContext()?.displayName; as operationalName) { <small class="context-chip__company">{{ operationalName }}</small> }
+                </span>
+              </div>
+              }
               @if (contextMenuOpen()) {
                 <div #contextMenu id="context-menu" class="header-menu context-menu" role="menu" [attr.aria-label]="label('Access contexts', 'سياقات الوصول')" (keydown)="onHeaderMenuKeydown($event, 'context')">
+                  @if (auth.session()?.isEmergencySuperAdministrator) {
+                    <div class="emergency-tenant-switcher" role="group">
+                      <label for="emergency-tenant-select">{{ label('Tenant', 'المستأجر') }}</label>
+                      <select id="emergency-tenant-select" class="emergency-tenant-switcher__select" [value]="auth.session()?.selectedTenantId ?? ''" [disabled]="context.switching()" (change)="switchEmergencyTenantFromEvent($event)">
+                        @for (tenant of context.emergencyTenants(); track tenant.tenantId) {
+                          <option [value]="tenant.tenantId">{{ localizedTenantName(tenant) }}</option>
+                        }
+                      </select>
+                    </div>
+                  }
                   <div class="context-menu__switcher" role="group" [attr.aria-label]="language.text('operationalContext')"><app-operational-context-switcher /></div>
-                  <a class="button button--quiet header-menu__item" role="menuitem" tabindex="-1" routerLink="/app/workspaces" (click)="closeHeaderMenu()">{{ language.text('manageContexts') }}</a>
                 </div>
               }
             </div>
@@ -224,6 +243,8 @@ export function accountInitials(value: string): string {
     .header-tool-group { display: flex; flex: none; align-items: center; gap: .35rem; border-inline: 1px solid var(--line); padding-inline: .45rem; }
     .icon-button.mobile-toggle { display: none !important; }
     .context-chip { width: min(15rem, 24vw); min-width: 0; max-width: 15rem; text-align: start; }
+    .context-chip--static { cursor: default; }
+    .context-chip--static:hover { transform: none; }
     .context-chip__building { width: 18px; height: 18px; flex: none; }
     .context-chip__copy { display: grid; min-width: 0; flex: 1; gap: .08rem; line-height: 1.05; }
     .context-chip__copy strong, .context-chip__copy small, .account-trigger__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -233,6 +254,10 @@ export function accountInitials(value: string): string {
     .theme-control { position: relative; }
     .header-menu { position: absolute; z-index: 80; inset-block-start: calc(100% + .55rem); inset-inline-end: 0; display: grid; gap: .25rem; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: 18px; padding: .55rem; background: var(--surface-glass); box-shadow: var(--shadow-overlay), inset 0 1px 0 var(--glass-highlight); backdrop-filter: blur(22px) saturate(160%); animation: menu-enter 150ms ease both; }
     .context-menu { width: min(18rem, calc(100vw - 24px)); }
+    .emergency-tenant-switcher { display: grid; gap: .25rem; min-width: 12rem; padding: .2rem .2rem .45rem; }
+    .emergency-tenant-switcher label { color: var(--ink-muted); font-size: 13px; font-weight: 800; }
+    .emergency-tenant-switcher__select { min-height: 44px; max-width: 17rem; border: 1px solid var(--line-strong); border-radius: 12px; padding: .45rem .6rem; color: var(--ink); background: var(--surface-raised); font: 600 14px/1.2 var(--font-sans); }
+    .emergency-tenant-switcher__select:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
     .theme-menu { width: 264px; }
     .account-menu { width: min(16rem, calc(100vw - 24px)); }
     .account-trigger { width: auto; max-width: min(12rem, 30vw); padding-inline: .4rem; }
@@ -372,8 +397,10 @@ export class ApplicationShellComponent implements OnInit, OnDestroy {
     try {
       this.sidebarExpanded.set(typeof window !== 'undefined' && window.localStorage.getItem('mesp.ui.rail') === 'expanded');
     } catch { /* Storage can be unavailable in a restricted browser context. */ }
-    if (this.context.contexts().length === 0 && !this.context.entry()) {
-      void this.context.loadEntry();
+    if (!this.context.entry()) {
+      void this.context.loadEntry().then(() => {
+        if (this.auth.session()?.isEmergencySuperAdministrator) void this.context.loadEmergencyTenants();
+      });
     }
   }
 
@@ -453,7 +480,7 @@ export class ApplicationShellComponent implements OnInit, OnDestroy {
 
   private headerMenuItems(menu: 'context' | 'account', element = this.headerMenuElement(menu)): HTMLElement[] {
     const selector = menu === 'context'
-      ? 'app-operational-context-switcher select:not(:disabled), [role="menuitem"]:not(:disabled)'
+      ? 'app-operational-context-switcher select:not(:disabled), .emergency-tenant-switcher__select:not(:disabled), [role="menuitem"]:not(:disabled)'
       : '[role="menuitem"]:not(:disabled)';
     return Array.from(element?.querySelectorAll<HTMLElement>(selector) ?? []);
   }
@@ -517,7 +544,7 @@ export class ApplicationShellComponent implements OnInit, OnDestroy {
   }
 
   canShowModuleNavigation(): boolean {
-    return !this.context.entry() || (this.context.entry()?.entryMode !== 'PlatformAdminHost' && this.context.entry()?.entryMode !== 'NoAccess');
+    return this.context.entry()?.entryMode !== 'NoAccess';
   }
 
   label(english: string, arabic: string): string {
@@ -680,16 +707,31 @@ export class ApplicationShellComponent implements OnInit, OnDestroy {
     if (url === '/app' || url === '/app/') return this.language.text('overview');
     const currentItem = this.currentNavigationItem();
     if (currentItem) return this.navigationLabel(currentItem);
-    if (url.includes('/workspaces')) return this.language.text('manageContexts');
     return this.language.text('overview');
+  }
+
+  hasContextMenu(): boolean {
+    return this.auth.session()?.isEmergencySuperAdministrator === true || this.context.operationalContexts().length > 1;
   }
 
   tenantDisplayName(): string | null {
     const entry = this.context.entry();
-    const tenant = entry?.authorizedTenants.find((candidate) => candidate.tenantId === entry.candidateTenantId);
-    const arabicName = tenant?.arabicDisplayName?.trim() || entry?.branding.arabicDisplayName?.trim();
-    const englishName = entry?.candidateTenantDisplayName ?? tenant?.displayName;
-    return this.language.language() === 'ar' && arabicName ? arabicName : englishName ?? null;
+    const arabicName = entry?.branding.arabicDisplayName?.trim();
+    return this.language.language() === 'ar' && arabicName ? arabicName : entry?.branding.displayName ?? null;
+  }
+
+  localizedTenantName(tenant: { displayName: string; arabicDisplayName?: string | null }): string {
+    const arabicName = tenant.arabicDisplayName?.trim();
+    return this.language.language() === 'ar' && arabicName ? arabicName : tenant.displayName;
+  }
+
+  async switchEmergencyTenantFromEvent(event: Event): Promise<void> {
+    const tenantId = (event.target as HTMLSelectElement).value;
+    if (tenantId && await this.context.switchEmergencyTenant(tenantId)) {
+      await this.context.loadEntry();
+      this.closeHeaderMenu();
+      await this.router.navigate(['/app']);
+    }
   }
 
   contextChipLabel(): string {

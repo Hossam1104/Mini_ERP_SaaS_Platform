@@ -22,6 +22,7 @@ param(
     [ValidateRange(1024, 65535)]
     [int]$FrontendPort = 4300,
     [string]$AdminLogin = 'admin@mesp.com',
+    [switch]$DevAuthBypass,
     [switch]$Restart,
     [switch]$ValidateOnly,
     [ValidateRange(10, 600)]
@@ -29,6 +30,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$devAuthBypassEnabled = $DevAuthBypass.IsPresent
 
 if ($null -ne $env:MESP_DEV_ADMIN_LOGIN) {
     $AdminLogin = $env:MESP_DEV_ADMIN_LOGIN
@@ -331,10 +333,6 @@ function Write-GeneratedProxy {
         '/api' = [ordered]@{
             target       = $TargetUrl
             secure       = $false
-            # Preserve the browser Host so the API can resolve the configured
-            # common, Tenant, or platform entry mode. The target remains a
-            # loopback transport detail, not the Tenant routing authority.
-            changeOrigin = $false
             logLevel     = 'debug'
         }
     }
@@ -502,6 +500,7 @@ $generatedProxyPath = Write-GeneratedProxy -TargetUrl $target.ApiUrl
 
 Write-Output "MiniERP Development API target: $($target.ApiUrl) [$($target.Source)]"
 Write-Output "Angular proxy: $generatedProxyPath -> $($target.ApiUrl)"
+Write-Output "Development bypass: $(if ($devAuthBypassEnabled) { 'enabled by -DevAuthBypass' } else { 'off' })"
 
 if ($ValidateOnly) {
     Write-Output 'Runtime configuration validation complete; no processes were started or stopped.'
@@ -525,10 +524,6 @@ if (-not (Test-Path -LiteralPath (Join-Path $frontendRoot 'node_modules\@angular
 }
 
 Assert-FrontendPortAvailable
-$devAuthBypassEnabled = [string]::Equals(
-    $env:MESP_DEV_AUTH_BYPASS,
-    'true',
-    [StringComparison]::OrdinalIgnoreCase)
 $password = $null
 if (-not $devAuthBypassEnabled) {
     $password = Get-DevelopmentPassword
@@ -637,7 +632,6 @@ Write-Output ''
 Write-Output 'MiniERP Development runtime is ready.'
 Write-Output "Backend:  $($target.ApiUrl)"
 Write-Output "Frontend: http://localhost:$FrontendPort"
-Write-Output "Entry hosts: http://wafra.localhost:$FrontendPort (Tenant), http://mesp.localhost:$FrontendPort (whole ERP), http://tenant.localhost:$FrontendPort (Tenant alias), http://localhost:$FrontendPort (common), http://admin.localhost:$FrontendPort (platform)"
 Write-Output "Login:   $($AdminLogin.Trim())"
 if ($devAuthBypassEnabled) {
     Write-Output 'Auth:    automatic loopback Development bypass is enabled; no password prompt was used.'

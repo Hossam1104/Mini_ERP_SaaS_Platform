@@ -44,7 +44,7 @@ async function setupValuationRoutes(page: Page, options: {
 
   await page.route('**/api/v1/auth/development-bypass', (route) => route.fulfill({ json: { authenticated: false } }));
   await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: session }));
-  await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: { entryMode: 'TenantHost', canonicalHost: '127.0.0.1', candidateTenantId: 'tenant-a', candidateTenantDisplayName: 'Alpha Tenant', authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }], operationalContexts: [{ contextId: 'context-a', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 }], selectedOperationalContextId: 'context-a', operationalSelectionVersion: 1, branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true }, currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null } }));
+  await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: { entryMode: 'Tenant', selectedOperationalContextId: 'context-a', operationalSelectionVersion: 1, branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true }, currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null } }));
   await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [] } }));
   await page.route('**/api/v1/auth/antiforgery', (route) => route.fulfill({ status: 204, headers: { 'X-CSRF-TOKEN': 'inventory-control-e2e-token' } }));
   await page.route('**/api/v1/inventory/warehouses**', (route) => route.fulfill({ json: [{ tenantId: 'tenant-a', companyId: 'company-a', branchId: null, warehouseId: 'warehouse-a', code: 'WH-A', name: 'Main warehouse', displayName: 'WH-A · Main warehouse', isActive: true }] }));
@@ -69,12 +69,7 @@ test('Inventory workspace renders server-provided scope and availability', async
   await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: session }));
   await page.route('**/api/v1/auth/entry', (route) => route.fulfill({
     json: {
-      entryMode: 'TenantHost',
-      canonicalHost: '127.0.0.1',
-      candidateTenantId: 'tenant-a',
-      candidateTenantDisplayName: 'Alpha Tenant',
-      authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
-      operationalContexts: [{ contextId: 'context-a', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 }],
+      entryMode: 'Tenant',
       selectedOperationalContextId: 'context-a',
       operationalSelectionVersion: 1,
       branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true },
@@ -112,7 +107,7 @@ test('Inventory opening posts to the ledger and reservation release restores ava
 
   await page.route('**/api/v1/auth/development-bypass', (route) => route.fulfill({ json: { authenticated: false } }));
   await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: session }));
-  await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: { entryMode: 'TenantHost', canonicalHost: '127.0.0.1', candidateTenantId: 'tenant-a', candidateTenantDisplayName: 'Alpha Tenant', authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }], operationalContexts: [{ contextId: 'context-a', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 }], selectedOperationalContextId: 'context-a', operationalSelectionVersion: 1, branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true }, currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null } }));
+  await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: { entryMode: 'Tenant', selectedOperationalContextId: 'context-a', operationalSelectionVersion: 1, branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true }, currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null } }));
   await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [] } }));
   await page.route('**/api/v1/auth/antiforgery', (route) => route.fulfill({ status: 204, headers: { 'X-CSRF-TOKEN': 'inventory-e2e-token' } }));
   await page.route('**/api/v1/inventory/warehouses**', (route) => route.fulfill({ json: [{ tenantId: 'tenant-a', companyId: 'company-a', branchId: null, warehouseId: 'warehouse-a', code: 'WH-A', name: 'Main warehouse', displayName: 'WH-A · Main warehouse', isActive: true }] }));
@@ -194,7 +189,7 @@ test('MESP-130 stock control keeps counts blind and accepts physical observation
 
   await page.route('**/api/v1/auth/development-bypass', (route) => route.fulfill({ json: { authenticated: false } }));
   await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: session }));
-  await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: { entryMode: 'TenantHost', canonicalHost: '127.0.0.1', candidateTenantId: 'tenant-a', candidateTenantDisplayName: 'Alpha Tenant', authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }], operationalContexts: [{ contextId: 'context-a', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 }], selectedOperationalContextId: 'context-a', operationalSelectionVersion: 1, branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true }, currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null } }));
+  await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: { entryMode: 'Tenant', selectedOperationalContextId: 'context-a', operationalSelectionVersion: 1, branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true }, currencyPresentation: { currencyCode: 'SAR', symbolAssetUrl: null, symbolTextFallback: 'SAR' }, code: null } }));
   await page.route('**/api/v1/auth/contexts', (route) => route.fulfill({ json: { contexts: [] } }));
   await page.route('**/api/v1/auth/antiforgery', (route) => route.fulfill({ status: 204, headers: { 'X-CSRF-TOKEN': 'inventory-control-e2e-token' } }));
   await page.route('**/api/v1/inventory/warehouses**', (route) => route.fulfill({ json: [{ tenantId: 'tenant-a', companyId: 'company-a', branchId: null, warehouseId: 'warehouse-a', code: 'WH-A', name: 'Main warehouse', displayName: 'WH-A · Main warehouse', isActive: true }] }));

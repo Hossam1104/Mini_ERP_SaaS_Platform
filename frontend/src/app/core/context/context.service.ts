@@ -1,15 +1,15 @@
-import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiClientService } from '../api/api-client.service';
 import {
-  FoundationContextCandidate,
-  FoundationContextSwitchRequest,
-  FoundationContextsResponse,
+  FoundationEmergencyTenantSwitchRequest,
+  FoundationEmergencyTenantsResponse,
   FoundationEntryResponse,
   FoundationOperationalContext,
   FoundationOperationalContextSwitchRequest,
   FoundationOperationalContextSwitchResponse,
   FoundationSessionResponse,
+  FoundationTenantCandidate,
 } from '../api/foundation.models';
 import { SafeUiError, toSafeUiError } from '../api/safe-error';
 import { AuthService } from '../auth/auth.service';
@@ -20,7 +20,7 @@ export class ContextService {
   private readonly auth = inject(AuthService);
   private requestSequence = 0;
 
-  readonly contexts = signal<FoundationContextCandidate[]>([]);
+  readonly emergencyTenants = signal<FoundationTenantCandidate[]>([]);
   readonly entry = signal<FoundationEntryResponse | null>(null);
   readonly operationalContexts = signal<FoundationOperationalContext[]>([]);
   readonly operationalSelectionVersion = signal(0);
@@ -28,10 +28,6 @@ export class ContextService {
   readonly loading = signal(false);
   readonly switching = signal(false);
   readonly lastError = signal<SafeUiError | null>(null);
-  readonly currentContext = computed(() => {
-    const selectedId = this.auth.session()?.selectedContextId;
-    return selectedId ? this.contexts().find((candidate) => candidate.contextId === selectedId) ?? null : null;
-  });
   readonly currentOperationalContext = computed(() => {
     const selectedId = this.selectedOperationalContextId();
     return selectedId
@@ -43,19 +39,8 @@ export class ContextService {
     effect(() => {
       const state = this.auth.status();
       if (state === 'anonymous' || state === 'expired' || state === 'error') {
-        this.contexts.set([]);
-        const entry = untracked(() => this.entry());
-        if (entry) {
-          this.entry.set({
-            ...entry,
-            candidateTenantId: null,
-            candidateTenantDisplayName: null,
-            authorizedTenants: [],
-            operationalContexts: [],
-            selectedOperationalContextId: null,
-            operationalSelectionVersion: 0,
-          });
-        }
+        this.emergencyTenants.set([]);
+        this.entry.set(null);
         this.operationalContexts.set([]);
         this.selectedOperationalContextId.set(null);
         this.operationalSelectionVersion.set(0);
@@ -86,29 +71,26 @@ export class ContextService {
     }
   }
 
-  async load(): Promise<FoundationContextCandidate[]> {
+  async loadEmergencyTenants(): Promise<FoundationTenantCandidate[]> {
     this.loading.set(true);
     this.lastError.set(null);
     try {
-      const response = await firstValueFrom(this.api.get<FoundationContextsResponse>('/auth/contexts'));
-      this.contexts.set(response.contexts ?? []);
-      return this.contexts();
+      const response = await firstValueFrom(this.api.get<FoundationEmergencyTenantsResponse>('/auth/emergency-tenants'));
+      this.emergencyTenants.set(response.tenants ?? []);
+      return this.emergencyTenants();
     } catch (error: unknown) {
       const safeError = toSafeUiError(error);
       this.lastError.set(safeError);
-      if (safeError.code === 'authentication_failed') {
-        this.auth.markSessionExpired();
-      }
+      if (safeError.code === 'authentication_failed') this.auth.markSessionExpired();
       return [];
     } finally {
       this.loading.set(false);
     }
   }
 
-  async switchContext(contextId: string): Promise<boolean> {
-    const candidate = this.contexts().find((item) => item.contextId === contextId);
+  async switchEmergencyTenant(tenantId: string): Promise<boolean> {
     const session = this.auth.session();
-    if (!candidate || !session) {
+    if (!tenantId || !this.emergencyTenants().some((item) => item.tenantId === tenantId) || !session?.isEmergencySuperAdministrator) {
       this.lastError.set({ code: 'access_denied', status: 403, correlationId: null });
       return false;
     }
@@ -117,37 +99,27 @@ export class ContextService {
     this.switching.set(true);
     this.lastError.set(null);
     try {
-      if (!(await this.auth.bootstrapAntiforgery())) {
-        return false;
-      }
-      const request: FoundationContextSwitchRequest = {
-        contextId: candidate.contextId,
+      if (!(await this.auth.bootstrapAntiforgery())) return false;
+      const request: FoundationEmergencyTenantSwitchRequest = {
+        tenantId,
         expectedSelectionVersion: session.selectionVersion,
-        expectedEligibilityVersion: candidate.eligibilityVersion,
       };
-      const headers = this.auth.requestHeaders()
-        .set('Idempotency-Key', this.idempotencyKey());
+      const headers = this.auth.requestHeaders().set('Idempotency-Key', this.idempotencyKey());
       const response = await firstValueFrom(
-        this.api.post<FoundationSessionResponse>('/auth/context-switch', request, { headers }),
+        this.api.post<FoundationSessionResponse>('/auth/emergency-tenant-switch', request, { headers }),
       );
-      if (sequence !== this.requestSequence) {
-        return false;
-      }
+      if (sequence !== this.requestSequence) return false;
       this.auth.acceptServerSession(response);
       return true;
     } catch (error: unknown) {
       if (sequence === this.requestSequence) {
         const safeError = toSafeUiError(error);
         this.lastError.set(safeError);
-        if (safeError.code === 'authentication_failed') {
-          this.auth.markSessionExpired();
-        }
+        if (safeError.code === 'authentication_failed') this.auth.markSessionExpired();
       }
       return false;
     } finally {
-      if (sequence === this.requestSequence) {
-        this.switching.set(false);
-      }
+      if (sequence === this.requestSequence) this.switching.set(false);
     }
   }
 

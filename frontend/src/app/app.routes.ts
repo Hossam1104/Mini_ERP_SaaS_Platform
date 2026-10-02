@@ -10,7 +10,6 @@ export const routes: Routes = [
     canActivate: [sessionGuard],
     children: [
       { path: '', loadComponent: () => import('./features/workspace/workspace-home.component').then((module) => module.WorkspaceHomeComponent) },
-      { path: 'workspaces', loadComponent: () => import('./features/context/tenant-select.component').then((module) => module.TenantSelectComponent) },
       { path: 'master-data', pathMatch: 'full', redirectTo: 'master-data/categories' },
       { path: 'master-data/imports', loadComponent: () => import('./features/master-data/master-data-import-workspace.component').then((module) => module.MasterDataImportWorkspaceComponent) },
       { path: 'master-data/imports/:id', loadComponent: () => import('./features/master-data/master-data-import-workspace.component').then((module) => module.MasterDataImportWorkspaceComponent) },
@@ -55,6 +54,5 @@ export const routes: Routes = [
       { path: 'procurement/invoice-matching/:id', loadComponent: () => import('./features/procurement/purchase-invoice-matching-workspace.component').then((module) => module.PurchaseInvoiceMatchingWorkspaceComponent) },
     ],
   },
-  { path: 'tenant/select', pathMatch: 'full', redirectTo: 'app/workspaces' },
   { path: '**', redirectTo: 'app' },
 ];

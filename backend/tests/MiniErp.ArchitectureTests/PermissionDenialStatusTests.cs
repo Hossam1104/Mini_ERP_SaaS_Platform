@@ -14,7 +14,7 @@ public sealed class PermissionDenialStatusTests
     {
         using var factory = new HostSecurityTests.HostFactory();
         using var client = factory.CreateClient();
-        await SignInAndSelectOwnerMembershipAsync(factory, client);
+        await SignInAsOwnerWithAutoSelectedMembershipAsync(factory, client);
 
         var denied = await client.GetAsync($"/api/v1/foundation/targets/{Guid.NewGuid():D}");
         var permitted = await client.GetAsync("/api/v1/foundation/tenant-context");
@@ -38,22 +38,26 @@ public sealed class PermissionDenialStatusTests
     }
 
     [Fact]
-    public async Task Inactive_selected_membership_keeps_its_existing_status_and_clears_selection()
+    public async Task Suspended_auto_selected_membership_loses_context_and_selection_is_not_restored_after_reactivation()
     {
         using var factory = new HostSecurityTests.HostFactory();
         using var client = factory.CreateClient();
-        await SignInAndSelectOwnerMembershipAsync(factory, client);
+        await SignInAsOwnerWithAutoSelectedMembershipAsync(factory, client);
         factory.Identity.Store.Memberships[factory.MembershipA].Status = MembershipStatus.Suspended;
 
         var denied = await client.GetAsync($"/api/v1/foundation/targets/{Guid.NewGuid():D}");
-        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
+        Assert.Equal(JsonValueKind.Null, (await ReadJsonAsync(await client.GetAsync("/api/v1/auth/session")))
+            .GetProperty("selectedTenantId").ValueKind);
 
         factory.Identity.Store.Memberships[factory.MembershipA].Status = MembershipStatus.Active;
         var afterReactivation = await client.GetAsync("/api/v1/foundation/tenant-context");
         Assert.Equal(HttpStatusCode.Forbidden, afterReactivation.StatusCode);
+        Assert.Equal(JsonValueKind.Null, (await ReadJsonAsync(await client.GetAsync("/api/v1/auth/session")))
+            .GetProperty("selectedTenantId").ValueKind);
     }
 
-    private static async Task SignInAndSelectOwnerMembershipAsync(
+    private static async Task SignInAsOwnerWithAutoSelectedMembershipAsync(
         HostSecurityTests.HostFactory factory,
         HttpClient client)
     {
@@ -63,35 +67,11 @@ public sealed class PermissionDenialStatusTests
                 "/api/v1/auth/sign-in",
                 new FoundationSignInRequest("owner@example.com", factory.Password))).StatusCode);
 
-        var roleAssignment = factory.Identity.Store.RoleAssignments[factory.MembershipA].Single();
-        var role = factory.Identity.Store.Roles[roleAssignment.RoleId];
-        role.Permissions.Add(IdentityPermissions.ContextSwitch);
-
-        var tokenResponse = await client.GetAsync("/api/v1/auth/antiforgery");
-        Assert.Equal(HttpStatusCode.OK, tokenResponse.StatusCode);
-        var token = tokenResponse.Headers.GetValues("X-CSRF-TOKEN").Single();
-        using var contextsResponse = await client.GetAsync("/api/v1/auth/contexts");
-        Assert.Equal(HttpStatusCode.OK, contextsResponse.StatusCode);
-        using var contextsDocument = JsonDocument.Parse(await contextsResponse.Content.ReadAsStringAsync());
-        var eligibilityVersion = contextsDocument.RootElement
-            .GetProperty("contexts")
-            .EnumerateArray()
-            .Single(item => item.GetProperty("contextId").GetGuid() == factory.MembershipA.Value)
-            .GetProperty("eligibilityVersion")
-            .GetInt64();
-
-        using var switchRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/context-switch")
-        {
-            Content = JsonContent.Create(new FoundationContextSwitchRequest(
-                factory.MembershipA.Value,
-                0,
-                eligibilityVersion))
-        };
-        switchRequest.Headers.TryAddWithoutValidation("Idempotency-Key", "permission-denial-context");
-        switchRequest.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", token);
-        Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(switchRequest)).StatusCode);
-
-        role.Permissions.Remove(IdentityPermissions.ContextSwitch);
+        using var sessionResponse = await client.GetAsync("/api/v1/auth/session");
+        Assert.Equal(HttpStatusCode.OK, sessionResponse.StatusCode);
+        var session = await ReadJsonAsync(sessionResponse);
+        Assert.Equal(factory.TenantA.Value, session.GetProperty("selectedTenantId").GetGuid());
+        Assert.Equal(factory.MembershipA.Value, session.GetProperty("selectedContextId").GetGuid());
     }
 
     private static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response)

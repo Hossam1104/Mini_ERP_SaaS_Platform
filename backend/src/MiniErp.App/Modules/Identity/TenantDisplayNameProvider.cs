@@ -55,7 +55,7 @@ internal sealed class ConfiguredTenantDisplayNameProvider : ITenantDisplayNamePr
     public string GetDisplayName(TenantId tenantId) =>
         configuredNames.TryGetValue(tenantId.Value, out var displayName)
             ? displayName
-            : $"Tenant {tenantId.Value:D}";
+            : "MESP";
 
     public string? GetArabicDisplayName(TenantId tenantId) =>
         configuredArabicNames.TryGetValue(tenantId.Value, out var displayName)
@@ -65,7 +65,7 @@ internal sealed class ConfiguredTenantDisplayNameProvider : ITenantDisplayNamePr
 
 internal sealed class DefaultTenantDisplayNameProvider : ITenantDisplayNameProvider
 {
-    public string GetDisplayName(TenantId tenantId) => $"Tenant {tenantId.Value:D}";
+    public string GetDisplayName(TenantId tenantId) => "MESP";
 
     public string? GetArabicDisplayName(TenantId tenantId) => null;
 }

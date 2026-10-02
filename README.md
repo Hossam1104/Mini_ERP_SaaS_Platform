@@ -106,8 +106,9 @@ Production startup does not auto-migrate.
 ### Boundaries that hold across modules
 
 - **Tenant is the hard security boundary.** Company, Branch and Warehouse are
-  operational scopes *inside* an already authorized Tenant. A hostname supplies
-  candidate routing only, never authorization.
+  operational scopes *inside* an already authorized Tenant. Sign-in resolves
+  that Tenant from the account's single active membership; the hostname has no
+  Tenant authority.
 - **Module ownership is exclusive.** Sales owns the commercial chain, Inventory
   owns physical stock truth, Finance owns GL, AP, AR, credit notes and tax
   effects. Operational modules never fabricate accounting entries outside the
@@ -169,13 +170,16 @@ or user environment; never commit them:
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
 $env:MESP_SQLSERVER_CONNECTION_STRING = '<your local SQL Server connection configured outside Git>'
-# Password login is the default; set this only for an explicit Development bypass.
-# $env:MESP_DEV_AUTH_BYPASS = 'true'
 $env:MESP_DEV_TENANT_DISPLAY_NAME = 'Local validation workspace'
 
 dotnet build .\backend\MiniErp.sln --configuration Release
 .\scripts\Start-MiniErpDevelopment.ps1 -ApiPort 5300 -FrontendPort 4300 -Restart
 ```
+
+The launcher uses password sign-in by default and ignores an inherited
+`MESP_DEV_AUTH_BYPASS` value. Use `-DevAuthBypass` only to explicitly test the
+Development shortcut. The regular Development account is `admin@mesp.com` /
+`123`.
 
 The local SQL target convention is server `.` and database `MESP`; the
 connection value itself must stay outside tracked documentation. The
@@ -192,11 +196,7 @@ disabled and follow [`RUN.md`](RUN.md).
 
 Expected local addresses:
 
-- Tenant entry: <http://wafra.localhost:4300/>
-- Whole ERP entry: <http://mesp.localhost:4300/> (sign in, then choose a Tenant)
-- Angular / common entry: <http://localhost:4300>
-- Tenant alias: <http://tenant.localhost:4300>
-- Platform boundary fixture: <http://admin.localhost:4300>
+- Application: <http://localhost:4300>
 - API health: <http://localhost:5300/health>
 - OpenAPI / Scalar: Development/QA-only surfaces described in [`RUN.md`](RUN.md)
 
@@ -204,10 +204,10 @@ The Development bootstrap account is `admin@mesp.com` with password `123`.
 `MESP_DEV_ADMIN_LOGIN` and `MESP_DEV_ADMIN_PASSWORD` override these defaults
 when explicitly set. Keep the bypass off for password-login testing.
 
-The launcher and generated proxy preserve the browser `Host` so the API can
-resolve the entry mode. The browser consumes `auth/entry`; it does not
-authorize a Tenant from a subdomain, route parameter, local storage, or any
-client-supplied Tenant identifier.
+The browser consumes `auth/entry`; after credentials are verified, the API
+resolves the Tenant from the account's single active membership. The hostname
+does not select, suggest, or brand a Tenant. The emergency super-administrator
+selects a Tenant on `/login` after signing in.
 
 If another local service owns port 5000, the explicit 5300/4300 override keeps
 that unrelated service untouched.

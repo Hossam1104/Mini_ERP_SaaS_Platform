@@ -18,12 +18,7 @@ const session = {
 };
 
 const authEntry = {
-  entryMode: 'TenantHost',
-  canonicalHost: '127.0.0.1',
-  candidateTenantId: tenantId,
-  candidateTenantDisplayName: 'Alpha Tenant',
-  authorizedTenants: [{ tenantId, displayName: 'Alpha Tenant', canonicalHost: 'tenant.localhost' }],
-  operationalContexts: [{ contextId: 'operation-a', kind: 'Company', displayName: 'Alpha Company', eligibilityVersion: 1 }],
+  entryMode: 'Tenant',
   selectedOperationalContextId: 'operation-a',
   operationalSelectionVersion: 1,
   branding: { displayName: 'Alpha Tenant', logoLightUrl: null, logoDarkUrl: null, logoAltText: 'Alpha Tenant', tenantConfigured: true },
