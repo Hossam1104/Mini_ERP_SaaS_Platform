@@ -243,19 +243,19 @@ internal sealed partial class MigrationPersistence : IMigrationFoundationPersist
                 cancellationToken);
         }
 
+        if (command.Operation == MigrationOperationKind.Execution
+            && await db.Attempts.AnyAsync(item => item.RunId == command.RunId
+                && item.Operation == MigrationOperationKind.Execution
+                && item.Outcome == MigrationAttemptOutcome.Pending
+                && item.IdempotencyKey != command.IdempotencyKey.Value, cancellationToken))
+        {
+            return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
+                MigrationPersistenceOutcome.Conflict,
+                "migration_execution_attempt_claim_conflict");
+        }
+
         if (!runEntity.EvidenceConfirmed)
         {
-            if (command.Operation == MigrationOperationKind.Execution
-                && await db.Attempts.AnyAsync(item => item.RunId == command.RunId
-                    && item.Operation == MigrationOperationKind.Execution
-                    && item.Outcome == MigrationAttemptOutcome.Pending
-                    && item.IdempotencyKey != command.IdempotencyKey.Value, cancellationToken))
-            {
-                return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
-                    MigrationPersistenceOutcome.Conflict,
-                    "migration_execution_attempt_claim_conflict");
-            }
-
             return MigrationPersistenceResult<MigrationAttemptRecord>.Denied(
                 MigrationPersistenceOutcome.UnknownOutcome,
                 "migration_audit_recovery_required");
