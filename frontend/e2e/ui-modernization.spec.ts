@@ -338,7 +338,7 @@ test.describe('MESP-153 Slice A UI', () => {
     await expect(page.getByRole('button', { name: 'Themes' })).toBeFocused();
   });
 
-  test('keeps the desktop header controls 40px high without wrapping or overflow', async ({ page }) => {
+  test('keeps the desktop header controls 44px high without wrapping or overflow', async ({ page }) => {
     await page.goto('/app');
     await expect(page.locator('.topbar__actions')).toBeVisible();
     await expect(page.locator('.context-chip__company')).toHaveCount(1);
@@ -383,10 +383,119 @@ test.describe('MESP-153 Slice A UI', () => {
       expect(new Set(layout.clusterControlTops).size, `right cluster alignment at ${width}px`).toBe(1);
       expect(layout.visibleControls).toHaveLength(7);
       for (const control of layout.visibleControls) {
-        expect(control.height, `header control height at ${width}px`).toBe(40);
+        expect(control.height, `header control height at ${width}px`).toBe(44);
         expect(control.left, `control left edge at ${width}px`).toBeGreaterThanOrEqual(0);
         expect(control.right, `control right edge at ${width}px`).toBeLessThanOrEqual(width);
       }
+    }
+  });
+
+  test('MESP-205 bounds Wafra logos and captures the shell across themes, directions, and viewports', async ({ page }) => {
+    const configuredEntry = entryResponse('meadow');
+    await page.route('**/api/v1/auth/entry', (route) => route.fulfill({ json: {
+      ...configuredEntry,
+      candidateTenantDisplayName: 'Wafra',
+      authorizedTenants: [{ tenantId, displayName: 'Wafra', arabicDisplayName: 'وفرة', canonicalHost: 'wafra.localhost' }],
+      branding: {
+        ...configuredEntry.branding,
+        displayName: 'Wafra',
+        arabicDisplayName: 'وفرة',
+        logoLightUrl: '/assets/wafra-logo.png',
+        logoDarkUrl: '/assets/wafra-logo-dark.png',
+        logoAltText: 'Wafra',
+      },
+    } }));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/app');
+    await expect(page.locator('#tenant-overview-title')).toHaveText('Wafra');
+    await page.getByRole('button', { name: 'Themes' }).click();
+    await page.getByRole('menuitemradio', { name: 'Luxury' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'luxury');
+
+    const assertBoundedLogo = async (imageSelector: string, frameSelector: string) => {
+      const image = page.locator(imageSelector);
+      await expect(image).toBeVisible();
+      await image.evaluate((element) => (element as HTMLImageElement).decode());
+      const bounds = await image.evaluate((element, frameSelector) => {
+        const image = element as HTMLImageElement;
+        const frame = document.querySelector<HTMLElement>(frameSelector);
+        if (!frame) throw new Error(`Missing logo frame ${frameSelector}`);
+        const imageRect = image.getBoundingClientRect();
+        const frameRect = frame.getBoundingClientRect();
+        const style = getComputedStyle(image);
+        return {
+          objectFit: style.objectFit,
+          maxWidth: style.maxWidth,
+          maxHeight: style.maxHeight,
+          image: { left: imageRect.left, right: imageRect.right, top: imageRect.top, bottom: imageRect.bottom },
+          frame: { left: frameRect.left, right: frameRect.right, top: frameRect.top, bottom: frameRect.bottom },
+        };
+      }, frameSelector);
+      expect(bounds.objectFit).toBe('contain');
+      expect(bounds.maxWidth).toBe('100%');
+      expect(bounds.maxHeight).toBe('100%');
+      expect(bounds.image.bottom - bounds.image.top).toBeGreaterThanOrEqual(39.5);
+      expect(bounds.image.left).toBeGreaterThanOrEqual(bounds.frame.left - 0.5);
+      expect(bounds.image.right).toBeLessThanOrEqual(bounds.frame.right + 0.5);
+      expect(bounds.image.top).toBeGreaterThanOrEqual(bounds.frame.top - 0.5);
+      expect(bounds.image.bottom).toBeLessThanOrEqual(bounds.frame.bottom + 0.5);
+    };
+
+    const screenshotDirectory = '../.playwright-mcp/mesp-205';
+    for (const width of [1440, 1024, 390]) {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      for (const language of ['en', 'ar'] as const) {
+        const direction = language === 'ar' ? 'rtl' : 'ltr';
+        if (await page.locator('html').getAttribute('dir') !== direction) await page.locator('.language-button').click();
+        await expect(page.locator('html')).toHaveAttribute('dir', direction);
+        for (const scheme of ['light', 'dark'] as const) {
+          if (await page.locator('html').getAttribute('data-color-scheme') !== scheme) await page.locator('.scheme-toggle').click();
+          await expect(page.locator('html')).toHaveAttribute('data-color-scheme', scheme);
+          await expect(page.locator('html')).toHaveAttribute('data-theme', 'luxury');
+          await expect(page.locator('.topbar__tenant-logo')).toHaveAttribute('src', scheme === 'dark' ? '/assets/wafra-logo-dark.png' : '/assets/wafra-logo.png');
+          await assertBoundedLogo('.topbar__tenant-logo', '.topbar__brand--tenant');
+          await assertBoundedLogo('.overview-hero__tenant-logo img', '.overview-hero__tenant-logo');
+
+          const layout = await page.evaluate(() => {
+            const rect = (selector: string) => {
+              const element = document.querySelector<HTMLElement>(selector);
+              if (!element) throw new Error(`Missing layout element ${selector}`);
+              const { left, right, top, bottom } = element.getBoundingClientRect();
+              return { left, right, top, bottom };
+            };
+            const brand = rect('.topbar__brand--tenant');
+            const theme = rect('.theme-trigger');
+            return {
+              documentWidth: document.documentElement.scrollWidth,
+              viewportWidth: window.innerWidth,
+              brand,
+              theme,
+            };
+          });
+          expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
+          const logoOverlapsTheme = layout.brand.left < layout.theme.right && layout.brand.right > layout.theme.left
+            && layout.brand.top < layout.theme.bottom && layout.brand.bottom > layout.theme.top;
+          expect(logoOverlapsTheme).toBe(false);
+
+          if (width !== 1024) {
+            const suffix = `${scheme}-luxury-${language}-${width}`;
+            await page.locator('.topbar').screenshot({ path: `${screenshotDirectory}/header-${suffix}.png`, animations: 'disabled' });
+            await page.screenshot({ path: `${screenshotDirectory}/overview-${suffix}.png`, fullPage: false, animations: 'disabled' });
+          }
+        }
+      }
+    }
+
+    for (const selector of ['.topbar__tenant-logo', '.overview-hero__tenant-logo img']) {
+      await page.locator(selector).evaluate((element) => { (element as HTMLImageElement).src = '/assets/brand/favicon-64.png'; });
+      await page.locator(selector).evaluate((element) => (element as HTMLImageElement).decode());
+      const dimensions = await page.locator(selector).evaluate((element) => {
+        const image = element as HTMLImageElement;
+        return { width: image.naturalWidth, height: image.naturalHeight };
+      });
+      expect(dimensions.width).toBe(dimensions.height);
+      await assertBoundedLogo(selector, selector === '.topbar__tenant-logo' ? '.topbar__brand--tenant' : '.overview-hero__tenant-logo');
     }
   });
 
