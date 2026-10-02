@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__0b5135fa-1689-4d30-af65-b34369464b71__getAccessibleAtlassianResources",
+      "mcp__0b5135fa-1689-4d30-af65-b34369464b71__atlassianUserInfo",
+      "mcp__0b5135fa-1689-4d30-af65-b34369464b71__getVisibleJiraProjects",
+      "mcp__0b5135fa-1689-4d30-af65-b34369464b71__getJiraProjectIssueTypesMetadata",
+      "Bash(pandoc -t markdown \"MiniERPSaaSPlatform_PRD_v1.2_Final_Approved_Baseline.docx\" -o \"C:/Users/Win11/AppData/Local/Temp/claude/D--AI-Tools-Hossam-mini-erp-saas-platform/71a09ad5-a0d3-4ea8-8cf4-be937c18f119/scratchpad/prd.md\")",
+      "mcp__0b5135fa-1689-4d30-af65-b34369464b71__searchJiraIssuesUsingJql",
+      "Bash(git fetch *)",
+      "Bash(gh auth *)",
+      "Bash(gh api *)",
+      "Bash(gh pr close:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr ready:*)",
+      "Bash(gh issue close:*)",
+      "Bash(az repos pr update:*)",
+      "Edit(docs/**)",
+      "Edit(AGENTS.md)",
+      "Edit(TASK.md)",
+      "Edit(RESULT.md)"
+    ]
+  }
+}

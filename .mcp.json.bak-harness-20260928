@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "orbit": {
+      "args": [
+        "--mcp-stdio"
+      ],
+      "command": "C:\\Users\\Win11\\AppData\\Local\\Orbit\\orbit.exe"
+    }
+  }
+}
