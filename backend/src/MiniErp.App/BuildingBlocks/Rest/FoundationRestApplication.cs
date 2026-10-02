@@ -209,11 +209,9 @@ public sealed class DefaultTrustedRequestContextResolver : ITrustedRequestContex
         // Host routing is a candidate hint only. The entry authority can select
         // an exact server-side membership/platform path, but it never accepts
         // Tenant headers or request payloads as authorization.
-        // A common host is a routing entry point. Do not silently activate its
-        // single Tenant membership merely because a legacy business endpoint
-        // was called; the explicit entry response owns that transition. A
-        // Tenant-specific host still enforces its exact candidate on every
-        // protected request.
+        // A common host is a routing entry point. Tenant selection always
+        // requires the explicit context-switch operation. A Tenant-specific
+        // host still enforces its exact candidate on every protected request.
         tenantEntryAuthority?.Prepare(httpContext.User, httpContext.Request.Host.Value, activateCommonHost: false);
         return ValueTask.FromResult(identityHost.ResolveContext(httpContext.User, correlationId, descriptor));
     }

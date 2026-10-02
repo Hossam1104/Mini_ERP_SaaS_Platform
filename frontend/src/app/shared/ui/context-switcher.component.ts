@@ -100,9 +100,9 @@ export class ContextSwitcherComponent implements OnInit {
   async switchFromEvent(event: Event): Promise<void> {
     const value = (event.target as HTMLSelectElement).value;
     if (value) {
+      const commonHost = this.context.entry()?.entryMode === 'CommonHost';
       const switched = await this.context.switchContext(value);
-      if (switched && this.context.entry()?.entryMode === 'CommonHost') {
-        await this.context.loadEntry();
+      if (switched && commonHost) {
         await this.router.navigate(['/app']);
       }
     }

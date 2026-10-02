@@ -262,6 +262,7 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
         var entryDescriptor = FoundationOperationCatalog.GetRequired("auth.entry.read");
         Assert.Contains("optional Arabic", contextsDescriptor.BoundaryDescription, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Arabic Tenant display names", entryDescriptor.BoundaryDescription, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("selected authorized Tenant", entryDescriptor.BoundaryDescription, StringComparison.OrdinalIgnoreCase);
 
         using var client = factory.CreateClient();
         using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
@@ -270,6 +271,7 @@ public sealed class RestFoundationTests : IClassFixture<RestFoundationTests.ApiF
         var entryOperation = paths.GetProperty("/api/v1/auth/entry").GetProperty("get");
         Assert.Contains("authorized contexts", contextsOperation.GetProperty("summary").GetString(), StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Arabic Tenant display name", entryOperation.GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("selected authorized Tenant", entryOperation.GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
 
         var components = document.RootElement.GetProperty("components").GetProperty("schemas");
         JsonElement Resolve(JsonElement schema) => schema.TryGetProperty("$ref", out var reference)

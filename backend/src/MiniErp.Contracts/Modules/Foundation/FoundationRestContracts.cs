@@ -237,7 +237,8 @@ public sealed record FoundationCurrencyPresentationResponse(
 /// <summary>
 /// Server-owned entry resolution. Anonymous responses contain only the host
 /// mode and public branding; authenticated responses may include authorized
-/// candidates. It never grants authority to a client-supplied Tenant identifier.
+/// candidates and branding for the selected authorized Tenant. It never grants
+/// authority to a client-supplied Tenant identifier.
 /// </summary>
 public sealed record FoundationEntryResponse(
     string EntryMode,
@@ -811,7 +812,7 @@ public static class FoundationOperationCatalog
         },
         new("auth.entry.read", "/api/v1/auth/entry", "GET", FoundationSecurityProfile.Anonymous, FoundationOperationVisibility.Public)
         {
-            BoundaryDescription = "Anonymous callers receive resolved entry mode and public branding. Authenticated callers receive only server-authorized Tenant and operational context candidates. Configured Arabic Tenant display names are presentation-only and do not grant or broaden authority."
+            BoundaryDescription = "Anonymous callers receive resolved entry mode and public branding. Authenticated callers receive only server-authorized Tenant and operational context candidates; on the CommonHost, configured branding is returned only for the selected authorized Tenant and falls back to MESP when absent. Configured Arabic Tenant display names are presentation-only and do not grant or broaden authority."
         },
         new("auth.operational-contexts.read", "/api/v1/auth/operational-contexts", "GET", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "authenticated.session"),
         new("auth.context-switch", "/api/v1/auth/context-switch", "POST", FoundationSecurityProfile.AuthenticatedSession, FoundationOperationVisibility.Public, "foundation.context.switch", FoundationScopePolicy.None, RequiresAntiforgery: true, RequiresMandatoryAudit: true, IsUnsafe: true),

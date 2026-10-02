@@ -291,7 +291,12 @@ export class SignInComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    void this.context.loadEntry().then((entry) => this.loginEntryMode.set(entry?.entryMode ?? 'NoAccess'));
+    void this.context.loadEntry().then((entry) => {
+      this.loginEntryMode.set(entry?.entryMode ?? 'NoAccess');
+      if (this.authService.developmentBypassActive() && entry?.entryMode === 'CommonHost') {
+        void this.chooseCommonHostContext();
+      }
+    });
     if (this.clientDevelopment) {
       void this.devApi.check();
     }
@@ -444,30 +449,14 @@ export class SignInComponent implements OnInit {
   }
 
   private async chooseCommonHostContext(): Promise<void> {
-    const contexts = await this.context.load();
+    await this.context.load();
     const tenants = this.tenantContexts();
     if (tenants.length === 0) {
       this.step.set('empty');
       this.selectionError.set('');
       return;
     }
-    if (tenants.length > 1) {
-      this.step.set('chooseTenant');
-      this.selectedContextId.set('');
-      return;
-    }
-
-    const onlyContext = tenants[0];
-    if (!contexts.some((candidate) => candidate.contextId === onlyContext.contextId)) {
-      this.step.set('empty');
-      return;
-    }
-    if (this.authService.session()?.selectedContextId !== onlyContext.contextId
-      && !(await this.context.switchContext(onlyContext.contextId))) {
-      this.step.set('empty');
-      this.selectionError.set(this.language.text('accessDenied'));
-      return;
-    }
-    await this.router.navigate(['/app']);
+    this.step.set('chooseTenant');
+    this.selectedContextId.set('');
   }
 }

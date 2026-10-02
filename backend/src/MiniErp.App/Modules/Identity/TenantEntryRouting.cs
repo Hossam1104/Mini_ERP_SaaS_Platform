@@ -573,9 +573,6 @@ internal sealed class TenantEntryAuthority : ITenantEntryAuthority
 
                 break;
             case TenantEntryMode.CommonHost:
-                var ordinary = contexts
-                    .Where(item => item.Kind == FoundationHostContextKind.OrdinaryMembership)
-                    .ToArray();
                 var current = identityHost.GetSession(principal).SelectedContext;
                 if (current is not null
                     && contexts.Any(item => item.ContextId == current.ContextId)
@@ -584,18 +581,7 @@ internal sealed class TenantEntryAuthority : ITenantEntryAuthority
                     break;
                 }
 
-                if (activateCommonHost && ordinary.Length == 1)
-                {
-                    identityHost.SelectAuthorizedContext(principal, ordinary[0].ContextId);
-                }
-                else if (activateCommonHost && ordinary.Length > 1)
-                {
-                    identityHost.ClearSelectedContext(principal);
-                }
-                else
-                {
-                    identityHost.ClearSelectedContext(principal);
-                }
+                identityHost.ClearSelectedContext(principal);
 
                 break;
             case TenantEntryMode.PlatformAdminHost:
@@ -722,9 +708,15 @@ internal sealed class TenantEntryAuthority : ITenantEntryAuthority
                 .ToArray()
             : [];
         var selectedOperational = identityHost.GetSelectedOperationalContext(principal);
-        var tenantBranding = resolution.Mode == TenantEntryMode.TenantHost && selectedTenant is { }
-            ? branding.Get(new TenantId(selectedTenant.Value))
-            : null;
+        var tenantBranding = resolution.Mode switch
+        {
+            TenantEntryMode.TenantHost when selectedTenant is { } tenantHostTenantId
+                => branding.Get(new TenantId(tenantHostTenantId)),
+            TenantEntryMode.CommonHost when selectedTenant is { } commonHostTenantId
+                && authorizedTenants.Any(item => item.TenantId == commonHostTenantId)
+                => branding.Get(new TenantId(commonHostTenantId)),
+            _ => null
+        };
         if (tenantBranding is { TenantConfigured: false })
         {
             tenantBranding = null;

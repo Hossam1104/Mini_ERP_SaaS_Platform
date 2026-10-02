@@ -272,22 +272,49 @@ describe('SignInComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/app']);
   });
 
-  it('skips the chooser and reaches Overview when the server auto-selects one context', async () => {
+  it('shows the chooser for one CommonHost membership after sign-in', async () => {
     await initialize();
     component.form.controls.login.setValue('admin@mesp.com');
     component.form.controls.password.setValue('123');
     const submit = component.submit();
     http.expectOne('/api/v1/auth/sign-in').flush(authenticatedSession);
     await tick();
-    http.expectOne('/api/v1/auth/entry').flush({ ...commonEntry, candidateTenantId: 'tenant-a' });
+    http.expectOne('/api/v1/auth/entry').flush({
+      ...commonEntry,
+      authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Only Tenant', canonicalHost: null }],
+    });
     await tick();
-    http.expectOne('/api/v1/auth/session').flush({ ...authenticatedSession, selectedContextId: 'context-a' });
+    http.expectOne('/api/v1/auth/session').flush(authenticatedSession);
     await tick();
-    http.expectOne('/api/v1/auth/contexts').flush({ contexts: [ordinaryTenantContext('context-a', 'tenant-a', 'Alpha ERP')] });
+    http.expectOne('/api/v1/auth/contexts').flush({ contexts: [ordinaryTenantContext('context-a', 'tenant-a', 'Only Tenant')] });
     await submit;
+    fixture.detectChanges();
 
-    expect(component.step()).toBe('credentials');
-    expect(router.navigate).toHaveBeenCalledWith(['/app']);
+    expect(component.step()).toBe('chooseTenant');
+    expect(component.selectedContextId()).toBe('');
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('#tenant-context option:nth-child(2)')?.textContent).toBe('Only Tenant');
+    http.expectNone('/api/v1/auth/context-switch');
+  });
+
+  it('shows the same one-Tenant chooser after the Development bypass session', async () => {
+    component.auth.acceptServerSession(authenticatedSession);
+    component.auth.developmentBypassActive.set(true);
+    fixture.detectChanges();
+    http.expectOne('/api/v1/auth/entry').flush({
+      ...commonEntry,
+      authorizedTenants: [{ tenantId: 'tenant-a', displayName: 'Only Tenant', canonicalHost: null }],
+    });
+    http.expectOne('/api/v1/module-registration').flush(moduleRegistration);
+    await tick();
+    http.expectOne('/api/v1/auth/contexts').flush({ contexts: [ordinaryTenantContext('context-a', 'tenant-a', 'Only Tenant')] });
+    await tick();
+    fixture.detectChanges();
+
+    expect(component.step()).toBe('chooseTenant');
+    expect(fixture.nativeElement.querySelector('#tenant-context option:nth-child(2)')?.textContent).toBe('Only Tenant');
+    expect(router.navigate).not.toHaveBeenCalled();
+    http.expectNone('/api/v1/auth/context-switch');
   });
 
   it('shows a clear empty-context message and keeps sign-out available', async () => {

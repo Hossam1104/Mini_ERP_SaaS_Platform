@@ -1275,12 +1275,13 @@ An authenticated user without Wafra access receives a safe denial and no Wafra b
 
 Illustrative `mesp.com` behavior:
 
-- exactly one authorized Tenant → select it server-side and land on its Overview on the common host;
-- multiple authorized Tenants → show only those legitimate memberships, then land on the chosen Tenant's Overview on the common host;
+- one or more authorized Tenants → after sign-in, show only those legitimate memberships in a chooser, including when there is exactly one, then land on the chosen Tenant's Overview on the common host;
 - zero memberships → safe no-access/onboarding state;
 - never expose an unrelated Tenant catalogue to an ordinary user.
 
 Raw Tenant GUIDs are not user-facing selectors.
+
+Owner decision 2026-10-01 (MESP-203 (#363)): the common-host chooser always appears after sign-in, including for a single authorized Tenant and a session established through the Development loopback bypass. The user explicitly chooses the Tenant; the common-host shell then uses that Tenant's configured branding and falls back to MESP when none is configured. Tenant hosts remain host-fixed and do not show the chooser.
 
 Owner decision 2026-10-01 (MESP-186 (#327), MESP-23 (#112), Option A): the common host does not redirect to the Tenant's canonical host after selection; the session stays on the common host. Tenant isolation remains server-enforced by the authenticated membership and selected context, never by hostname. A redirect with a secure cross-host session handoff is out of scope for Release 1.
 
@@ -1296,7 +1297,7 @@ Any support/platform-admin entry into Tenant ERP data must use an approved exact
 
 ##### 2.5 Operational Workspace selection occurs after Overview and only when needed
 
-Do not force ordinary Tenant users through a Tenant/Workspace chooser before Overview.
+Do not force ordinary Tenant users on a Tenant-specific host through a Company/Branch workspace chooser before Overview. CommonHost users choose a Tenant first as defined in §2.3.
 
 - one permitted operational context → auto-select;
 - multiple permitted operational contexts → header/application-context selector;
@@ -1423,8 +1424,8 @@ MESP-143 must cover:
 
 - valid/unknown host resolution;
 - unauthorized user on a valid Tenant host;
-- single-membership automatic routing;
-- bounded multi-membership chooser;
+- CommonHost Tenant chooser for one or more memberships;
+- TenantHost entry fixed by host with no Tenant chooser;
 - no unrelated Tenant enumeration;
 - Platform Admin versus Tenant ERP authority;
 - single-workspace auto-selection;

@@ -134,6 +134,11 @@ export class ContextService {
         return false;
       }
       this.auth.acceptServerSession(response);
+      this.entry.set(null);
+      this.operationalContexts.set([]);
+      this.selectedOperationalContextId.set(null);
+      this.operationalSelectionVersion.set(0);
+      await this.loadEntry();
       return true;
     } catch (error: unknown) {
       if (sequence === this.requestSequence) {
