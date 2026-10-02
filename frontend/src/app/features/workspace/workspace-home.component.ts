@@ -169,7 +169,7 @@ interface OverviewModule {
     .overview-manage .icon { width: 18px; height: 18px; }
     .overview-manage:hover { box-shadow: var(--shadow-card); transform: translateY(-2px); }
     .overview-hero__art { position: relative; width: 100%; max-width: 500px; aspect-ratio: 500 / 280; height: auto; grid-column: 2; grid-row: 1 / span 2; }
-    .overview-hero__tenant-logo { position: relative; z-index: 2; display: flex; width: min(14rem, 100%); height: 4.625rem; max-width: 100%; max-height: 4.625rem; grid-column: 2; grid-row: 1 / span 2; align-items: center; justify-content: center; justify-self: center; }
+    .overview-hero__tenant-logo { position: relative; z-index: 2; display: flex; width: min(18rem, 100%); height: 6rem; max-width: 100%; max-height: 6rem; grid-column: 2; grid-row: 1 / span 2; align-items: center; justify-content: center; justify-self: center; }
     .overview-hero__tenant-logo img.tenant-logo-tinted { filter: url(#tenant-logo-tint); }
     .tenant-logo-filter { position: absolute; width: 0; height: 0; }
     .tenant-logo-flood { flood-color: var(--accent); }

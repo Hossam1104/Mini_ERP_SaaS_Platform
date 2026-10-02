@@ -368,12 +368,16 @@ describe('SignInComponent', () => {
     await initialize();
     expect(component.passwordVisible()).toBe(false);
     const button = fixture.nativeElement.querySelector('.password-toggle') as HTMLButtonElement;
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+    expect(button.getAttribute('aria-label')).toBe('Show password');
     button.click();
     fixture.detectChanges();
 
     expect(component.passwordVisible()).toBe(true);
     expect((fixture.nativeElement.querySelector('#password') as HTMLInputElement).type).toBe('text');
     expect((fixture.nativeElement.querySelector('#password') as HTMLInputElement).autocomplete).toBe('current-password');
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(button.getAttribute('aria-label')).toBe('Hide password');
   });
 
   it('switches language and direction while keeping the logo unmirrored in Arabic', async () => {

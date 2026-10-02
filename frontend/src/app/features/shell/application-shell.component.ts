@@ -84,7 +84,7 @@ export function accountInitials(value: string): string {
           <div class="topbar__start">
             <button class="button button--secondary icon-button header-control sidebar-toggle desktop-toggle" type="button" (click)="toggleSidebar()" [attr.aria-label]="sidebarExpanded() ? label('Collapse navigation', 'طي القائمة') : label('Expand navigation', 'توسيع القائمة')" [attr.aria-expanded]="sidebarExpanded()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
             <button class="button button--secondary icon-button header-control sidebar-toggle mobile-toggle" type="button" (click)="toggleMobileMenu()" [attr.aria-label]="mobileMenuOpen() ? label('Close navigation', 'إغلاق القائمة') : label('Open navigation', 'فتح القائمة')" [attr.aria-expanded]="mobileMenuOpen()" aria-controls="app-sidebar"><svg class="icon" aria-hidden="true"><use href="#icon-menu" /></svg></button>
-            <a class="topbar__brand" [class.topbar__brand--tenant]="!!tenantLogoUrl()" [class.topbar__brand--light-backplate]="theme.darkMode() && !!context.entry()?.branding?.logoLightUrl && !context.entry()?.branding?.logoDarkUrl" routerLink="/app" [attr.aria-label]="brandName()">
+            <a class="topbar__brand" [class.topbar__brand--tenant]="!!tenantLogoUrl()" routerLink="/app" [attr.aria-label]="brandName()">
               @if (tenantLogoUrl()) {
                 <img class="tenant-brand-image topbar__tenant-logo" [src]="tenantLogoUrl()" [alt]="context.entry()?.branding?.logoAltText || brandName()" />
               } @else {
@@ -211,7 +211,6 @@ export function accountInitials(value: string): string {
     .topbar__start, .topbar__actions { display: flex; min-width: 0; align-items: center; gap: .65rem; }
     .topbar__start { flex: 1; }
     .topbar__brand { display: flex; width: 5.8rem; min-height: 2.75rem; align-items: center; justify-content: center; flex: none; border-radius: 10px; }
-    .topbar__brand--light-backplate { border: 1px solid #fff; padding: .18rem .35rem; background: #fff; box-shadow: 0 2px 8px rgb(0 0 0 / 12%); }
     .topbar__mesp-logo { display: block; width: 5.1rem; }
     .breadcrumbs { display: flex; min-width: 0; overflow: hidden; align-items: center; gap: .5rem; color: var(--ink-muted); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
     .breadcrumbs [aria-current='page'] { overflow: hidden; text-overflow: ellipsis; }

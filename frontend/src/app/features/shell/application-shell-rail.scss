@@ -9,9 +9,9 @@
 }
 
 .topbar .topbar__brand--tenant {
-  width: clamp(6.5rem, 9vw, 8rem);
-  height: 2.75rem;
-  max-width: 8rem;
+  width: clamp(7.5rem, 10vw, 10rem);
+  height: 3rem;
+  max-width: 10rem;
   min-height: 0;
 }
 
@@ -22,7 +22,7 @@
   }
 
   .topbar .topbar__brand--tenant {
-    width: 7rem;
+    width: 8rem;
   }
 }
 

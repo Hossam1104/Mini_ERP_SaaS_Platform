@@ -435,6 +435,7 @@ test.describe('MESP-153 Slice A UI', () => {
       expect(bounds.objectFit).toBe('contain');
       expect(bounds.maxWidth).toBe('100%');
       expect(bounds.maxHeight).toBe('100%');
+      expect(bounds.image.bottom - bounds.image.top).toBeGreaterThanOrEqual(39.5);
       expect(bounds.image.left).toBeGreaterThanOrEqual(bounds.frame.left - 0.5);
       expect(bounds.image.right).toBeLessThanOrEqual(bounds.frame.right + 0.5);
       expect(bounds.image.top).toBeGreaterThanOrEqual(bounds.frame.top - 0.5);
